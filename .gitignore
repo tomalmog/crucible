@@ -1,12 +1,28 @@
 
-
 .forge*
 scripts
-
 
 ### Outputs
 outputs/
 studio-app/src-tauri/runs/
+
+### Database files
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+
+### Studio app build artifacts
+studio-app/dist/
+studio-app/src-tauri/target/
+
+### Node
+node_modules/
+
+### OS files
+.DS_Store
+Thumbs.db
 
 ### ------------------------
 ## PYTHON

@@ -1,0 +1,299 @@
+/* ─── App Shell ─── */
+
+.app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.page-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 24px 28px;
+}
+
+/* ─── Sidebar ─── */
+
+.app-sidebar {
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.sidebar-brand {
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-brand h2 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-brand .brand-icon {
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: white;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 6px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.sidebar-section-label {
+    padding: 14px 8px 4px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sidebar-footer {
+    padding: 8px 6px;
+    border-top: 1px solid var(--border);
+}
+
+/* ─── Nav Items ─── */
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.nav-item:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.nav-item.active {
+    background: var(--bg-active);
+    color: var(--text);
+}
+
+.nav-item-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.nav-item-icon svg {
+    width: 15px;
+    height: 15px;
+    stroke-width: 1.5;
+}
+
+/* ─── Page Structure ─── */
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.page-header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.page-header-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.page-description {
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    margin-bottom: 20px;
+}
+
+/* ─── Layout Primitives ─── */
+
+.stack {
+    display: grid;
+    gap: 12px;
+}
+
+.stack-sm {
+    display: grid;
+    gap: 8px;
+}
+
+.stack-lg {
+    display: grid;
+    gap: 16px;
+}
+
+.stack-xl {
+    display: grid;
+    gap: 20px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.row-end {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.two-column {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    min-height: 0;
+}
+
+.split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.spacer {
+    flex: 1;
+}
+
+.gap-top {
+    margin-top: 12px;
+}
+
+.gap-top-sm {
+    margin-top: 8px;
+}
+
+.gap-top-lg {
+    margin-top: 16px;
+}
+
+/* ─── Text Utilities ─── */
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-tertiary {
+    color: var(--text-tertiary);
+}
+
+.text-mono {
+    font-family: var(--font-mono);
+}
+
+.text-xs {
+    font-size: 0.6875rem;
+}
+
+.text-sm {
+    font-size: 0.75rem;
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-error {
+    color: var(--error);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+/* ─── Overflow ─── */
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.scroll-y {
+    overflow-y: auto;
+    max-height: 500px;
+}
+
+@media (max-width: 900px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .app-sidebar {
+        display: none;
+    }
+
+    .two-column {
+        grid-template-columns: 1fr;
+    }
+
+    .grid-3 {
+        grid-template-columns: 1fr;
+    }
+}

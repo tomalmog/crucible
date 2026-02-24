@@ -4,7 +4,35 @@ use crate::commands::forge_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 6] = ["ingest", "filter", "train", "export-training", "versions", "chat"];
+const ALLOWED_COMMANDS: [&str; 27] = [
+    "ingest",
+    "filter",
+    "train",
+    "sft",
+    "dpo-train",
+    "rlhf-train",
+    "lora-train",
+    "lora-merge",
+    "distill",
+    "domain-adapt",
+    "distributed-train",
+    "export-training",
+    "export-spec",
+    "versions",
+    "chat",
+    "run-spec",
+    "verify",
+    "hardware-profile",
+    "benchmark",
+    "sweep",
+    "compare",
+    "replay",
+    "model",
+    "safety-eval",
+    "safety-gate",
+    "compute",
+    "deploy",
+];
 
 #[tauri::command]
 pub fn start_forge_command(
@@ -44,6 +72,16 @@ mod tests {
     fn validate_args_accepts_supported_command() {
         let args = vec!["train".to_string(), "--dataset".to_string(), "demo".to_string()];
         assert!(validate_args(&args).is_ok());
+    }
+
+    #[test]
+    fn validate_args_accepts_new_commands() {
+        for cmd in ["sft", "dpo-train", "rlhf-train", "lora-train", "distill",
+                     "domain-adapt", "safety-eval", "safety-gate", "deploy",
+                     "model", "sweep", "benchmark", "compare", "replay", "compute"] {
+            let args = vec![cmd.to_string()];
+            assert!(validate_args(&args).is_ok(), "Expected '{cmd}' to be allowed");
+        }
     }
 
     #[test]

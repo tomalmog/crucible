@@ -1,0 +1,66 @@
+import { useState } from "react";
+import { useForge } from "../../context/ForgeContext";
+import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { buildIngestArgs } from "../../api/commandArgs";
+import { FormField } from "../../components/shared/FormField";
+import { StatusConsole } from "../../components/shared/StatusConsole";
+import { CommandProgress } from "../../components/shared/CommandProgress";
+
+export function IngestForm() {
+  const { dataRoot, refreshDatasets } = useForge();
+  const command = useForgeCommand();
+  const [source, setSource] = useState("");
+  const [dataset, setDataset] = useState("");
+  const [language, setLanguage] = useState("");
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!source.trim() || !dataset.trim()) return;
+    const extra: Record<string, string> = {};
+    if (language.trim()) extra["--language"] = language.trim();
+    const args = buildIngestArgs(source.trim(), dataset.trim(), extra);
+    await command.run(dataRoot, args);
+    await refreshDatasets();
+  }
+
+  return (
+    <div className="panel">
+      <h3 className="panel-title">Ingest Data</h3>
+      <form onSubmit={(e) => onSubmit(e).catch(console.error)} className="stack">
+        <FormField label="Source path or URL">
+          <input value={source} onChange={(e) => setSource(e.currentTarget.value)} placeholder="/path/to/data.jsonl" />
+        </FormField>
+        <FormField label="Dataset name">
+          <input value={dataset} onChange={(e) => setDataset(e.currentTarget.value)} placeholder="my-dataset" />
+        </FormField>
+        <FormField label="Language (optional)">
+          <input value={language} onChange={(e) => setLanguage(e.currentTarget.value)} placeholder="en" />
+        </FormField>
+        <button className="btn btn-primary btn-lg" type="submit" disabled={command.isRunning || !source.trim() || !dataset.trim()}>
+          {command.isRunning ? "Ingesting..." : "Start Ingest"}
+        </button>
+      </form>
+
+      {command.isRunning && command.status && (
+        <div className="gap-top-lg">
+          <CommandProgress
+            label="Ingesting data..."
+            percent={command.status.progress_percent}
+            elapsed={command.status.elapsed_seconds}
+            remaining={command.status.remaining_seconds}
+          />
+        </div>
+      )}
+
+      {command.output && (
+        <div className="gap-top">
+          <StatusConsole output={command.output} />
+        </div>
+      )}
+
+      {command.error && (
+        <p className="error-text gap-top-sm">{command.error}</p>
+      )}
+    </div>
+  );
+}

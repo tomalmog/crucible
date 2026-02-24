@@ -91,29 +91,6 @@ pub struct TrainingHistory {
     pub batch_losses: Vec<TrainingBatchLoss>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PipelineNodeSnapshot {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub node_type: String,
-    pub title: String,
-    pub canvas_x: f64,
-    pub canvas_y: f64,
-    pub config: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PipelineEdgeSnapshot {
-    pub id: String,
-    pub source_node_id: String,
-    pub target_node_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct PipelineCanvasExportResult {
-    pub output_path: String,
-}
-
 #[derive(Debug, Serialize)]
 pub struct TrainingRunSummary {
     pub run_id: String,

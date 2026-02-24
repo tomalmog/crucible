@@ -1,0 +1,55 @@
+:root {
+    /* Surfaces */
+    --bg-base: #F7FBFC;
+    --bg-surface: #ffffff;
+    --bg-elevated: #D6E6F2;
+    --bg-hover: #D6E6F2;
+    --bg-active: #B9D7EA;
+    --bg-input: #ffffff;
+
+    /* Borders */
+    --border: #B9D7EA;
+    --border-light: #D6E6F2;
+    --border-focus: #769FCD;
+    --border-hover: #769FCD;
+
+    /* Text */
+    --text: #1a2a3a;
+    --text-secondary: #4a6277;
+    --text-tertiary: #7a9bb5;
+    --text-inverse: #F7FBFC;
+
+    /* Accent */
+    --accent: #769FCD;
+    --accent-hover: #5e8bbf;
+    --accent-muted: rgba(118, 159, 205, 0.12);
+    --accent-text: #5e8bbf;
+
+    /* Semantic */
+    --success: #059669;
+    --success-muted: rgba(5, 150, 105, 0.08);
+    --warning: #d97706;
+    --warning-muted: rgba(217, 119, 6, 0.08);
+    --error: #dc2626;
+    --error-muted: rgba(220, 38, 38, 0.08);
+
+    /* Chart palette */
+    --chart-1: #769FCD;
+    --chart-2: #d97706;
+
+    /* Radii */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+
+    /* Fonts */
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+    /* Layout */
+    --sidebar-width: 220px;
+
+    /* Transitions */
+    --transition-fast: 100ms ease;
+    --transition-normal: 150ms ease;
+}

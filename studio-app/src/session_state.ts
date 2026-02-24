@@ -1,40 +1,17 @@
-import { PipelineEdge, PipelineNode, PipelineNodeType } from "./types";
-import { DEFAULT_PANEL_VISIBILITY, PanelVisibility } from "./view_controls";
-
-const SESSION_STORAGE_KEY = "forge_studio_session_v1";
+const SESSION_STORAGE_KEY = "forge_studio_session_v2";
 
 export interface StudioSessionState {
   data_root: string;
   selected_dataset: string | null;
   selected_version: string | null;
-  base_version: string | null;
-  target_version: string | null;
-  nodes: PipelineNode[];
-  edges: PipelineEdge[];
-  start_node_id: string | null;
-  selected_node_id: string | null;
-  console_output: string;
-  history_path: string;
-  last_canvas_export_dir: string;
-  is_view_controls_open: boolean;
-  panel_visibility: PanelVisibility;
+  last_route: string;
 }
 
 export const DEFAULT_SESSION_STATE: StudioSessionState = {
   data_root: ".forge",
   selected_dataset: null,
   selected_version: null,
-  base_version: null,
-  target_version: null,
-  nodes: [],
-  edges: [],
-  start_node_id: null,
-  selected_node_id: null,
-  console_output: "",
-  history_path: "",
-  last_canvas_export_dir: "",
-  is_view_controls_open: true,
-  panel_visibility: DEFAULT_PANEL_VISIBILITY,
+  last_route: "#/training",
 };
 
 export function loadSessionState(): StudioSessionState {
@@ -51,89 +28,18 @@ export function loadSessionState(): StudioSessionState {
       data_root: asString(parsed.data_root, DEFAULT_SESSION_STATE.data_root),
       selected_dataset: asNullableString(parsed.selected_dataset),
       selected_version: asNullableString(parsed.selected_version),
-      base_version: asNullableString(parsed.base_version),
-      target_version: asNullableString(parsed.target_version),
-      nodes: parseNodes(parsed.nodes),
-      edges: parseEdges(parsed.edges),
-      start_node_id: asNullableString(parsed.start_node_id),
-      selected_node_id: asNullableString(parsed.selected_node_id),
-      console_output: asString(parsed.console_output, ""),
-      history_path: asString(parsed.history_path, ""),
-      last_canvas_export_dir: asString(parsed.last_canvas_export_dir, ""),
-      is_view_controls_open: asBoolean(parsed.is_view_controls_open, true),
-      panel_visibility: parsePanelVisibility(parsed.panel_visibility),
+      last_route: asString(parsed.last_route, DEFAULT_SESSION_STATE.last_route),
     };
   } catch {
     return DEFAULT_SESSION_STATE;
   }
 }
 
-function parseNodes(value: unknown): PipelineNode[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const rows: PipelineNode[] = [];
-  for (const entry of value) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-    const payload = entry as Partial<PipelineNode>;
-    if (
-      typeof payload.id !== "string" ||
-      typeof payload.type !== "string" ||
-      typeof payload.title !== "string" ||
-      !payload.config ||
-      typeof payload.config !== "object"
-    ) {
-      continue;
-    }
-    const parsedNode: PipelineNode = {
-      id: payload.id,
-      type: asNodeType(payload.type, "custom"),
-      title: payload.title,
-      canvas_x: asNumber(payload.canvas_x, 20),
-      canvas_y: asNumber(payload.canvas_y, 20),
-      config: payload.config as Record<string, string>,
-    };
-    rows.push(parsedNode);
-  }
-  return rows;
-}
-
-function parseEdges(value: unknown): PipelineEdge[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const rows: PipelineEdge[] = [];
-  for (const entry of value) {
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-    const payload = entry as Partial<PipelineEdge>;
-    if (
-      typeof payload.id !== "string" ||
-      typeof payload.source_node_id !== "string" ||
-      typeof payload.target_node_id !== "string"
-    ) {
-      continue;
-    }
-    rows.push({
-      id: payload.id,
-      source_node_id: payload.source_node_id,
-      target_node_id: payload.target_node_id,
-    });
-  }
-  return rows;
-}
-
-export function saveSessionState(sessionState: StudioSessionState): void {
+export function saveSessionState(state: StudioSessionState): void {
   if (typeof window === "undefined" || !window.localStorage) {
     return;
   }
-  window.localStorage.setItem(
-    SESSION_STORAGE_KEY,
-    JSON.stringify(sessionState),
-  );
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
 }
 
 function asString(value: unknown, fallback: string): string {
@@ -141,78 +47,6 @@ function asString(value: unknown, fallback: string): string {
 }
 
 function asNullableString(value: unknown): string | null {
-  if (value === null) {
-    return null;
-  }
+  if (value === null) return null;
   return typeof value === "string" ? value : null;
-}
-
-function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function asNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function asNodeType(
-  value: unknown,
-  fallback: PipelineNodeType,
-): PipelineNodeType {
-  if (
-    value === "ingest" ||
-    value === "filter" ||
-    value === "train" ||
-    value === "export" ||
-    value === "chat" ||
-    value === "custom"
-  ) {
-    return value;
-  }
-  return fallback;
-}
-
-function parsePanelVisibility(value: unknown): PanelVisibility {
-  const defaultVisibility = DEFAULT_PANEL_VISIBILITY;
-  if (!value || typeof value !== "object") {
-    return defaultVisibility;
-  }
-  const raw = value as Partial<Record<keyof PanelVisibility, unknown>>;
-  return {
-    workspace_header: asBoolean(
-      raw.workspace_header,
-      defaultVisibility.workspace_header,
-    ),
-    dashboard_metrics: asBoolean(
-      raw.dashboard_metrics,
-      defaultVisibility.dashboard_metrics,
-    ),
-    dashboard_language_mix: asBoolean(
-      raw.dashboard_language_mix,
-      defaultVisibility.dashboard_language_mix,
-    ),
-    dashboard_top_sources: asBoolean(
-      raw.dashboard_top_sources,
-      defaultVisibility.dashboard_top_sources,
-    ),
-    version_diff: asBoolean(raw.version_diff, defaultVisibility.version_diff),
-    sample_inspector: asBoolean(
-      raw.sample_inspector,
-      defaultVisibility.sample_inspector,
-    ),
-    pipeline_builder: asBoolean(
-      raw.pipeline_builder,
-      defaultVisibility.pipeline_builder,
-    ),
-    chat_room: asBoolean(raw.chat_room, defaultVisibility.chat_room),
-    training_curves: asBoolean(
-      raw.training_curves,
-      defaultVisibility.training_curves,
-    ),
-    runtime_insights: asBoolean(
-      raw.runtime_insights,
-      defaultVisibility.runtime_insights,
-    ),
-    run_console: asBoolean(raw.run_console, defaultVisibility.run_console),
-  };
 }

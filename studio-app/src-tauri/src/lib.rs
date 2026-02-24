@@ -10,7 +10,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            commands::canvas_export::export_pipeline_canvas,
             commands::dataset_queries::get_dataset_dashboard,
             commands::dataset_queries::list_datasets,
             commands::dataset_queries::list_versions,

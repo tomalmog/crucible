@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "studio-app",
-  "version": "0.1.0",
-  "identifier": "com.tomalmog.studio-app",
+  "productName": "Forge Studio",
+  "version": "0.2.0",
+  "identifier": "com.tomalmog.forge-studio",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "studio-app",
-        "width": 800,
-        "height": 600
+        "title": "Forge Studio",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600
       }
     ],
     "security": {
