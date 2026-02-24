@@ -24,6 +24,9 @@ from core.constants import (
     DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS,
 )
+from core.distillation_types import DistillationOptions
+from core.domain_adaptation_types import DomainAdaptationOptions
+from core.dpo_types import DpoOptions
 from core.errors import ForgeRunSpecError
 from core.run_spec import RunSpec, RunSpecStep, load_run_spec
 from core.run_spec_fields import (
@@ -37,6 +40,15 @@ from core.run_spec_fields import (
     required_string,
 )
 from core.run_spec_option_builders import build_training_options_for_run_spec
+from core.rlhf_types import RlhfOptions
+from core.run_spec_step_builders import (
+    execute_distill_step,
+    execute_domain_adapt_step,
+    execute_dpo_train_step,
+    execute_rlhf_train_step,
+    execute_sft_train_step,
+)
+from core.sft_types import SftOptions
 from core.types import IngestOptions, MetadataFilter, TrainingOptions, TrainingRunResult
 
 
@@ -66,6 +78,16 @@ class RunSpecClient(Protocol):
     def dataset(self, dataset_name: str) -> Any: ...
 
     def train(self, options: TrainingOptions) -> TrainingRunResult: ...
+
+    def sft_train(self, options: SftOptions) -> TrainingRunResult: ...
+
+    def dpo_train(self, options: DpoOptions) -> TrainingRunResult: ...
+
+    def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult: ...
+
+    def distill(self, options: DistillationOptions) -> TrainingRunResult: ...
+
+    def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult: ...
 
     def chat(self, options: ChatOptions) -> ChatResult: ...
 
@@ -108,6 +130,16 @@ def _execute_step(context: RunSpecExecutionContext, step: RunSpecStep) -> tuple[
         return (_execute_filter_step(context, step),)
     if step.command == "train":
         return _execute_train_step(context, step)
+    if step.command == "sft-train":
+        return execute_sft_train_step(context, step)
+    if step.command == "dpo-train":
+        return execute_dpo_train_step(context, step)
+    if step.command == "rlhf-train":
+        return execute_rlhf_train_step(context, step)
+    if step.command == "distill":
+        return execute_distill_step(context, step)
+    if step.command == "domain-adapt":
+        return execute_domain_adapt_step(context, step)
     if step.command == "export-training":
         return (_execute_export_training_step(context, step),)
     if step.command == "chat":

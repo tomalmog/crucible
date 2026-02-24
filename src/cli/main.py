@@ -1,6 +1,5 @@
 """Forge CLI entry points.
-This module exposes phase-one commands for ingest and dataset operations.
-It maps argparse commands onto SDK calls.
+This module maps argparse commands onto SDK calls via a dispatch table.
 """
 
 from __future__ import annotations
@@ -8,229 +7,136 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
+from cli.benchmark_command import add_benchmark_command, run_benchmark_command
 from cli.chat_command import add_chat_command, run_chat_command
+from cli.compare_command import add_compare_command, run_compare_command
+from cli.compute_command import add_compute_command, run_compute_command
+from cli.deploy_command import add_deploy_command, run_deploy_command
+from cli.data_commands import (
+    add_export_training_command,
+    add_filter_command,
+    add_ingest_command,
+    add_versions_command,
+    run_export_training_command,
+    run_filter_command,
+    run_ingest_command,
+    run_versions_command,
+)
+from cli.distillation_command import add_distillation_command, run_distillation_command
+from cli.distributed_train_command import (
+    add_distributed_train_command,
+    run_distributed_train_command,
+)
+from cli.domain_adapt_command import add_domain_adapt_command, run_domain_adapt_command
+from cli.dpo_command import add_dpo_command, run_dpo_command
+from cli.export_spec_command import add_export_spec_command, run_export_spec_command
 from cli.hardware_profile_command import (
     add_hardware_profile_command,
     run_hardware_profile_command,
 )
+from cli.lora_command import (
+    add_lora_merge_command,
+    add_lora_train_command,
+    run_lora_merge_command,
+    run_lora_train_command,
+)
+from cli.model_command import add_model_command, run_model_command
+from cli.replay_command import add_replay_command, run_replay_command
+from cli.rlhf_command import add_rlhf_command, run_rlhf_command
 from cli.run_spec_command import add_run_spec_command, run_run_spec_command
+from cli.server_command import add_server_command, run_server_command
+from cli.safety_command import (
+    add_safety_eval_command,
+    add_safety_gate_command,
+    run_safety_eval_command,
+    run_safety_gate_command,
+)
+from cli.sft_command import add_sft_command, run_sft_command
+from cli.sweep_command import add_sweep_command, run_sweep_command
 from cli.train_command import add_train_command, run_train_command
 from cli.verify_command import add_verify_command, run_verify_command
 from core.config import ForgeConfig
-from core.constants import (
-    DEFAULT_QUALITY_MODEL,
-)
-from core.types import IngestOptions, MetadataFilter
 from store.dataset_sdk import ForgeClient
-from transforms.quality_scoring import supported_quality_models
+
+_CommandHandler = Callable[..., int]
+
+_COMMAND_REGISTRARS: tuple[Callable[[Any], None], ...] = (
+    add_ingest_command, add_versions_command, add_filter_command,
+    add_export_training_command, add_run_spec_command, add_verify_command,
+    add_hardware_profile_command, add_train_command, add_sft_command,
+    add_dpo_command, add_distillation_command, add_domain_adapt_command,
+    add_lora_train_command, add_lora_merge_command, add_export_spec_command,
+    add_chat_command, add_rlhf_command, add_distributed_train_command,
+    add_benchmark_command, add_sweep_command, add_compare_command,
+    add_replay_command, add_model_command,
+    add_safety_eval_command, add_safety_gate_command,
+    add_compute_command, add_server_command,
+    add_deploy_command,
+)
+
+
+def _build_dispatch_table() -> dict[str, _CommandHandler]:
+    """Build command name -> handler mapping."""
+    return {
+        "ingest": run_ingest_command,
+        "versions": run_versions_command,
+        "filter": run_filter_command,
+        "export-training": run_export_training_command,
+        "train": run_train_command,
+        "sft": run_sft_command,
+        "dpo-train": run_dpo_command,
+        "distill": run_distillation_command,
+        "domain-adapt": run_domain_adapt_command,
+        "lora-train": run_lora_train_command,
+        "lora-merge": lambda client, args: run_lora_merge_command(args),
+        "export-spec": run_export_spec_command,
+        "chat": run_chat_command,
+        "run-spec": run_run_spec_command,
+        "verify": run_verify_command,
+        "hardware-profile": lambda client, args: run_hardware_profile_command(),
+        "rlhf-train": run_rlhf_command,
+        "distributed-train": run_distributed_train_command,
+        "benchmark": run_benchmark_command,
+        "sweep": run_sweep_command,
+        "compare": run_compare_command,
+        "replay": run_replay_command,
+        "model": run_model_command,
+        "safety-eval": run_safety_eval_command,
+        "safety-gate": run_safety_gate_command,
+        "compute": run_compute_command,
+        "server": run_server_command,
+        "deploy": run_deploy_command,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the top-level CLI parser.
-
-    Returns:
-        Configured argument parser.
-    """
-    parser = argparse.ArgumentParser(prog="forge", description="Forge phase-one CLI")
+    """Build the top-level CLI parser."""
+    parser = argparse.ArgumentParser(prog="forge", description="Forge CLI")
     parser.add_argument("--data-root", help="Override FORGE_DATA_ROOT for this command")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    _add_ingest_command(subparsers)
-    _add_versions_command(subparsers)
-    _add_filter_command(subparsers)
-    _add_export_training_command(subparsers)
-    add_run_spec_command(subparsers)
-    add_verify_command(subparsers)
-    add_hardware_profile_command(subparsers)
-    add_train_command(subparsers)
-    add_chat_command(subparsers)
+    for registrar in _COMMAND_REGISTRARS:
+        registrar(subparsers)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Forge CLI.
-
-    Args:
-        argv: Optional argument vector.
-
-    Returns:
-        Process exit code.
-    """
+    """Run the Forge CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
     client = _build_client(args.data_root)
-    if args.command == "ingest":
-        return _run_ingest_command(client, args)
-    if args.command == "versions":
-        return _run_versions_command(client, args)
-    if args.command == "filter":
-        return _run_filter_command(client, args)
-    if args.command == "export-training":
-        return _run_export_training_command(client, args)
-    if args.command == "train":
-        return run_train_command(client, args)
-    if args.command == "chat":
-        return run_chat_command(client, args)
-    if args.command == "run-spec":
-        return run_run_spec_command(client, args)
-    if args.command == "verify":
-        return run_verify_command(client, args)
-    if args.command == "hardware-profile":
-        return run_hardware_profile_command()
-    parser.error(f"Unsupported command: {args.command}")
-    return 2
+    dispatch = _build_dispatch_table()
+    handler = dispatch.get(args.command)
+    if handler is None:
+        parser.error(f"Unsupported command: {args.command}")
+        return 2
+    return handler(client, args)
 
 
 def _build_client(data_root: str | None) -> ForgeClient:
-    """Build SDK client with optional data-root override.
-
-    Args:
-        data_root: Optional override path.
-
-    Returns:
-        Configured SDK client.
-    """
+    """Build SDK client with optional data-root override."""
     config = ForgeConfig.from_env()
     if data_root:
         config = replace(config, data_root=Path(data_root).expanduser().resolve())
     return ForgeClient(config)
-
-
-def _run_ingest_command(client: ForgeClient, args: argparse.Namespace) -> int:
-    """Handle ingest command.
-
-    Args:
-        client: SDK client.
-        args: Parsed CLI args.
-
-    Returns:
-        Exit code.
-    """
-    options = IngestOptions(
-        dataset_name=args.dataset,
-        source_uri=args.source,
-        output_uri=args.output_uri,
-        resume=args.resume,
-        incremental=args.incremental,
-        quality_model=args.quality_model,
-    )
-    version_id = client.ingest(options)
-    print(version_id)
-    return 0
-
-
-def _run_versions_command(client: ForgeClient, args: argparse.Namespace) -> int:
-    """Handle versions command.
-
-    Args:
-        client: SDK client.
-        args: Parsed CLI args.
-
-    Returns:
-        Exit code.
-    """
-    dataset = client.dataset(args.dataset)
-    versions = dataset.list_versions()
-    for manifest in versions:
-        print(
-            f"{manifest.version_id}\t"
-            f"{manifest.record_count}\t"
-            f"{manifest.created_at.isoformat()}\t"
-            f"{manifest.parent_version or '-'}"
-        )
-    return 0
-
-
-def _run_filter_command(client: ForgeClient, args: argparse.Namespace) -> int:
-    """Handle filter command.
-
-    Args:
-        client: SDK client.
-        args: Parsed CLI args.
-
-    Returns:
-        Exit code.
-    """
-    filter_spec = MetadataFilter(
-        language=args.language,
-        min_quality_score=args.min_quality,
-        source_prefix=args.source_prefix,
-    )
-    dataset = client.dataset(args.dataset)
-    version_id = dataset.filter(filter_spec)
-    print(version_id)
-    return 0
-
-
-def _run_export_training_command(client: ForgeClient, args: argparse.Namespace) -> int:
-    """Handle export-training command.
-
-    Args:
-        client: SDK client.
-        args: Parsed CLI args.
-
-    Returns:
-        Exit code.
-    """
-    dataset = client.dataset(args.dataset)
-    manifest_path = dataset.export_training(
-        output_dir=args.output_dir,
-        version_id=args.version_id,
-        shard_size=args.shard_size,
-        include_metadata=args.include_metadata,
-    )
-    print(manifest_path)
-    return 0
-
-
-def _add_ingest_command(subparsers: Any) -> None:
-    """Register ingest subcommand."""
-    parser = subparsers.add_parser("ingest", help="Ingest a local path or S3 prefix")
-    parser.add_argument("source", help="Source file, directory, or s3://bucket/prefix")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
-    parser.add_argument("--output-uri", help="Optional s3:// export destination")
-    parser.add_argument("--resume", action="store_true", help="Resume from ingest checkpoint")
-    parser.add_argument(
-        "--incremental",
-        action="store_true",
-        help="Only transform new/changed records against latest version",
-    )
-    parser.add_argument(
-        "--quality-model",
-        default=DEFAULT_QUALITY_MODEL,
-        choices=supported_quality_models(),
-        help="Quality scoring model",
-    )
-
-
-def _add_versions_command(subparsers: Any) -> None:
-    """Register versions subcommand."""
-    parser = subparsers.add_parser("versions", help="List dataset versions")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
-
-
-def _add_filter_command(subparsers: Any) -> None:
-    """Register filter subcommand."""
-    parser = subparsers.add_parser("filter", help="Create metadata-filtered snapshot")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
-    parser.add_argument("--language", help="Language filter, e.g. en")
-    parser.add_argument("--min-quality", type=float, help="Minimum quality score")
-    parser.add_argument("--source-prefix", help="Source URI prefix filter")
-
-
-def _add_export_training_command(subparsers: Any) -> None:
-    """Register export-training subcommand."""
-    parser = subparsers.add_parser(
-        "export-training",
-        help="Export a version into sharded local training files",
-    )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
-    parser.add_argument("--output-dir", required=True, help="Local output directory")
-    parser.add_argument("--version-id", help="Optional specific version id")
-    parser.add_argument("--shard-size", type=int, default=1000, help="Records per shard file")
-    parser.add_argument(
-        "--include-metadata",
-        action="store_true",
-        help="Include metadata fields in each shard row",
-    )

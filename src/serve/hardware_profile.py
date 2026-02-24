@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from core.types import PrecisionMode
-from serve.device_selection import is_mps_available
+from serve.device_selection import is_mps_available, is_tpu_available
 
 
 @dataclass(frozen=True)
@@ -44,6 +44,8 @@ class HardwareProfile:
 
 def detect_hardware_profile(torch_module: Any | None = None) -> HardwareProfile:
     """Detect local hardware profile and return recommended run defaults."""
+    if is_tpu_available():
+        return _tpu_profile()
     runtime_torch = torch_module or _import_torch_optional()
     if runtime_torch is None:
         return _cpu_profile()
@@ -86,6 +88,24 @@ def _cpu_profile() -> HardwareProfile:
         recommended_precision_mode="fp32",
         recommended_batch_size=4,
         suggested_profile="cpu",
+    )
+
+
+def _tpu_profile() -> HardwareProfile:
+    from serve.tpu_setup import import_xla
+    xla = import_xla()
+    try:
+        num_devices = int(xla.xrt_world_size())
+    except Exception:
+        num_devices = 1
+    return HardwareProfile(
+        accelerator="tpu",
+        gpu_count=num_devices,
+        gpus=(),
+        bf16_supported=True,
+        recommended_precision_mode="bf16",
+        recommended_batch_size=32,
+        suggested_profile="tpu",
     )
 
 

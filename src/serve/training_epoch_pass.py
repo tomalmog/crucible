@@ -10,6 +10,7 @@ from contextlib import nullcontext
 from typing import Any
 
 from core.types import BatchLossMetric
+from serve.gradient_accumulation import run_accumulated_batch_step
 from serve.tokenization import SequenceBatch
 from serve.training_context import TrainingRuntimeContext
 from serve.training_hooks import invoke_hook
@@ -28,8 +29,44 @@ def run_epoch_pass(
     """Run one full pass over train or validation batches."""
     if not batches:
         return 0.0, global_step
-    total_loss = 0.0
     training = phase == "train"
+    accumulation_steps = context.gradient_accumulation_steps
+    use_accumulation = training and accumulation_steps > 1
+    if use_accumulation:
+        return _run_accumulated_pass(
+            context=context,
+            batches=batches,
+            phase=phase,
+            epoch_index=epoch_index,
+            global_step=global_step,
+            batch_rows=batch_rows,
+            progress_tracker=progress_tracker,
+            accumulation_steps=accumulation_steps,
+        )
+    return _run_standard_pass(
+        context=context,
+        batches=batches,
+        phase=phase,
+        training=training,
+        epoch_index=epoch_index,
+        global_step=global_step,
+        batch_rows=batch_rows,
+        progress_tracker=progress_tracker,
+    )
+
+
+def _run_standard_pass(
+    context: TrainingRuntimeContext,
+    batches: list[SequenceBatch],
+    phase: str,
+    training: bool,
+    epoch_index: int,
+    global_step: int,
+    batch_rows: list[BatchLossMetric],
+    progress_tracker: TrainingProgressTracker,
+) -> tuple[float, int]:
+    """Run a standard (non-accumulated) epoch pass."""
+    total_loss = 0.0
     context.model.train(mode=training)
     for batch_index, batch in enumerate(batches, start=1):
         loss_value, global_step = _run_batch_step(
@@ -49,6 +86,78 @@ def run_epoch_pass(
             total_batches=len(batches),
             global_step=global_step,
             loss=loss_value,
+        )
+    return total_loss / len(batches), global_step
+
+
+def _run_accumulated_pass(
+    context: TrainingRuntimeContext,
+    batches: list[SequenceBatch],
+    phase: str,
+    epoch_index: int,
+    global_step: int,
+    batch_rows: list[BatchLossMetric],
+    progress_tracker: TrainingProgressTracker,
+    accumulation_steps: int,
+) -> tuple[float, int]:
+    """Run a training pass with gradient accumulation."""
+    total_loss = 0.0
+    context.model.train(mode=True)
+    context.optimizer.zero_grad()
+    current_accumulation = 0
+    for batch_index, batch in enumerate(batches, start=1):
+        current_accumulation += 1
+        loss_value, did_step = run_accumulated_batch_step(
+            context=context,
+            batch=batch,
+            accumulation_steps=accumulation_steps,
+            current_accumulation=current_accumulation,
+        )
+        total_loss += loss_value
+        if did_step:
+            global_step += 1
+            batch_rows.append(
+                BatchLossMetric(
+                    epoch=epoch_index,
+                    batch_index=batch_index,
+                    global_step=global_step,
+                    train_loss=round(loss_value, 6),
+                )
+            )
+            invoke_hook(
+                "on_batch_end",
+                context.hooks.on_batch_end,
+                context,
+                "train",
+                epoch_index,
+                batch_index,
+                global_step,
+                loss_value,
+            )
+            current_accumulation = 0
+        progress_tracker.log_batch_progress(
+            phase=phase,
+            epoch_index=epoch_index,
+            batch_index=batch_index,
+            total_batches=len(batches),
+            global_step=global_step,
+            loss=loss_value,
+        )
+    if current_accumulation > 0:
+        if context.precision_runtime.scaler is not None:
+            context.precision_runtime.scaler.step(context.optimizer)
+            context.precision_runtime.scaler.update()
+        else:
+            context.optimizer.step()
+        context.optimizer.zero_grad()
+        global_step += 1
+        batch_rows.append(
+            BatchLossMetric(
+                epoch=epoch_index,
+                batch_index=len(batches),
+                global_step=global_step,
+                train_loss=round(loss_value, 6),
+            )
         )
     return total_loss / len(batches), global_step
 

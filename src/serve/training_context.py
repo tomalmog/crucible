@@ -37,3 +37,5 @@ class TrainingRuntimeContext:
     config_hash: str
     hooks: TrainingHooks
     run_registry: TrainingRunRegistry | None
+    gradient_accumulation_steps: int = 1
+    telemetry_collector: Any | None = None

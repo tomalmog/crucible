@@ -7,6 +7,12 @@ It re-exports the primary client and typed option models.
 from __future__ import annotations
 
 from core.config import ForgeConfig
+from core.distillation_types import DistillationOptions
+from core.domain_adaptation_types import DomainAdaptationOptions
+from core.dpo_types import DpoOptions
+from core.lora_types import LoraConfig, LoraTrainingOptions
+from core.rlhf_types import RlhfOptions
+from core.sft_types import SftOptions
 from core.types import (
     DataLoaderOptions,
     IngestOptions,
@@ -23,10 +29,17 @@ from transforms.quality_scoring import supported_quality_models
 __all__ = [
     "DataLoaderOptions",
     "Dataset",
+    "DistillationOptions",
+    "DomainAdaptationOptions",
+    "DpoOptions",
     "ForgeClient",
     "ForgeConfig",
     "IngestOptions",
+    "LoraConfig",
+    "LoraTrainingOptions",
     "MetadataFilter",
+    "RlhfOptions",
+    "SftOptions",
     "TrainingOptions",
     "TrainingRunResult",
     "TrainingExportRequest",

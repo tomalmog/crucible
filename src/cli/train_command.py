@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
+    DEFAULT_GRADIENT_ACCUMULATION_STEPS,
     DEFAULT_MAX_TOKEN_LENGTH,
     DEFAULT_POSITION_EMBEDDING_TYPE,
     DEFAULT_TRAIN_ATTENTION_HEADS,
@@ -46,12 +47,36 @@ from core.types import (
     SchedulerType,
     TrainingOptions,
 )
+from serve.hardware_auto_config import apply_hardware_auto_config
 from store.dataset_sdk import ForgeClient
 
 
 def run_train_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle train command invocation."""
-    options = TrainingOptions(
+    options = _build_training_options(args)
+    if args.auto_config:
+        options = apply_hardware_auto_config(options)
+    result = client.train(options)
+    _print_training_result(result)
+    return 0
+
+
+def _print_training_result(result: Any) -> None:
+    """Print training result summary to stdout."""
+    print(f"model_path={result.model_path}")
+    print(f"history_path={result.history_path}")
+    print(f"plot_path={result.plot_path or '-'}")
+    print(f"epochs_completed={result.epochs_completed}")
+    print(f"checkpoint_dir={result.checkpoint_dir or '-'}")
+    print(f"best_checkpoint_path={result.best_checkpoint_path or '-'}")
+    print(f"resumed_from_checkpoint={result.resumed_from_checkpoint or '-'}")
+    print(f"run_id={result.run_id or '-'}")
+    print(f"artifact_contract_path={result.artifact_contract_path or '-'}")
+
+
+def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
+    """Build TrainingOptions from parsed CLI arguments."""
+    return TrainingOptions(
         dataset_name=args.dataset,
         output_dir=args.output_dir,
         version_id=args.version_id,
@@ -89,18 +114,10 @@ def run_train_command(client: ForgeClient, args: argparse.Namespace) -> int:
         max_checkpoint_files=args.max_checkpoint_files,
         resume_checkpoint_path=args.resume_checkpoint_path,
         progress_log_interval_steps=args.progress_log_interval_steps,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        auto_micro_batch=args.auto_micro_batch,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
-    result = client.train(options)
-    print(f"model_path={result.model_path}")
-    print(f"history_path={result.history_path}")
-    print(f"plot_path={result.plot_path or '-'}")
-    print(f"epochs_completed={result.epochs_completed}")
-    print(f"checkpoint_dir={result.checkpoint_dir or '-'}")
-    print(f"best_checkpoint_path={result.best_checkpoint_path or '-'}")
-    print(f"resumed_from_checkpoint={result.resumed_from_checkpoint or '-'}")
-    print(f"run_id={result.run_id or '-'}")
-    print(f"artifact_contract_path={result.artifact_contract_path or '-'}")
-    return 0
 
 
 def add_train_command(subparsers: Any) -> None:
@@ -128,60 +145,24 @@ def add_train_command(subparsers: Any) -> None:
         default=DEFAULT_TRAIN_LEARNING_RATE,
         help="Optimizer learning rate",
     )
-    parser.add_argument(
-        "--precision-mode",
-        default=DEFAULT_TRAIN_PRECISION_MODE,
-        choices=SUPPORTED_TRAIN_PRECISION_MODES,
-        help="Mixed precision mode (auto selects best available)",
-    )
-    parser.add_argument(
-        "--optimizer-type",
-        default=DEFAULT_TRAIN_OPTIMIZER_TYPE,
-        choices=SUPPORTED_TRAIN_OPTIMIZER_TYPES,
-        help="Optimizer backend",
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=DEFAULT_TRAIN_WEIGHT_DECAY,
-        help="Weight decay coefficient",
-    )
-    parser.add_argument(
-        "--sgd-momentum",
-        type=float,
-        default=DEFAULT_TRAIN_SGD_MOMENTUM,
-        help="Momentum used when optimizer-type=sgd",
-    )
-    parser.add_argument(
-        "--scheduler-type",
-        default=DEFAULT_TRAIN_SCHEDULER_TYPE,
-        choices=SUPPORTED_TRAIN_SCHEDULER_TYPES,
-        help="Learning-rate scheduler strategy",
-    )
-    parser.add_argument(
-        "--scheduler-step-size",
-        type=int,
-        default=DEFAULT_TRAIN_SCHEDULER_STEP_SIZE,
-        help="Epoch interval for step scheduler",
-    )
-    parser.add_argument(
-        "--scheduler-gamma",
-        type=float,
-        default=DEFAULT_TRAIN_SCHEDULER_GAMMA,
-        help="Multiplicative factor for step scheduler",
-    )
-    parser.add_argument(
-        "--scheduler-t-max-epochs",
-        type=int,
-        default=DEFAULT_TRAIN_SCHEDULER_T_MAX_EPOCHS,
-        help="Cycle length for cosine scheduler (defaults to total epochs)",
-    )
-    parser.add_argument(
-        "--scheduler-eta-min",
-        type=float,
-        default=DEFAULT_TRAIN_SCHEDULER_ETA_MIN,
-        help="Minimum learning rate for cosine scheduler",
-    )
+    parser.add_argument("--precision-mode", default=DEFAULT_TRAIN_PRECISION_MODE,
+                        choices=SUPPORTED_TRAIN_PRECISION_MODES, help="Mixed precision mode")
+    parser.add_argument("--optimizer-type", default=DEFAULT_TRAIN_OPTIMIZER_TYPE,
+                        choices=SUPPORTED_TRAIN_OPTIMIZER_TYPES, help="Optimizer backend")
+    parser.add_argument("--weight-decay", type=float,
+                        default=DEFAULT_TRAIN_WEIGHT_DECAY, help="Weight decay coefficient")
+    parser.add_argument("--sgd-momentum", type=float,
+                        default=DEFAULT_TRAIN_SGD_MOMENTUM, help="SGD momentum")
+    parser.add_argument("--scheduler-type", default=DEFAULT_TRAIN_SCHEDULER_TYPE,
+                        choices=SUPPORTED_TRAIN_SCHEDULER_TYPES, help="LR scheduler strategy")
+    parser.add_argument("--scheduler-step-size", type=int,
+                        default=DEFAULT_TRAIN_SCHEDULER_STEP_SIZE, help="Step scheduler interval")
+    parser.add_argument("--scheduler-gamma", type=float,
+                        default=DEFAULT_TRAIN_SCHEDULER_GAMMA, help="Step scheduler factor")
+    parser.add_argument("--scheduler-t-max-epochs", type=int,
+                        default=DEFAULT_TRAIN_SCHEDULER_T_MAX_EPOCHS, help="Cosine scheduler cycle")
+    parser.add_argument("--scheduler-eta-min", type=float,
+                        default=DEFAULT_TRAIN_SCHEDULER_ETA_MIN, help="Cosine scheduler min LR")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")
     parser.add_argument(
         "--max-token-length",
@@ -262,4 +243,28 @@ def add_train_command(subparsers: Any) -> None:
         type=int,
         default=DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS,
         help="Log training batch progress every N batches",
+    )
+    parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=DEFAULT_GRADIENT_ACCUMULATION_STEPS,
+        help="Number of micro-batches to accumulate before optimizer step",
+    )
+    parser.add_argument(
+        "--auto-micro-batch",
+        action="store_true",
+        default=False,
+        help="Automatically probe GPU memory and set micro-batch size",
+    )
+    parser.add_argument(
+        "--gradient-checkpointing",
+        action="store_true",
+        default=False,
+        help="Enable gradient checkpointing for memory reduction",
+    )
+    parser.add_argument(
+        "--auto-config",
+        action="store_true",
+        default=False,
+        help="Auto-configure training defaults from detected hardware profile",
     )

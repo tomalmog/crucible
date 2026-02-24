@@ -1,8 +1,4 @@
-"""PyTorch training workflow orchestration.
-
-This module prepares runtime state, executes training loops, and persists
-artifacts, lifecycle metadata, and lineage links for each training run.
-"""
+"""PyTorch training workflow orchestration."""
 
 from __future__ import annotations
 
@@ -15,6 +11,8 @@ from core.errors import ForgeDependencyError, ForgeServeError
 from core.types import BatchLossMetric, DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
+from serve.gradient_checkpointing import apply_gradient_checkpointing
+from serve.memory_aware_batching import plan_memory_aware_batching
 from serve.model_weights import load_initial_weights
 from serve.tokenization import (
     SequenceBatch,
@@ -94,7 +92,10 @@ def run_training(
         return result
     except Exception as error:
         if context is not None:
-            _invoke_error_hook(context, error)
+            try:
+                invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
+            except ForgeServeError:
+                pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
 
@@ -122,7 +123,9 @@ def _build_runtime_context(
     random.Random(random_seed).shuffle(sequences)
     train_batches, validation_batches = _build_batches(sequences, options)
     model = load_training_model(torch_module, options, len(tokenizer.vocabulary))
-    device = _resolve_training_device(torch_module)
+    if options.gradient_checkpointing:
+        apply_gradient_checkpointing(torch_module, model)
+    device = resolve_execution_device(torch_module)
     model = model.to(device)
     load_initial_weights(
         torch_module=torch_module,
@@ -134,6 +137,12 @@ def _build_runtime_context(
         torch_module=torch_module,
         requested_mode=options.precision_mode,
         device=device,
+    )
+    accumulation_steps = _resolve_accumulation_steps(
+        torch_module=torch_module,
+        model=model,
+        device=device,
+        options=options,
     )
     optimization = build_training_optimization(torch_module, model, options)
     hooks = load_training_hooks(options.hooks_path)
@@ -155,6 +164,7 @@ def _build_runtime_context(
         config_hash=config_hash,
         hooks=hooks,
         run_registry=run_registry,
+        gradient_accumulation_steps=accumulation_steps,
     )
     context.loss_function = build_loss_function_from_hooks(
         torch_module=torch_module,
@@ -258,11 +268,6 @@ def _build_batches(
     return train_batches, validation_batches
 
 
-def _resolve_training_device(torch_module: Any) -> Any:
-    """Resolve device preference for training execution."""
-    return resolve_execution_device(torch_module)
-
-
 def _try_save_plot(
     output_dir: Path,
     epoch_metrics: list[EpochMetric],
@@ -275,9 +280,19 @@ def _try_save_plot(
         return None
 
 
-def _invoke_error_hook(context: TrainingRuntimeContext, error: Exception) -> None:
-    """Invoke run-error hook without replacing the original training failure."""
-    try:
-        invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-    except ForgeServeError:
-        return
+def _resolve_accumulation_steps(
+    torch_module: Any,
+    model: Any,
+    device: Any,
+    options: TrainingOptions,
+) -> int:
+    """Resolve gradient accumulation steps from options or memory planner."""
+    if options.auto_micro_batch:
+        memory_plan = plan_memory_aware_batching(
+            torch_module=torch_module,
+            model=model,
+            device=device,
+            options=options,
+        )
+        return memory_plan.gradient_accumulation_steps
+    return options.gradient_accumulation_steps

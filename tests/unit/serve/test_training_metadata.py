@@ -67,6 +67,9 @@ def test_save_and_load_training_config_round_trip(tmp_path: Path) -> None:
         "max_checkpoint_files": 5,
         "resume_checkpoint_path": None,
         "progress_log_interval_steps": 10,
+        "gradient_accumulation_steps": 1,
+        "auto_micro_batch": False,
+        "gradient_checkpointing": False,
     }
 
 

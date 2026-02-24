@@ -11,8 +11,14 @@ from pathlib import Path
 
 from core.chat_types import ChatOptions, ChatResult
 from core.config import ForgeConfig
-from core.errors import ForgeServeError
+from core.distillation_types import DistillationOptions
+from core.domain_adaptation_types import DomainAdaptationOptions
+from core.dpo_types import DpoOptions
+from core.errors import ForgeDistillationError, ForgeDpoError, ForgeLoraError, ForgeRlhfError, ForgeSftError, ForgeServeError
+from core.lora_types import LoraTrainingOptions
+from core.rlhf_types import RlhfOptions
 from core.run_spec_execution import execute_run_spec_file
+from core.sft_types import SftOptions
 from core.types import (
     DataRecord,
     IngestOptions,
@@ -25,7 +31,13 @@ from core.types import (
 )
 from ingest.pipeline import ingest_dataset
 from serve.chat_runner import run_chat
+from serve.distillation_runner import run_distillation
+from serve.domain_adaptation_runner import run_domain_adaptation
+from serve.dpo_runner import run_dpo_training
 from serve.hardware_profile import detect_hardware_profile
+from serve.rlhf_runner import run_rlhf_training
+from serve.lora_training_runner import run_lora_training
+from serve.sft_runner import run_sft_training
 from serve.training_run_registry import TrainingRunRegistry
 from serve.training_run_types import TrainingRunRecord
 from serve.training_runner import run_training
@@ -45,119 +57,83 @@ class ForgeClient:
         self._store = SnapshotStore(self._config)
 
     def ingest(self, options: IngestOptions) -> str:
-        """Ingest a source URI into a versioned dataset.
-
-        Args:
-            options: Ingest options.
-
-        Returns:
-            Created version id.
-
-        Raises:
-            ForgeIngestError: If ingest pipeline fails.
-            ForgeStoreError: If snapshot persistence fails.
-        """
+        """Ingest a source URI into a versioned dataset."""
         return ingest_dataset(options, self._config)
 
     def dataset(self, dataset_name: str) -> "Dataset":
-        """Get dataset handle by name.
-
-        Args:
-            dataset_name: Dataset identifier.
-
-        Returns:
-            Dataset handle.
-        """
+        """Get dataset handle by name."""
         return Dataset(dataset_name, self._store)
 
     def train(self, options: TrainingOptions) -> TrainingRunResult:
-        """Train a model on a dataset version using PyTorch.
+        """Train a model on a dataset version using PyTorch."""
+        return self.dataset(options.dataset_name).train(options)
 
-        Args:
-            options: Training options.
-
-        Returns:
-            Training run artifact summary.
-        """
+    def sft_train(self, options: SftOptions) -> TrainingRunResult:
+        """Run supervised fine-tuning on a dataset version."""
         dataset = self.dataset(options.dataset_name)
-        return dataset.train(options)
+        return dataset.sft_train(options)
+
+    def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
+        """Run LoRA fine-tuning on a dataset version."""
+        dataset = self.dataset(options.dataset_name)
+        return dataset.lora_train(options)
+
+    def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
+        """Run DPO preference optimization on a dataset version."""
+        dataset = self.dataset(options.dataset_name)
+        return dataset.dpo_train(options)
+
+    def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
+        """Run RLHF training with PPO on a dataset version."""
+        dataset = self.dataset(options.dataset_name)
+        return dataset.rlhf_train(options)
+
+    def distill(self, options: DistillationOptions) -> TrainingRunResult:
+        """Run knowledge distillation on a dataset version."""
+        dataset = self.dataset(options.dataset_name)
+        return dataset.distill(options)
+
+    def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
+        """Run domain adaptation (continued pretraining) on a dataset."""
+        dataset = self.dataset(options.dataset_name)
+        return dataset.domain_adapt(options)
 
     def chat(self, options: ChatOptions) -> ChatResult:
-        """Run chat inference against a trained model.
-
-        When dataset_name is provided, loads dataset records as a tokenizer
-        fallback. When dataset_name is None, relies on a persisted or
-        explicit tokenizer path.
-
-        Args:
-            options: Chat inference options.
-
-        Returns:
-            Generated response payload.
-        """
+        """Run chat inference against a trained model."""
         if options.dataset_name is None:
             return run_chat(None, options)
         dataset = self.dataset(options.dataset_name)
         return dataset.chat(options)
 
     def with_data_root(self, data_root: str) -> "ForgeClient":
-        """Clone the client with a different local data root.
-
-        Args:
-            data_root: New data root path.
-
-        Returns:
-            New SDK client instance.
-        """
+        """Clone the client with a different local data root."""
         resolved_root = Path(data_root).expanduser().resolve()
-        updated_config = replace(self._config, data_root=resolved_root)
-        return ForgeClient(updated_config)
+        return ForgeClient(replace(self._config, data_root=resolved_root))
 
     def run_spec(self, spec_file: str) -> tuple[str, ...]:
-        """Execute a YAML run-spec through the shared execution engine.
-
-        Args:
-            spec_file: Path to YAML run-spec file.
-
-        Returns:
-            Ordered command output lines.
-        """
+        """Execute a YAML run-spec through the shared execution engine."""
         return execute_run_spec_file(self, spec_file)
 
     def hardware_profile(self) -> dict[str, object]:
-        """Detect local hardware profile and recommended defaults.
-
-        Returns:
-            Hardware profile payload.
-        """
+        """Detect local hardware profile and recommended defaults."""
         return detect_hardware_profile().to_dict()
 
     def list_training_runs(self) -> tuple[str, ...]:
-        """List known training run IDs from lifecycle registry.
-
-        Returns:
-            Ordered tuple of run IDs.
-        """
+        """List known training run IDs from lifecycle registry."""
         return TrainingRunRegistry(self._config.data_root).list_runs()
 
     def get_training_run(self, run_id: str) -> TrainingRunRecord:
-        """Load one training run lifecycle record by ID.
-
-        Args:
-            run_id: Training run identifier.
-
-        Returns:
-            Persisted lifecycle record.
-        """
+        """Load one training run lifecycle record by ID."""
         return TrainingRunRegistry(self._config.data_root).load_run(run_id)
 
     def get_lineage_graph(self) -> dict[str, object]:
-        """Load model/dataset lineage graph for this data root.
-
-        Returns:
-            Lineage graph payload.
-        """
+        """Load model/dataset lineage graph for this data root."""
         return TrainingRunRegistry(self._config.data_root).load_lineage_graph()
+
+    def model_registry(self) -> "ModelRegistry":
+        """Return a ModelRegistry for this data root."""
+        from store.model_registry import ModelRegistry
+        return ModelRegistry(self._config.data_root)
 
 
 class Dataset:
@@ -179,46 +155,22 @@ class Dataset:
         return self._dataset_name
 
     def list_versions(self) -> list[SnapshotManifest]:
-        """List all dataset versions.
-
-        Returns:
-            Ordered list of snapshot manifests.
-        """
+        """List all dataset versions."""
         return self._store.list_versions(self._dataset_name)
 
     def load_records(
-        self,
-        version_id: str | None = None,
+        self, version_id: str | None = None,
     ) -> tuple[SnapshotManifest, list[DataRecord]]:
-        """Load records for latest or target version.
-
-        Args:
-            version_id: Optional specific snapshot id.
-
-        Returns:
-            Pair of manifest and data records.
-        """
+        """Load records for latest or target version."""
         return self._store.load_records(self._dataset_name, version_id)
 
     def filter(self, filter_spec: MetadataFilter) -> str:
-        """Create a filtered snapshot from the latest version.
-
-        Args:
-            filter_spec: Metadata constraints.
-
-        Returns:
-            Newly created snapshot version id.
-        """
+        """Create a filtered snapshot from the latest version."""
         manifest = self._store.filter_records(self._dataset_name, filter_spec)
         return manifest.version_id
 
     def export(self, version_id: str, output_uri: str) -> None:
-        """Export a snapshot version to an S3 destination.
-
-        Args:
-            version_id: Snapshot version id.
-            output_uri: Destination URI.
-        """
+        """Export a snapshot version to an S3 destination."""
         request = VersionExportRequest(
             dataset_name=self._dataset_name,
             version_id=version_id,
@@ -227,23 +179,10 @@ class Dataset:
         self._store.export_version_to_s3(request)
 
     def export_training(
-        self,
-        output_dir: str,
-        version_id: str | None = None,
-        shard_size: int = 1000,
-        include_metadata: bool = False,
+        self, output_dir: str, version_id: str | None = None,
+        shard_size: int = 1000, include_metadata: bool = False,
     ) -> str:
-        """Export snapshot into local sharded training files.
-
-        Args:
-            output_dir: Local output directory for exported shards.
-            version_id: Optional version id, latest when omitted.
-            shard_size: Number of records per shard file.
-            include_metadata: Include metadata per exported row.
-
-        Returns:
-            Path to generated training manifest.
-        """
+        """Export snapshot into local sharded training files."""
         request = TrainingExportRequest(
             dataset_name=self._dataset_name,
             output_dir=output_dir,
@@ -255,17 +194,7 @@ class Dataset:
         return str(manifest_path)
 
     def train(self, options: TrainingOptions) -> TrainingRunResult:
-        """Train a model on this dataset with default/custom loop.
-
-        Args:
-            options: Training options.
-
-        Returns:
-            Training run artifact summary.
-
-        Raises:
-            ForgeServeError: If dataset names mismatch.
-        """
+        """Train a model on this dataset with default/custom loop."""
         if options.dataset_name != self._dataset_name:
             raise ForgeServeError(
                 f"Training options dataset '{options.dataset_name}' does not match handle "
@@ -280,18 +209,82 @@ class Dataset:
             dataset_version_id=manifest.version_id,
         )
 
+    def sft_train(self, options: SftOptions) -> TrainingRunResult:
+        """Run supervised fine-tuning on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeSftError(
+                f"SFT dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_sft_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
+        """Run LoRA fine-tuning on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeLoraError(
+                f"LoRA dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_lora_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
+        """Run DPO preference optimization on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeDpoError(
+                f"DPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_dpo_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
+        """Run RLHF training with PPO on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeRlhfError(
+                f"RLHF dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_rlhf_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def distill(self, options: DistillationOptions) -> TrainingRunResult:
+        """Run knowledge distillation on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeDistillationError(
+                f"Distillation dataset '{options.dataset_name}' != "
+                f"handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_distillation(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
+        """Run domain adaptation (continued pretraining) on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeServeError(
+                f"Domain adaptation dataset '{options.dataset_name}' != "
+                f"handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_domain_adaptation(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
     def chat(self, options: ChatOptions) -> ChatResult:
-        """Run one chat completion on this dataset.
-
-        Args:
-            options: Chat inference options.
-
-        Returns:
-            Generated response payload.
-
-        Raises:
-            ForgeServeError: If dataset names mismatch.
-        """
+        """Run one chat completion on this dataset."""
         if options.dataset_name != self._dataset_name:
             raise ForgeServeError(
                 f"Chat options dataset '{options.dataset_name}' does not match handle "

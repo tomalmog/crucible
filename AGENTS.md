@@ -9,7 +9,7 @@
 ## Core Philosophy
 
 This codebase will be read by humans, debugged by humans, and maintained for years. Write code that a new engineer can understand on their first day. Clever code is bad code. Clear code is fast code.
-
+ean
 **The Three Questions — ask before writing anything:**
 1. Does this function/module already exist somewhere in the codebase? (Search first.)
 2. Will a human understand this in 6 months without context?
