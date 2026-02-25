@@ -93,7 +93,7 @@ def test_grpo_cli_dispatches(
     client, ds_name, version_id = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
-        "grpo-train", "--dataset", ds_name,
+        "grpo-train",
         "--output-dir", str(tmp_path / "grpo_cli"),
         "--grpo-data-path", grpo_data_file,
         "--hidden-dim", "32", "--num-layers", "1",
@@ -184,7 +184,7 @@ def test_qlora_cli_dispatches(
             break
     code = main([
         "--data-root", str(client._config.data_root),
-        "qlora-train", "--dataset", ds_name,
+        "qlora-train",
         "--output-dir", str(tmp_path / "qlora_cli"),
         "--qlora-data-path", qlora_data_file,
         "--base-model-path", base_path,
@@ -263,7 +263,7 @@ def test_kto_cli_dispatches(
     client, ds_name, version_id = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
-        "kto-train", "--dataset", ds_name,
+        "kto-train",
         "--output-dir", str(tmp_path / "kto_cli"),
         "--kto-data-path", kto_data_file,
         "--hidden-dim", "32", "--num-layers", "1",
@@ -334,7 +334,7 @@ def test_orpo_cli_dispatches(
     client, ds_name, version_id = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
-        "orpo-train", "--dataset", ds_name,
+        "orpo-train",
         "--output-dir", str(tmp_path / "orpo_cli"),
         "--orpo-data-path", orpo_data_file,
         "--hidden-dim", "32", "--num-layers", "1",
@@ -407,7 +407,7 @@ def test_multimodal_cli_dispatches(
     client, ds_name, version_id = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
-        "multimodal-train", "--dataset", ds_name,
+        "multimodal-train",
         "--output-dir", str(tmp_path / "mm_cli"),
         "--multimodal-data-path", multimodal_data_file,
         "--hidden-dim", "32", "--num-layers", "1",
@@ -480,7 +480,7 @@ def test_rlvr_cli_dispatches(
     client, ds_name, version_id = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
-        "rlvr-train", "--dataset", ds_name,
+        "rlvr-train",
         "--output-dir", str(tmp_path / "rlvr_cli"),
         "--rlvr-data-path", rlvr_data_file,
         "--hidden-dim", "32", "--num-layers", "1",

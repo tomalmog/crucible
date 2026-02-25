@@ -13,10 +13,10 @@ from store.dataset_sdk import ForgeClient
 
 def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int:
     options = MultimodalOptions(
-        dataset_name=args.dataset, output_dir=args.output_dir,
+        dataset_name="", output_dir=args.output_dir,
         multimodal_data_path=args.multimodal_data_path,
         image_encoder=args.image_encoder, image_size=args.image_size,
-        projection_dim=args.projection_dim, version_id=args.version_id,
+        projection_dim=args.projection_dim, version_id=None,
         epochs=args.epochs, learning_rate=args.learning_rate,
         batch_size=args.batch_size, max_token_length=args.max_token_length,
         validation_split=args.validation_split,
@@ -43,13 +43,11 @@ def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int
 
 def add_multimodal_command(subparsers: Any) -> None:
     parser = subparsers.add_parser("multimodal-train", help="Multimodal vision-language fine-tuning")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--multimodal-data-path", required=True, help="Path to image+text JSONL")
     parser.add_argument("--image-encoder", default="clip-vit-base", help="Vision encoder")
     parser.add_argument("--image-size", type=int, default=224, help="Image input size")
     parser.add_argument("--projection-dim", type=int, default=512, help="Projection dimension")
-    parser.add_argument("--version-id", help="Version id")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS)
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)

@@ -14,10 +14,10 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
     <div className="stack-sm">
       <h4>Quantized LoRA (QLoRA)</h4>
       <div className="grid-2">
-        <FormField label="Training Data Path">
+        <FormField label="Training Data Path" required>
           <input value={extra["--qlora-data-path"] ?? ""} onChange={(e) => update("--qlora-data-path", e.currentTarget.value)} placeholder="/path/to/data.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
         <FormField label="Quantization Bits">

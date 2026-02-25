@@ -14,7 +14,7 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
     <div className="stack-sm">
       <h4>Knowledge Distillation</h4>
       <div className="grid-2">
-        <FormField label="Teacher Model Path">
+        <FormField label="Teacher Model Path" required>
           <input value={extra["--teacher-model-path"] ?? ""} onChange={(e) => update("--teacher-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
         <FormField label="Student Model Path">

@@ -45,14 +45,14 @@ def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int
         target_modules=tuple(args.lora_target_modules.split(",")),
     )
     options = LoraTrainingOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
-        sft_data_path=args.sft_data_path,
+        lora_data_path=args.lora_data_path,
         base_model_path=args.base_model_path,
         lora_config=lora_config,
         tokenizer_path=getattr(args, "tokenizer_path", None),
         resume_checkpoint_path=getattr(args, "resume_checkpoint_path", None),
-        version_id=args.version_id,
+        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -106,11 +106,9 @@ def add_lora_train_command(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "lora-train", help="Fine-tune a model using LoRA adapters"
     )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--sft-data-path", default="", help="SFT JSONL data path (optional, uses dataset records if omitted)")
+    parser.add_argument("--lora-data-path", required=True, help="Path to JSONL file with training data")
     parser.add_argument("--base-model-path", required=True, help="Base model weights")
-    parser.add_argument("--version-id", help="Optional dataset version id")
     parser.add_argument("--tokenizer-path", default=None, help="Path to tokenizer file (auto-detected if omitted)")
     parser.add_argument("--lora-rank", type=int, default=DEFAULT_LORA_RANK, help="LoRA rank")
     parser.add_argument("--lora-alpha", type=float, default=DEFAULT_LORA_ALPHA, help="LoRA alpha")

@@ -41,12 +41,12 @@ from store.dataset_sdk import ForgeClient
 def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle KTO command invocation."""
     options = KtoOptions(
-        dataset_name=args.dataset, output_dir=args.output_dir,
+        dataset_name="", output_dir=args.output_dir,
         kto_data_path=args.kto_data_path,
         beta=args.beta, desirable_weight=args.desirable_weight,
         undesirable_weight=args.undesirable_weight,
         reference_model_path=args.reference_model_path,
-        version_id=args.version_id, epochs=args.epochs,
+        version_id=None, epochs=args.epochs,
         learning_rate=args.learning_rate, batch_size=args.batch_size,
         max_token_length=args.max_token_length, validation_split=args.validation_split,
         precision_mode=cast(PrecisionMode, args.precision_mode),
@@ -77,14 +77,12 @@ def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
 def add_kto_command(subparsers: Any) -> None:
     """Register KTO subcommand."""
     parser = subparsers.add_parser("kto-train", help="Kahneman-Tversky Optimization training")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--kto-data-path", required=True, help="Path to JSONL with prompt/response/label data")
     parser.add_argument("--beta", type=float, default=DEFAULT_KTO_BETA, help="KTO beta parameter")
     parser.add_argument("--desirable-weight", type=float, default=DEFAULT_KTO_DESIRABLE_WEIGHT, help="Weight for desirable examples")
     parser.add_argument("--undesirable-weight", type=float, default=DEFAULT_KTO_UNDESIRABLE_WEIGHT, help="Weight for undesirable examples")
     parser.add_argument("--reference-model-path", help="Path to reference model")
-    parser.add_argument("--version-id", help="Optional version id")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE, help="Learning rate")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")

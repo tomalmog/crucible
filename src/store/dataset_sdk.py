@@ -81,18 +81,41 @@ class ForgeClient:
 
     def sft_train(self, options: SftOptions) -> TrainingRunResult:
         """Run supervised fine-tuning on a dataset version."""
+        if not options.dataset_name:
+            return run_sft_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).sft_train(options)
 
     def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
-        """Run LoRA fine-tuning on a dataset version."""
+        """Run LoRA fine-tuning."""
+        if not options.dataset_name:
+            from serve.lora_training_runner import run_lora_training
+            return run_lora_training(
+                options=options,
+                random_seed=42,
+                data_root=self._config.data_root,
+                dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).lora_train(options)
 
     def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
         """Run DPO preference optimization on a dataset version."""
+        if not options.dataset_name:
+            return run_dpo_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).dpo_train(options)
 
     def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
         """Run RLHF training with PPO on a dataset version."""
+        if not options.dataset_name:
+            return run_rlhf_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).rlhf_train(options)
 
     def distill(self, options: DistillationOptions) -> TrainingRunResult:
@@ -105,26 +128,56 @@ class ForgeClient:
 
     def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:
         """Run GRPO training on a dataset version."""
+        if not options.dataset_name:
+            return run_grpo_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).grpo_train(options)
 
     def qlora_train(self, options: QloraOptions) -> TrainingRunResult:
         """Run QLoRA training on a dataset version."""
+        if not options.dataset_name:
+            return run_qlora_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).qlora_train(options)
 
     def kto_train(self, options: KtoOptions) -> TrainingRunResult:
         """Run KTO training on a dataset version."""
+        if not options.dataset_name:
+            return run_kto_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).kto_train(options)
 
     def orpo_train(self, options: OrpoOptions) -> TrainingRunResult:
         """Run ORPO training on a dataset version."""
+        if not options.dataset_name:
+            return run_orpo_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).orpo_train(options)
 
     def multimodal_train(self, options: MultimodalOptions) -> TrainingRunResult:
         """Run multimodal fine-tuning on a dataset version."""
+        if not options.dataset_name:
+            return run_multimodal_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).multimodal_train(options)
 
     def rlvr_train(self, options: RlvrOptions) -> TrainingRunResult:
         """Run RLVR training on a dataset version."""
+        if not options.dataset_name:
+            return run_rlvr_training(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root, dataset_version_id="",
+            )
         return self.dataset(options.dataset_name).rlvr_train(options)
 
     def chat(self, options: ChatOptions) -> ChatResult:
@@ -247,9 +300,9 @@ class Dataset:
             raise ForgeLoraError(
                 f"LoRA dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
-        manifest, records = self.load_records(options.version_id)
+        manifest, _ = self.load_records(options.version_id)
         return run_lora_training(
-            records=records, options=options, random_seed=self._store.random_seed,
+            options=options, random_seed=self._store.random_seed,
             data_root=self._store.data_root, dataset_version_id=manifest.version_id,
         )
 

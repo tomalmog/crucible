@@ -14,7 +14,7 @@ export function DomainAdaptForm({ extra, setExtra }: DomainAdaptFormProps) {
     <div className="stack-sm">
       <h4>Domain Adaptation</h4>
       <div className="grid-2">
-        <FormField label="Base Model Path">
+        <FormField label="Base Model Path" required>
           <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
         <FormField label="Reference Data Path">

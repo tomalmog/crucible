@@ -51,7 +51,7 @@ def run_qlora_command(
         else ("q_proj", "v_proj")
     )
     options = QloraOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
         qlora_data_path=args.qlora_data_path,
         base_model_path=args.base_model_path,
@@ -62,7 +62,7 @@ def run_qlora_command(
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
         lora_target_modules=target_modules,
-        version_id=args.version_id,
+        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -100,9 +100,6 @@ def add_qlora_command(subparsers: Any) -> None:
     """Register QLoRA subcommand."""
     parser = subparsers.add_parser(
         "qlora-train", help="Quantized LoRA fine-tuning",
-    )
-    parser.add_argument(
-        "--dataset", required=True, help="Dataset name",
     )
     parser.add_argument(
         "--output-dir", required=True, help="Output directory",
@@ -160,7 +157,6 @@ def add_qlora_command(subparsers: Any) -> None:
         default=None,
         help="Comma-separated target modules",
     )
-    parser.add_argument("--version-id", help="Optional version id")
     parser.add_argument(
         "--epochs",
         type=int,

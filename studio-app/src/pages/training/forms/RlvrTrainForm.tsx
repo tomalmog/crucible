@@ -14,10 +14,10 @@ export function RlvrTrainForm({ extra, setExtra }: RlvrTrainFormProps) {
     <div className="stack-sm">
       <h4>RL with Verifiable Rewards</h4>
       <div className="grid-2">
-        <FormField label="RLVR Data Path">
+        <FormField label="RLVR Data Path" required>
           <input value={extra["--rlvr-data-path"] ?? ""} onChange={(e) => update("--rlvr-data-path", e.currentTarget.value)} placeholder="/path/to/tasks.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">

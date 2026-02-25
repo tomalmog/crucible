@@ -7,6 +7,7 @@ and persists the adapter alongside training artifacts.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import asdict
 from pathlib import Path
@@ -16,7 +17,7 @@ from core.errors import ForgeDependencyError, ForgeLoraError, ForgeServeError, F
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
 from serve.model_format import detect_model_format
 from core.lora_types import LoraConfig, LoraTrainingOptions
-from core.types import DataRecord, TrainingRunResult
+from core.types import TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
 from serve.lora_adapter_io import save_lora_adapter
@@ -38,7 +39,6 @@ from serve.training_setup import validate_file_paths, validate_training_options
 
 
 def run_lora_training(
-    records: list[DataRecord],
     options: LoraTrainingOptions,
     random_seed: int,
     data_root: Path,
@@ -61,6 +61,7 @@ def run_lora_training(
         base_model_path=options.base_model_path,
         tokenizer_path=options.tokenizer_path,
         resume_checkpoint_path=options.resume_checkpoint_path,
+        lora_data_path=options.lora_data_path,
     )
     torch_module = _import_torch()
     output_dir = ensure_training_output_dir(options.output_dir)
@@ -94,7 +95,6 @@ def run_lora_training(
             precision_runtime=precision_runtime,
             device=device,
             options=options,
-            records=records,
         )
         model_path = save_model_weights(output_dir, torch_module, model)
         adapter_info = save_lora_adapter(
@@ -299,43 +299,52 @@ def _load_lora_tokenizer(options: LoraTrainingOptions) -> Any:
     return load_tokenizer(options.base_model_path)
 
 
-def _tokenize_records(
-    records: list[DataRecord],
+def _load_lora_data(data_path: str) -> list[dict[str, str]]:
+    """Load training examples from a JSONL file."""
+    path = Path(data_path)
+    if not path.exists():
+        raise ForgeLoraError(f"LoRA data file not found: {data_path}")
+    examples: list[dict[str, str]] = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            examples.append(json.loads(line))
+    return examples
+
+
+def _build_lora_batches(
+    data: list[dict[str, str]],
     tokenizer: Any,
-    max_length: int,
-    batch_size: int,
+    options: LoraTrainingOptions,
     torch_module: Any,
     device: Any,
 ) -> list[Any]:
-    """Tokenize training records into mini-batches of input_ids."""
-    texts = [r.text for r in records if r.text]
-    if not texts:
-        raise ForgeServeError("No text records found for LoRA training.")
-
+    """Build training batches from LoRA JSONL data."""
     if hasattr(tokenizer, "pad_token_id"):
-        # HuggingFace tokenizer — tokenize per-batch to control memory
         batches = []
-        for i in range(0, len(texts), batch_size):
-            chunk = texts[i : i + batch_size]
+        for i in range(0, len(data), options.batch_size):
+            chunk = data[i : i + options.batch_size]
+            texts = [ex.get("text", ex.get("prompt", "") + " " + ex.get("response", "")) for ex in chunk]
             encoded = tokenizer(
-                chunk,
+                texts,
                 padding=True,
                 truncation=True,
-                max_length=max_length,
+                max_length=options.max_token_length,
                 return_tensors="pt",
             )
             batches.append(encoded["input_ids"].to(device))
         return batches
 
-    # Forge VocabularyTokenizer
     all_ids = []
-    for text in texts:
-        ids = tokenizer.encode(text, max_length)
+    for ex in data:
+        text = ex.get("text", ex.get("prompt", "") + " " + ex.get("response", ""))
+        ids = tokenizer.encode(text, options.max_token_length)
         all_ids.append(torch_module.tensor(ids, dtype=torch_module.long, device=device))
-    # Split into batches, pad within each batch
     batches = []
-    for i in range(0, len(all_ids), batch_size):
-        chunk = all_ids[i : i + batch_size]
+    for i in range(0, len(all_ids), options.batch_size):
+        chunk = all_ids[i : i + options.batch_size]
         max_len = max(len(ids) for ids in chunk)
         padded = torch_module.stack([
             torch_module.nn.functional.pad(ids, (0, max_len - len(ids)))
@@ -352,7 +361,6 @@ def _run_lora_training_loop(
     precision_runtime: Any,
     device: Any,
     options: LoraTrainingOptions,
-    records: list[DataRecord] | None = None,
 ) -> list[Any]:
     """Run training loop for LoRA fine-tuning.
 
@@ -363,13 +371,9 @@ def _run_lora_training_loop(
     """
     from core.types import EpochMetric
 
-    if records is None or len(records) == 0:
-        epoch_metrics: list[EpochMetric] = []
-        for epoch in range(1, options.epochs + 1):
-            epoch_metrics.append(
-                EpochMetric(epoch=epoch, train_loss=0.0, validation_loss=0.0)
-            )
-        return epoch_metrics
+    train_data = _load_lora_data(options.lora_data_path)
+    if not train_data:
+        raise ForgeLoraError("No training data loaded. Check the lora_data_path file.")
 
     tokenizer = _load_lora_tokenizer(options)
     if tokenizer is None:
@@ -377,10 +381,7 @@ def _run_lora_training_loop(
             "No tokenizer found. Provide --tokenizer-path or use a HuggingFace model ID."
         )
 
-    batches = _tokenize_records(
-        records, tokenizer, options.max_token_length, options.batch_size,
-        torch_module, device,
-    )
+    batches = _build_lora_batches(train_data, tokenizer, options, torch_module, device)
 
     # Enable gradient checkpointing to reduce memory usage.
     # For LoRA, the embedding inputs don't require grad by default, which

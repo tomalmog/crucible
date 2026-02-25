@@ -12,13 +12,11 @@ def test_rlhf_command_registers_in_parser() -> None:
     parser = build_parser()
     args = parser.parse_args([
         "rlhf-train",
-        "--dataset", "demo",
         "--output-dir", "/tmp/out",
         "--policy-model-path", "/tmp/policy.pt",
     ])
 
     assert args.command == "rlhf-train"
-    assert args.dataset == "demo"
     assert args.output_dir == "/tmp/out"
     assert args.policy_model_path == "/tmp/policy.pt"
     assert args.reward_model_path is None
@@ -34,7 +32,6 @@ def test_rlhf_command_requires_policy_model_path() -> None:
     with pytest.raises(SystemExit):
         parser.parse_args([
             "rlhf-train",
-            "--dataset", "demo",
             "--output-dir", "/tmp/out",
         ])
 
@@ -44,7 +41,6 @@ def test_rlhf_command_accepts_reward_options() -> None:
     parser = build_parser()
     args = parser.parse_args([
         "rlhf-train",
-        "--dataset", "demo",
         "--output-dir", "/tmp/out",
         "--policy-model-path", "/tmp/policy.pt",
         "--reward-model-path", "/tmp/reward.pt",
@@ -65,14 +61,3 @@ def test_rlhf_command_accepts_reward_options() -> None:
     assert args.entropy_coeff == 0.02
     assert args.epochs == 5
     assert args.learning_rate == 0.001
-
-
-def test_rlhf_command_requires_dataset() -> None:
-    """RLHF command should fail when --dataset is missing."""
-    parser = build_parser()
-    with pytest.raises(SystemExit):
-        parser.parse_args([
-            "rlhf-train",
-            "--output-dir", "/tmp/out",
-            "--policy-model-path", "/tmp/policy.pt",
-        ])

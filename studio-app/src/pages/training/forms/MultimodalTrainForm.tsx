@@ -14,10 +14,10 @@ export function MultimodalTrainForm({ extra, setExtra }: MultimodalTrainFormProp
     <div className="stack-sm">
       <h4>Multimodal Fine-Tuning</h4>
       <div className="grid-2">
-        <FormField label="Multimodal Data Path">
+        <FormField label="Multimodal Data Path" required>
           <input value={extra["--multimodal-data-path"] ?? ""} onChange={(e) => update("--multimodal-data-path", e.currentTarget.value)} placeholder="/path/to/image_text.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">

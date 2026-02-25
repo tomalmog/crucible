@@ -14,13 +14,11 @@ def test_sft_command_registers_in_parser() -> None:
     parser = build_parser()
     args = parser.parse_args([
         "sft",
-        "--dataset", "demo",
         "--output-dir", "/tmp/out",
         "--sft-data-path", "/tmp/sft.jsonl",
     ])
 
     assert args.command == "sft"
-    assert args.dataset == "demo"
     assert args.output_dir == "/tmp/out"
     assert args.sft_data_path == "/tmp/sft.jsonl"
     assert args.mask_prompt_tokens is True
@@ -33,6 +31,5 @@ def test_sft_command_requires_sft_data_path() -> None:
     with pytest.raises(SystemExit):
         parser.parse_args([
             "sft",
-            "--dataset", "demo",
             "--output-dir", "/tmp/out",
         ])

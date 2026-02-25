@@ -10,18 +10,21 @@ export function LoraTrainForm({ extra, setExtra }: LoraTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
+  const baseModel = (extra["--base-model-path"] ?? "").trim();
+  const hasHfModel = baseModel.length > 0 && !baseModel.endsWith(".pt") && !baseModel.endsWith(".bin") && !baseModel.startsWith("/") && !baseModel.startsWith(".");
+
   return (
     <div className="stack-sm">
       <h4>LoRA Training</h4>
       <div className="grid-2">
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
-        <FormField label="Tokenizer Path">
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect from model" />
+        <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
+          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect from model"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} />
         </FormField>
-        <FormField label="SFT Data Path (optional)">
-          <input value={extra["--sft-data-path"] ?? ""} onChange={(e) => update("--sft-data-path", e.currentTarget.value)} placeholder="Uses dataset records if empty" />
+        <FormField label="LoRA Data Path" required>
+          <input value={extra["--lora-data-path"] ?? ""} onChange={(e) => update("--lora-data-path", e.currentTarget.value)} placeholder="/path/to/lora_data.jsonl" />
         </FormField>
         <FormField label="LoRA Rank">
           <input type="number" value={extra["--lora-rank"] ?? "8"} onChange={(e) => update("--lora-rank", e.currentTarget.value)} />

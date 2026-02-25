@@ -42,7 +42,7 @@ from store.dataset_sdk import ForgeClient
 def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle GRPO command invocation."""
     options = GrpoOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
         grpo_data_path=args.grpo_data_path,
         reward_function_path=args.reward_function_path,
@@ -50,7 +50,7 @@ def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         kl_coeff=args.kl_coeff,
         clip_range=args.clip_range,
         temperature=args.temperature,
-        version_id=args.version_id,
+        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -91,7 +91,6 @@ def add_grpo_command(subparsers: Any) -> None:
         "grpo-train",
         help="Group Relative Policy Optimization training",
     )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Training artifact output directory")
     parser.add_argument("--grpo-data-path", required=True, help="Path to JSONL file with prompts")
     parser.add_argument("--reward-function-path", help="Path to Python module with score() function")
@@ -99,7 +98,6 @@ def add_grpo_command(subparsers: Any) -> None:
     parser.add_argument("--kl-coeff", type=float, default=DEFAULT_GRPO_KL_COEFF, help="KL divergence penalty coefficient")
     parser.add_argument("--clip-range", type=float, default=DEFAULT_GRPO_CLIP_RANGE, help="PPO clip range")
     parser.add_argument("--temperature", type=float, default=DEFAULT_GRPO_TEMPERATURE, help="Sampling temperature")
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE, help="Optimizer learning rate")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")

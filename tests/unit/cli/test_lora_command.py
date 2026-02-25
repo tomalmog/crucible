@@ -15,13 +15,11 @@ def test_lora_train_command_registers_in_parser() -> None:
 
     args = parser.parse_args([
         "lora-train",
-        "--dataset", "test",
         "--output-dir", "/tmp/out",
-        "--sft-data-path", "/tmp/data.jsonl",
+        "--lora-data-path", "/tmp/data.jsonl",
         "--base-model-path", "/tmp/model.pt",
     ])
-    assert args.dataset == "test"
-    assert args.sft_data_path == "/tmp/data.jsonl"
+    assert args.lora_data_path == "/tmp/data.jsonl"
     assert args.base_model_path == "/tmp/model.pt"
     assert args.lora_rank == 8
 

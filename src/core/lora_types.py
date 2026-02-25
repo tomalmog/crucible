@@ -75,14 +75,14 @@ class LoraTrainingOptions:
     Attributes:
         dataset_name: Dataset to train on.
         output_dir: Directory for output artifacts.
-        sft_data_path: Path to SFT JSONL data for LoRA fine-tuning.
+        lora_data_path: Path to LoRA JSONL training data.
         lora_config: LoRA adapter hyperparameters.
         base_model_path: Path to pre-trained model weights.
     """
 
     dataset_name: str
     output_dir: str
-    sft_data_path: str
+    lora_data_path: str
     base_model_path: str
     lora_config: LoraConfig = LoraConfig()
     tokenizer_path: str | None = None

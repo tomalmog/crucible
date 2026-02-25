@@ -5,9 +5,10 @@ import { FormSection } from "../../../components/shared/FormSection";
 interface SharedTrainingFieldsProps {
   config: SharedTrainingConfig;
   onChange: (config: SharedTrainingConfig) => void;
+  showDataset?: boolean;
 }
 
-export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsProps) {
+export function SharedTrainingFields({ config, onChange, showDataset = true }: SharedTrainingFieldsProps) {
   function update(key: keyof SharedTrainingConfig, value: string) {
     onChange({ ...config, [key]: value });
   }
@@ -15,12 +16,16 @@ export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsP
   return (
     <>
       <div className="grid-2">
-        <FormField label="Dataset">
-          <input value={config.dataset} onChange={(e) => update("dataset", e.currentTarget.value)} placeholder="dataset name" />
-        </FormField>
-        <FormField label="Version ID (optional)">
-          <input value={config.versionId} onChange={(e) => update("versionId", e.currentTarget.value)} placeholder="latest" />
-        </FormField>
+        {showDataset && (
+          <>
+            <FormField label="Dataset" required>
+              <input value={config.dataset} onChange={(e) => update("dataset", e.currentTarget.value)} placeholder="dataset name" />
+            </FormField>
+            <FormField label="Version ID (optional)">
+              <input value={config.versionId} onChange={(e) => update("versionId", e.currentTarget.value)} placeholder="latest" />
+            </FormField>
+          </>
+        )}
         <FormField label="Epochs">
           <input type="number" value={config.epochs} onChange={(e) => update("epochs", e.currentTarget.value)} />
         </FormField>

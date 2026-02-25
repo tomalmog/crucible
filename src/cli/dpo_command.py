@@ -46,13 +46,13 @@ def run_dpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     options = DpoOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
         dpo_data_path=args.dpo_data_path,
         beta=args.beta,
         label_smoothing=args.label_smoothing,
         reference_model_path=args.reference_model_path,
-        version_id=args.version_id,
+        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -97,7 +97,6 @@ def add_dpo_command(subparsers: Any) -> None:
         "dpo-train",
         help="Direct Preference Optimization on preference pairs",
     )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument(
         "--output-dir", required=True,
         help="Training artifact output directory",
@@ -119,7 +118,6 @@ def add_dpo_command(subparsers: Any) -> None:
         "--reference-model-path",
         help="Optional path to pre-trained reference model weights",
     )
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument(
         "--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS,
         help="Training epochs",

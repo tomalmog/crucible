@@ -14,10 +14,10 @@ export function KtoTrainForm({ extra, setExtra }: KtoTrainFormProps) {
     <div className="stack-sm">
       <h4>Kahneman-Tversky Optimization</h4>
       <div className="grid-2">
-        <FormField label="KTO Data Path">
+        <FormField label="KTO Data Path" required>
           <input value={extra["--kto-data-path"] ?? ""} onChange={(e) => update("--kto-data-path", e.currentTarget.value)} placeholder="/path/to/kto_data.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">

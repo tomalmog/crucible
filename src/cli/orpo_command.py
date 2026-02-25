@@ -36,10 +36,10 @@ from store.dataset_sdk import ForgeClient
 def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle ORPO command invocation."""
     options = OrpoOptions(
-        dataset_name=args.dataset, output_dir=args.output_dir,
+        dataset_name="", output_dir=args.output_dir,
         orpo_data_path=args.orpo_data_path,
         lambda_orpo=args.lambda_orpo, beta=args.beta,
-        version_id=args.version_id, epochs=args.epochs,
+        version_id=None, epochs=args.epochs,
         learning_rate=args.learning_rate, batch_size=args.batch_size,
         max_token_length=args.max_token_length, validation_split=args.validation_split,
         precision_mode=cast(PrecisionMode, args.precision_mode),
@@ -70,12 +70,10 @@ def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
 def add_orpo_command(subparsers: Any) -> None:
     """Register ORPO subcommand."""
     parser = subparsers.add_parser("orpo-train", help="Odds Ratio Preference Optimization training")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--orpo-data-path", required=True, help="Path to JSONL with preference pairs")
     parser.add_argument("--lambda-orpo", type=float, default=DEFAULT_ORPO_LAMBDA, help="ORPO lambda weight for odds-ratio term")
     parser.add_argument("--beta", type=float, default=DEFAULT_ORPO_BETA, help="ORPO beta parameter")
-    parser.add_argument("--version-id", help="Optional version id")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE, help="Learning rate")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")

@@ -14,7 +14,7 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
     <div className="stack-sm">
       <h4>RLHF Training</h4>
       <div className="grid-2">
-        <FormField label="Policy Model Path">
+        <FormField label="Policy Model Path" required>
           <input value={extra["--policy-model-path"] ?? ""} onChange={(e) => update("--policy-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
         <FormField label="Reward Model Path">

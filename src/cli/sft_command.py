@@ -45,10 +45,10 @@ def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     options = SftOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
         sft_data_path=args.sft_data_path,
-        version_id=args.version_id,
+        version_id=None,
         mask_prompt_tokens=args.mask_prompt_tokens,
         packing_enabled=args.packing,
         epochs=args.epochs,
@@ -95,7 +95,6 @@ def add_sft_command(subparsers: Any) -> None:
         "sft",
         help="Supervised fine-tuning on prompt/response pairs",
     )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument(
         "--output-dir", required=True, help="Training artifact output directory"
     )
@@ -104,7 +103,6 @@ def add_sft_command(subparsers: Any) -> None:
         required=True,
         help="Path to JSONL file with prompt/response pairs",
     )
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument(
         "--mask-prompt-tokens",
         action="store_true",

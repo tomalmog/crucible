@@ -10,14 +10,16 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
+  const hasHfModel = (extra["--base-model"] ?? "").trim().length > 0;
+
   return (
     <div className="stack-sm">
       <h4>Direct Preference Optimization</h4>
       <div className="grid-2">
-        <FormField label="DPO Data Path">
+        <FormField label="DPO Data Path" required>
           <input value={extra["--dpo-data-path"] ?? ""} onChange={(e) => update("--dpo-data-path", e.currentTarget.value)} placeholder="/path/to/preferences.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
@@ -32,8 +34,8 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
         <FormField label="Reference Model Path">
           <input value={extra["--reference-model-path"] ?? ""} onChange={(e) => update("--reference-model-path", e.currentTarget.value)} placeholder="optional — defaults to policy model" />
         </FormField>
-        <FormField label="Tokenizer Path">
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
+        <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
+          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} />
         </FormField>
       </div>
     </div>

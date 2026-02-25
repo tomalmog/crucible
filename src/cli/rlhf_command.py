@@ -55,12 +55,12 @@ def run_rlhf_command(client: ForgeClient, args: argparse.Namespace) -> int:
         entropy_coeff=args.entropy_coeff,
     )
     options = RlhfOptions(
-        dataset_name=args.dataset,
+        dataset_name="",
         output_dir=args.output_dir,
         policy_model_path=args.policy_model_path,
         reward_config=reward_config,
         ppo_config=ppo_config,
-        version_id=args.version_id,
+        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -104,7 +104,6 @@ def add_rlhf_command(subparsers: Any) -> None:
         "rlhf-train",
         help="RLHF training with PPO and reward model",
     )
-    parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument(
         "--output-dir", required=True,
         help="Training artifact output directory",
@@ -137,7 +136,6 @@ def add_rlhf_command(subparsers: Any) -> None:
         "--entropy-coeff", type=float, default=0.01,
         help="Entropy bonus coefficient",
     )
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument(
         "--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS,
         help="Training epochs",

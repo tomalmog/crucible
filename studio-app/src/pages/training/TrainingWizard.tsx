@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TrainingMethod, TRAINING_METHODS, DEFAULT_SHARED_CONFIG, SharedTrainingConfig } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { buildTrainingArgs } from "../../api/commandArgs";
@@ -20,6 +20,48 @@ import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 
+/** Methods that require a Forge dataset (they train directly on dataset records). */
+const METHODS_REQUIRING_DATASET: ReadonlySet<TrainingMethod> = new Set([
+  "train",
+  "distill",
+  "domain-adapt",
+]);
+
+/** Required extra fields per training method. */
+const REQUIRED_EXTRA_FIELDS: Record<TrainingMethod, string[]> = {
+  train: [],
+  sft: ["--sft-data-path", "--base-model"],
+  "dpo-train": ["--dpo-data-path", "--base-model"],
+  "rlhf-train": ["--policy-model-path"],
+  "lora-train": ["--lora-data-path", "--base-model-path"],
+  distill: ["--teacher-model-path"],
+  "domain-adapt": ["--base-model-path"],
+  "grpo-train": ["--grpo-data-path", "--base-model"],
+  "qlora-train": ["--qlora-data-path", "--base-model-path"],
+  "kto-train": ["--kto-data-path", "--base-model"],
+  "orpo-train": ["--orpo-data-path", "--base-model"],
+  "multimodal-train": ["--multimodal-data-path", "--base-model"],
+  "rlvr-train": ["--rlvr-data-path", "--base-model"],
+};
+
+function getMissingFields(
+  method: TrainingMethod,
+  shared: SharedTrainingConfig,
+  extra: Record<string, string>,
+): string[] {
+  const missing: string[] = [];
+  if (METHODS_REQUIRING_DATASET.has(method) && !shared.dataset.trim()) {
+    missing.push("Dataset");
+  }
+  for (const flag of REQUIRED_EXTRA_FIELDS[method]) {
+    if (!(extra[flag] ?? "").trim()) {
+      const label = flag.replace(/^--/, "").replace(/-/g, " ");
+      missing.push(label);
+    }
+  }
+  return missing;
+}
+
 type Step = "config" | "running" | "done";
 
 interface TrainingWizardProps {
@@ -39,7 +81,14 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   });
   const [extra, setExtra] = useState<Record<string, string>>({});
 
+  const missing = useMemo(
+    () => getMissingFields(method, shared, extra),
+    [method, shared, extra],
+  );
+  const canStart = missing.length === 0;
+
   async function startTraining() {
+    if (!canStart) return;
     setStep("running");
     const args = buildTrainingArgs(method, shared, extra);
     const status = await command.run(dataRoot, args);
@@ -94,12 +143,23 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
           {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
 
-          <SharedTrainingFields config={shared} onChange={setShared} />
+          <SharedTrainingFields config={shared} onChange={setShared} showDataset={METHODS_REQUIRING_DATASET.has(method)} />
 
+          {!canStart && (
+            <div style={{
+              fontSize: "0.75rem",
+              color: "var(--error)",
+              padding: "8px 12px",
+              borderRadius: 6,
+              background: "var(--error-muted)",
+            }}>
+              Missing required fields: {missing.join(", ")}
+            </div>
+          )}
           <button
             className="btn btn-primary btn-lg"
             onClick={() => startTraining().catch(console.error)}
-            disabled={!shared.dataset.trim()}
+            disabled={!canStart}
           >
             Start Training
           </button>

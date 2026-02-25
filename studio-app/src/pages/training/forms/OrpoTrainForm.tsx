@@ -14,10 +14,10 @@ export function OrpoTrainForm({ extra, setExtra }: OrpoTrainFormProps) {
     <div className="stack-sm">
       <h4>Odds Ratio Preference Optimization</h4>
       <div className="grid-2">
-        <FormField label="ORPO Data Path">
+        <FormField label="ORPO Data Path" required>
           <input value={extra["--orpo-data-path"] ?? ""} onChange={(e) => update("--orpo-data-path", e.currentTarget.value)} placeholder="/path/to/preferences.jsonl" />
         </FormField>
-        <FormField label="Base Model">
+        <FormField label="Base Model" required>
           <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
