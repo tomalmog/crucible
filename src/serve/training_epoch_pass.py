@@ -6,9 +6,11 @@ structured batch-level progress updates.
 
 from __future__ import annotations
 
+import math
 from contextlib import nullcontext
 from typing import Any
 
+from core.errors import ForgeServeError, ForgeTrainingDivergedError
 from core.types import BatchLossMetric
 from serve.gradient_accumulation import run_accumulated_batch_step
 from serve.tokenization import SequenceBatch
@@ -113,6 +115,11 @@ def _run_accumulated_pass(
             accumulation_steps=accumulation_steps,
             current_accumulation=current_accumulation,
         )
+        if math.isnan(loss_value) or math.isinf(loss_value):
+            raise ForgeTrainingDivergedError(
+                f"Training diverged: loss is {loss_value} at epoch {epoch_index}, batch {batch_index}. "
+                "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
+            )
         total_loss += loss_value
         if did_step:
             global_step += 1
@@ -173,33 +180,47 @@ def _run_batch_step(
 ) -> tuple[float, int]:
     """Run one batch step and return loss value and updated global step."""
     inputs, targets = _tensorize_batch(context, batch)
-    with _autocast_context(context):
-        logits = context.model(inputs)
-        loss = context.loss_function(
-            logits.reshape(-1, logits.shape[-1]),
-            targets.reshape(-1),
-        )
-    loss_value = float(loss.item())
-    if not training:
-        invoke_hook(
-            "on_batch_end",
-            context.hooks.on_batch_end,
-            context,
-            "validation",
-            epoch_index,
-            batch_index,
-            global_step,
-            loss_value,
-        )
-        return loss_value, global_step
-    context.optimizer.zero_grad()
-    if context.precision_runtime.scaler is not None:
-        context.precision_runtime.scaler.scale(loss).backward()
-        context.precision_runtime.scaler.step(context.optimizer)
-        context.precision_runtime.scaler.update()
-    else:
-        loss.backward()
-        context.optimizer.step()
+    try:
+        with _autocast_context(context):
+            logits = context.model(inputs)
+            loss = context.loss_function(
+                logits.reshape(-1, logits.shape[-1]),
+                targets.reshape(-1),
+            )
+        loss_value = float(loss.item())
+        if math.isnan(loss_value) or math.isinf(loss_value):
+            raise ForgeTrainingDivergedError(
+                f"Training diverged: loss is {loss_value} at epoch {epoch_index}, batch {batch_index}. "
+                "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
+            )
+        if not training:
+            invoke_hook(
+                "on_batch_end",
+                context.hooks.on_batch_end,
+                context,
+                "validation",
+                epoch_index,
+                batch_index,
+                global_step,
+                loss_value,
+            )
+            return loss_value, global_step
+        context.optimizer.zero_grad()
+        if context.precision_runtime.scaler is not None:
+            context.precision_runtime.scaler.scale(loss).backward()
+            context.precision_runtime.scaler.step(context.optimizer)
+            context.precision_runtime.scaler.update()
+        else:
+            loss.backward()
+            context.optimizer.step()
+    except RuntimeError as runtime_err:
+        if "out of memory" in str(runtime_err).lower():
+            raise ForgeServeError(
+                "GPU out of memory during training. Try: "
+                "--batch-size (smaller), --gradient-checkpointing, "
+                "--max-token-length (shorter), or --precision fp16/bf16."
+            ) from runtime_err
+        raise
     next_global_step = global_step + 1
     batch_rows.append(
         BatchLossMetric(

@@ -85,6 +85,23 @@ pub fn kill_forge_task(
     task_store.kill_task(&task_id)
 }
 
+#[tauri::command]
+pub fn rename_forge_task(
+    task_id: String,
+    label: String,
+    task_store: State<'_, CommandTaskStore>,
+) -> Result<(), String> {
+    task_store.rename_task(&task_id, label)
+}
+
+#[tauri::command]
+pub fn delete_forge_task(
+    task_id: String,
+    task_store: State<'_, CommandTaskStore>,
+) -> Result<(), String> {
+    task_store.delete_task(&task_id)
+}
+
 fn validate_args(args: &[String]) -> Result<(), String> {
     if args.is_empty() {
         return Err("Forge args must include a command".to_string());

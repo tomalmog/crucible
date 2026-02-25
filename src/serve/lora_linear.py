@@ -70,6 +70,16 @@ def create_lora_linear(
             for param in self.original.parameters():
                 param.requires_grad = False
 
+        @property
+        def weight(self) -> Any:
+            """Expose original weight for modules that access it directly."""
+            return self.original.weight
+
+        @property
+        def bias(self) -> Any:
+            """Expose original bias for modules that access it directly."""
+            return self.original.bias
+
         def forward(self, x: Any) -> Any:
             """Compute original output plus LoRA delta."""
             base_output = self.original(x)

@@ -17,6 +17,8 @@ from core.constants import (
     DEFAULT_TRAIN_EPOCHS,
     DEFAULT_TRAIN_HIDDEN_DIM,
     DEFAULT_TRAIN_LEARNING_RATE,
+    DEFAULT_TRAIN_MLP_HIDDEN_DIM,
+    DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS,
     DEFAULT_TRAIN_OPTIMIZER_TYPE,
     DEFAULT_TRAIN_PRECISION_MODE,
@@ -51,8 +53,11 @@ def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
         optimizer_type=cast(OptimizerType, args.optimizer_type),
         weight_decay=args.weight_decay, hidden_dim=args.hidden_dim,
         num_layers=args.num_layers, attention_heads=args.attention_heads,
+        mlp_hidden_dim=args.mlp_hidden_dim, mlp_layers=args.mlp_layers,
         hooks_path=args.hooks_file, initial_weights_path=args.initial_weights_path,
         base_model=args.base_model,
+        tokenizer_path=args.tokenizer_path,
+        resume_checkpoint_path=args.resume_checkpoint_path,
         checkpoint_every_epochs=args.checkpoint_every_epochs,
         save_best_checkpoint=args.save_best_checkpoint,
         progress_log_interval_steps=args.progress_log_interval_steps,
@@ -91,6 +96,8 @@ def add_kto_command(subparsers: Any) -> None:
     parser.add_argument("--hidden-dim", type=int, default=DEFAULT_TRAIN_HIDDEN_DIM, help="Hidden dim")
     parser.add_argument("--num-layers", type=int, default=DEFAULT_TRAIN_NUM_LAYERS, help="Num layers")
     parser.add_argument("--attention-heads", type=int, default=DEFAULT_TRAIN_ATTENTION_HEADS, help="Attention heads")
+    parser.add_argument("--mlp-hidden-dim", type=int, default=DEFAULT_TRAIN_MLP_HIDDEN_DIM, help="MLP hidden width")
+    parser.add_argument("--mlp-layers", type=int, default=DEFAULT_TRAIN_MLP_LAYERS, help="MLP layers before vocab projection")
     parser.add_argument("--hooks-file", help="Hook module path")
     parser.add_argument("--initial-weights-path", help="Initial weights")
     parser.add_argument("--base-model", help="HuggingFace model ID (e.g. 'gpt2') to use as base architecture")
@@ -98,3 +105,5 @@ def add_kto_command(subparsers: Any) -> None:
     parser.add_argument("--no-save-best-checkpoint", action="store_false", dest="save_best_checkpoint", help="Disable best checkpoint")
     parser.set_defaults(save_best_checkpoint=True)
     parser.add_argument("--progress-log-interval-steps", type=int, default=DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS, help="Log interval")
+    parser.add_argument("--tokenizer-path", default=None, help="Path to tokenizer or HuggingFace tokenizer ID")
+    parser.add_argument("--resume-checkpoint-path", default=None, help="Path to checkpoint to resume training from")

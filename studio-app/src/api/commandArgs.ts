@@ -14,14 +14,8 @@ function appendOptionalRaw(args: string[], flag: string, value: string): void {
   }
 }
 
-const METHODS_WITHOUT_ARCHITECTURE_FLAGS: ReadonlySet<TrainingMethod> = new Set([
-  "lora-train",
-  "qlora-train",
-]);
-
 export function buildSharedTrainingArgs(
   config: SharedTrainingConfig,
-  method?: TrainingMethod,
 ): string[] {
   const args: string[] = [];
   appendOptionalRaw(args, "--dataset", config.dataset);
@@ -33,12 +27,19 @@ export function buildSharedTrainingArgs(
   appendOptionalRaw(args, "--precision-mode", config.precision);
   appendOptionalRaw(args, "--output-dir", config.outputDir);
   appendOptionalRaw(args, "--max-token-length", config.maxTokenLength);
-  if (!method || !METHODS_WITHOUT_ARCHITECTURE_FLAGS.has(method)) {
-    appendOptionalRaw(args, "--hidden-dim", config.embeddingDim);
-    appendOptionalRaw(args, "--attention-heads", config.numHeads);
-    appendOptionalRaw(args, "--num-layers", config.numLayers);
+  appendOptionalRaw(args, "--hidden-dim", config.embeddingDim);
+  appendOptionalRaw(args, "--attention-heads", config.numHeads);
+  appendOptionalRaw(args, "--num-layers", config.numLayers);
+  if (config.mlpHiddenDim && config.mlpHiddenDim !== "512") {
+    args.push("--mlp-hidden-dim", config.mlpHiddenDim);
+  }
+  if (config.mlpLayers && config.mlpLayers !== "1") {
+    args.push("--mlp-layers", config.mlpLayers);
   }
   appendOptional(args, "--checkpoint-every-epochs", config.checkpointEvery);
+  if (config.resumeCheckpointPath) {
+    args.push("--resume-checkpoint-path", config.resumeCheckpointPath);
+  }
   return args;
 }
 
@@ -51,9 +52,7 @@ export function buildTrainingArgs(
   shared: SharedTrainingConfig,
   extra: Record<string, string>,
 ): string[] {
-  const hasBaseModel = (extra["--base-model"] ?? "").trim().length > 0;
-  const effectiveMethod = hasBaseModel ? "lora-train" as TrainingMethod : method;
-  const args = [method, ...buildSharedTrainingArgs(shared, effectiveMethod)];
+  const args = [method, ...buildSharedTrainingArgs(shared)];
   for (const [key, value] of Object.entries(extra)) {
     if (BOOLEAN_FLAGS.has(key)) {
       if (value === "true") args.push(key);

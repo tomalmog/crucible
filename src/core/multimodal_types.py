@@ -8,6 +8,7 @@ from core.constants import (
     DEFAULT_BATCH_SIZE, DEFAULT_MAX_TOKEN_LENGTH,
     DEFAULT_TRAIN_ATTENTION_HEADS, DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS,
     DEFAULT_TRAIN_EPOCHS, DEFAULT_TRAIN_HIDDEN_DIM, DEFAULT_TRAIN_LEARNING_RATE,
+    DEFAULT_TRAIN_MLP_HIDDEN_DIM, DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS, DEFAULT_TRAIN_OPTIMIZER_TYPE,
     DEFAULT_TRAIN_PRECISION_MODE, DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS,
     DEFAULT_TRAIN_VALIDATION_SPLIT, DEFAULT_TRAIN_WEIGHT_DECAY,
@@ -44,9 +45,13 @@ class MultimodalOptions:
     hidden_dim: int = DEFAULT_TRAIN_HIDDEN_DIM
     num_layers: int = DEFAULT_TRAIN_NUM_LAYERS
     attention_heads: int = DEFAULT_TRAIN_ATTENTION_HEADS
+    mlp_hidden_dim: int = DEFAULT_TRAIN_MLP_HIDDEN_DIM
+    mlp_layers: int = DEFAULT_TRAIN_MLP_LAYERS
     hooks_path: str | None = None
     initial_weights_path: str | None = None
     base_model: str | None = None
+    tokenizer_path: str | None = None
+    resume_checkpoint_path: str | None = None
     checkpoint_every_epochs: int = DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS
     save_best_checkpoint: bool = True
     progress_log_interval_steps: int = DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS

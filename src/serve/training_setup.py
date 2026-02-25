@@ -6,6 +6,8 @@ It keeps validation and tokenizer fitting isolated from loop execution.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from core.constants import (
     SUPPORTED_TRAIN_OPTIMIZER_TYPES,
     SUPPORTED_TRAIN_PRECISION_MODES,
@@ -19,14 +21,72 @@ from serve.tokenization import VocabularyTokenizer
 def fit_training_tokenizer(
     records: list[DataRecord],
     options: TrainingOptions,
+    base_model: str | None = None,
 ) -> VocabularyTokenizer:
-    """Build tokenizer vocabulary from record texts."""
+    """Build or load tokenizer vocabulary for training.
+
+    When ``options.tokenizer_path`` is set, loads a pre-trained tokenizer
+    from the given path instead of fitting a new one from record texts.
+    When ``base_model`` is a HuggingFace model ID and no explicit
+    tokenizer path is provided, auto-loads the HF tokenizer.
+    """
+    if options.tokenizer_path:
+        return _load_tokenizer_from_option(options.tokenizer_path)
+    if base_model:
+        from serve.hf_model_loader import is_huggingface_model_id
+
+        if is_huggingface_model_id(base_model):
+            return _load_hf_tokenizer_as_vocabulary(base_model)
     tokenizer = VocabularyTokenizer.create()
     tokenizer.fit(
         (record.text for record in records),
         max_vocabulary_size=options.vocabulary_size,
     )
     return tokenizer
+
+
+def _load_tokenizer_from_option(tokenizer_path: str) -> VocabularyTokenizer:
+    """Load a pre-trained tokenizer from an explicit path.
+
+    Supports Forge vocab.json files and HuggingFace tokenizer.json files.
+    """
+    from serve.training_metadata import load_tokenizer_from_path
+
+    loaded = load_tokenizer_from_path(tokenizer_path)
+    if isinstance(loaded, VocabularyTokenizer):
+        return loaded
+    # HuggingFace tokenizer — wrap into VocabularyTokenizer interface
+    return VocabularyTokenizer(vocabulary=loaded.vocabulary)
+
+
+def _load_hf_tokenizer_as_vocabulary(model_id: str) -> VocabularyTokenizer:
+    """Load a HuggingFace tokenizer and wrap it as a VocabularyTokenizer."""
+    from serve.hf_model_loader import load_huggingface_tokenizer
+
+    hf_tok = load_huggingface_tokenizer(model_id)
+    return VocabularyTokenizer(vocabulary=dict(hf_tok.get_vocab()))
+
+
+def validate_file_paths(**paths: str | None) -> None:
+    """Validate that all provided file paths exist.
+
+    Skips None values and HuggingFace model IDs. Raises ForgeServeError
+    with a clear message if any file path does not exist.
+    """
+    for name, path in paths.items():
+        if path is None:
+            continue
+        from serve.hf_model_loader import is_huggingface_model_id
+
+        if is_huggingface_model_id(path):
+            continue
+        resolved = Path(path).expanduser().resolve()
+        if not resolved.exists():
+            flag = name.replace("_", "-")
+            raise ForgeServeError(
+                f"File not found: {resolved} (--{flag}). "
+                "Check the path and try again."
+            )
 
 
 def validate_training_options(options: TrainingOptions) -> None:

@@ -34,7 +34,7 @@ from serve.training_artifacts import (
 from serve.training_config_hash import compute_training_config_hash
 from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer
+from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
 def run_distillation(
@@ -99,6 +99,14 @@ def _execute_distillation(
     run_id: str,
 ) -> TrainingRunResult:
     """Build models and run distillation loop."""
+    validate_training_options(training_options)
+    validate_file_paths(
+        teacher_model_path=options.teacher_model_path,
+        student_model_path=options.student_model_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+        tokenizer_path=options.tokenizer_path,
+        hooks_path=options.hooks_path,
+    )
     output_dir = ensure_training_output_dir(options.output_dir)
     tokenizer = fit_training_tokenizer(records, training_options)
     vocab_size = len(tokenizer.vocabulary)
@@ -275,8 +283,18 @@ def _run_distillation_loop(
     train_batches = build_sequence_batches(train_seqs, options.batch_size)
     val_batches = build_sequence_batches(val_seqs, options.batch_size)
 
+    start_epoch = 1
+    global_step = 0
+    if options.resume_checkpoint_path:
+        from serve.training_checkpoint import load_resume_checkpoint
+        resume = load_resume_checkpoint(
+            options.resume_checkpoint_path, torch_module, student,
+            optimizer, None, device,
+        )
+        start_epoch = resume.next_epoch
+        global_step = resume.global_step
     epoch_metrics: list[EpochMetric] = []
-    for epoch in range(1, options.epochs + 1):
+    for epoch in range(start_epoch, options.epochs + 1):
         train_loss = _run_distillation_pass(
             torch_module=torch_module,
             teacher=teacher,
@@ -311,6 +329,13 @@ def _run_distillation_loop(
                 train_loss=round(train_loss, 6),
                 validation_loss=round(val_loss, 6),
             )
+        )
+        global_step += 1
+        from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+        checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
+        save_epoch_checkpoint(
+            checkpoint_dir, torch_module, student, optimizer, None,
+            epoch, global_step, None,
         )
     return epoch_metrics
 
@@ -437,11 +462,15 @@ def _to_training_options(options: DistillationOptions) -> TrainingOptions:
         hidden_dim=options.hidden_dim,
         num_layers=options.num_layers,
         attention_heads=options.attention_heads,
+        mlp_hidden_dim=options.mlp_hidden_dim,
+        mlp_layers=options.mlp_layers,
         hooks_path=options.hooks_path,
         initial_weights_path=options.initial_weights_path,
         checkpoint_every_epochs=options.checkpoint_every_epochs,
         save_best_checkpoint=options.save_best_checkpoint,
         progress_log_interval_steps=options.progress_log_interval_steps,
+        tokenizer_path=options.tokenizer_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
     )
 
 

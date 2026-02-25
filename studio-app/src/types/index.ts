@@ -55,6 +55,7 @@ export interface CommandTaskStatus {
   estimated_total_seconds: number;
   remaining_seconds: number;
   progress_percent: number;
+  label: string | null;
 }
 
 export interface TrainingEpoch {

@@ -85,6 +85,14 @@ export async function killForgeTask(taskId: string): Promise<void> {
   return invoke<void>("kill_forge_task", { taskId });
 }
 
+export async function renameForgeTask(taskId: string, label: string): Promise<void> {
+  return invoke<void>("rename_forge_task", { taskId, label });
+}
+
+export async function deleteForgeTask(taskId: string): Promise<void> {
+  return invoke<void>("delete_forge_task", { taskId });
+}
+
 export async function loadTrainingHistory(
   historyPath: string,
 ): Promise<TrainingHistory> {

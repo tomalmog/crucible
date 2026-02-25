@@ -67,6 +67,7 @@ pub struct CommandTaskStatus {
     pub estimated_total_seconds: u64,
     pub remaining_seconds: u64,
     pub progress_percent: f64,
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

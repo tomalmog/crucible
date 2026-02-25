@@ -27,7 +27,7 @@ from serve.training_hooks import invoke_hook, load_training_hooks
 from serve.training_optimization import build_training_optimization
 from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer
+from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
 def run_orpo_training(
@@ -93,8 +93,15 @@ def _build_orpo_runtime_context(
 ) -> TrainingRuntimeContext:
     """Build runtime context for ORPO training."""
     torch_module = _import_torch()
+    validate_training_options(training_options)
+    validate_file_paths(
+        initial_weights_path=options.initial_weights_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+        tokenizer_path=options.tokenizer_path,
+        hooks_path=options.hooks_path,
+    )
     output_dir = ensure_training_output_dir(options.output_dir)
-    tokenizer = fit_training_tokenizer(records, training_options)
+    tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     orpo_data = _load_orpo_data(options.orpo_data_path)
     if not orpo_data:
         raise ForgeOrpoError(
@@ -251,10 +258,13 @@ def _orpo_options_to_training_options(options: OrpoOptions) -> TrainingOptions:
         precision_mode=options.precision_mode, optimizer_type=options.optimizer_type,
         weight_decay=options.weight_decay, hidden_dim=options.hidden_dim,
         num_layers=options.num_layers, attention_heads=options.attention_heads,
+        mlp_hidden_dim=options.mlp_hidden_dim, mlp_layers=options.mlp_layers,
         hooks_path=options.hooks_path, initial_weights_path=options.initial_weights_path,
         checkpoint_every_epochs=options.checkpoint_every_epochs,
         save_best_checkpoint=options.save_best_checkpoint,
         progress_log_interval_steps=options.progress_log_interval_steps,
+        tokenizer_path=options.tokenizer_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
     )
 
 

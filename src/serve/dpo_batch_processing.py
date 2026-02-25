@@ -55,8 +55,18 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
     optimizer = torch_module.optim.Adam(
         context.model.parameters(), lr=options.learning_rate,
     )
+    start_epoch = 1
+    global_step = 0
+    if options.resume_checkpoint_path:
+        from serve.training_checkpoint import load_resume_checkpoint
+        resume = load_resume_checkpoint(
+            options.resume_checkpoint_path, torch_module, context.model,
+            optimizer, None, context.device,
+        )
+        start_epoch = resume.next_epoch
+        global_step = resume.global_step
     epoch_metrics: list[EpochMetric] = []
-    for epoch in range(1, options.epochs + 1):
+    for epoch in range(start_epoch, options.epochs + 1):
         context.model.train()
         total_loss = 0.0
         batch_count = 0
@@ -74,12 +84,20 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
             optimizer.step()
             total_loss += loss.item()
             batch_count += 1
+            global_step += 1
         avg_loss = total_loss / max(batch_count, 1)
         epoch_metrics.append(EpochMetric(
             epoch=epoch,
             train_loss=avg_loss,
             validation_loss=avg_loss,
         ))
+        from pathlib import Path
+        from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+        checkpoint_dir = ensure_checkpoint_dir(Path(context.output_dir))
+        save_epoch_checkpoint(
+            checkpoint_dir, torch_module, context.model, optimizer, None,
+            epoch, global_step, None,
+        )
     return DpoLoopResult(epoch_metrics=epoch_metrics)
 
 

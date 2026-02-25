@@ -36,7 +36,7 @@ from serve.training_hooks import load_training_hooks
 from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
 from serve.training_reproducibility_bundle import save_reproducibility_bundle
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer
+from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
 @dataclass
@@ -101,6 +101,14 @@ def _build_rlhf_context(
 ) -> _RlhfContext:
     """Build RLHF runtime context with models and tokenizer."""
     torch_module = _import_torch()
+    validate_training_options(training_options)
+    validate_file_paths(
+        policy_model_path=options.policy_model_path,
+        reward_model_path=options.reward_config.reward_model_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+        tokenizer_path=options.tokenizer_path,
+        hooks_path=options.hooks_path,
+    )
     output_dir = ensure_training_output_dir(options.output_dir)
     device = resolve_execution_device(torch_module)
     tokenizer = fit_training_tokenizer(records, training_options)
@@ -206,9 +214,19 @@ def _run_ppo_training(
     optimizer = context.torch_module.optim.Adam(
         context.policy_model.parameters(), lr=options.learning_rate,
     )
+    start_epoch = 1
+    global_step = 0
+    if options.resume_checkpoint_path:
+        from serve.training_checkpoint import load_resume_checkpoint
+        resume = load_resume_checkpoint(
+            options.resume_checkpoint_path, context.torch_module,
+            context.policy_model, optimizer, None, context.device,
+        )
+        start_epoch = resume.next_epoch
+        global_step = resume.global_step
     prompts = _build_prompt_batch(context)
     results: list[PpoEpochResult] = []
-    for epoch_idx in range(options.epochs):
+    for epoch_idx in range(start_epoch - 1, options.epochs):
         result = run_ppo_epoch(
             torch_module=context.torch_module,
             policy_model=context.policy_model,
@@ -219,10 +237,17 @@ def _run_ppo_training(
             epoch=epoch_idx + 1,
         )
         results.append(result)
+        global_step += 1
         print(
             f"RLHF epoch {result.epoch}/{options.epochs} "
             f"policy_loss={result.policy_loss:.4f} "
             f"mean_reward={result.mean_reward:.4f}"
+        )
+        from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+        checkpoint_dir = ensure_checkpoint_dir(context.output_dir)
+        save_epoch_checkpoint(
+            checkpoint_dir, context.torch_module, context.policy_model,
+            optimizer, None, epoch_idx + 1, global_step, None,
         )
     return results
 
@@ -309,11 +334,15 @@ def _rlhf_options_to_training_options(options: RlhfOptions) -> TrainingOptions:
         hidden_dim=options.hidden_dim,
         num_layers=options.num_layers,
         attention_heads=options.attention_heads,
+        mlp_hidden_dim=options.mlp_hidden_dim,
+        mlp_layers=options.mlp_layers,
         hooks_path=options.hooks_path,
         initial_weights_path=options.initial_weights_path,
         checkpoint_every_epochs=options.checkpoint_every_epochs,
         save_best_checkpoint=options.save_best_checkpoint,
         progress_log_interval_steps=options.progress_log_interval_steps,
+        tokenizer_path=options.tokenizer_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
     )
 
 

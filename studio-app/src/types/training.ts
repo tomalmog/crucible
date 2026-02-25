@@ -49,6 +49,9 @@ export interface SharedTrainingConfig {
   numHeads: string;
   numLayers: string;
   checkpointEvery: string;
+  mlpHiddenDim: string;
+  mlpLayers: string;
+  resumeCheckpointPath: string;
 }
 
 export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
@@ -65,4 +68,7 @@ export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
   numHeads: "4",
   numLayers: "4",
   checkpointEvery: "0",
+  mlpHiddenDim: "512",
+  mlpLayers: "1",
+  resumeCheckpointPath: "",
 };

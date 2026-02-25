@@ -15,9 +15,14 @@ from core.constants import (
     DEFAULT_LORA_DROPOUT,
     DEFAULT_LORA_RANK,
     DEFAULT_MAX_TOKEN_LENGTH,
+    DEFAULT_TRAIN_ATTENTION_HEADS,
     DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS,
     DEFAULT_TRAIN_EPOCHS,
+    DEFAULT_TRAIN_HIDDEN_DIM,
     DEFAULT_TRAIN_LEARNING_RATE,
+    DEFAULT_TRAIN_MLP_HIDDEN_DIM,
+    DEFAULT_TRAIN_MLP_LAYERS,
+    DEFAULT_TRAIN_NUM_LAYERS,
     DEFAULT_TRAIN_OPTIMIZER_TYPE,
     DEFAULT_TRAIN_PRECISION_MODE,
     DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS,
@@ -46,6 +51,7 @@ def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int
         base_model_path=args.base_model_path,
         lora_config=lora_config,
         tokenizer_path=getattr(args, "tokenizer_path", None),
+        resume_checkpoint_path=getattr(args, "resume_checkpoint_path", None),
         version_id=args.version_id,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
@@ -55,6 +61,11 @@ def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int
         precision_mode=args.precision_mode,
         optimizer_type=args.optimizer_type,
         weight_decay=args.weight_decay,
+        hidden_dim=args.hidden_dim,
+        num_layers=args.num_layers,
+        attention_heads=args.attention_heads,
+        mlp_hidden_dim=args.mlp_hidden_dim,
+        mlp_layers=args.mlp_layers,
         checkpoint_every_epochs=args.checkpoint_every_epochs,
         save_best_checkpoint=args.save_best_checkpoint,
         progress_log_interval_steps=args.progress_log_interval_steps,
@@ -119,6 +130,11 @@ def add_lora_train_command(subparsers: Any) -> None:
     parser.add_argument("--optimizer-type", default=DEFAULT_TRAIN_OPTIMIZER_TYPE,
                         choices=SUPPORTED_TRAIN_OPTIMIZER_TYPES)
     parser.add_argument("--weight-decay", type=float, default=DEFAULT_TRAIN_WEIGHT_DECAY)
+    parser.add_argument("--hidden-dim", type=int, default=DEFAULT_TRAIN_HIDDEN_DIM)
+    parser.add_argument("--num-layers", type=int, default=DEFAULT_TRAIN_NUM_LAYERS)
+    parser.add_argument("--attention-heads", type=int, default=DEFAULT_TRAIN_ATTENTION_HEADS)
+    parser.add_argument("--mlp-hidden-dim", type=int, default=DEFAULT_TRAIN_MLP_HIDDEN_DIM)
+    parser.add_argument("--mlp-layers", type=int, default=DEFAULT_TRAIN_MLP_LAYERS)
     parser.add_argument("--checkpoint-every-epochs", type=int,
                         default=DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS)
     parser.add_argument("--no-save-best-checkpoint", action="store_false",
@@ -127,6 +143,7 @@ def add_lora_train_command(subparsers: Any) -> None:
     parser.add_argument("--progress-log-interval-steps", type=int,
                         default=DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS)
     parser.add_argument("--hooks-file", help="Optional hooks module path")
+    parser.add_argument("--resume-checkpoint-path", default=None, help="Path to checkpoint to resume training from")
 
 
 def add_lora_merge_command(subparsers: Any) -> None:

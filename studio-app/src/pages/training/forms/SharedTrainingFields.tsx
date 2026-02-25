@@ -66,7 +66,19 @@ export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsP
           <FormField label="Checkpoint Every (0=off)">
             <input type="number" value={config.checkpointEvery} onChange={(e) => update("checkpointEvery", e.currentTarget.value)} />
           </FormField>
+          <FormField label="MLP Hidden Dim">
+            <input type="number" value={config.mlpHiddenDim} onChange={(e) => update("mlpHiddenDim", e.currentTarget.value)} />
+          </FormField>
+          <FormField label="MLP Layers">
+            <input type="number" value={config.mlpLayers} onChange={(e) => update("mlpLayers", e.currentTarget.value)} />
+          </FormField>
         </div>
+      </FormSection>
+
+      <FormSection title="Resume Training">
+        <FormField label="Resume Checkpoint Path">
+          <input value={config.resumeCheckpointPath} onChange={(e) => update("resumeCheckpointPath", e.currentTarget.value)} placeholder="path/to/checkpoint" />
+        </FormField>
       </FormSection>
     </>
   );

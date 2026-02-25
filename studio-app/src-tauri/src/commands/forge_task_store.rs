@@ -13,6 +13,29 @@ const MAX_TASKS: usize = 200;
 const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
+/// Commands shown on the Jobs page (heavy-compute workloads).
+const JOBS_PAGE_COMMANDS: [&str; 19] = [
+    "train",
+    "sft",
+    "dpo-train",
+    "rlhf-train",
+    "lora-train",
+    "lora-merge",
+    "distill",
+    "domain-adapt",
+    "distributed-train",
+    "grpo-train",
+    "qlora-train",
+    "kto-train",
+    "orpo-train",
+    "multimodal-train",
+    "rlvr-train",
+    "merge",
+    "eval",
+    "sweep",
+    "ingest",
+];
+
 #[derive(Clone)]
 pub struct CommandTaskStore {
     inner: Arc<CommandTaskStoreInner>,
@@ -31,11 +54,13 @@ struct TaskRecord {
     args: Vec<String>,
     status: TaskLifecycleStatus,
     started_at: Instant,
+    finished_at: Option<Instant>,
     estimated_total_seconds: u64,
     stdout: String,
     stderr: String,
     exit_code: Option<i32>,
     pid: Option<u32>,
+    label: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -103,11 +128,41 @@ impl CommandTaskStore {
         };
         let mut result: Vec<CommandTaskStatus> = tasks
             .values()
+            .filter(|t| JOBS_PAGE_COMMANDS.contains(&t.command.as_str()))
             .cloned()
             .map(task_to_status)
             .collect();
         result.sort_by(|a, b| a.task_id.cmp(&b.task_id));
         result
+    }
+
+    pub fn rename_task(&self, task_id: &str, label: String) -> Result<(), String> {
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .map_err(|_| "Task store lock poisoned".to_string())?;
+        let task = tasks
+            .get_mut(task_id)
+            .ok_or_else(|| format!("Unknown task id '{task_id}'"))?;
+        task.label = if label.is_empty() { None } else { Some(label) };
+        Ok(())
+    }
+
+    pub fn delete_task(&self, task_id: &str) -> Result<(), String> {
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .map_err(|_| "Task store lock poisoned".to_string())?;
+        let task = tasks
+            .get(task_id)
+            .ok_or_else(|| format!("Unknown task id '{task_id}'"))?;
+        if task.status == TaskLifecycleStatus::Running {
+            return Err("Cannot delete a running task — kill it first".to_string());
+        }
+        tasks.remove(task_id);
+        Ok(())
     }
 
     pub fn kill_task(&self, task_id: &str) -> Result<(), String> {
@@ -193,6 +248,7 @@ impl CommandTaskStore {
             })
             .unwrap_or_default();
 
+        let now = Instant::now();
         let mut observed_elapsed_seconds = None;
         if let Ok(mut tasks) = self.inner.tasks.lock() {
             if let Some(task) = tasks.get_mut(task_id) {
@@ -206,6 +262,7 @@ impl CommandTaskStore {
                 } else {
                     TaskLifecycleStatus::Failed
                 };
+                task.finished_at = Some(now);
                 observed_elapsed_seconds = Some(task.started_at.elapsed().as_secs_f64().max(1.0));
             }
         }
@@ -215,12 +272,14 @@ impl CommandTaskStore {
     }
 
     fn fail_task(&self, task_id: &str, command_name: &str, error_message: String) {
+        let now = Instant::now();
         let mut observed_elapsed_seconds = None;
         if let Ok(mut tasks) = self.inner.tasks.lock() {
             if let Some(task) = tasks.get_mut(task_id) {
                 task.exit_code = Some(-1);
                 task.status = TaskLifecycleStatus::Failed;
                 task.stderr = format!("Failed to run forge command: {error_message}");
+                task.finished_at = Some(now);
                 observed_elapsed_seconds = Some(task.started_at.elapsed().as_secs_f64().max(1.0));
             }
         }
@@ -250,11 +309,13 @@ impl CommandTaskStore {
                     args,
                     status: TaskLifecycleStatus::Running,
                     started_at: Instant::now(),
+                    finished_at: None,
                     estimated_total_seconds,
                     stdout: String::new(),
                     stderr: String::new(),
                     exit_code: None,
                     pid: None,
+                    label: None,
                 },
             );
             prune_finished_tasks(&mut tasks);
@@ -301,7 +362,10 @@ fn prune_finished_tasks(tasks: &mut HashMap<String, TaskRecord>) {
 }
 
 fn task_to_status(task: TaskRecord) -> CommandTaskStatus {
-    let elapsed_seconds = task.started_at.elapsed().as_secs();
+    let elapsed_seconds = match task.finished_at {
+        Some(finished) => finished.duration_since(task.started_at).as_secs(),
+        None => task.started_at.elapsed().as_secs(),
+    };
     let status = task_status_name(task.status).to_string();
     let remaining_seconds = if task.status == TaskLifecycleStatus::Running {
         task.estimated_total_seconds.saturating_sub(elapsed_seconds)
@@ -326,6 +390,7 @@ fn task_to_status(task: TaskRecord) -> CommandTaskStatus {
         estimated_total_seconds: task.estimated_total_seconds,
         remaining_seconds,
         progress_percent,
+        label: task.label,
     }
 }
 

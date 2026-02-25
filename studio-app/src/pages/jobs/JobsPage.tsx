@@ -2,7 +2,16 @@ import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { CommandTaskStatus } from "../../types";
-import { Activity, Square, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Activity,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+} from "lucide-react";
 
 type Filter = "all" | "running" | "completed" | "failed";
 
@@ -36,7 +45,7 @@ function statusBadgeClass(status: string): string {
 }
 
 export function JobsPage() {
-  const { jobs, kill } = useJobs();
+  const { jobs, kill, rename, remove } = useJobs();
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -79,7 +88,7 @@ export function JobsPage() {
             <Activity />
           </div>
           <h3>No {filter === "all" ? "" : filter} jobs</h3>
-          <p>Launch a training run or command from the Training page to see it here.</p>
+          <p>Launch a training run from the Training page to see it here.</p>
         </div>
       ) : (
         <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
@@ -90,6 +99,8 @@ export function JobsPage() {
               isExpanded={expanded.has(job.task_id)}
               onToggle={() => toggleExpand(job.task_id)}
               onKill={() => kill(job.task_id)}
+              onRename={(label) => rename(job.task_id, label)}
+              onDelete={() => remove(job.task_id)}
             />
           ))}
         </div>
@@ -98,18 +109,49 @@ export function JobsPage() {
   );
 }
 
+function extractForgeError(stderr: string): string | null {
+  const lines = stderr.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const match = lines[i].match(/Forge\w+Error:\s*(.+)/);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
 function JobRow({
   job,
   isExpanded,
   onToggle,
   onKill,
+  onRename,
+  onDelete,
 }: {
   job: CommandTaskStatus;
   isExpanded: boolean;
   onToggle: () => void;
   onKill: () => void;
+  onRename: (label: string) => void;
+  onDelete: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const commandLabel = [job.command, ...job.args.slice(1)].join(" ");
+  const displayName = job.label || job.task_id;
+  const isFinished = job.status !== "running";
+
+  function startEditing() {
+    setDraft(job.label || "");
+    setEditing(true);
+  }
+
+  function confirmRename() {
+    onRename(draft.trim());
+    setEditing(false);
+  }
+
+  function cancelRename() {
+    setEditing(false);
+  }
 
   return (
     <div className="run-row" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -118,14 +160,53 @@ function JobRow({
           <button className="btn btn-ghost btn-sm" onClick={onToggle} style={{ padding: 2 }}>
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
-          <span className="run-row-id">{job.task_id}</span>
+          {editing ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmRename();
+                  if (e.key === "Escape") cancelRename();
+                }}
+                placeholder={job.task_id}
+                style={{ width: 180, padding: "2px 6px", fontSize: "0.75rem" }}
+              />
+              <button className="btn btn-ghost btn-sm" onClick={confirmRename} style={{ padding: 2 }}>
+                <Check size={12} />
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={cancelRename} style={{ padding: 2 }}>
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="run-row-id">{displayName}</span>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={startEditing}
+                title="Rename"
+                style={{ padding: 2 }}
+              >
+                <Pencil size={11} />
+              </button>
+            </>
+          )}
           <span className={statusBadgeClass(job.status)}>{job.status}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="run-row-meta">{formatElapsed(job.elapsed_seconds)}</span>
+          <span className="run-row-meta">
+            {isFinished ? `took ${formatElapsed(job.elapsed_seconds)}` : formatElapsed(job.elapsed_seconds)}
+          </span>
           {job.status === "running" && (
             <button className="btn btn-sm" onClick={onKill} title="Kill process">
               <Square size={12} /> Kill
+            </button>
+          )}
+          {isFinished && (
+            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete job">
+              <Trash2 size={12} />
             </button>
           )}
         </div>
@@ -164,10 +245,35 @@ function JobRow({
           )}
           {job.stderr && (
             <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--error)", marginBottom: 4 }}>
-                stderr
-              </div>
-              <pre className="console console-short">{job.stderr}</pre>
+              {job.status === "failed" && (() => {
+                const friendly = extractForgeError(job.stderr);
+                return friendly ? (
+                  <div style={{
+                    padding: "8px 12px",
+                    marginBottom: 8,
+                    borderRadius: 6,
+                    background: "color-mix(in srgb, var(--error) 12%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--error) 30%, transparent)",
+                    color: "var(--error)",
+                    fontSize: "0.8125rem",
+                    fontWeight: 500,
+                  }}>
+                    {friendly}
+                  </div>
+                ) : null;
+              })()}
+              <details open={job.status !== "failed"}>
+                <summary style={{
+                  fontSize: "0.6875rem",
+                  color: job.status === "failed" ? "var(--error)" : "var(--text-tertiary)",
+                  marginBottom: 4,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}>
+                  {job.status === "failed" ? "full traceback" : "logs"}
+                </summary>
+                <pre className="console console-short">{job.stderr}</pre>
+              </details>
             </div>
           )}
           {!job.stdout && !job.stderr && (

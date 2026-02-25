@@ -7,11 +7,12 @@ and persists the adapter alongside training artifacts.
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeLoraError, ForgeServeError
+from core.errors import ForgeDependencyError, ForgeLoraError, ForgeServeError, ForgeTrainingDivergedError
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
 from serve.model_format import detect_model_format
 from core.lora_types import LoraConfig, LoraTrainingOptions
@@ -24,7 +25,7 @@ from serve.lora_injection import (
     freeze_base_parameters,
     inject_lora_adapters,
 )
-from serve.model_weights import load_initial_weights
+from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.training_artifacts import (
     ensure_training_output_dir,
     save_model_weights,
@@ -33,6 +34,7 @@ from serve.training_artifacts import (
 from serve.training_config_hash import compute_training_config_hash
 from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
+from serve.training_setup import validate_file_paths, validate_training_options
 
 
 def run_lora_training(
@@ -55,6 +57,11 @@ def run_lora_training(
         ForgeServeError: If training execution fails.
     """
     _validate_base_model_format(options.base_model_path)
+    validate_file_paths(
+        base_model_path=options.base_model_path,
+        tokenizer_path=options.tokenizer_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+    )
     torch_module = _import_torch()
     output_dir = ensure_training_output_dir(options.output_dir)
     run_registry = TrainingRunRegistry(data_root)
@@ -191,6 +198,20 @@ def _resolve_lora_config(
     )
 
 
+def _infer_checkpoint_vocab_size(
+    torch_module: Any, weights_path: str, device: Any, fallback: int,
+) -> int:
+    """Infer vocab size from checkpoint embedding weights."""
+    try:
+        state = read_model_state_dict(torch_module, weights_path, device)
+        embedding_weight = state.get("embedding.weight")
+        if embedding_weight is not None and hasattr(embedding_weight, "shape"):
+            return int(embedding_weight.shape[0])
+    except Exception:
+        pass
+    return fallback
+
+
 def _build_and_load_model(
     torch_module: Any,
     options: LoraTrainingOptions,
@@ -211,11 +232,17 @@ def _build_and_load_model(
     training_options = TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        hidden_dim=256,
-        num_layers=2,
-        attention_heads=8,
+        hidden_dim=options.hidden_dim,
+        num_layers=options.num_layers,
+        attention_heads=options.attention_heads,
+        mlp_hidden_dim=options.mlp_hidden_dim,
+        mlp_layers=options.mlp_layers,
+        max_token_length=options.max_token_length,
     )
-    model = load_training_model(torch_module, training_options, vocab_size=10000)
+    vocab_size = _infer_checkpoint_vocab_size(
+        torch_module, options.base_model_path, device, fallback=10000,
+    )
+    model = load_training_model(torch_module, training_options, vocab_size=vocab_size)
     model = model.to(device)
     load_initial_weights(
         torch_module=torch_module,
@@ -303,7 +330,7 @@ def _tokenize_records(
     # Forge VocabularyTokenizer
     all_ids = []
     for text in texts:
-        ids = tokenizer.encode(text)[:max_length]
+        ids = tokenizer.encode(text, max_length)
         all_ids.append(torch_module.tensor(ids, dtype=torch_module.long, device=device))
     # Split into batches, pad within each batch
     batches = []
@@ -367,31 +394,58 @@ def _run_lora_training_loop(
     uses_labels = hasattr(model, "forward") and "labels" in _get_forward_params(model)
     is_mps = str(device).startswith("mps")
 
+    start_epoch = 1
+    global_step = 0
+    checkpoint_dir = None
+    if options.resume_checkpoint_path:
+        from serve.training_checkpoint import load_resume_checkpoint, ensure_checkpoint_dir
+        resume = load_resume_checkpoint(
+            options.resume_checkpoint_path, torch_module, model, optimizer, None, device,
+        )
+        start_epoch = resume.next_epoch
+        global_step = resume.global_step
+
     epoch_metrics = []
     model.train()
-    for epoch in range(1, options.epochs + 1):
+    for epoch in range(start_epoch, options.epochs + 1):
         total_loss = 0.0
         num_batches = 0
         for input_ids in batches:
             optimizer.zero_grad()
-            if uses_labels:
-                outputs = model(input_ids=input_ids, labels=input_ids)
-                loss = outputs.loss
-            else:
-                logits = model(input_ids)
-                if hasattr(logits, "logits"):
-                    logits = logits.logits
-                shift_logits = logits[:, :-1, :].contiguous()
-                shift_labels = input_ids[:, 1:].contiguous()
-                loss_fn = torch_module.nn.CrossEntropyLoss()
-                loss = loss_fn(
-                    shift_logits.view(-1, shift_logits.size(-1)),
-                    shift_labels.view(-1),
+            try:
+                if uses_labels:
+                    outputs = model(input_ids=input_ids, labels=input_ids)
+                    loss = outputs.loss
+                else:
+                    logits = model(input_ids)
+                    if hasattr(logits, "logits"):
+                        logits = logits.logits
+                    shift_logits = logits[:, :-1, :].contiguous()
+                    shift_labels = input_ids[:, 1:].contiguous()
+                    loss_fn = torch_module.nn.CrossEntropyLoss()
+                    loss = loss_fn(
+                        shift_logits.view(-1, shift_logits.size(-1)),
+                        shift_labels.view(-1),
+                    )
+                loss.backward()
+                optimizer.step()
+            except RuntimeError as runtime_err:
+                if "out of memory" in str(runtime_err).lower():
+                    raise ForgeServeError(
+                        "GPU out of memory during LoRA training. Try: "
+                        "--batch-size (smaller), --max-token-length (shorter), "
+                        "or reduce --lora-rank."
+                    ) from runtime_err
+                raise
+            batch_loss = loss.item()
+            if math.isnan(batch_loss) or math.isinf(batch_loss):
+                raise ForgeTrainingDivergedError(
+                    f"LoRA training diverged: loss is {batch_loss} at epoch {epoch}. "
+                    "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
                 )
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
+            total_loss += batch_loss
             num_batches += 1
+            global_step += 1
             # Free MPS memory between batches
             if is_mps:
                 torch_module.mps.empty_cache()
@@ -400,6 +454,12 @@ def _run_lora_training_loop(
             EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=avg_loss)
         )
         print(f"Epoch {epoch}/{options.epochs} - loss: {avg_loss:.4f}")
+        from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+        if checkpoint_dir is None:
+            checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
+        save_epoch_checkpoint(
+            checkpoint_dir, torch_module, model, optimizer, None, epoch, global_step, None,
+        )
     return epoch_metrics
 
 

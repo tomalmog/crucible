@@ -40,7 +40,7 @@ from serve.training_optimization import build_training_optimization
 from serve.training_precision import build_training_precision_runtime
 from serve.training_reproducibility_bundle import save_reproducibility_bundle
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer, validate_training_options
+from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
 def run_training(
@@ -112,6 +112,12 @@ def _build_runtime_context(
     """Build an initialized runtime context from records and options."""
     torch_module = _import_torch()
     validate_training_options(options)
+    validate_file_paths(
+        initial_weights_path=options.initial_weights_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+        tokenizer_path=options.tokenizer_path,
+        hooks_path=options.hooks_path,
+    )
     output_dir = ensure_training_output_dir(options.output_dir)
     tokenizer = fit_training_tokenizer(records, options)
     sequences = build_training_sequences(records, tokenizer, options.max_token_length)

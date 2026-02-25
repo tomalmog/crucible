@@ -125,50 +125,68 @@ def _run_default_training_loop(
     best_validation_loss = resume_state.best_validation_loss
     checkpoint_dir: Path | None = None
     best_checkpoint_path: Path | None = None
-    for epoch_index in range(resume_state.next_epoch, context.options.epochs + 1):
-        invoke_hook("on_epoch_start", context.hooks.on_epoch_start, context, epoch_index)
-        train_loss, validation_loss, global_step = _run_epoch_cycle(
-            context=context,
-            progress_tracker=progress_tracker,
-            epoch_index=epoch_index,
-            global_step=global_step,
-            batch_rows=batch_rows,
-        )
-        epoch_rows.append(
-            EpochMetric(
-                epoch=epoch_index,
-                train_loss=round(train_loss, 6),
-                validation_loss=round(validation_loss, 6),
+    try:
+        for epoch_index in range(resume_state.next_epoch, context.options.epochs + 1):
+            invoke_hook("on_epoch_start", context.hooks.on_epoch_start, context, epoch_index)
+            train_loss, validation_loss, global_step = _run_epoch_cycle(
+                context=context,
+                progress_tracker=progress_tracker,
+                epoch_index=epoch_index,
+                global_step=global_step,
+                batch_rows=batch_rows,
             )
-        )
-        _step_scheduler(context.scheduler)
-        progress_tracker.log_epoch_completed(
-            epoch_index=epoch_index,
-            train_loss=train_loss,
-            validation_loss=validation_loss,
-            learning_rate=read_optimizer_learning_rate(context.optimizer),
-        )
-        invoke_hook(
-            "on_epoch_end",
-            context.hooks.on_epoch_end,
-            context,
-            epoch_index,
-            train_loss,
-            validation_loss,
-        )
-        (
-            checkpoint_dir,
-            best_checkpoint_path,
-            best_validation_loss,
-        ) = _persist_checkpoint_state(
-            context=context,
-            epoch_index=epoch_index,
+            epoch_rows.append(
+                EpochMetric(
+                    epoch=epoch_index,
+                    train_loss=round(train_loss, 6),
+                    validation_loss=round(validation_loss, 6),
+                )
+            )
+            _step_scheduler(context.scheduler)
+            progress_tracker.log_epoch_completed(
+                epoch_index=epoch_index,
+                train_loss=train_loss,
+                validation_loss=validation_loss,
+                learning_rate=read_optimizer_learning_rate(context.optimizer),
+            )
+            invoke_hook(
+                "on_epoch_end",
+                context.hooks.on_epoch_end,
+                context,
+                epoch_index,
+                train_loss,
+                validation_loss,
+            )
+            (
+                checkpoint_dir,
+                best_checkpoint_path,
+                best_validation_loss,
+            ) = _persist_checkpoint_state(
+                context=context,
+                epoch_index=epoch_index,
+                global_step=global_step,
+                validation_loss=validation_loss,
+                best_validation_loss=best_validation_loss,
+                checkpoint_dir=checkpoint_dir,
+                best_checkpoint_path=best_checkpoint_path,
+            )
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user.")
+        emergency_dir = checkpoint_dir or ensure_checkpoint_dir(context.output_dir)
+        emergency_path = save_epoch_checkpoint(
+            checkpoint_dir=emergency_dir,
+            torch_module=context.torch_module,
+            model=context.model,
+            optimizer=context.optimizer,
+            scheduler=context.scheduler,
+            epoch=epoch_index,
             global_step=global_step,
-            validation_loss=validation_loss,
             best_validation_loss=best_validation_loss,
-            checkpoint_dir=checkpoint_dir,
-            best_checkpoint_path=best_checkpoint_path,
         )
+        checkpoint_dir = emergency_dir
+        print(f"Emergency checkpoint saved: {emergency_path}")
+        print(f"Resume with: --resume-checkpoint-path {emergency_path}")
+        _transition_run_state(context, "failed")
     return TrainingLoopResult(
         epoch_metrics=epoch_rows,
         batch_metrics=batch_rows,

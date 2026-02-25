@@ -31,6 +31,10 @@ class ForgeServeError(ForgeError):
     """Raised for training data serving failures."""
 
 
+class ForgeTrainingDivergedError(ForgeServeError):
+    """Raised when training loss becomes NaN or Inf."""
+
+
 class ForgeDependencyError(ForgeError):
     """Raised when an optional runtime dependency is missing."""
 

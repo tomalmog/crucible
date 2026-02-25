@@ -36,7 +36,7 @@ from serve.training_optimization import build_training_optimization
 from serve.training_precision import build_training_precision_runtime
 from serve.training_reproducibility_bundle import save_reproducibility_bundle
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer
+from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,14 @@ def _build_adaptation_context(
 ) -> TrainingRuntimeContext:
     """Build runtime context for domain adaptation training."""
     torch_module = _import_torch()
+    validate_training_options(training_options)
+    validate_file_paths(
+        base_model_path=options.base_model_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
+        tokenizer_path=options.tokenizer_path,
+        hooks_path=options.hooks_path,
+        reference_data_path=options.reference_data_path,
+    )
     output_dir = ensure_training_output_dir(options.output_dir)
     tokenizer = fit_training_tokenizer(records, training_options)
     sequences = build_training_sequences(records, tokenizer, options.max_token_length)
@@ -274,10 +282,15 @@ def _adaptation_to_training_options(options: DomainAdaptationOptions) -> Trainin
         validation_split=options.validation_split, precision_mode=options.precision_mode,
         optimizer_type=options.optimizer_type, weight_decay=options.weight_decay,
         hidden_dim=options.hidden_dim, num_layers=options.num_layers,
-        attention_heads=options.attention_heads, hooks_path=options.hooks_path,
+        attention_heads=options.attention_heads,
+        mlp_hidden_dim=options.mlp_hidden_dim,
+        mlp_layers=options.mlp_layers,
+        hooks_path=options.hooks_path,
         checkpoint_every_epochs=options.checkpoint_every_epochs,
         save_best_checkpoint=options.save_best_checkpoint,
         progress_log_interval_steps=options.progress_log_interval_steps,
+        tokenizer_path=options.tokenizer_path,
+        resume_checkpoint_path=options.resume_checkpoint_path,
     )
 
 

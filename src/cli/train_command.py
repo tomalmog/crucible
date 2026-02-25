@@ -117,6 +117,7 @@ def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         auto_micro_batch=args.auto_micro_batch,
         gradient_checkpointing=args.gradient_checkpointing,
+        tokenizer_path=args.tokenizer_path,
     )
 
 
@@ -261,6 +262,11 @@ def add_train_command(subparsers: Any) -> None:
         action="store_true",
         default=False,
         help="Enable gradient checkpointing for memory reduction",
+    )
+    parser.add_argument(
+        "--tokenizer-path",
+        default=None,
+        help="Path to tokenizer or HuggingFace tokenizer ID",
     )
     parser.add_argument(
         "--auto-config",
