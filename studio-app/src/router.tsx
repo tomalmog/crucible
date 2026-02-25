@@ -11,6 +11,7 @@ import { ExperimentsPage } from "./pages/experiments/ExperimentsPage";
 import { HubPage } from "./pages/hub/HubPage";
 import { CompareChatPage } from "./pages/chat/CompareChatPage";
 import { JobsPage } from "./pages/jobs/JobsPage";
+import { DocsPage } from "./pages/docs/DocsPage";
 
 export const router = createHashRouter([
   {
@@ -29,6 +30,7 @@ export const router = createHashRouter([
       { path: "hub", Component: HubPage },
       { path: "compare-chat", Component: CompareChatPage },
       { path: "jobs", Component: JobsPage },
+      { path: "docs", Component: DocsPage },
     ],
   },
 ]);
