@@ -7,16 +7,17 @@ import { DOCS_CONTENT } from "./docsContent";
 function renderMarkdown(md: string): string {
   let html = md;
 
-  // Fenced code blocks (``` ... ```)
+  // Fenced code blocks — replace with placeholder to protect from further processing
+  const codeBlocks: string[] = [];
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) => {
     const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<pre class="console"><code>${escaped.trimEnd()}</code></pre>`;
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre class="console"><code>${escaped.trimEnd()}</code></pre>`);
+    return `\n%%CODEBLOCK_${idx}%%\n`;
   });
 
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-
-  // Tables
+  // Tables — replace with placeholder
+  const tableBlocks: string[] = [];
   html = html.replace(
     /^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm,
     (_match, headerRow: string, bodyRows: string) => {
@@ -26,58 +27,90 @@ function renderMarkdown(md: string): string {
         const cells = row.split("|").map((c: string) => c.trim()).filter(Boolean);
         return `<tr>${cells.map((c: string) => `<td>${c}</td>`).join("")}</tr>`;
       }).join("");
-      return `<div class="docs-table-wrap"><table class="docs-table"><thead><tr>${headerHtml}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      const idx = tableBlocks.length;
+      tableBlocks.push(`<div class="docs-table-wrap"><table class="docs-table"><thead><tr>${headerHtml}</tr></thead><tbody>${rows}</tbody></table></div>`);
+      return `\n%%TABLE_${idx}%%\n`;
     },
   );
 
-  // Headings with anchors: ### Heading {#anchor}
-  html = html.replace(/^### (.+?) \{#(.+?)\}\s*$/gm, '<h3 id="$2">$1</h3>');
-  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 
-  // Horizontal rules
-  html = html.replace(/^---$/gm, "<hr />");
-
-  // Bold and italic
+  // Bold and italic (bold first so ** isn't caught by *)
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
 
-  // Paragraphs: wrap lines that aren't already block elements
+  // Process line by line
   const lines = html.split("\n");
   const result: string[] = [];
-  let inBlock = false;
+  let inList = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+    const trimmed = lines[i].trim();
 
-    if (trimmed.startsWith("<pre") || trimmed.startsWith("<div class=\"docs-table")) {
-      inBlock = true;
-      result.push(line);
+    // Placeholders — emit directly
+    if (trimmed.match(/^%%CODEBLOCK_\d+%%$/)) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      const idx = parseInt(trimmed.match(/\d+/)![0], 10);
+      result.push(codeBlocks[idx]);
       continue;
     }
-    if (trimmed.startsWith("</pre>") || trimmed.endsWith("</table></div>")) {
-      inBlock = false;
-      result.push(line);
+    if (trimmed.match(/^%%TABLE_\d+%%$/)) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      const idx = parseInt(trimmed.match(/\d+/)![0], 10);
+      result.push(tableBlocks[idx]);
       continue;
     }
-    if (inBlock) {
-      result.push(line);
+
+    // Headings
+    const h3Anchor = trimmed.match(/^### (.+?) \{#(.+?)\}$/);
+    if (h3Anchor) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      result.push(`<h3 id="${h3Anchor[2]}">${h3Anchor[1]}</h3>`);
       continue;
     }
-    if (
-      trimmed === "" ||
-      trimmed.startsWith("<h") ||
-      trimmed.startsWith("<hr") ||
-      trimmed.startsWith("<pre") ||
-      trimmed.startsWith("<div")
-    ) {
-      result.push(line);
+    if (trimmed.startsWith("### ")) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      result.push(`<h3>${trimmed.slice(4)}</h3>`);
       continue;
     }
+    if (trimmed.startsWith("## ")) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      result.push(`<h2>${trimmed.slice(3)}</h2>`);
+      continue;
+    }
+    if (trimmed.startsWith("# ")) {
+      if (inList) { result.push("</ul>"); inList = false; }
+      result.push(`<h1>${trimmed.slice(2)}</h1>`);
+      continue;
+    }
+
+    // Horizontal rule
+    if (trimmed === "---") {
+      if (inList) { result.push("</ul>"); inList = false; }
+      result.push("<hr />");
+      continue;
+    }
+
+    // List items
+    if (trimmed.startsWith("- ")) {
+      if (!inList) { result.push("<ul>"); inList = true; }
+      result.push(`<li>${trimmed.slice(2)}</li>`);
+      continue;
+    }
+
+    // Empty line
+    if (trimmed === "") {
+      if (inList) { result.push("</ul>"); inList = false; }
+      continue;
+    }
+
+    // Regular paragraph
+    if (inList) { result.push("</ul>"); inList = false; }
     result.push(`<p>${trimmed}</p>`);
   }
+
+  if (inList) result.push("</ul>");
 
   return result.join("\n");
 }

@@ -897,6 +897,25 @@ label {
     color: inherit;
 }
 
+.docs-content ul {
+    margin: 4px 0 10px;
+    padding-left: 20px;
+    list-style: none;
+}
+
+.docs-content ul li {
+    position: relative;
+    padding-left: 4px;
+    margin-bottom: 3px;
+}
+
+.docs-content ul li::before {
+    content: "\2022";
+    position: absolute;
+    left: -14px;
+    color: var(--text-tertiary);
+}
+
 .docs-content hr {
     border: none;
     border-top: 1px solid var(--border);
