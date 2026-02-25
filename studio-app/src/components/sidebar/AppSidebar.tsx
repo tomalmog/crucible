@@ -1,15 +1,19 @@
 import { NavLink } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
-import { Zap, Database, Box, MessageSquare, Shield, Rocket, Settings } from "lucide-react";
+import { Zap, Database, Box, MessageSquare, Shield, Rocket, Settings, FlaskConical, Globe, GitCompare, Activity } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/training", icon: <Zap size={16} />, label: "Training" },
   { to: "/datasets", icon: <Database size={16} />, label: "Datasets" },
   { to: "/models", icon: <Box size={16} />, label: "Models" },
   { to: "/chat", icon: <MessageSquare size={16} />, label: "Chat" },
+  { to: "/experiments", icon: <FlaskConical size={16} />, label: "Experiments" },
+  { to: "/hub", icon: <Globe size={16} />, label: "Hub" },
 ];
 
 const TOOLS_ITEMS = [
+  { to: "/jobs", icon: <Activity size={16} />, label: "Jobs" },
+  { to: "/compare-chat", icon: <GitCompare size={16} />, label: "A/B Compare" },
   { to: "/safety", icon: <Shield size={16} />, label: "Safety" },
   { to: "/deploy", icon: <Rocket size={16} />, label: "Deploy" },
   { to: "/settings", icon: <Settings size={16} />, label: "Settings" },

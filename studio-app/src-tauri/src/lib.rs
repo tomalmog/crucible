@@ -18,6 +18,8 @@ pub fn run() {
             commands::dataset_queries::version_diff,
             commands::forge_commands::start_forge_command,
             commands::forge_commands::get_forge_command_status,
+            commands::forge_commands::list_forge_tasks,
+            commands::forge_commands::kill_forge_task,
             commands::runtime_queries::list_training_runs,
             commands::runtime_queries::get_lineage_graph,
             commands::runtime_queries::get_hardware_profile

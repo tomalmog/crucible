@@ -7,6 +7,10 @@ import { ChatPage } from "./pages/chat/ChatPage";
 import { SafetyPage } from "./pages/safety/SafetyPage";
 import { DeployPage } from "./pages/deploy/DeployPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
+import { ExperimentsPage } from "./pages/experiments/ExperimentsPage";
+import { HubPage } from "./pages/hub/HubPage";
+import { CompareChatPage } from "./pages/chat/CompareChatPage";
+import { JobsPage } from "./pages/jobs/JobsPage";
 
 export const router = createHashRouter([
   {
@@ -21,6 +25,10 @@ export const router = createHashRouter([
       { path: "safety", Component: SafetyPage },
       { path: "deploy", Component: DeployPage },
       { path: "settings", Component: SettingsPage },
+      { path: "experiments", Component: ExperimentsPage },
+      { path: "hub", Component: HubPage },
+      { path: "compare-chat", Component: CompareChatPage },
+      { path: "jobs", Component: JobsPage },
     ],
   },
 ]);

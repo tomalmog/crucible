@@ -77,6 +77,14 @@ export async function getForgeCommandStatus(
   return invoke<CommandTaskStatus>("get_forge_command_status", { taskId });
 }
 
+export async function listForgeTasks(): Promise<CommandTaskStatus[]> {
+  return invoke<CommandTaskStatus[]>("list_forge_tasks");
+}
+
+export async function killForgeTask(taskId: string): Promise<void> {
+  return invoke<void>("kill_forge_task", { taskId });
+}
+
 export async function loadTrainingHistory(
   historyPath: string,
 ): Promise<TrainingHistory> {

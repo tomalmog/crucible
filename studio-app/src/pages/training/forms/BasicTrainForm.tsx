@@ -11,13 +11,16 @@ export function BasicTrainForm({ extra, setExtra }: BasicTrainFormProps) {
   }
 
   return (
-    <div>
-      <h4 className="panel-title">Basic Training</h4>
+    <div className="stack-sm">
+      <h4>Basic Training</h4>
       <p className="text-tertiary page-description">
         Standard supervised training from dataset. Configure shared parameters below.
       </p>
-      <div className="gap-top-sm">
-        <FormField label="Tokenizer Path (optional)">
+      <div className="grid-2">
+        <FormField label="Initial Weights">
+          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to resume from" />
+        </FormField>
+        <FormField label="Tokenizer Path">
           <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
         </FormField>
       </div>

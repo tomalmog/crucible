@@ -4,7 +4,7 @@ use crate::commands::forge_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 27] = [
+const ALLOWED_COMMANDS: [&str; 45] = [
     "ingest",
     "filter",
     "train",
@@ -32,6 +32,24 @@ const ALLOWED_COMMANDS: [&str; 27] = [
     "safety-gate",
     "compute",
     "deploy",
+    "grpo-train",
+    "qlora-train",
+    "kto-train",
+    "orpo-train",
+    "multimodal-train",
+    "rlvr-train",
+    "suggest",
+    "experiment",
+    "hub",
+    "eval",
+    "judge",
+    "curate",
+    "merge",
+    "ab-chat",
+    "recipe",
+    "cloud",
+    "cost",
+    "synthetic",
 ];
 
 #[tauri::command]
@@ -50,6 +68,21 @@ pub fn get_forge_command_status(
     task_store: State<'_, CommandTaskStore>,
 ) -> Result<CommandTaskStatus, String> {
     task_store.get_task_status(&task_id)
+}
+
+#[tauri::command]
+pub fn list_forge_tasks(
+    task_store: State<'_, CommandTaskStore>,
+) -> Vec<CommandTaskStatus> {
+    task_store.list_all_tasks()
+}
+
+#[tauri::command]
+pub fn kill_forge_task(
+    task_id: String,
+    task_store: State<'_, CommandTaskStore>,
+) -> Result<(), String> {
+    task_store.kill_task(&task_id)
 }
 
 fn validate_args(args: &[String]) -> Result<(), String> {
@@ -78,7 +111,11 @@ mod tests {
     fn validate_args_accepts_new_commands() {
         for cmd in ["sft", "dpo-train", "rlhf-train", "lora-train", "distill",
                      "domain-adapt", "safety-eval", "safety-gate", "deploy",
-                     "model", "sweep", "benchmark", "compare", "replay", "compute"] {
+                     "model", "sweep", "benchmark", "compare", "replay", "compute",
+                     "grpo-train", "qlora-train", "kto-train", "orpo-train",
+                     "multimodal-train", "rlvr-train", "suggest", "experiment",
+                     "hub", "eval", "judge", "curate", "merge", "ab-chat",
+                     "recipe", "cloud", "cost", "synthetic"] {
             let args = vec![cmd.to_string()];
             assert!(validate_args(&args).is_ok(), "Expected '{cmd}' to be allowed");
         }

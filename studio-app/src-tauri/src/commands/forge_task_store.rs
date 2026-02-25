@@ -35,6 +35,7 @@ struct TaskRecord {
     stdout: String,
     stderr: String,
     exit_code: Option<i32>,
+    pid: Option<u32>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -95,6 +96,42 @@ impl CommandTaskStore {
         Ok(task_to_status(task))
     }
 
+    pub fn list_all_tasks(&self) -> Vec<CommandTaskStatus> {
+        let tasks = match self.inner.tasks.lock() {
+            Ok(guard) => guard,
+            Err(_) => return Vec::new(),
+        };
+        let mut result: Vec<CommandTaskStatus> = tasks
+            .values()
+            .cloned()
+            .map(task_to_status)
+            .collect();
+        result.sort_by(|a, b| a.task_id.cmp(&b.task_id));
+        result
+    }
+
+    pub fn kill_task(&self, task_id: &str) -> Result<(), String> {
+        let pid = {
+            let tasks = self
+                .inner
+                .tasks
+                .lock()
+                .map_err(|_| "Task store lock poisoned".to_string())?;
+            let task = tasks
+                .get(task_id)
+                .ok_or_else(|| format!("Unknown task id '{task_id}'"))?;
+            if task.status != TaskLifecycleStatus::Running {
+                return Err(format!("Task '{task_id}' is not running"));
+            }
+            task.pid.ok_or_else(|| format!("Task '{task_id}' has no PID"))?
+        };
+        let ret = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+        if ret != 0 {
+            return Err(format!("Failed to kill process {pid}"));
+        }
+        Ok(())
+    }
+
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>) {
         let working_directory = workspace_root_dir();
         let spawn_result = Command::new("forge")
@@ -108,6 +145,12 @@ impl CommandTaskStore {
 
         match spawn_result {
             Ok(mut child) => {
+                let child_pid = child.id();
+                if let Ok(mut tasks) = self.inner.tasks.lock() {
+                    if let Some(task) = tasks.get_mut(&task_id) {
+                        task.pid = Some(child_pid);
+                    }
+                }
                 self.stream_child_output(&task_id, &mut child);
                 self.finalize_child(&task_id, &command_name, &mut child);
             }
@@ -211,6 +254,7 @@ impl CommandTaskStore {
                     stdout: String::new(),
                     stderr: String::new(),
                     exit_code: None,
+                    pid: None,
                 },
             );
             prune_finished_tasks(&mut tasks);

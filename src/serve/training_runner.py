@@ -122,10 +122,8 @@ def _build_runtime_context(
         )
     random.Random(random_seed).shuffle(sequences)
     train_batches, validation_batches = _build_batches(sequences, options)
-    model = load_training_model(torch_module, options, len(tokenizer.vocabulary))
-    if options.gradient_checkpointing:
-        apply_gradient_checkpointing(torch_module, model)
     device = resolve_execution_device(torch_module)
+    model = load_training_model(torch_module, options, len(tokenizer.vocabulary))
     model = model.to(device)
     load_initial_weights(
         torch_module=torch_module,
@@ -133,6 +131,8 @@ def _build_runtime_context(
         initial_weights_path=options.initial_weights_path,
         device=device,
     )
+    if options.gradient_checkpointing:
+        apply_gradient_checkpointing(torch_module, model)
     precision_runtime = build_training_precision_runtime(
         torch_module=torch_module,
         requested_mode=options.precision_mode,
