@@ -73,6 +73,7 @@ class SftOptions:
     attention_heads: int = DEFAULT_TRAIN_ATTENTION_HEADS
     hooks_path: str | None = None
     initial_weights_path: str | None = None
+    base_model: str | None = None
     checkpoint_every_epochs: int = DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS
     save_best_checkpoint: bool = True
     progress_log_interval_steps: int = DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS

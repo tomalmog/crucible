@@ -15,6 +15,7 @@ from core.dpo_types import DpoOptions
 from core.errors import ForgeDependencyError, ForgeDpoError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
+from serve.hf_model_loader import build_or_load_model
 from serve.dpo_batch_processing import DpoContext, DpoLoopResult, run_dpo_loop
 from serve.device_selection import resolve_execution_device
 from serve.dpo_data_loader import load_dpo_examples
@@ -105,17 +106,18 @@ def _build_dpo_context(
             "Check DPO data content and max token length."
         )
     random.Random(random_seed).shuffle(dpo_pairs)
-    model = load_training_model(
-        torch_module, training_options, len(tokenizer.vocabulary)
-    )
     device = resolve_execution_device(torch_module)
-    model = model.to(device)
-    load_initial_weights(
+    model = build_or_load_model(
         torch_module=torch_module,
-        model=model,
-        initial_weights_path=options.initial_weights_path,
+        base_model=options.base_model,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
+    if not options.base_model:
+        load_initial_weights(
+            torch_module=torch_module, model=model,
+            initial_weights_path=options.initial_weights_path, device=device,
+        )
     if options.reference_model_path:
         ref_model = load_reference_model(
             torch_module, model, options.reference_model_path, device,

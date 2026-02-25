@@ -55,12 +55,17 @@ def load_training_config(model_path: str) -> dict[str, object] | None:
 def load_tokenizer(model_path: str) -> ChatTokenizer | None:
     """Load persisted training tokenizer located beside model weights.
 
+    Checks for Forge vocab.json first, then HuggingFace tokenizer.json.
     Returns None if no vocabulary file exists next to the model.
     """
-    vocabulary_path = _artifact_dir(model_path) / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
-    if not vocabulary_path.exists():
-        return None
-    return load_tokenizer_from_path(str(vocabulary_path))
+    artifact_dir = _artifact_dir(model_path)
+    vocabulary_path = artifact_dir / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
+    if vocabulary_path.exists():
+        return load_tokenizer_from_path(str(vocabulary_path))
+    hf_tokenizer_path = artifact_dir / "tokenizer.json"
+    if hf_tokenizer_path.exists():
+        return load_tokenizer_from_path(str(hf_tokenizer_path))
+    return None
 
 
 def load_tokenizer_from_path(vocabulary_path: str) -> ChatTokenizer:

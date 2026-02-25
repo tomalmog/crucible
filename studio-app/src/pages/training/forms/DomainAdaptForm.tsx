@@ -14,16 +14,19 @@ export function DomainAdaptForm({ extra, setExtra }: DomainAdaptFormProps) {
     <div className="stack-sm">
       <h4>Domain Adaptation</h4>
       <div className="grid-2">
-        <FormField label="Source Domain Data Path">
-          <input value={extra["--source-data-path"] ?? ""} onChange={(e) => update("--source-data-path", e.currentTarget.value)} placeholder="/path/to/source_domain.jsonl" />
+        <FormField label="Base Model Path">
+          <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
         </FormField>
-        <FormField label="Target Domain Data Path">
-          <input value={extra["--target-data-path"] ?? ""} onChange={(e) => update("--target-data-path", e.currentTarget.value)} placeholder="/path/to/target_domain.jsonl" />
+        <FormField label="Reference Data Path">
+          <input value={extra["--reference-data-path"] ?? ""} onChange={(e) => update("--reference-data-path", e.currentTarget.value)} placeholder="optional — for drift detection" />
         </FormField>
-        <FormField label="Pre-trained Model Path">
-          <input value={extra["--pretrained-model-path"] ?? ""} onChange={(e) => update("--pretrained-model-path", e.currentTarget.value)} placeholder="/path/to/pretrained.pt" />
+        <FormField label="Drift Check Interval (epochs)">
+          <input type="number" value={extra["--drift-check-interval"] ?? "1"} onChange={(e) => update("--drift-check-interval", e.currentTarget.value)} />
         </FormField>
-        <FormField label="Tokenizer Path (optional)">
+        <FormField label="Max Perplexity Increase">
+          <input value={extra["--max-perplexity-increase"] ?? "1.5"} onChange={(e) => update("--max-perplexity-increase", e.currentTarget.value)} />
+        </FormField>
+        <FormField label="Tokenizer Path">
           <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
         </FormField>
       </div>

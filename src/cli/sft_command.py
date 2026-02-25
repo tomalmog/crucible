@@ -62,6 +62,7 @@ def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
         attention_heads=args.attention_heads,
         hooks_path=args.hooks_file,
         initial_weights_path=args.initial_weights_path,
+        base_model=args.base_model,
         checkpoint_every_epochs=args.checkpoint_every_epochs,
         save_best_checkpoint=args.save_best_checkpoint,
         progress_log_interval_steps=args.progress_log_interval_steps,
@@ -189,6 +190,10 @@ def add_sft_command(subparsers: Any) -> None:
     parser.add_argument(
         "--initial-weights-path",
         help="Optional model artifact used as initial weights",
+    )
+    parser.add_argument(
+        "--base-model",
+        help="HuggingFace model ID (e.g. 'gpt2') to use as base architecture",
     )
     parser.add_argument(
         "--checkpoint-every-epochs",

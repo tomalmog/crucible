@@ -717,3 +717,99 @@ label {
     display: flex;
     gap: 4px;
 }
+
+/* ─── Hub Cards ─── */
+
+.hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+}
+
+.hub-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color var(--transition-fast);
+}
+
+.hub-card:hover {
+    border-color: var(--border-hover);
+}
+
+.hub-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.hub-card-repo {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.3;
+}
+
+.hub-card-author {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+}
+
+.hub-card-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+}
+
+.hub-card-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.hub-card-stat svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 1.5;
+}
+
+.hub-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.hub-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.625rem;
+    font-family: var(--font-mono);
+    background: var(--accent-muted);
+    color: var(--accent-text);
+}
+
+.hub-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: auto;
+}
+
+.hub-search-row {
+    display: flex;
+    gap: 8px;
+    align-items: end;
+}
+
+.hub-search-row label {
+    flex: 1;
+}

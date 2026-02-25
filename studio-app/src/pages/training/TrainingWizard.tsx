@@ -11,6 +11,12 @@ import { RlhfTrainForm } from "./forms/RlhfTrainForm";
 import { LoraTrainForm } from "./forms/LoraTrainForm";
 import { DistillTrainForm } from "./forms/DistillTrainForm";
 import { DomainAdaptForm } from "./forms/DomainAdaptForm";
+import { GrpoTrainForm } from "./forms/GrpoTrainForm";
+import { QloraTrainForm } from "./forms/QloraTrainForm";
+import { KtoTrainForm } from "./forms/KtoTrainForm";
+import { OrpoTrainForm } from "./forms/OrpoTrainForm";
+import { MultimodalTrainForm } from "./forms/MultimodalTrainForm";
+import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 
@@ -81,6 +87,12 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           {method === "lora-train" && <LoraTrainForm extra={extra} setExtra={setExtra} />}
           {method === "distill" && <DistillTrainForm extra={extra} setExtra={setExtra} />}
           {method === "domain-adapt" && <DomainAdaptForm extra={extra} setExtra={setExtra} />}
+          {method === "grpo-train" && <GrpoTrainForm extra={extra} setExtra={setExtra} />}
+          {method === "qlora-train" && <QloraTrainForm extra={extra} setExtra={setExtra} />}
+          {method === "kto-train" && <KtoTrainForm extra={extra} setExtra={setExtra} />}
+          {method === "orpo-train" && <OrpoTrainForm extra={extra} setExtra={setExtra} />}
+          {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
+          {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
 
           <SharedTrainingFields config={shared} onChange={setShared} />
 

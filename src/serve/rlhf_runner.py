@@ -15,7 +15,8 @@ from core.rlhf_types import RlhfOptions
 from core.types import DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
-from serve.model_weights import load_initial_weights
+from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
+from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.ppo_trainer import PpoEpochResult, run_ppo_epoch
 from serve.reward_model import (
     build_reward_model_from_base,
@@ -101,16 +102,24 @@ def _build_rlhf_context(
     """Build RLHF runtime context with models and tokenizer."""
     torch_module = _import_torch()
     output_dir = ensure_training_output_dir(options.output_dir)
-    tokenizer = fit_training_tokenizer(records, training_options)
-    policy_model = load_training_model(
-        torch_module, training_options, len(tokenizer.vocabulary),
-    )
     device = resolve_execution_device(torch_module)
-    policy_model = policy_model.to(device)
-    load_initial_weights(
-        torch_module=torch_module, model=policy_model,
-        initial_weights_path=options.policy_model_path, device=device,
+    tokenizer = fit_training_tokenizer(records, training_options)
+    vocab_size = _resolve_policy_vocab_size(
+        torch_module, options.policy_model_path, device,
+        fallback=len(tokenizer.vocabulary),
     )
+    use_hf = options.policy_model_path and is_huggingface_model_id(options.policy_model_path)
+    policy_model = build_or_load_model(
+        torch_module=torch_module,
+        base_model=options.policy_model_path if use_hf else None,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        device=device,
+    )
+    if not use_hf:
+        load_initial_weights(
+            torch_module=torch_module, model=policy_model,
+            initial_weights_path=options.policy_model_path, device=device,
+        )
     ref_model = create_reference_policy(torch_module, policy_model)
     reward_model = _resolve_reward_model(
         torch_module, policy_model, options, device,
@@ -123,6 +132,18 @@ def _build_rlhf_context(
     )
 
 
+def _infer_hidden_dim(model: Any, fallback: int) -> int:
+    """Infer hidden dimension from model config or architecture."""
+    inner = getattr(model, "model", model)
+    config = getattr(inner, "config", None)
+    if config is not None:
+        for attr in ("hidden_size", "n_embd", "d_model"):
+            val = getattr(config, attr, None)
+            if val is not None:
+                return int(val)
+    return fallback
+
+
 def _resolve_reward_model(
     torch_module: Any,
     policy_model: Any,
@@ -130,13 +151,16 @@ def _resolve_reward_model(
     device: Any,
 ) -> Any:
     """Resolve reward model: train from data or load external."""
+    hidden_dim = _infer_hidden_dim(policy_model, options.hidden_dim)
     if options.reward_config.train_reward_model:
+        from dataclasses import replace
+        patched = replace(options, hidden_dim=hidden_dim)
         return train_reward_model(
-            torch_module, policy_model, options, device,
+            torch_module, policy_model, patched, device,
         )
     if options.reward_config.reward_model_path:
         reward_model = build_reward_model_from_base(
-            torch_module, policy_model, options.hidden_dim,
+            torch_module, policy_model, hidden_dim,
         )
         return load_external_reward_model(
             torch_module, reward_model,
@@ -146,6 +170,33 @@ def _resolve_reward_model(
         "RLHF training requires either --reward-model-path or "
         "--train-reward-model with --preference-data-path."
     )
+
+
+def _resolve_policy_vocab_size(
+    torch_module: Any,
+    policy_model_path: str | None,
+    device: Any,
+    fallback: int,
+) -> int:
+    """Infer vocab size from policy checkpoint embedding weights.
+
+    When a pretrained policy checkpoint is provided, the model must be
+    constructed with the same vocab size used during original training.
+    Falls back to the tokenizer vocabulary size when no checkpoint exists.
+    """
+    if policy_model_path is None:
+        return fallback
+    resolved = Path(policy_model_path).expanduser().resolve()
+    if not resolved.exists():
+        return fallback
+    try:
+        state_dict = read_model_state_dict(torch_module, str(resolved), device)
+        embedding_weight = state_dict.get("embedding.weight")
+        if embedding_weight is not None and hasattr(embedding_weight, "shape"):
+            return int(embedding_weight.shape[0])
+    except Exception:
+        pass
+    return fallback
 
 
 def _run_ppo_training(

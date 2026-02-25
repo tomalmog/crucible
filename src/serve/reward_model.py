@@ -149,6 +149,50 @@ def build_reward_model_from_base(
     return _RewardModelWrapper(torch_module, base_copy, reward_head)
 
 
+def _extract_encoder_hidden(base_model: Any, input_ids: Any) -> Any:
+    """Extract encoder hidden states from the base model.
+
+    Runs the model's embedding and encoder layers to obtain hidden
+    representations, bypassing the final output projection that maps
+    to vocabulary logits.  Falls back to the full forward pass when
+    the model lacks an explicit encoder attribute (e.g. custom
+    architecture).
+    """
+    encoder = getattr(base_model, "encoder", None)
+    embedding = getattr(base_model, "embedding", None)
+    if encoder is not None and embedding is not None:
+        import torch
+        embedded = embedding(input_ids)
+        pos_emb = getattr(base_model, "position_embedding", None)
+        sinusoidal = getattr(base_model, "sinusoidal_position_encoding", None)
+        batch_size = int(input_ids.shape[0])
+        seq_len = int(input_ids.shape[1])
+        positions = torch.arange(seq_len, device=input_ids.device)
+        positions = positions.unsqueeze(0).expand(batch_size, seq_len)
+        if pos_emb is not None:
+            hidden = embedded + pos_emb(positions)
+        elif sinusoidal is not None:
+            flat_pos = positions.reshape(-1)
+            pos_enc = sinusoidal.index_select(0, flat_pos).reshape(
+                batch_size, seq_len, sinusoidal.shape[1],
+            )
+            hidden = embedded + pos_enc
+        else:
+            hidden = embedded
+        mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=input_ids.device),
+            diagonal=1,
+        ).bool()
+        return encoder(hidden, mask=mask)
+    # HuggingFace models: extract hidden states via output_hidden_states
+    inner = getattr(base_model, "model", base_model)
+    if hasattr(inner, "config"):
+        outputs = inner(input_ids=input_ids, output_hidden_states=True)
+        if hasattr(outputs, "hidden_states") and outputs.hidden_states:
+            return outputs.hidden_states[-1]
+    return base_model(input_ids)
+
+
 class _RewardModelWrapper:
     """Wraps a base model with a reward scoring head."""
 
@@ -161,12 +205,17 @@ class _RewardModelWrapper:
         self._module = torch_module.nn.ModuleList([base, head])
 
     def __call__(self, input_ids: Any) -> Any:
-        """Forward pass producing scalar reward scores."""
-        base_output = self._base(input_ids)
-        if base_output.dim() == 3:
-            last_hidden = base_output[:, -1, :]
+        """Forward pass producing scalar reward scores.
+
+        Extracts hidden states from the base model's encoder rather
+        than using the final logits, since the reward head expects
+        input of hidden_dim size, not vocab_size.
+        """
+        hidden = _extract_encoder_hidden(self._base, input_ids)
+        if hidden.dim() == 3:
+            last_hidden = hidden[:, -1, :]
         else:
-            last_hidden = base_output
+            last_hidden = hidden
         return self._head(last_hidden).squeeze(-1)
 
     def parameters(self) -> Any:

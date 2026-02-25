@@ -37,6 +37,7 @@ def run_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
         tokenizer_path=args.tokenizer_path,
         version_id=args.version_id,
         architecture_path=args.architecture_file,
+        weights_path=getattr(args, "weights_path", None),
         max_new_tokens=args.max_new_tokens,
         max_token_length=args.max_token_length,
         temperature=args.temperature,
@@ -78,7 +79,12 @@ def add_chat_command(subparsers: Any) -> None:
     parser.add_argument(
         "--model-path",
         required=True,
-        help="Path to trained model file (.pt or .onnx)",
+        help="HuggingFace model ID (e.g. 'gpt2') or path to trained model file (.pt or .onnx)",
+    )
+    parser.add_argument(
+        "--weights-path",
+        default=None,
+        help="Optional path to custom weights (.pt, .safetensors) to load into the model architecture",
     )
     parser.add_argument("--prompt", required=True, help="Prompt text to complete")
     parser.add_argument("--version-id", help="Optional specific dataset version id")

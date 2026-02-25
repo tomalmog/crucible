@@ -35,6 +35,7 @@ class ChatOptions:
     tokenizer_path: str | None = None
     version_id: str | None = None
     architecture_path: str | None = None
+    weights_path: str | None = None
     max_new_tokens: int = DEFAULT_CHAT_MAX_NEW_TOKENS
     max_token_length: int = DEFAULT_MAX_TOKEN_LENGTH
     temperature: float = DEFAULT_CHAT_TEMPERATURE

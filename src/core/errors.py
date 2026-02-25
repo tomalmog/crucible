@@ -55,6 +55,10 @@ class ForgeLoraError(ForgeError):
     """Raised for LoRA adapter failures."""
 
 
+class ForgeQloraError(ForgeError):
+    """Raised for QLoRA quantized training failures."""
+
+
 class ForgeRlhfError(ForgeError):
     """Raised for RLHF training failures."""
 
@@ -93,3 +97,63 @@ class ForgeServerError(ForgeError):
 
 class ForgeModelRegistryError(ForgeError):
     """Raised for model registry failures."""
+
+
+class ForgeGrpoError(ForgeError):
+    """Raised for GRPO training failures."""
+
+
+class ForgeKtoError(ForgeError):
+    """Raised for KTO training failures."""
+
+
+class ForgeOrpoError(ForgeError):
+    """Raised for ORPO training failures."""
+
+
+class ForgeMultimodalError(ForgeError):
+    """Raised for multimodal training failures."""
+
+
+class ForgeRlvrError(ForgeError):
+    """Raised for RLVR training failures."""
+
+
+class ForgeExperimentError(ForgeError):
+    """Raised for experiment tracking failures."""
+
+
+class ForgeHubError(ForgeError):
+    """Raised for HuggingFace Hub operation failures."""
+
+
+class ForgeEvalError(ForgeError):
+    """Raised for evaluation harness failures."""
+
+
+class ForgeCurateError(ForgeError):
+    """Raised for dataset curation failures."""
+
+
+class ForgeMergeError(ForgeError):
+    """Raised for model merging failures."""
+
+
+class ForgeCloudError(ForgeError):
+    """Raised for cloud burst operation failures."""
+
+
+class ForgeCostError(ForgeError):
+    """Raised for cost tracking failures."""
+
+
+class ForgeSyntheticError(ForgeError):
+    """Raised for synthetic data generation failures."""
+
+
+class ForgeRecipeError(ForgeError):
+    """Raised for training recipe failures."""
+
+
+class ForgeJudgeError(ForgeError):
+    """Raised for LLM-as-judge evaluation failures."""

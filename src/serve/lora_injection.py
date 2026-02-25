@@ -101,8 +101,13 @@ def _is_target_linear(
     name: str,
     config: LoraConfig,
 ) -> bool:
-    """Check if a module is a target nn.Linear for LoRA injection."""
-    if not isinstance(module, torch_module.nn.Linear):
+    """Check if a module is a target linear layer for LoRA injection.
+
+    Matches both nn.Linear and transformers Conv1D layers.
+    """
+    is_linear = isinstance(module, torch_module.nn.Linear)
+    is_conv1d = type(module).__name__ == "Conv1D" and hasattr(module, "nf")
+    if not (is_linear or is_conv1d):
         return False
     return any(target in name for target in config.target_modules)
 

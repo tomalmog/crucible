@@ -5,7 +5,13 @@ export type TrainingMethod =
   | "rlhf-train"
   | "lora-train"
   | "distill"
-  | "domain-adapt";
+  | "domain-adapt"
+  | "grpo-train"
+  | "qlora-train"
+  | "kto-train"
+  | "orpo-train"
+  | "multimodal-train"
+  | "rlvr-train";
 
 export interface TrainingMethodInfo {
   id: TrainingMethod;
@@ -21,6 +27,12 @@ export const TRAINING_METHODS: TrainingMethodInfo[] = [
   { id: "lora-train", name: "LoRA", description: "Low-rank adaptation for parameter-efficient fine-tuning" },
   { id: "distill", name: "Distillation", description: "Knowledge distillation from a teacher model" },
   { id: "domain-adapt", name: "Domain Adaptation", description: "Adapt a pre-trained model to a new domain" },
+  { id: "grpo-train", name: "GRPO", description: "Group relative policy optimization with reward functions" },
+  { id: "qlora-train", name: "QLoRA", description: "Quantized LoRA for memory-efficient fine-tuning" },
+  { id: "kto-train", name: "KTO", description: "Kahneman-Tversky optimization with unpaired preferences" },
+  { id: "orpo-train", name: "ORPO", description: "Odds ratio preference optimization (SFT + preference)" },
+  { id: "multimodal-train", name: "Multimodal", description: "Vision-language model fine-tuning" },
+  { id: "rlvr-train", name: "RLVR", description: "RL with verifiable rewards for code and math" },
 ];
 
 export interface SharedTrainingConfig {

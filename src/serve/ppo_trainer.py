@@ -158,6 +158,36 @@ def compute_ppo_loss(
     return -torch_module.min(surrogate_1, surrogate_2).mean()
 
 
+def _compute_rewards(
+    torch_module: Any,
+    reward_model: Any,
+    prompts: Any,
+    responses: Any,
+    device: Any,
+) -> Any:
+    """Compute reward scores for generated responses.
+
+    Concatenates prompt and response token ids and scores the
+    combined sequence through the reward model.
+
+    Args:
+        torch_module: Imported torch module.
+        reward_model: Reward model producing scalar scores.
+        prompts: Prompt token ids [batch, prompt_len].
+        responses: Response token ids [batch, response_len].
+        device: Torch device.
+
+    Returns:
+        Reward scores tensor [batch].
+    """
+    combined = torch_module.cat([prompts, responses], dim=-1).to(device)
+    with torch_module.no_grad():
+        scores = reward_model(combined)
+    if scores.dim() > 1:
+        return scores[:, -1].squeeze(-1)
+    return scores.squeeze(-1) if scores.dim() > 0 else scores
+
+
 def _generate_responses(
     torch_module: Any,
     policy_model: Any,

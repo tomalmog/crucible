@@ -22,7 +22,8 @@ export function ChatPage() {
   const { dataRoot, selectedDataset } = useForge();
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
-  const [modelPath, setModelPath] = useState("./outputs/train/demo/model.pt");
+  const [weightsPath, setWeightsPath] = useState("");
+  const [modelPath, setModelPath] = useState("gpt2");
   const [versionId] = useState("");
   const [maxNewTokens, setMaxNewTokens] = useState("120");
   const [temperature, setTemperature] = useState("0.7");
@@ -72,7 +73,7 @@ export function ChatPage() {
 
     try {
       const prompt = buildPromptText(messages, userText);
-      const args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, versionId, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType);
+      const args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, versionId, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
       setMessages((c) => [...c, { role: "assistant", content: "" }]);
       const taskStart = await startForgeCommand(dataRoot, args);
       const taskStatus = await streamChatTask(taskStart.task_id, setMessages);
@@ -103,14 +104,17 @@ export function ChatPage() {
       <div className="stack-lg">
         <FormSection title="Model Configuration" defaultOpen>
           <div className="chat-config-grid">
-            <FormField label="Model Path">
-              <input value={modelPath} onChange={(e) => setModelPath(e.currentTarget.value)} />
+            <FormField label="Model">
+              <input value={modelPath} onChange={(e) => setModelPath(e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
             </FormField>
             <FormField label="Dataset (optional)">
               <input value={datasetName} onChange={(e) => setDatasetName(e.currentTarget.value)} placeholder="optional" />
             </FormField>
             <FormField label="Tokenizer Path">
               <input value={tokenizerPath} onChange={(e) => setTokenizerPath(e.currentTarget.value)} placeholder="auto-detect" />
+            </FormField>
+            <FormField label="Custom Weights">
+              <input value={weightsPath} onChange={(e) => setWeightsPath(e.currentTarget.value)} placeholder="optional .pt or .safetensors path" />
             </FormField>
             <FormField label="Sampling Preset">
               <select value={samplingPreset} onChange={(e) => applyPreset(e.currentTarget.value as SamplingPreset)}>
@@ -186,19 +190,17 @@ async function streamChatTask(taskId: string, setMessages: Dispatch<SetStateActi
   }
 }
 
-function buildPromptText(messages: ChatMessage[], currentText: string): string {
-  const rows = messages.slice(-6).map((m) => (m.role === "user" ? `User: ${m.content}` : `Assistant: ${m.content}`));
-  rows.push(`User: ${currentText}`);
-  rows.push("Assistant:");
-  return rows.join("\n");
+function buildPromptText(_messages: ChatMessage[], currentText: string): string {
+  return currentText;
 }
 
-function buildChatArgs(dataset: string, tokenizer: string, model: string, prompt: string, version: string, maxTokens: string, temp: string, topK: string, maxLen: string, posEmb: string): string[] {
+function buildChatArgs(dataset: string, tokenizer: string, model: string, prompt: string, version: string, maxTokens: string, temp: string, topK: string, maxLen: string, posEmb: string, weights: string): string[] {
   const args = ["chat", "--model-path", model.trim(), "--prompt", prompt];
   const optionals: [string, string][] = [
     ["--dataset", dataset], ["--tokenizer-path", tokenizer], ["--version-id", version],
     ["--max-new-tokens", maxTokens], ["--temperature", temp], ["--top-k", topK],
     ["--max-token-length", maxLen], ["--position-embedding-type", posEmb],
+    ["--weights-path", weights],
   ];
   for (const [flag, val] of optionals) {
     if (val.trim()) args.push(flag, val.trim());

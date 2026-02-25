@@ -18,8 +18,9 @@ from core.errors import ForgeDependencyError, ForgeServeError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
+from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
 from serve.drift_detection import compute_perplexity
-from serve.model_weights import load_initial_weights
+from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.tokenization import build_sequence_batches, build_training_sequences, split_sequences
 from serve.training_artifact_contract import save_training_artifact_contract
 from serve.training_artifacts import (
@@ -113,13 +114,25 @@ def _build_adaptation_context(
     train_seqs, val_seqs = split_sequences(sequences, options.validation_split)
     train_batches = build_sequence_batches(train_seqs, options.batch_size)
     val_batches = build_sequence_batches(val_seqs, options.batch_size)
-    model = load_training_model(torch_module, training_options, len(tokenizer.vocabulary))
+    vocab_size = len(tokenizer.vocabulary)
     device = resolve_execution_device(torch_module)
-    model = model.to(device)
-    load_initial_weights(
-        torch_module=torch_module, model=model,
-        initial_weights_path=options.base_model_path, device=device,
+    use_hf = options.base_model_path and is_huggingface_model_id(options.base_model_path)
+    if options.base_model_path is not None and not use_hf:
+        vocab_size = _infer_checkpoint_vocab_size(
+            torch_module, options.base_model_path, device, vocab_size,
+        )
+        _pad_tokenizer_vocabulary(tokenizer, vocab_size)
+    model = build_or_load_model(
+        torch_module=torch_module,
+        base_model=options.base_model_path if use_hf else None,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        device=device,
     )
+    if not use_hf:
+        load_initial_weights(
+            torch_module=torch_module, model=model,
+            initial_weights_path=options.base_model_path, device=device,
+        )
     _run_drift_baseline(torch_module, model, options, tokenizer, device)
     precision = build_training_precision_runtime(
         torch_module=torch_module, requested_mode=options.precision_mode, device=device,
@@ -226,6 +239,29 @@ def _persist_adaptation_outputs(
         resumed_from_checkpoint=base.resumed_from_checkpoint,
         run_id=run_id, artifact_contract_path=str(contract),
     )
+
+
+def _infer_checkpoint_vocab_size(
+    torch_module: Any, weights_path: str, device: Any, fallback: int,
+) -> int:
+    """Read embedding.weight from checkpoint to infer vocab size."""
+    try:
+        state = read_model_state_dict(torch_module, weights_path, device)
+        embedding_weight = state.get("embedding.weight")
+        if embedding_weight is not None and hasattr(embedding_weight, "shape"):
+            return int(embedding_weight.shape[0])
+    except ForgeServeError:
+        pass
+    return fallback
+
+
+def _pad_tokenizer_vocabulary(
+    tokenizer: Any, target_size: int,
+) -> None:
+    """Extend tokenizer vocabulary with placeholder tokens to match target size."""
+    while len(tokenizer.vocabulary) < target_size:
+        placeholder = f"<unused_{len(tokenizer.vocabulary)}>"
+        tokenizer.vocabulary[placeholder] = len(tokenizer.vocabulary)
 
 
 def _adaptation_to_training_options(options: DomainAdaptationOptions) -> TrainingOptions:

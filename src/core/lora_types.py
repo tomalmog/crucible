@@ -80,6 +80,7 @@ class LoraTrainingOptions:
     sft_data_path: str
     base_model_path: str
     lora_config: LoraConfig = LoraConfig()
+    tokenizer_path: str | None = None
     version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE

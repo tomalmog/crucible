@@ -9,11 +9,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
 from cli.benchmark_command import add_benchmark_command, run_benchmark_command
 from cli.chat_command import add_chat_command, run_chat_command
+from cli.cloud_command import add_cloud_command, run_cloud_command
 from cli.compare_command import add_compare_command, run_compare_command
 from cli.compute_command import add_compute_command, run_compute_command
-from cli.deploy_command import add_deploy_command, run_deploy_command
+from cli.cost_command import add_cost_command, run_cost_command
+from cli.curate_command import add_curate_command, run_curate_command
 from cli.data_commands import (
     add_export_training_command,
     add_filter_command,
@@ -24,6 +27,7 @@ from cli.data_commands import (
     run_ingest_command,
     run_versions_command,
 )
+from cli.deploy_command import add_deploy_command, run_deploy_command
 from cli.distillation_command import add_distillation_command, run_distillation_command
 from cli.distributed_train_command import (
     add_distributed_train_command,
@@ -31,30 +35,44 @@ from cli.distributed_train_command import (
 )
 from cli.domain_adapt_command import add_domain_adapt_command, run_domain_adapt_command
 from cli.dpo_command import add_dpo_command, run_dpo_command
+from cli.eval_command import add_eval_command, run_eval_command
+from cli.experiment_command import add_experiment_command, run_experiment_command
 from cli.export_spec_command import add_export_spec_command, run_export_spec_command
+from cli.grpo_command import add_grpo_command, run_grpo_command
 from cli.hardware_profile_command import (
     add_hardware_profile_command,
     run_hardware_profile_command,
 )
+from cli.hub_command import add_hub_command, run_hub_command
+from cli.judge_command import add_judge_command, run_judge_command
+from cli.kto_command import add_kto_command, run_kto_command
 from cli.lora_command import (
     add_lora_merge_command,
     add_lora_train_command,
     run_lora_merge_command,
     run_lora_train_command,
 )
+from cli.merge_command import add_merge_command, run_merge_command
 from cli.model_command import add_model_command, run_model_command
+from cli.multimodal_command import add_multimodal_command, run_multimodal_command
+from cli.orpo_command import add_orpo_command, run_orpo_command
+from cli.qlora_command import add_qlora_command, run_qlora_command
+from cli.recipe_command import add_recipe_command, run_recipe_command
 from cli.replay_command import add_replay_command, run_replay_command
 from cli.rlhf_command import add_rlhf_command, run_rlhf_command
+from cli.rlvr_command import add_rlvr_command, run_rlvr_command
 from cli.run_spec_command import add_run_spec_command, run_run_spec_command
-from cli.server_command import add_server_command, run_server_command
 from cli.safety_command import (
     add_safety_eval_command,
     add_safety_gate_command,
     run_safety_eval_command,
     run_safety_gate_command,
 )
+from cli.server_command import add_server_command, run_server_command
 from cli.sft_command import add_sft_command, run_sft_command
+from cli.suggest_command import add_suggest_command, run_suggest_command
 from cli.sweep_command import add_sweep_command, run_sweep_command
+from cli.synthetic_command import add_synthetic_command, run_synthetic_command
 from cli.train_command import add_train_command, run_train_command
 from cli.verify_command import add_verify_command, run_verify_command
 from core.config import ForgeConfig
@@ -74,6 +92,12 @@ _COMMAND_REGISTRARS: tuple[Callable[[Any], None], ...] = (
     add_safety_eval_command, add_safety_gate_command,
     add_compute_command, add_server_command,
     add_deploy_command,
+    add_grpo_command, add_qlora_command, add_kto_command, add_orpo_command,
+    add_suggest_command, add_experiment_command, add_hub_command,
+    add_eval_command, add_judge_command, add_curate_command,
+    add_merge_command, add_ab_chat_command, add_recipe_command,
+    add_cloud_command, add_cost_command, add_multimodal_command,
+    add_synthetic_command, add_rlvr_command,
 )
 
 
@@ -108,6 +132,24 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "compute": run_compute_command,
         "server": run_server_command,
         "deploy": run_deploy_command,
+        "grpo-train": run_grpo_command,
+        "qlora-train": run_qlora_command,
+        "kto-train": run_kto_command,
+        "orpo-train": run_orpo_command,
+        "suggest": run_suggest_command,
+        "experiment": run_experiment_command,
+        "hub": run_hub_command,
+        "eval": run_eval_command,
+        "judge": run_judge_command,
+        "curate": run_curate_command,
+        "merge": run_merge_command,
+        "ab-chat": run_ab_chat_command,
+        "recipe": run_recipe_command,
+        "cloud": run_cloud_command,
+        "cost": run_cost_command,
+        "multimodal-train": run_multimodal_command,
+        "synthetic": run_synthetic_command,
+        "rlvr-train": run_rlvr_command,
     }
 
 

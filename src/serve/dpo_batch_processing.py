@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from core.dpo_types import DpoOptions
+from core.training_types import EpochMetric
 from serve.dpo_loss import compute_dpo_loss, compute_log_probs_from_logits
 from serve.dpo_reference_model import compute_reference_log_probs
 from serve.dpo_tokenization import DpoTokenizedPair
@@ -44,7 +45,7 @@ class DpoContext:
 class DpoLoopResult:
     """DPO training loop output."""
 
-    def __init__(self, epoch_metrics: list[dict[str, Any]]) -> None:
+    def __init__(self, epoch_metrics: list[EpochMetric]) -> None:
         self.epoch_metrics = epoch_metrics
 
 
@@ -54,7 +55,7 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
     optimizer = torch_module.optim.Adam(
         context.model.parameters(), lr=options.learning_rate,
     )
-    epoch_metrics: list[dict[str, Any]] = []
+    epoch_metrics: list[EpochMetric] = []
     for epoch in range(1, options.epochs + 1):
         context.model.train()
         total_loss = 0.0
@@ -74,11 +75,11 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
             total_loss += loss.item()
             batch_count += 1
         avg_loss = total_loss / max(batch_count, 1)
-        epoch_metrics.append({
-            "epoch": epoch,
-            "train_loss": avg_loss,
-            "validation_loss": avg_loss,
-        })
+        epoch_metrics.append(EpochMetric(
+            epoch=epoch,
+            train_loss=avg_loss,
+            validation_loss=avg_loss,
+        ))
     return DpoLoopResult(epoch_metrics=epoch_metrics)
 
 

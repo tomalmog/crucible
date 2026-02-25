@@ -7,6 +7,7 @@ and persists the trained student model artifacts.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -16,8 +17,15 @@ from core.errors import ForgeDependencyError, ForgeDistillationError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
+from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
 from serve.distillation_loss import compute_distillation_loss
-from serve.model_weights import load_initial_weights
+from serve.model_weights import load_initial_weights, read_model_state_dict
+from serve.tokenization import (
+    VocabularyTokenizer,
+    build_sequence_batches,
+    build_training_sequences,
+    split_sequences,
+)
 from serve.training_artifacts import (
     ensure_training_output_dir,
     save_model_weights,
@@ -96,11 +104,23 @@ def _execute_distillation(
     vocab_size = len(tokenizer.vocabulary)
     device = resolve_execution_device(torch_module)
 
-    teacher = _load_teacher_model(
-        torch_module, training_options, vocab_size, options, device,
-    )
+    use_hf_teacher = options.teacher_model_path and is_huggingface_model_id(options.teacher_model_path)
+    if use_hf_teacher:
+        teacher = _load_teacher_model(
+            torch_module, training_options, vocab_size, options, device,
+        )
+        inner = getattr(teacher, "model", teacher)
+        config = getattr(inner, "config", None)
+        teacher_vocab_size = int(getattr(config, "vocab_size", vocab_size)) if config else vocab_size
+    else:
+        teacher_vocab_size = _infer_teacher_vocab_size(
+            torch_module, options.teacher_model_path, device,
+        )
+        teacher = _load_teacher_model(
+            torch_module, training_options, teacher_vocab_size, options, device,
+        )
     student = _load_student_model(
-        torch_module, training_options, vocab_size, options, device,
+        torch_module, training_options, teacher_vocab_size, options, device,
     )
     precision_runtime = build_training_precision_runtime(
         torch_module=torch_module,
@@ -116,6 +136,9 @@ def _execute_distillation(
         precision_runtime=precision_runtime,
         device=device,
         options=options,
+        records=records,
+        tokenizer=tokenizer,
+        teacher_vocab_size=teacher_vocab_size,
     )
     return _persist_outputs(
         output_dir=output_dir,
@@ -126,6 +149,32 @@ def _execute_distillation(
     )
 
 
+def _infer_teacher_vocab_size(
+    torch_module: Any, teacher_model_path: str, device: Any,
+) -> int:
+    """Infer vocabulary size from teacher checkpoint embedding weights.
+
+    Args:
+        torch_module: Imported torch module.
+        teacher_model_path: Path to teacher model checkpoint.
+        device: Resolved training device.
+
+    Returns:
+        Teacher model vocabulary size.
+
+    Raises:
+        ForgeDistillationError: If embedding shape cannot be determined.
+    """
+    state_dict = read_model_state_dict(torch_module, teacher_model_path, device)
+    embedding_weight = state_dict.get("embedding.weight")
+    if embedding_weight is None or not hasattr(embedding_weight, "shape"):
+        raise ForgeDistillationError(
+            f"Cannot infer vocabulary size from teacher checkpoint at "
+            f"{teacher_model_path}: missing embedding.weight tensor."
+        )
+    return int(embedding_weight.shape[0])
+
+
 def _load_teacher_model(
     torch_module: Any,
     training_options: TrainingOptions,
@@ -134,14 +183,20 @@ def _load_teacher_model(
     device: Any,
 ) -> Any:
     """Load teacher model in frozen eval mode."""
-    teacher = load_training_model(torch_module, training_options, vocab_size)
-    teacher = teacher.to(device)
-    load_initial_weights(
+    use_hf_teacher = options.teacher_model_path and is_huggingface_model_id(options.teacher_model_path)
+    teacher = build_or_load_model(
         torch_module=torch_module,
-        model=teacher,
-        initial_weights_path=options.teacher_model_path,
+        base_model=options.teacher_model_path if use_hf_teacher else None,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
     )
+    if not use_hf_teacher:
+        load_initial_weights(
+            torch_module=torch_module,
+            model=teacher,
+            initial_weights_path=options.teacher_model_path,
+            device=device,
+        )
     teacher.eval()
     for param in teacher.parameters():
         param.requires_grad = False
@@ -156,9 +211,14 @@ def _load_student_model(
     device: Any,
 ) -> Any:
     """Create or load student model for training."""
-    student = load_training_model(torch_module, training_options, vocab_size)
-    student = student.to(device)
-    if options.student_model_path is not None:
+    use_hf_student = options.student_model_path and is_huggingface_model_id(options.student_model_path)
+    student = build_or_load_model(
+        torch_module=torch_module,
+        base_model=options.student_model_path if use_hf_student else None,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        device=device,
+    )
+    if not use_hf_student and options.student_model_path is not None:
         load_initial_weights(
             torch_module=torch_module,
             model=student,
@@ -194,20 +254,151 @@ def _run_distillation_loop(
     precision_runtime: Any,
     device: Any,
     options: DistillationOptions,
+    records: list[DataRecord],
+    tokenizer: VocabularyTokenizer,
+    teacher_vocab_size: int,
 ) -> list[Any]:
     """Run epoch-based distillation training loop.
+
+    Tokenizes records, builds batches, then runs forward passes through
+    both teacher and student models, computing blended KL+CE loss.
 
     Returns:
         List of EpochMetric objects.
     """
     from core.types import EpochMetric
 
+    sequences = build_training_sequences(
+        records, tokenizer, options.max_token_length,
+    )
+    train_seqs, val_seqs = split_sequences(sequences, options.validation_split)
+    train_batches = build_sequence_batches(train_seqs, options.batch_size)
+    val_batches = build_sequence_batches(val_seqs, options.batch_size)
+
     epoch_metrics: list[EpochMetric] = []
     for epoch in range(1, options.epochs + 1):
+        train_loss = _run_distillation_pass(
+            torch_module=torch_module,
+            teacher=teacher,
+            student=student,
+            optimizer=optimizer,
+            precision_runtime=precision_runtime,
+            batches=train_batches,
+            device=device,
+            options=options,
+            teacher_vocab_size=teacher_vocab_size,
+            training=True,
+        )
+        val_loss = _run_distillation_pass(
+            torch_module=torch_module,
+            teacher=teacher,
+            student=student,
+            optimizer=optimizer,
+            precision_runtime=precision_runtime,
+            batches=val_batches,
+            device=device,
+            options=options,
+            teacher_vocab_size=teacher_vocab_size,
+            training=False,
+        )
+        print(
+            f"  epoch {epoch}/{options.epochs}  "
+            f"train_loss={train_loss:.6f}  val_loss={val_loss:.6f}"
+        )
         epoch_metrics.append(
-            EpochMetric(epoch=epoch, train_loss=0.0, validation_loss=0.0)
+            EpochMetric(
+                epoch=epoch,
+                train_loss=round(train_loss, 6),
+                validation_loss=round(val_loss, 6),
+            )
         )
     return epoch_metrics
+
+
+def _run_distillation_pass(
+    torch_module: Any,
+    teacher: Any,
+    student: Any,
+    optimizer: Any,
+    precision_runtime: Any,
+    batches: list[Any],
+    device: Any,
+    options: DistillationOptions,
+    teacher_vocab_size: int,
+    training: bool,
+) -> float:
+    """Run one train or validation pass over distillation batches.
+
+    Returns:
+        Average loss across batches.
+    """
+    if not batches:
+        return 0.0
+    student.train(mode=training)
+    total_loss = 0.0
+    for batch in batches:
+        inputs, targets = _tensorize_distill_batch(
+            torch_module, batch, device, teacher_vocab_size,
+        )
+        autocast_ctx = _build_autocast_context(
+            torch_module, precision_runtime, device,
+        )
+        with autocast_ctx:
+            with torch_module.no_grad():
+                teacher_logits = teacher(inputs)
+            student_logits = student(inputs)
+            loss = compute_distillation_loss(
+                torch_module=torch_module,
+                student_logits=student_logits,
+                teacher_logits=teacher_logits,
+                labels=targets,
+                temperature=options.temperature,
+                alpha=options.alpha,
+            )
+        loss_value = float(loss.item())
+        if training:
+            optimizer.zero_grad()
+            if precision_runtime.scaler is not None:
+                precision_runtime.scaler.scale(loss).backward()
+                precision_runtime.scaler.step(optimizer)
+                precision_runtime.scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+        total_loss += loss_value
+    return total_loss / len(batches)
+
+
+def _tensorize_distill_batch(
+    torch_module: Any, batch: Any, device: Any, vocab_size: int,
+) -> tuple[Any, Any]:
+    """Convert a SequenceBatch into padded input/target tensors.
+
+    Clamps target values to valid vocabulary indices so cross-entropy
+    does not encounter out-of-range labels.
+    """
+    max_len = max(len(s) for s in batch.inputs)
+    padded_in = [s + [0] * (max_len - len(s)) for s in batch.inputs]
+    padded_tgt = [s + [0] * (max_len - len(s)) for s in batch.targets]
+    input_t = torch_module.tensor(padded_in, dtype=torch_module.long).to(device)
+    target_t = torch_module.tensor(padded_tgt, dtype=torch_module.long).to(device)
+    target_t = torch_module.clamp(target_t, min=0, max=vocab_size - 1)
+    return input_t, target_t
+
+
+def _build_autocast_context(
+    torch_module: Any, precision_runtime: Any, device: Any,
+) -> Any:
+    """Build autocast context for mixed precision forward pass."""
+    if not precision_runtime.autocast_enabled:
+        return nullcontext()
+    autocast_fn = getattr(torch_module, "autocast", None)
+    if autocast_fn is None:
+        return nullcontext()
+    return autocast_fn(
+        device_type=getattr(device, "type", str(device)),
+        dtype=precision_runtime.autocast_dtype,
+    )
 
 
 def _persist_outputs(

@@ -15,6 +15,7 @@ from core.sft_types import SftOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
+from serve.hf_model_loader import build_or_load_model
 from serve.model_weights import load_initial_weights
 from serve.sft_batch_builder import build_sft_batches, persist_sft_outputs
 from serve.sft_data_loader import load_sft_examples
@@ -120,13 +121,18 @@ def _build_sft_runtime_context(
         )
     random.Random(random_seed).shuffle(sft_sequences)
     train_batches, val_batches = build_sft_batches(sft_sequences, options)
-    model = load_training_model(torch_module, training_options, len(tokenizer.vocabulary))
     device = resolve_execution_device(torch_module)
-    model = model.to(device)
-    load_initial_weights(
-        torch_module=torch_module, model=model,
-        initial_weights_path=options.initial_weights_path, device=device,
+    model = build_or_load_model(
+        torch_module=torch_module,
+        base_model=options.base_model,
+        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        device=device,
     )
+    if not options.base_model:
+        load_initial_weights(
+            torch_module=torch_module, model=model,
+            initial_weights_path=options.initial_weights_path, device=device,
+        )
     precision_runtime = build_training_precision_runtime(
         torch_module=torch_module, requested_mode=options.precision_mode, device=device,
     )

@@ -19,6 +19,7 @@ from serve.chat_option_resolver import (
     resolve_chat_training_options,
 )
 from serve.device_selection import resolve_execution_device
+from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model, load_huggingface_tokenizer
 from serve.model_format import detect_model_format
 from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.onnx_chat_runner import run_onnx_chat
@@ -52,6 +53,10 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
         ForgeServeError: If model loading or generation fails.
     """
     _validate_chat_options(options)
+    if is_huggingface_model_id(options.model_path):
+        context = _build_hf_runtime_context(options)
+        response_text = _generate_response_text(context)
+        return ChatResult(response_text=response_text)
     model_format = detect_model_format(options.model_path)
     if model_format == "onnx":
         response_text = run_onnx_chat(records, options)
@@ -59,6 +64,45 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
     context = _build_runtime_context(records, options)
     response_text = _generate_response_text(context)
     return ChatResult(response_text=response_text)
+
+
+def _build_hf_runtime_context(options: ChatOptions) -> ChatRuntimeContext:
+    """Build chat runtime using a HuggingFace model."""
+    torch_module = _import_torch()
+    device = _resolve_inference_device(torch_module)
+
+    model = load_huggingface_model(options.model_path, options.weights_path, device)
+    model.eval()
+
+    # Load tokenizer
+    hf_tokenizer = load_huggingface_tokenizer(options.model_path)
+    tokenizer = _HfTokenizerAdapter(hf_tokenizer)
+
+    max_context = getattr(model.config, "n_positions", None) or options.max_token_length
+    return ChatRuntimeContext(
+        torch_module=torch_module,
+        model=model,
+        tokenizer=tokenizer,
+        options=options,
+        device=device,
+        max_context_tokens=max_context,
+    )
+
+
+class _HfTokenizerAdapter:
+    """Adapts a HuggingFace tokenizer to the ChatTokenizer protocol."""
+
+    def __init__(self, hf_tokenizer: Any) -> None:
+        self._tokenizer = hf_tokenizer
+        vocab = hf_tokenizer.get_vocab()
+        self.vocabulary: dict[str, int] = dict(vocab)
+
+    def encode(self, text: str, max_token_length: int) -> list[int]:
+        ids = self._tokenizer.encode(text)
+        return ids[:max_token_length]
+
+    def decode(self, token_ids: list[int]) -> str:
+        return self._tokenizer.decode(token_ids)
 
 
 def _build_runtime_context(
@@ -161,7 +205,8 @@ def _sample_next_token(context: ChatRuntimeContext, context_ids: list[int]) -> i
     input_ids = context_ids[-context.max_context_tokens :]
     input_tensor = torch_module.tensor([input_ids], dtype=torch_module.long).to(context.device)
     with torch_module.no_grad():
-        logits = context.model(input_tensor)
+        output = context.model(input_tensor)
+    logits = output.logits if hasattr(output, "logits") else output
     next_logits = logits[0, -1, :]
     if options.temperature == 0:
         return int(torch_module.argmax(next_logits).item())

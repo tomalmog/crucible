@@ -14,7 +14,17 @@ from core.config import ForgeConfig
 from core.distillation_types import DistillationOptions
 from core.domain_adaptation_types import DomainAdaptationOptions
 from core.dpo_types import DpoOptions
-from core.errors import ForgeDistillationError, ForgeDpoError, ForgeLoraError, ForgeRlhfError, ForgeSftError, ForgeServeError
+from core.grpo_types import GrpoOptions
+from core.kto_types import KtoOptions
+from core.multimodal_types import MultimodalOptions
+from core.orpo_types import OrpoOptions
+from core.qlora_types import QloraOptions
+from core.rlvr_types import RlvrOptions
+from core.errors import (
+    ForgeDistillationError, ForgeDpoError, ForgeGrpoError, ForgeKtoError,
+    ForgeLoraError, ForgeMultimodalError, ForgeOrpoError, ForgeQloraError,
+    ForgeRlhfError, ForgeRlvrError, ForgeSftError, ForgeServeError,
+)
 from core.lora_types import LoraTrainingOptions
 from core.rlhf_types import RlhfOptions
 from core.run_spec_execution import execute_run_spec_file
@@ -34,8 +44,14 @@ from serve.chat_runner import run_chat
 from serve.distillation_runner import run_distillation
 from serve.domain_adaptation_runner import run_domain_adaptation
 from serve.dpo_runner import run_dpo_training
+from serve.grpo_runner import run_grpo_training
 from serve.hardware_profile import detect_hardware_profile
+from serve.kto_runner import run_kto_training
+from serve.multimodal_runner import run_multimodal_training
+from serve.orpo_runner import run_orpo_training
+from serve.qlora_runner import run_qlora_training
 from serve.rlhf_runner import run_rlhf_training
+from serve.rlvr_runner import run_rlvr_training
 from serve.lora_training_runner import run_lora_training
 from serve.sft_runner import run_sft_training
 from serve.training_run_registry import TrainingRunRegistry
@@ -48,11 +64,6 @@ class ForgeClient:
     """Primary SDK entry point for phase-one workflows."""
 
     def __init__(self, config: ForgeConfig | None = None) -> None:
-        """Create SDK client.
-
-        Args:
-            config: Optional runtime configuration.
-        """
         self._config = config or ForgeConfig.from_env()
         self._store = SnapshotStore(self._config)
 
@@ -70,33 +81,51 @@ class ForgeClient:
 
     def sft_train(self, options: SftOptions) -> TrainingRunResult:
         """Run supervised fine-tuning on a dataset version."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.sft_train(options)
+        return self.dataset(options.dataset_name).sft_train(options)
 
     def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
         """Run LoRA fine-tuning on a dataset version."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.lora_train(options)
+        return self.dataset(options.dataset_name).lora_train(options)
 
     def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
         """Run DPO preference optimization on a dataset version."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.dpo_train(options)
+        return self.dataset(options.dataset_name).dpo_train(options)
 
     def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
         """Run RLHF training with PPO on a dataset version."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.rlhf_train(options)
+        return self.dataset(options.dataset_name).rlhf_train(options)
 
     def distill(self, options: DistillationOptions) -> TrainingRunResult:
         """Run knowledge distillation on a dataset version."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.distill(options)
+        return self.dataset(options.dataset_name).distill(options)
 
     def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
-        """Run domain adaptation (continued pretraining) on a dataset."""
-        dataset = self.dataset(options.dataset_name)
-        return dataset.domain_adapt(options)
+        """Run domain adaptation on a dataset."""
+        return self.dataset(options.dataset_name).domain_adapt(options)
+
+    def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:
+        """Run GRPO training on a dataset version."""
+        return self.dataset(options.dataset_name).grpo_train(options)
+
+    def qlora_train(self, options: QloraOptions) -> TrainingRunResult:
+        """Run QLoRA training on a dataset version."""
+        return self.dataset(options.dataset_name).qlora_train(options)
+
+    def kto_train(self, options: KtoOptions) -> TrainingRunResult:
+        """Run KTO training on a dataset version."""
+        return self.dataset(options.dataset_name).kto_train(options)
+
+    def orpo_train(self, options: OrpoOptions) -> TrainingRunResult:
+        """Run ORPO training on a dataset version."""
+        return self.dataset(options.dataset_name).orpo_train(options)
+
+    def multimodal_train(self, options: MultimodalOptions) -> TrainingRunResult:
+        """Run multimodal fine-tuning on a dataset version."""
+        return self.dataset(options.dataset_name).multimodal_train(options)
+
+    def rlvr_train(self, options: RlvrOptions) -> TrainingRunResult:
+        """Run RLVR training on a dataset version."""
+        return self.dataset(options.dataset_name).rlvr_train(options)
 
     def chat(self, options: ChatOptions) -> ChatResult:
         """Run chat inference against a trained model."""
@@ -140,12 +169,6 @@ class Dataset:
     """SDK dataset handle for versioned records."""
 
     def __init__(self, dataset_name: str, store: SnapshotStore) -> None:
-        """Create dataset handle.
-
-        Args:
-            dataset_name: Dataset identifier.
-            store: Snapshot store backend.
-        """
         self._dataset_name = dataset_name
         self._store = store
 
@@ -202,11 +225,8 @@ class Dataset:
             )
         manifest, records = self.load_records(options.version_id)
         return run_training(
-            records=records,
-            options=options,
-            random_seed=self._store.random_seed,
-            data_root=self._store.data_root,
-            dataset_version_id=manifest.version_id,
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
         )
 
     def sft_train(self, options: SftOptions) -> TrainingRunResult:
@@ -271,7 +291,7 @@ class Dataset:
         )
 
     def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
-        """Run domain adaptation (continued pretraining) on this dataset."""
+        """Run domain adaptation on this dataset."""
         if options.dataset_name != self._dataset_name:
             raise ForgeServeError(
                 f"Domain adaptation dataset '{options.dataset_name}' != "
@@ -279,6 +299,78 @@ class Dataset:
             )
         manifest, records = self.load_records(options.version_id)
         return run_domain_adaptation(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:
+        """Run GRPO training on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeGrpoError(
+                f"GRPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_grpo_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def qlora_train(self, options: QloraOptions) -> TrainingRunResult:
+        """Run QLoRA training on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeQloraError(
+                f"QLoRA dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_qlora_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def kto_train(self, options: KtoOptions) -> TrainingRunResult:
+        """Run KTO training on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeKtoError(
+                f"KTO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_kto_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def orpo_train(self, options: OrpoOptions) -> TrainingRunResult:
+        """Run ORPO training on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeOrpoError(
+                f"ORPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_orpo_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def multimodal_train(self, options: MultimodalOptions) -> TrainingRunResult:
+        """Run multimodal fine-tuning on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeMultimodalError(
+                f"Multimodal dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_multimodal_training(
+            records=records, options=options, random_seed=self._store.random_seed,
+            data_root=self._store.data_root, dataset_version_id=manifest.version_id,
+        )
+
+    def rlvr_train(self, options: RlvrOptions) -> TrainingRunResult:
+        """Run RLVR training on this dataset."""
+        if options.dataset_name != self._dataset_name:
+            raise ForgeRlvrError(
+                f"RLVR dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
+            )
+        manifest, records = self.load_records(options.version_id)
+        return run_rlvr_training(
             records=records, options=options, random_seed=self._store.random_seed,
             data_root=self._store.data_root, dataset_version_id=manifest.version_id,
         )
