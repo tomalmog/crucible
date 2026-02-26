@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router";
 import { Info } from "lucide-react";
 import { TRAINING_METHODS, TrainingMethod } from "../../types/training";
-import { TRAINING_METHOD_ANCHORS } from "../docs/docsContent";
+import { TRAINING_METHOD_ANCHORS } from "../docs/docsRegistry";
 
 interface TrainingMethodPickerProps {
   onSelect: (method: TrainingMethod) => void;
@@ -30,7 +30,7 @@ export function TrainingMethodPicker({ onSelect }: TrainingMethodPickerProps) {
               title={`View ${method.name} documentation`}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/docs#${TRAINING_METHOD_ANCHORS[method.id]}`);
+                navigate(`/docs?doc=${TRAINING_METHOD_ANCHORS[method.id]}`);
               }}
             >
               <Info size={14} />

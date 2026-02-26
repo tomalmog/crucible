@@ -1,50 +1,26 @@
-import { useEffect, useRef } from "react";
-import { useLocation } from "react-router";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { DOCS_CONTENT } from "./docsContent";
-
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-|-$/g, "");
-}
+import { DOC_ENTRIES } from "./docsRegistry";
+import { DocsSidebar } from "./DocsSidebar";
+import { DocsArticle } from "./DocsArticle";
 
 export function DocsPage() {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const activeSlug = params.get("doc") ?? DOC_ENTRIES[0].slug;
+  const entry = DOC_ENTRIES.find((e) => e.slug === activeSlug) ?? DOC_ENTRIES[0];
 
-  // Scroll to anchor when URL hash changes (e.g. clicking doc section links)
-  useEffect(() => {
-    if (location.hash && contentRef.current) {
-      const id = location.hash.slice(1);
-      const el = contentRef.current.querySelector(`#${CSS.escape(id)}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  }, [location.hash]);
+  const onSelect = useCallback(
+    (slug: string) => setParams({ doc: slug }),
+    [setParams],
+  );
 
   return (
     <>
       <PageHeader title="Documentation" />
-      <div ref={contentRef} className="docs-content">
-        <Markdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            h3: ({ children }) => {
-              const text = String(children);
-              return <h3 id={slugify(text)}>{children}</h3>;
-            },
-            pre: ({ children }) => <pre className="console">{children}</pre>,
-            table: ({ children }) => (
-              <div className="docs-table-wrap">
-                <table className="docs-table">{children}</table>
-              </div>
-            ),
-          }}
-        >
-          {DOCS_CONTENT}
-        </Markdown>
+      <div className="docs-layout">
+        <DocsSidebar activeSlug={entry.slug} onSelect={onSelect} />
+        <DocsArticle entry={entry} />
       </div>
     </>
   );
