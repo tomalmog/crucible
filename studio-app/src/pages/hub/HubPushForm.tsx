@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { FormField } from "../../components/shared/FormField";
+import { PathInput } from "../../components/shared/PathInput";
+import { StatusConsole } from "../../components/shared/StatusConsole";
 
 export function HubPushForm() {
   const { dataRoot } = useForge();
@@ -10,27 +12,20 @@ export function HubPushForm() {
   const [repoId, setRepoId] = useState("");
   const [message, setMessage] = useState("Upload model via Forge");
   const [isPrivate, setIsPrivate] = useState(false);
-  const [pushing, setPushing] = useState(false);
-  const [result, setResult] = useState("");
 
   async function pushModel() {
     if (!dataRoot || !modelPath.trim() || !repoId.trim()) return;
-    setPushing(true);
     const args = ["hub", "push", modelPath, repoId, "--message", message];
     if (isPrivate) args.push("--private");
-    const status = await command.run(dataRoot, args);
-    if (status.status === "completed" && command.output) {
-      setResult(command.output);
-    }
-    setPushing(false);
+    await command.run(dataRoot, args);
   }
 
   return (
     <div className="panel stack-md">
-      <h3>Push Model to Hub</h3>
+      <h3 className="panel-title">Push Model to Hub</h3>
       <div className="grid-2">
         <FormField label="Model Path">
-          <input value={modelPath} onChange={(e) => setModelPath(e.currentTarget.value)} placeholder="/path/to/model" />
+          <PathInput value={modelPath} onChange={setModelPath} placeholder="/path/to/model" kind="folder" />
         </FormField>
         <FormField label="Repository ID">
           <input value={repoId} onChange={(e) => setRepoId(e.currentTarget.value)} placeholder="username/model-name" />
@@ -45,10 +40,14 @@ export function HubPushForm() {
           </label>
         </FormField>
       </div>
-      <button className="btn btn-primary" onClick={() => pushModel().catch(console.error)} disabled={pushing || !modelPath.trim() || !repoId.trim()}>
-        {pushing ? "Pushing..." : "Push to Hub"}
+      <button className="btn btn-primary" onClick={() => pushModel().catch(console.error)} disabled={command.isRunning || !modelPath.trim() || !repoId.trim()}>
+        {command.isRunning ? "Pushing..." : "Push to Hub"}
       </button>
-      {result && <pre className="console">{result}</pre>}
+      {command.output && (
+        <div className="gap-top">
+          <StatusConsole output={command.output} />
+        </div>
+      )}
     </div>
   );
 }

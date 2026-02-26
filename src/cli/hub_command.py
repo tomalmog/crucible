@@ -48,7 +48,8 @@ def _run_search_models(query: str, limit: int, json_output: bool = False) -> int
     if json_output:
         print(_json.dumps([
             {"repo_id": m.repo_id, "author": m.author, "downloads": m.downloads,
-             "likes": m.likes, "tags": list(m.tags), "task": m.pipeline_tag}
+             "likes": m.likes, "tags": list(m.tags), "task": m.pipeline_tag,
+             "last_modified": m.last_modified}
             for m in models
         ]))
     else:
@@ -77,7 +78,7 @@ def _run_search_datasets(query: str, limit: int, json_output: bool = False) -> i
     if json_output:
         print(_json.dumps([
             {"repo_id": d.repo_id, "author": d.author, "downloads": d.downloads,
-             "tags": list(d.tags)}
+             "tags": list(d.tags), "last_modified": d.last_modified}
             for d in datasets
         ]))
     else:

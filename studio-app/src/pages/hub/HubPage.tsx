@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PageHeader } from "../../components/shared/PageHeader";
 import { HubModelSearch } from "./HubModelSearch";
 import { HubDatasetSearch } from "./HubDatasetSearch";
 import { HubPushForm } from "./HubPushForm";
@@ -9,24 +10,24 @@ export function HubPage() {
   const [tab, setTab] = useState<Tab>("models");
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>HuggingFace Hub</h1>
+    <>
+      <PageHeader title="HuggingFace Hub" />
+
+      <div className="tab-list">
+        {(["models", "datasets", "push"] as Tab[]).map((t) => (
+          <button
+            key={t}
+            className={`tab-item ${tab === t ? "active" : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
       </div>
-      <div className="tab-bar">
-        <button className={`tab${tab === "models" ? " active" : ""}`} onClick={() => setTab("models")}>
-          Models
-        </button>
-        <button className={`tab${tab === "datasets" ? " active" : ""}`} onClick={() => setTab("datasets")}>
-          Datasets
-        </button>
-        <button className={`tab${tab === "push" ? " active" : ""}`} onClick={() => setTab("push")}>
-          Push
-        </button>
-      </div>
+
       {tab === "models" && <HubModelSearch />}
       {tab === "datasets" && <HubDatasetSearch />}
       {tab === "push" && <HubPushForm />}
-    </div>
+    </>
   );
 }

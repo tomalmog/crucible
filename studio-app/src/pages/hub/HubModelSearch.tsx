@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Download, Heart, ArrowDownToLine } from "lucide-react";
+import { ArrowDownToLine, Heart, Download, Check, Loader } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
+import { PathInput } from "../../components/shared/PathInput";
+import { FormField } from "../../components/shared/FormField";
+import { formatCount, repoAuthor, formatDate, visibleTags, MODEL_DISPLAY_TAGS } from "./hubUtils";
 
 interface ModelResult {
   repo_id: string;
@@ -10,56 +13,32 @@ interface ModelResult {
   likes: number;
   tags: string[];
   task: string;
+  last_modified: string;
 }
 
-const DISPLAY_TAGS = ["transformers", "safetensors", "pytorch", "gguf", "onnx", "text-generation", "text-to-image", "conversational", "fill-mask", "question-answering", "summarization", "translation"];
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-function visibleTags(tags: string[]): string[] {
-  return tags.filter((t) => DISPLAY_TAGS.includes(t)).slice(0, 5);
-}
-
-function repoAuthor(result: ModelResult): string {
-  if (result.author) return result.author;
-  const slash = result.repo_id.indexOf("/");
-  return slash > 0 ? result.repo_id.slice(0, slash) : "";
-}
+type DownloadStatus = "idle" | "downloading" | "done" | "error";
 
 export function HubModelSearch() {
   const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const searchCmd = useForgeCommand();
+  const downloadCmd = useForgeCommand();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ModelResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [targetDir, setTargetDir] = useState("./models");
+  const [downloadStates, setDownloadStates] = useState<Record<string, DownloadStatus>>({});
   const didLoad = useRef(false);
 
   async function runSearch(searchQuery: string) {
     if (!dataRoot) return;
-    setSearching(true);
-    setError(null);
-    try {
-      const status = await command.run(dataRoot, [
-        "hub", "search-models", searchQuery, "--limit", "12", "--json",
-      ]);
-      if (status.status === "completed" && status.stdout) {
-        const parsed: ModelResult[] = JSON.parse(status.stdout);
-        setResults(parsed);
-      } else if (status.status === "failed") {
-        setError(status.stderr || "Search failed.");
-      }
-    } catch {
-      setError("Failed to reach forge CLI.");
+    const status = await searchCmd.run(dataRoot, [
+      "hub", "search-models", searchQuery, "--limit", "20", "--json",
+    ]);
+    if (status.status === "completed" && status.stdout) {
+      setResults(JSON.parse(status.stdout));
+      setDownloadStates({});
     }
-    setSearching(false);
   }
 
-  // Run default search on first mount once dataRoot is available
   useEffect(() => {
     if (dataRoot && !didLoad.current) {
       didLoad.current = true;
@@ -69,7 +48,18 @@ export function HubModelSearch() {
 
   async function downloadModel(repoId: string) {
     if (!dataRoot) return;
-    await command.run(dataRoot, ["hub", "download-model", repoId, "--target-dir", "./models"]);
+    setDownloadStates((s) => ({ ...s, [repoId]: "downloading" }));
+    try {
+      const status = await downloadCmd.run(dataRoot, [
+        "hub", "download-model", repoId, "--target-dir", targetDir,
+      ]);
+      setDownloadStates((s) => ({
+        ...s,
+        [repoId]: status.status === "completed" ? "done" : "error",
+      }));
+    } catch {
+      setDownloadStates((s) => ({ ...s, [repoId]: "error" }));
+    }
   }
 
   return (
@@ -87,60 +77,83 @@ export function HubModelSearch() {
         <button
           className="btn btn-primary"
           onClick={() => runSearch(query).catch(console.error)}
-          disabled={searching || !query.trim()}
+          disabled={searchCmd.isRunning || !query.trim()}
         >
-          {searching ? "Searching..." : "Search"}
+          {searchCmd.isRunning ? "Searching..." : "Search"}
         </button>
       </div>
 
-      {error && <p className="error-text">{error}</p>}
+      <div className="hub-download-target">
+        <FormField label="Download To">
+          <PathInput value={targetDir} onChange={setTargetDir} placeholder="./models" kind="folder" />
+        </FormField>
+      </div>
 
-      {searching && results.length === 0 && (
+      {searchCmd.error && <p className="error-text">{searchCmd.error}</p>}
+
+      {searchCmd.isRunning && results.length === 0 && (
         <p className="text-tertiary text-xs">Loading models...</p>
       )}
 
       {results.length > 0 && (
         <div className="hub-grid">
-          {results.map((r) => (
-            <div className="hub-card" key={r.repo_id}>
-              <div className="hub-card-header">
-                <div>
-                  <div className="hub-card-repo">{r.repo_id}</div>
-                  {repoAuthor(r) && <div className="hub-card-author">{repoAuthor(r)}</div>}
+          {results.map((r) => {
+            const dlState = downloadStates[r.repo_id] ?? "idle";
+            const author = repoAuthor(r.repo_id, r.author);
+            const tags = visibleTags(r.tags, MODEL_DISPLAY_TAGS);
+            return (
+              <div className="hub-card" key={r.repo_id}>
+                <div className="hub-card-header">
+                  <div>
+                    <div className="hub-card-repo">{r.repo_id}</div>
+                    {author && <div className="hub-card-author">{author}</div>}
+                  </div>
+                  {r.task && <span className="badge badge-accent">{r.task}</span>}
                 </div>
-                {r.task && <span className="badge badge-accent">{r.task}</span>}
-              </div>
 
-              <div className="hub-card-stats">
-                <span className="hub-card-stat">
-                  <ArrowDownToLine />
-                  {formatCount(r.downloads)}
-                </span>
-                <span className="hub-card-stat">
-                  <Heart />
-                  {formatCount(r.likes)}
-                </span>
-              </div>
-
-              {visibleTags(r.tags).length > 0 && (
-                <div className="hub-card-tags">
-                  {visibleTags(r.tags).map((t) => (
-                    <span className="hub-tag" key={t}>{t}</span>
-                  ))}
+                <div className="hub-card-stats">
+                  <span className="hub-card-stat">
+                    <ArrowDownToLine size={12} />
+                    {formatCount(r.downloads)}
+                  </span>
+                  <span className="hub-card-stat">
+                    <Heart size={12} />
+                    {formatCount(r.likes)}
+                  </span>
+                  {r.last_modified && (
+                    <span className="hub-card-stat hub-card-date">
+                      {formatDate(r.last_modified)}
+                    </span>
+                  )}
                 </div>
-              )}
 
-              <div className="hub-card-footer">
-                <button className="btn btn-sm" onClick={() => downloadModel(r.repo_id).catch(console.error)}>
-                  <Download /> Download
-                </button>
+                {tags.length > 0 && (
+                  <div className="hub-card-tags">
+                    {tags.map((t) => (
+                      <span className="hub-tag" key={t}>{t}</span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="hub-card-footer">
+                  <button
+                    className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : ""}`}
+                    onClick={() => downloadModel(r.repo_id).catch(console.error)}
+                    disabled={dlState === "downloading"}
+                  >
+                    {dlState === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
+                    {dlState === "done" && <><Check size={12} /> Downloaded</>}
+                    {dlState === "error" && <><Download size={12} /> Retry</>}
+                    {dlState === "idle" && <><Download size={12} /> Download</>}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {!searching && !error && results.length === 0 && didLoad.current && (
+      {!searchCmd.isRunning && !searchCmd.error && results.length === 0 && didLoad.current && (
         <p className="text-tertiary text-xs">No models found.</p>
       )}
     </div>

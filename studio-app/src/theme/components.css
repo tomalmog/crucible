@@ -853,6 +853,35 @@ label {
     flex: 1;
 }
 
+.hub-download-target {
+    max-width: 360px;
+}
+
+.hub-card-date {
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    margin-left: auto;
+}
+
+.btn-success {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.btn-error {
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /* ─── Docs Page ─── */
 
 .docs-layout {

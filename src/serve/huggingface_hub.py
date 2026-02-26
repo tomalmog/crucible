@@ -26,6 +26,7 @@ class HubModelInfo:
         likes: Number of likes.
         tags: Model tags.
         pipeline_tag: Primary task tag.
+        last_modified: ISO timestamp of last modification.
     """
 
     repo_id: str
@@ -34,6 +35,7 @@ class HubModelInfo:
     likes: int = 0
     tags: tuple[str, ...] = ()
     pipeline_tag: str = ""
+    last_modified: str = ""
 
 
 @dataclass(frozen=True)
@@ -45,12 +47,14 @@ class HubDatasetInfo:
         author: Dataset author/organization.
         downloads: Total download count.
         tags: Dataset tags.
+        last_modified: ISO timestamp of last modification.
     """
 
     repo_id: str
     author: str = ""
     downloads: int = 0
     tags: tuple[str, ...] = ()
+    last_modified: str = ""
 
 
 def _import_huggingface_hub() -> Any:
@@ -72,6 +76,9 @@ def search_models(query: str, limit: int = 20) -> list[HubModelInfo]:
     results = api.list_models(search=query, limit=limit, sort="downloads", direction=-1)
     models: list[HubModelInfo] = []
     for model in results:
+        modified = ""
+        if hasattr(model, "last_modified") and model.last_modified:
+            modified = model.last_modified.isoformat() if hasattr(model.last_modified, "isoformat") else str(model.last_modified)
         models.append(HubModelInfo(
             repo_id=model.id or "",
             author=model.author or "",
@@ -79,6 +86,7 @@ def search_models(query: str, limit: int = 20) -> list[HubModelInfo]:
             likes=model.likes or 0,
             tags=tuple(model.tags or []),
             pipeline_tag=model.pipeline_tag or "",
+            last_modified=modified,
         ))
     return models
 
@@ -105,11 +113,15 @@ def search_datasets(query: str, limit: int = 20) -> list[HubDatasetInfo]:
     results = api.list_datasets(search=query, limit=limit, sort="downloads", direction=-1)
     datasets: list[HubDatasetInfo] = []
     for ds in results:
+        modified = ""
+        if hasattr(ds, "last_modified") and ds.last_modified:
+            modified = ds.last_modified.isoformat() if hasattr(ds.last_modified, "isoformat") else str(ds.last_modified)
         datasets.append(HubDatasetInfo(
             repo_id=ds.id or "",
             author=ds.author or "",
             downloads=ds.downloads or 0,
             tags=tuple(ds.tags or []),
+            last_modified=modified,
         ))
     return datasets
 
