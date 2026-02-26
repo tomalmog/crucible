@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { TrainingMethod, TRAINING_METHODS, DEFAULT_SHARED_CONFIG, SharedTrainingConfig } from "../../types/training";
+import { TrainingMethod, TRAINING_METHODS, SharedTrainingConfig, getDefaultConfigForMethod } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { buildTrainingArgs } from "../../api/commandArgs";
-import { useForge } from "../../context/ForgeContext";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -20,22 +19,15 @@ import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 
-/** Methods that require a Forge dataset (they train directly on dataset records). */
-const METHODS_REQUIRING_DATASET: ReadonlySet<TrainingMethod> = new Set([
-  "train",
-  "distill",
-  "domain-adapt",
-]);
-
 /** Required extra fields per training method. */
 const REQUIRED_EXTRA_FIELDS: Record<TrainingMethod, string[]> = {
-  train: [],
+  train: ["--dataset"],
   sft: ["--sft-data-path", "--base-model"],
   "dpo-train": ["--dpo-data-path", "--base-model"],
   "rlhf-train": ["--policy-model-path"],
   "lora-train": ["--lora-data-path", "--base-model-path"],
-  distill: ["--teacher-model-path"],
-  "domain-adapt": ["--base-model-path"],
+  distill: ["--dataset", "--teacher-model-path"],
+  "domain-adapt": ["--dataset", "--base-model-path"],
   "grpo-train": ["--grpo-data-path", "--base-model"],
   "qlora-train": ["--qlora-data-path", "--base-model-path"],
   "kto-train": ["--kto-data-path", "--base-model"],
@@ -46,13 +38,9 @@ const REQUIRED_EXTRA_FIELDS: Record<TrainingMethod, string[]> = {
 
 function getMissingFields(
   method: TrainingMethod,
-  shared: SharedTrainingConfig,
   extra: Record<string, string>,
 ): string[] {
   const missing: string[] = [];
-  if (METHODS_REQUIRING_DATASET.has(method) && !shared.dataset.trim()) {
-    missing.push("Dataset");
-  }
   for (const flag of REQUIRED_EXTRA_FIELDS[method]) {
     if (!(extra[flag] ?? "").trim()) {
       const label = flag.replace(/^--/, "").replace(/-/g, " ");
@@ -72,18 +60,16 @@ interface TrainingWizardProps {
 
 export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
-  const { selectedDataset } = useForge();
   const command = useForgeCommand();
   const [step, setStep] = useState<Step>("config");
-  const [shared, setShared] = useState<SharedTrainingConfig>({
-    ...DEFAULT_SHARED_CONFIG,
-    dataset: selectedDataset ?? "",
-  });
+  const [shared, setShared] = useState<SharedTrainingConfig>(
+    getDefaultConfigForMethod(method),
+  );
   const [extra, setExtra] = useState<Record<string, string>>({});
 
   const missing = useMemo(
-    () => getMissingFields(method, shared, extra),
-    [method, shared, extra],
+    () => getMissingFields(method, extra),
+    [method, extra],
   );
   const canStart = missing.length === 0;
 
@@ -143,7 +129,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
           {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
 
-          <SharedTrainingFields config={shared} onChange={setShared} showDataset={METHODS_REQUIRING_DATASET.has(method)} />
+          <SharedTrainingFields config={shared} onChange={setShared} />
 
           {!canStart && (
             <div style={{

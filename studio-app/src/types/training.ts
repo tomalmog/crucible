@@ -36,8 +36,6 @@ export const TRAINING_METHODS: TrainingMethodInfo[] = [
 ];
 
 export interface SharedTrainingConfig {
-  dataset: string;
-  versionId: string;
   epochs: string;
   learningRate: string;
   batchSize: string;
@@ -55,8 +53,6 @@ export interface SharedTrainingConfig {
 }
 
 export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
-  dataset: "",
-  versionId: "",
   epochs: "3",
   learningRate: "0.001",
   batchSize: "32",
@@ -72,3 +68,24 @@ export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
   mlpLayers: "1",
   resumeCheckpointPath: "",
 };
+
+/** Per-method overrides for shared config defaults. Fine-tuning methods
+ *  need much lower learning rates than training from scratch. */
+const METHOD_CONFIG_OVERRIDES: Partial<Record<TrainingMethod, Partial<SharedTrainingConfig>>> = {
+  "dpo-train":  { learningRate: "5e-5" },
+  "rlhf-train": { learningRate: "1e-5" },
+  "lora-train": { learningRate: "2e-4" },
+  distill:      { learningRate: "5e-5" },
+  sft:          { learningRate: "2e-5" },
+  "domain-adapt": { learningRate: "5e-5" },
+  "grpo-train": { learningRate: "5e-5" },
+  "qlora-train": { learningRate: "2e-4" },
+  "kto-train":  { learningRate: "5e-5" },
+  "orpo-train": { learningRate: "5e-5" },
+  "multimodal-train": { learningRate: "2e-5" },
+  "rlvr-train": { learningRate: "5e-5" },
+};
+
+export function getDefaultConfigForMethod(method: TrainingMethod): SharedTrainingConfig {
+  return { ...DEFAULT_SHARED_CONFIG, ...METHOD_CONFIG_OVERRIDES[method] };
+}

@@ -17,7 +17,7 @@ def test_rlhf_options_defaults() -> None:
     )
     assert options.epochs == 3
     assert options.batch_size == 16
-    assert options.learning_rate == 1e-3
+    assert options.learning_rate == 1e-5
     assert options.ppo_config.clip_epsilon == 0.2
     assert options.ppo_config.ppo_epochs == 4
     assert options.reward_config.reward_model_path is None

@@ -27,6 +27,8 @@ from serve.lora_injection import (
     inject_lora_adapters,
 )
 from serve.model_weights import load_initial_weights, read_model_state_dict
+from serve.sft_data_loader import load_sft_examples
+from serve.sft_tokenization import SftSequence, build_sft_sequences
 from serve.training_artifacts import (
     ensure_training_output_dir,
     save_model_weights,
@@ -35,6 +37,7 @@ from serve.training_artifacts import (
 from serve.training_config_hash import compute_training_config_hash
 from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
+from serve.training_progress import emit_progress
 from serve.training_setup import validate_file_paths, validate_training_options
 
 
@@ -299,58 +302,42 @@ def _load_lora_tokenizer(options: LoraTrainingOptions) -> Any:
     return load_tokenizer(options.base_model_path)
 
 
-def _load_lora_data(data_path: str) -> list[dict[str, str]]:
-    """Load training examples from a JSONL file."""
-    path = Path(data_path)
-    if not path.exists():
-        raise ForgeLoraError(f"LoRA data file not found: {data_path}")
-    examples: list[dict[str, str]] = []
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            examples.append(json.loads(line))
-    return examples
-
-
-def _build_lora_batches(
-    data: list[dict[str, str]],
+def _load_lora_sequences(
+    data_path: str,
     tokenizer: Any,
-    options: LoraTrainingOptions,
-    torch_module: Any,
-    device: Any,
-) -> list[Any]:
-    """Build training batches from LoRA JSONL data."""
-    if hasattr(tokenizer, "pad_token_id"):
-        batches = []
-        for i in range(0, len(data), options.batch_size):
-            chunk = data[i : i + options.batch_size]
-            texts = [ex.get("text", ex.get("prompt", "") + " " + ex.get("response", "")) for ex in chunk]
-            encoded = tokenizer(
-                texts,
-                padding=True,
-                truncation=True,
-                max_length=options.max_token_length,
-                return_tensors="pt",
-            )
-            batches.append(encoded["input_ids"].to(device))
-        return batches
+    max_token_length: int,
+) -> list[SftSequence]:
+    """Load LoRA training data with prompt masking via SFT pipeline.
 
-    all_ids = []
-    for ex in data:
-        text = ex.get("text", ex.get("prompt", "") + " " + ex.get("response", ""))
-        ids = tokenizer.encode(text, options.max_token_length)
-        all_ids.append(torch_module.tensor(ids, dtype=torch_module.long, device=device))
-    batches = []
-    for i in range(0, len(all_ids), options.batch_size):
-        chunk = all_ids[i : i + options.batch_size]
-        max_len = max(len(ids) for ids in chunk)
-        padded = torch_module.stack([
-            torch_module.nn.functional.pad(ids, (0, max_len - len(ids)))
-            for ids in chunk
-        ])
-        batches.append(padded)
+    Expects JSONL with {"prompt": "...", "response": "..."} per line.
+    Prompt tokens are masked so the model only learns to predict responses.
+    """
+    examples = load_sft_examples(data_path)
+    sequences = build_sft_sequences(
+        examples=examples,
+        tokenizer=tokenizer,
+        max_token_length=max_token_length,
+        mask_prompt_tokens=True,
+    )
+    if not sequences:
+        raise ForgeLoraError(
+            "No trainable sequences from LoRA data. "
+            "Check data content and max token length."
+        )
+    return sequences
+
+
+def _build_lora_batches_from_sequences(
+    sequences: list[SftSequence],
+    batch_size: int,
+) -> list[tuple[list[list[int]], list[list[int]]]]:
+    """Group SFT sequences into (inputs, labels) batch pairs."""
+    batches: list[tuple[list[list[int]], list[list[int]]]] = []
+    for i in range(0, len(sequences), batch_size):
+        chunk = sequences[i : i + batch_size]
+        inputs = [list(s.input_ids) for s in chunk]
+        labels = [list(s.labels) for s in chunk]
+        batches.append((inputs, labels))
     return batches
 
 
@@ -371,64 +358,79 @@ def _run_lora_training_loop(
     """
     from core.types import EpochMetric
 
-    train_data = _load_lora_data(options.lora_data_path)
-    if not train_data:
-        raise ForgeLoraError("No training data loaded. Check the lora_data_path file.")
-
     tokenizer = _load_lora_tokenizer(options)
     if tokenizer is None:
         raise ForgeServeError(
             "No tokenizer found. Provide --tokenizer-path or use a HuggingFace model ID."
         )
 
-    batches = _build_lora_batches(train_data, tokenizer, options, torch_module, device)
+    sequences = _load_lora_sequences(
+        options.lora_data_path, tokenizer, options.max_token_length,
+    )
+    batches = _build_lora_batches_from_sequences(sequences, options.batch_size)
+    loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=-100)
 
     # Enable gradient checkpointing to reduce memory usage.
-    # For LoRA, the embedding inputs don't require grad by default, which
-    # breaks gradient checkpointing. enable_input_require_grads() fixes this
-    # by ensuring that the inputs to checkpointed segments carry gradients.
     if hasattr(model, "gradient_checkpointing_enable"):
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
         model.gradient_checkpointing_enable()
 
-    uses_labels = hasattr(model, "forward") and "labels" in _get_forward_params(model)
     is_mps = str(device).startswith("mps")
 
     start_epoch = 1
     global_step = 0
     checkpoint_dir = None
     if options.resume_checkpoint_path:
-        from serve.training_checkpoint import load_resume_checkpoint, ensure_checkpoint_dir
+        from serve.training_checkpoint import load_resume_checkpoint
         resume = load_resume_checkpoint(
             options.resume_checkpoint_path, torch_module, model, optimizer, None, device,
         )
         start_epoch = resume.next_epoch
         global_step = resume.global_step
 
+    emit_progress(
+        "training_started",
+        total_epochs=options.epochs,
+        start_epoch=start_epoch,
+        method="lora",
+    )
     epoch_metrics = []
     model.train()
     for epoch in range(start_epoch, options.epochs + 1):
         total_loss = 0.0
         num_batches = 0
-        for input_ids in batches:
+        total_batches = len(batches)
+        emit_progress(
+            "training_epoch_started",
+            epoch=epoch,
+            total_epochs=options.epochs,
+        )
+        for batch_inputs, batch_labels in batches:
+            max_len = max(len(s) for s in batch_inputs)
+            input_t = torch_module.tensor(
+                [s + [0] * (max_len - len(s)) for s in batch_inputs],
+                dtype=torch_module.long, device=device,
+            )
+            label_t = torch_module.tensor(
+                [s + [-100] * (max_len - len(s)) for s in batch_labels],
+                dtype=torch_module.long, device=device,
+            )
             optimizer.zero_grad()
             try:
-                if uses_labels:
-                    outputs = model(input_ids=input_ids, labels=input_ids)
-                    loss = outputs.loss
-                else:
-                    logits = model(input_ids)
-                    if hasattr(logits, "logits"):
-                        logits = logits.logits
-                    shift_logits = logits[:, :-1, :].contiguous()
-                    shift_labels = input_ids[:, 1:].contiguous()
-                    loss_fn = torch_module.nn.CrossEntropyLoss()
-                    loss = loss_fn(
-                        shift_logits.view(-1, shift_logits.size(-1)),
-                        shift_labels.view(-1),
-                    )
+                logits = model(input_t)
+                if hasattr(logits, "logits"):
+                    logits = logits.logits
+                shift_logits = logits[:, :-1, :].contiguous()
+                shift_labels = label_t[:, 1:].contiguous()
+                loss = loss_fn(
+                    shift_logits.view(-1, shift_logits.size(-1)),
+                    shift_labels.view(-1),
+                )
                 loss.backward()
+                torch_module.nn.utils.clip_grad_norm_(
+                    model.parameters(), max_norm=1.0,
+                )
                 optimizer.step()
             except RuntimeError as runtime_err:
                 if "out of memory" in str(runtime_err).lower():
@@ -442,19 +444,31 @@ def _run_lora_training_loop(
             if math.isnan(batch_loss) or math.isinf(batch_loss):
                 raise ForgeTrainingDivergedError(
                     f"LoRA training diverged: loss is {batch_loss} at epoch {epoch}. "
-                    "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
+                    "Try reducing --learning-rate or checking your data."
                 )
             total_loss += batch_loss
             num_batches += 1
             global_step += 1
-            # Free MPS memory between batches
+            emit_progress(
+                "training_batch_progress",
+                epoch=epoch,
+                total_epochs=options.epochs,
+                batch=num_batches,
+                total_batches=total_batches,
+                loss=round(batch_loss, 6),
+            )
             if is_mps:
                 torch_module.mps.empty_cache()
         avg_loss = total_loss / max(num_batches, 1)
         epoch_metrics.append(
             EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=avg_loss)
         )
-        print(f"Epoch {epoch}/{options.epochs} - loss: {avg_loss:.4f}")
+        emit_progress(
+            "training_epoch_completed",
+            epoch=epoch,
+            total_epochs=options.epochs,
+            train_loss=round(avg_loss, 6),
+        )
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
         if checkpoint_dir is None:
             checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
@@ -464,11 +478,3 @@ def _run_lora_training_loop(
     return epoch_metrics
 
 
-def _get_forward_params(model: Any) -> set[str]:
-    """Get parameter names accepted by model.forward."""
-    import inspect
-    try:
-        sig = inspect.signature(model.forward)
-        return set(sig.parameters.keys())
-    except (ValueError, TypeError):
-        return set()

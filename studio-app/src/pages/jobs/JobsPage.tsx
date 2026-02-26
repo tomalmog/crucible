@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { CommandTaskStatus } from "../../types";
+import { parseTrainingProgress } from "../training/TrainingRunMonitor";
 import {
   Activity,
   Square,
@@ -138,6 +139,10 @@ function JobRow({
   const commandLabel = [job.command, ...job.args.slice(1)].join(" ");
   const displayName = job.label || job.task_id;
   const isFinished = job.status !== "running";
+  const progress = useMemo(
+    () => (job.stdout ? parseTrainingProgress(job.stdout) : null),
+    [job.stdout],
+  );
 
   function startEditing() {
     setDraft(job.label || "");
@@ -213,6 +218,20 @@ function JobRow({
       </div>
 
       <div className="run-row-path">{commandLabel}</div>
+
+      {job.status === "running" && progress && (
+        <div style={{
+          display: "flex",
+          gap: 16,
+          fontSize: "0.75rem",
+          color: "var(--text-secondary)",
+          marginTop: 4,
+        }}>
+          <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
+          {progress.loss != null && <span>Loss: {progress.loss.toFixed(4)}</span>}
+          {progress.meanReward != null && <span>Reward: {progress.meanReward.toFixed(4)}</span>}
+        </div>
+      )}
 
       {job.status === "running" && (
         <div className="progress-bar" style={{ marginTop: 6 }}>

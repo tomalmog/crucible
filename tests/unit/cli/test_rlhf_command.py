@@ -50,7 +50,7 @@ def test_rlhf_command_accepts_reward_options() -> None:
         "--ppo-epochs", "8",
         "--entropy-coeff", "0.02",
         "--epochs", "5",
-        "--learning-rate", "0.001",
+        "--learning-rate", "1e-5",
     ])
 
     assert args.reward_model_path == "/tmp/reward.pt"
@@ -60,4 +60,4 @@ def test_rlhf_command_accepts_reward_options() -> None:
     assert args.ppo_epochs == 8
     assert args.entropy_coeff == 0.02
     assert args.epochs == 5
-    assert args.learning_rate == 0.001
+    assert args.learning_rate == 1e-5

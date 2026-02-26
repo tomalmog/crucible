@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn validate_args_accepts_supported_command() {
-        let args = vec!["train".to_string(), "--dataset".to_string(), "demo".to_string()];
+        let args = vec!["train".to_string(), "--epochs".to_string(), "3".to_string()];
         assert!(validate_args(&args).is_ok());
     }
 

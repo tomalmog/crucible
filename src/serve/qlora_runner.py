@@ -7,8 +7,6 @@ and persists artifacts.
 
 from __future__ import annotations
 
-import json
-import random
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +24,8 @@ from serve.lora_injection import (
 )
 from serve.model_weights import load_initial_weights
 from serve.quantization_utils import QuantizationConfig, validate_quantization_config
+from serve.sft_data_loader import load_sft_examples
+from serve.sft_tokenization import build_sft_sequences
 from serve.training_artifacts import ensure_training_output_dir
 from serve.training_config_hash import compute_training_config_hash
 from serve.training_context import TrainingRuntimeContext
@@ -130,15 +130,8 @@ def _build_qlora_runtime_context(
     )
     output_dir = ensure_training_output_dir(options.output_dir)
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model_path)
-    train_data = _load_qlora_data(options.qlora_data_path)
-    if not train_data:
-        raise ForgeQloraError(
-            "No training data loaded for QLoRA. "
-            "Check the qlora_data_path file content."
-        )
-    random.Random(random_seed).shuffle(train_data)
     train_batches, val_batches = _build_qlora_batches(
-        data=train_data,
+        data_path=options.qlora_data_path,
         tokenizer=tokenizer,
         options=options,
     )
@@ -163,7 +156,7 @@ def _build_qlora_runtime_context(
         torch_module, lora_params, options,
     )
     hooks = load_training_hooks(options.hooks_path)
-    loss_fn = torch_module.nn.CrossEntropyLoss()
+    loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=-100)
     return TrainingRuntimeContext(
         torch_module=torch_module,
         model=model,
@@ -331,52 +324,40 @@ def _build_qlora_optimizer(
     )
 
 
-def _load_qlora_data(data_path: str) -> list[dict[str, str]]:
-    """Load training examples from a JSONL file."""
-    path = Path(data_path)
-    if not path.exists():
-        raise ForgeQloraError(f"QLoRA data file not found: {data_path}")
-    examples: list[dict[str, str]] = []
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            examples.append(json.loads(line))
-    return examples
-
-
 def _build_qlora_batches(
-    data: list[dict[str, str]],
+    data_path: str,
     tokenizer: Any,
     options: QloraOptions,
 ) -> tuple[list[Any], list[Any]]:
-    """Build train/val batches from QLoRA data."""
+    """Load data with prompt masking and build train/val batches."""
     from serve.tokenization import SequenceBatch
 
-    split_idx = max(
-        1, int(len(data) * (1.0 - options.validation_split)),
+    examples = load_sft_examples(data_path)
+    sequences = build_sft_sequences(
+        examples=examples,
+        tokenizer=tokenizer,
+        max_token_length=options.max_token_length,
+        mask_prompt_tokens=True,
     )
-    train_data = data[:split_idx]
-    val_data = data[split_idx:] if split_idx < len(data) else []
+    if not sequences:
+        raise ForgeQloraError(
+            "No trainable sequences from QLoRA data. "
+            "Check data content and max token length."
+        )
+    split_idx = max(1, int(len(sequences) * (1.0 - options.validation_split)))
+    train_seqs = sequences[:split_idx]
+    val_seqs = sequences[split_idx:] if split_idx < len(sequences) else []
 
-    def to_batches(examples: list[dict[str, str]]) -> list[Any]:
+    def to_batches(seqs: list[Any]) -> list[Any]:
         batches = []
-        for i in range(0, len(examples), options.batch_size):
-            batch = examples[i : i + options.batch_size]
-            token_ids = []
-            for ex in batch:
-                text = ex.get(
-                    "text",
-                    ex.get("prompt", "") + " " + ex.get("response", ""),
-                )
-                ids = tokenizer.encode(text, options.max_token_length)
-                padded = ids + [0] * (options.max_token_length - len(ids))
-                token_ids.append(padded)
-            batches.append(SequenceBatch(inputs=token_ids, targets=list(token_ids)))
+        for i in range(0, len(seqs), options.batch_size):
+            chunk = seqs[i : i + options.batch_size]
+            inputs = [list(s.input_ids) for s in chunk]
+            labels = [list(s.labels) for s in chunk]
+            batches.append(SequenceBatch(inputs=inputs, targets=labels))
         return batches
 
-    return to_batches(train_data), to_batches(val_data)
+    return to_batches(train_seqs), to_batches(val_seqs)
 
 
 def _persist_qlora_outputs(

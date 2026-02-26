@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
+import json
+
 from serve.training_progress import TrainingProgressTracker, read_optimizer_learning_rate
-
-
-class _FakeLogger:
-    def __init__(self) -> None:
-        self.events: list[tuple[str, dict[str, object]]] = []
-
-    def info(self, event: str, **fields: object) -> None:
-        self.events.append((event, fields))
 
 
 class _FakeOptimizer:
@@ -18,10 +12,8 @@ class _FakeOptimizer:
         self.param_groups = [{"lr": lr}]
 
 
-def test_training_progress_tracker_logs_periodic_batch_updates(monkeypatch) -> None:
+def test_training_progress_tracker_logs_periodic_batch_updates(capsys) -> None:
     """Progress tracker should emit first/interval/last batch updates."""
-    fake_logger = _FakeLogger()
-    monkeypatch.setattr("serve.training_progress._LOGGER", fake_logger)
     tracker = TrainingProgressTracker(
         dataset_name="demo",
         total_epochs=3,
@@ -37,14 +29,13 @@ def test_training_progress_tracker_logs_periodic_batch_updates(monkeypatch) -> N
         tracker.log_batch_progress("train", 1, batch_index, 5, batch_index, 0.5)
     tracker.log_epoch_completed(1, train_loss=0.5, validation_loss=0.4, learning_rate=0.001)
 
-    batch_events = [event for event, _ in fake_logger.events if event == "training_batch_progress"]
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.strip().split("\n") if line]
+    events = [json.loads(line) for line in lines]
+    batch_events = [e for e in events if e["event"] == "training_batch_progress"]
 
-    assert batch_events == [
-        "training_batch_progress",
-        "training_batch_progress",
-        "training_batch_progress",
-        "training_batch_progress",
-    ]
+    assert len(batch_events) == 4
+    assert all(e["event"] == "training_batch_progress" for e in batch_events)
 
 
 def test_read_optimizer_learning_rate_reads_first_param_group() -> None:

@@ -172,15 +172,27 @@ def _build_orpo_batches(
 
     def to_batches(examples: list[dict[str, str]]) -> list[Any]:
         batches = []
+        # Each ORPO batch interleaves chosen/rejected pairs:
+        # even indices = chosen, odd indices = rejected.
+        # This allows the loss function to split and compare them.
         for i in range(0, len(examples), options.batch_size):
             batch = examples[i : i + options.batch_size]
-            token_ids = []
+            all_inputs = []
+            all_targets = []
             for ex in batch:
-                text = ex.get("prompt", "") + " " + ex.get("chosen", "")
-                ids = tokenizer.encode(text, options.max_token_length)
-                padded = ids + [0] * (options.max_token_length - len(ids))
-                token_ids.append(padded)
-            batches.append(SequenceBatch(inputs=token_ids, targets=list(token_ids)))
+                prompt = ex.get("prompt", "")
+                chosen_text = prompt + " " + ex.get("chosen", "")
+                rejected_text = prompt + " " + ex.get("rejected", "")
+                chosen_ids = tokenizer.encode(chosen_text, options.max_token_length)
+                rejected_ids = tokenizer.encode(rejected_text, options.max_token_length)
+                chosen_padded = chosen_ids + [0] * (options.max_token_length - len(chosen_ids))
+                rejected_padded = rejected_ids + [0] * (options.max_token_length - len(rejected_ids))
+                # Interleave: chosen at even index, rejected at odd index
+                all_inputs.append(chosen_padded)
+                all_inputs.append(rejected_padded)
+                all_targets.append(list(chosen_padded))
+                all_targets.append(list(rejected_padded))
+            batches.append(SequenceBatch(inputs=all_inputs, targets=all_targets))
         return batches
 
     return to_batches(train_data), to_batches(val_data)

@@ -85,6 +85,9 @@ def run_ppo_epoch(
         )
         optimizer.zero_grad()
         loss.backward()
+        torch_module.nn.utils.clip_grad_norm_(
+            policy_model.parameters(), max_norm=1.0,
+        )
         optimizer.step()
         total_policy_loss += policy_loss.item()
         total_value_loss += value_loss.item()

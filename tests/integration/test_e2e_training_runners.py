@@ -106,11 +106,10 @@ def test_grpo_cli_dispatches(
 
 
 def test_grpo_cli_missing_dataset_errors(
-    tmp_path: Path, grpo_data_file: str,
+    tmp_path: Path,
 ) -> None:
     with pytest.raises(SystemExit) as exc:
-        main(["grpo-train", "--output-dir", str(tmp_path),
-              "--grpo-data-path", grpo_data_file])
+        main(["grpo-train", "--output-dir", str(tmp_path)])
     assert exc.value.code == 2
 
 
@@ -163,31 +162,23 @@ def test_qlora_real_training(
 
 def test_qlora_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
-    ingested_dataset: tuple, qlora_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
-    # Train base model on the SAME ingested dataset so vocab sizes match
-    base_result = main([
-        "--data-root", str(client._config.data_root),
-        "train", "--dataset", ds_name,
-        "--output-dir", str(tmp_path / "base_for_qlora"),
-        "--hidden-dim", "32", "--num-layers", "1",
-        "--attention-heads", "2", "--batch-size", "2",
-        "--epochs", "1", "--max-token-length", "64",
-        "--learning-rate", "0.001",
-    ])
-    captured = capsys.readouterr().out
-    base_path = ""
-    for line in captured.splitlines():
-        if "model_path=" in line:
-            base_path = line.split("model_path=")[1].strip()
-            break
+    # Train base model using _records() so vocab is consistent
+    base_path = _train_base_model(tmp_path)
+    # Point tokenizer to base model's vocab so embedding sizes match
+    tokenizer_path = str(Path(base_path).parent / "tokenizer_vocab.json")
+    qlora_path = tmp_path / "qlora_cli_data.jsonl"
+    lines = [
+        json.dumps({"prompt": "hello world", "response": "test sentence"})
+        for _ in range(5)
+    ]
+    qlora_path.write_text("\n".join(lines))
     code = main([
-        "--data-root", str(client._config.data_root),
         "qlora-train",
         "--output-dir", str(tmp_path / "qlora_cli"),
-        "--qlora-data-path", qlora_data_file,
+        "--qlora-data-path", str(qlora_path),
         "--base-model-path", base_path,
+        "--tokenizer-path", tokenizer_path,
         "--hidden-dim", "32", "--num-layers", "1",
         "--attention-heads", "2", "--batch-size", "2",
         "--epochs", "1", "--max-token-length", "64",
@@ -197,13 +188,13 @@ def test_qlora_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_qlora_cli_missing_dataset_errors(
+def test_qlora_cli_missing_required_arg_errors(
     tmp_path: Path, qlora_data_file: str,
 ) -> None:
+    """Omitting --base-model-path (required) should exit with code 2."""
     with pytest.raises(SystemExit) as exc:
         main(["qlora-train", "--output-dir", str(tmp_path),
-              "--qlora-data-path", qlora_data_file,
-              "--base-model-path", str(tmp_path / "base.pt")])
+              "--qlora-data-path", qlora_data_file])
     assert exc.value.code == 2
 
 
@@ -275,12 +266,12 @@ def test_kto_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_kto_cli_missing_dataset_errors(
-    tmp_path: Path, kto_data_file: str,
+def test_kto_cli_missing_required_arg_errors(
+    tmp_path: Path,
 ) -> None:
+    """Omitting --kto-data-path (required) should exit with code 2."""
     with pytest.raises(SystemExit) as exc:
-        main(["kto-train", "--output-dir", str(tmp_path),
-              "--kto-data-path", kto_data_file])
+        main(["kto-train", "--output-dir", str(tmp_path)])
     assert exc.value.code == 2
 
 
@@ -346,12 +337,12 @@ def test_orpo_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_orpo_cli_missing_dataset_errors(
-    tmp_path: Path, orpo_data_file: str,
+def test_orpo_cli_missing_required_arg_errors(
+    tmp_path: Path,
 ) -> None:
+    """Omitting --orpo-data-path (required) should exit with code 2."""
     with pytest.raises(SystemExit) as exc:
-        main(["orpo-train", "--output-dir", str(tmp_path),
-              "--orpo-data-path", orpo_data_file])
+        main(["orpo-train", "--output-dir", str(tmp_path)])
     assert exc.value.code == 2
 
 
@@ -419,12 +410,12 @@ def test_multimodal_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_multimodal_cli_missing_dataset_errors(
-    tmp_path: Path, multimodal_data_file: str,
+def test_multimodal_cli_missing_required_arg_errors(
+    tmp_path: Path,
 ) -> None:
+    """Omitting --multimodal-data-path (required) should exit with code 2."""
     with pytest.raises(SystemExit) as exc:
-        main(["multimodal-train", "--output-dir", str(tmp_path),
-              "--multimodal-data-path", multimodal_data_file])
+        main(["multimodal-train", "--output-dir", str(tmp_path)])
     assert exc.value.code == 2
 
 
@@ -492,12 +483,12 @@ def test_rlvr_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_rlvr_cli_missing_dataset_errors(
-    tmp_path: Path, rlvr_data_file: str,
+def test_rlvr_cli_missing_required_arg_errors(
+    tmp_path: Path,
 ) -> None:
+    """Omitting --rlvr-data-path (required) should exit with code 2."""
     with pytest.raises(SystemExit) as exc:
-        main(["rlvr-train", "--output-dir", str(tmp_path),
-              "--rlvr-data-path", rlvr_data_file])
+        main(["rlvr-train", "--output-dir", str(tmp_path)])
     assert exc.value.code == 2
 
 

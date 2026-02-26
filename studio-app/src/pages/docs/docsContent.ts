@@ -7,8 +7,7 @@ export const DOCS_CONTENT = `
 
 ## Training Methods
 
-### Basic Training {#train}
-
+### Basic Training
 Standard supervised training from scratch. Trains a new model on raw text data from a Forge dataset.
 
 **Required:**
@@ -29,8 +28,7 @@ Standard supervised training from scratch. Trains a new model on raw text data f
 
 ---
 
-### SFT (Supervised Fine-Tuning) {#sft}
-
+### SFT (Supervised Fine-Tuning)
 Fine-tune a pre-trained model on instruction/response pairs. The model learns to follow instructions by training on structured prompt-completion examples.
 
 **Required:**
@@ -53,8 +51,7 @@ Fine-tune a pre-trained model on instruction/response pairs. The model learns to
 
 ---
 
-### DPO (Direct Preference Optimization) {#dpo-train}
-
+### DPO (Direct Preference Optimization)
 Train a model to prefer better responses over worse ones using paired preference data, without needing a separate reward model.
 
 **Required:**
@@ -76,8 +73,7 @@ Train a model to prefer better responses over worse ones using paired preference
 
 ---
 
-### RLHF (Reinforcement Learning from Human Feedback) {#rlhf-train}
-
+### RLHF (Reinforcement Learning from Human Feedback)
 Train a policy model using PPO with a reward model. The classic alignment approach: train a reward model on preferences, then optimize the policy against it.
 
 **Required:**
@@ -96,8 +92,7 @@ Train a policy model using PPO with a reward model. The classic alignment approa
 
 ---
 
-### LoRA (Low-Rank Adaptation) {#lora-train}
-
+### LoRA (Low-Rank Adaptation)
 Parameter-efficient fine-tuning that freezes the base model and trains small low-rank adapter matrices. Dramatically reduces memory and compute requirements.
 
 **Required:**
@@ -122,8 +117,7 @@ Parameter-efficient fine-tuning that freezes the base model and trains small low
 
 ---
 
-### Distillation {#distill}
-
+### Distillation
 Transfer knowledge from a large teacher model to a smaller student model. The student learns to match the teacher's output distribution.
 
 **Required:**
@@ -139,8 +133,7 @@ Transfer knowledge from a large teacher model to a smaller student model. The st
 
 ---
 
-### Domain Adaptation {#domain-adapt}
-
+### Domain Adaptation
 Adapt a pre-trained model to a new domain by continuing training on domain-specific data, with optional drift detection to prevent catastrophic forgetting.
 
 **Required:**
@@ -155,8 +148,7 @@ Adapt a pre-trained model to a new domain by continuing training on domain-speci
 
 ---
 
-### GRPO (Group Relative Policy Optimization) {#grpo-train}
-
+### GRPO (Group Relative Policy Optimization)
 Reward-based optimization that samples multiple responses per prompt and uses relative rankings within each group to compute advantages.
 
 **Required:**
@@ -178,8 +170,7 @@ Reward-based optimization that samples multiple responses per prompt and uses re
 
 ---
 
-### QLoRA (Quantized LoRA) {#qlora-train}
-
+### QLoRA (Quantized LoRA)
 Combines 4-bit quantization with LoRA for extremely memory-efficient fine-tuning. Enables fine-tuning large models on consumer GPUs.
 
 **Required:**
@@ -199,8 +190,7 @@ Combines 4-bit quantization with LoRA for extremely memory-efficient fine-tuning
 
 ---
 
-### KTO (Kahneman-Tversky Optimization) {#kto-train}
-
+### KTO (Kahneman-Tversky Optimization)
 Preference optimization using unpaired binary feedback (thumbs up / thumbs down) rather than requiring paired chosen/rejected examples.
 
 **Required:**
@@ -218,8 +208,7 @@ Preference optimization using unpaired binary feedback (thumbs up / thumbs down)
 
 ---
 
-### ORPO (Odds Ratio Preference Optimization) {#orpo-train}
-
+### ORPO (Odds Ratio Preference Optimization)
 Combines SFT and preference optimization in a single training step. Uses odds ratios to contrast chosen and rejected responses without a reference model.
 
 **Required:**
@@ -236,8 +225,7 @@ Combines SFT and preference optimization in a single training step. Uses odds ra
 
 ---
 
-### Multimodal Training {#multimodal-train}
-
+### Multimodal Training
 Fine-tune vision-language models on paired image-text data. Supports image captioning, visual question answering, and other multimodal tasks.
 
 **Required:**
@@ -255,8 +243,7 @@ Fine-tune vision-language models on paired image-text data. Supports image capti
 
 ---
 
-### RLVR (RL with Verifiable Rewards) {#rlvr-train}
-
+### RLVR (RL with Verifiable Rewards)
 Reinforcement learning with automatically verifiable rewards. Ideal for tasks where correctness can be checked programmatically (math, code, logic).
 
 **Required:**
@@ -332,19 +319,19 @@ Each line has a prompt and verifiable answer or test code:
 \`\`\`
 `;
 
-/** Map from TrainingMethod id to the anchor in the docs page. */
+/** Map from TrainingMethod id to the slugified heading anchor in the docs page. */
 export const TRAINING_METHOD_ANCHORS: Record<string, string> = {
-  train: "train",
-  sft: "sft",
-  "dpo-train": "dpo-train",
-  "rlhf-train": "rlhf-train",
-  "lora-train": "lora-train",
-  distill: "distill",
-  "domain-adapt": "domain-adapt",
-  "grpo-train": "grpo-train",
-  "qlora-train": "qlora-train",
-  "kto-train": "kto-train",
-  "orpo-train": "orpo-train",
-  "multimodal-train": "multimodal-train",
-  "rlvr-train": "rlvr-train",
+  train: "basic-training",
+  sft: "sft-supervised-fine-tuning",
+  "dpo-train": "dpo-direct-preference-optimization",
+  "rlhf-train": "rlhf-reinforcement-learning-from-human-feedback",
+  "lora-train": "lora-low-rank-adaptation",
+  distill: "distillation",
+  "domain-adapt": "domain-adaptation",
+  "grpo-train": "grpo-group-relative-policy-optimization",
+  "qlora-train": "qlora-quantized-lora",
+  "kto-train": "kto-kahneman-tversky-optimization",
+  "orpo-train": "orpo-odds-ratio-preference-optimization",
+  "multimodal-train": "multimodal-training",
+  "rlvr-train": "rlvr-rl-with-verifiable-rewards",
 };

@@ -57,6 +57,9 @@ def run_accumulated_batch_step(
 
     did_step = current_accumulation == accumulation_steps
     if did_step:
+        context.torch_module.nn.utils.clip_grad_norm_(
+            context.model.parameters(), max_norm=1.0,
+        )
         if context.precision_runtime.scaler is not None:
             context.precision_runtime.scaler.step(context.optimizer)
             context.precision_runtime.scaler.update()

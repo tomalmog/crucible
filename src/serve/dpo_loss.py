@@ -33,13 +33,11 @@ def compute_log_probs_from_logits(
         Summed log probability tensor of shape (batch,).
     """
     log_probs = torch_module.nn.functional.log_softmax(logits, dim=-1)
-    batch_size = labels.shape[0]
     seq_len = labels.shape[1]
-    gathered = torch_module.zeros(batch_size, seq_len, device=logits.device)
-    for b in range(batch_size):
-        for t in range(seq_len):
-            if labels[b, t] != IGNORE_INDEX and t >= prompt_length:
-                gathered[b, t] = log_probs[b, t, labels[b, t]]
+    safe_labels = labels.clamp(min=0)
+    gathered = torch_module.gather(
+        log_probs, dim=-1, index=safe_labels.unsqueeze(-1),
+    ).squeeze(-1)
     response_mask = (labels != IGNORE_INDEX).float()
     if prompt_length < seq_len:
         response_mask[:, :prompt_length] = 0.0

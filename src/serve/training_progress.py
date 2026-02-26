@@ -6,13 +6,16 @@ including batch-level updates, epoch summaries, and ETA estimates.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.logging_config import get_logger
 
-_LOGGER = get_logger(__name__)
+def emit_progress(event: str, **fields: object) -> None:
+    """Write a JSON progress line to stdout, flushed immediately."""
+    payload = {"event": event, **fields}
+    print(json.dumps(payload), flush=True)
 
 
 @dataclass
@@ -30,7 +33,7 @@ class TrainingProgressTracker:
 
     def log_training_started(self) -> None:
         """Log one event when a training run starts."""
-        _LOGGER.info(
+        emit_progress(
             "training_started",
             dataset_name=self.dataset_name,
             total_epochs=self.total_epochs,
@@ -42,7 +45,7 @@ class TrainingProgressTracker:
     def log_epoch_started(self, epoch_index: int) -> None:
         """Log epoch start and capture epoch timer state."""
         self.current_epoch_started_at = time.monotonic()
-        _LOGGER.info(
+        emit_progress(
             "training_epoch_started",
             dataset_name=self.dataset_name,
             epoch=epoch_index,
@@ -62,7 +65,7 @@ class TrainingProgressTracker:
         if not _should_log_batch(batch_index, total_batches, self.batch_log_interval_steps):
             return
         progress_fraction = _progress_fraction(batch_index, total_batches)
-        _LOGGER.info(
+        emit_progress(
             "training_batch_progress",
             dataset_name=self.dataset_name,
             phase=phase,
@@ -89,7 +92,7 @@ class TrainingProgressTracker:
         completed_epochs = max(1, epoch_index - self.start_epoch + 1)
         remaining_epochs = max(0, self.total_epochs - epoch_index)
         eta_seconds = (run_elapsed_seconds / completed_epochs) * remaining_epochs
-        _LOGGER.info(
+        emit_progress(
             "training_epoch_completed",
             dataset_name=self.dataset_name,
             epoch=epoch_index,

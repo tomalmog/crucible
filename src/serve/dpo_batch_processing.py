@@ -15,6 +15,7 @@ from serve.dpo_loss import compute_dpo_loss, compute_log_probs_from_logits
 from serve.dpo_reference_model import compute_reference_log_probs
 from serve.dpo_tokenization import DpoTokenizedPair
 from serve.tokenization import VocabularyTokenizer
+from serve.training_progress import emit_progress
 from core.types import TrainingOptions
 
 
@@ -65,11 +66,23 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
         )
         start_epoch = resume.next_epoch
         global_step = resume.global_step
+    total_batches = max(1, len(context.dpo_pairs) // options.batch_size)
+    emit_progress(
+        "training_started",
+        total_epochs=options.epochs,
+        start_epoch=start_epoch,
+        method="dpo",
+    )
     epoch_metrics: list[EpochMetric] = []
     for epoch in range(start_epoch, options.epochs + 1):
         context.model.train()
         total_loss = 0.0
         batch_count = 0
+        emit_progress(
+            "training_epoch_started",
+            epoch=epoch,
+            total_epochs=options.epochs,
+        )
         for batch_start in range(
             0, len(context.dpo_pairs), options.batch_size
         ):
@@ -81,11 +94,28 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
             )
             optimizer.zero_grad()
             loss.backward()
+            torch_module.nn.utils.clip_grad_norm_(
+                context.model.parameters(), max_norm=1.0,
+            )
             optimizer.step()
             total_loss += loss.item()
             batch_count += 1
             global_step += 1
+            emit_progress(
+                "training_batch_progress",
+                epoch=epoch,
+                total_epochs=options.epochs,
+                batch=batch_count,
+                total_batches=total_batches,
+                loss=round(loss.item(), 6),
+            )
         avg_loss = total_loss / max(batch_count, 1)
+        emit_progress(
+            "training_epoch_completed",
+            epoch=epoch,
+            total_epochs=options.epochs,
+            train_loss=round(avg_loss, 6),
+        )
         epoch_metrics.append(EpochMetric(
             epoch=epoch,
             train_loss=avg_loss,

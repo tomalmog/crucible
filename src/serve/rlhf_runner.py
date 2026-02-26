@@ -36,6 +36,7 @@ from serve.training_hooks import load_training_hooks
 from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
 from serve.training_reproducibility_bundle import save_reproducibility_bundle
 from serve.training_run_registry import TrainingRunRegistry
+from serve.training_progress import emit_progress
 from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
@@ -225,8 +226,19 @@ def _run_ppo_training(
         start_epoch = resume.next_epoch
         global_step = resume.global_step
     prompts = _build_prompt_batch(context)
+    emit_progress(
+        "training_started",
+        total_epochs=options.epochs,
+        start_epoch=start_epoch,
+        method="rlhf",
+    )
     results: list[PpoEpochResult] = []
     for epoch_idx in range(start_epoch - 1, options.epochs):
+        emit_progress(
+            "training_epoch_started",
+            epoch=epoch_idx + 1,
+            total_epochs=options.epochs,
+        )
         result = run_ppo_epoch(
             torch_module=context.torch_module,
             policy_model=context.policy_model,
@@ -238,10 +250,12 @@ def _run_ppo_training(
         )
         results.append(result)
         global_step += 1
-        print(
-            f"RLHF epoch {result.epoch}/{options.epochs} "
-            f"policy_loss={result.policy_loss:.4f} "
-            f"mean_reward={result.mean_reward:.4f}"
+        emit_progress(
+            "training_epoch_completed",
+            epoch=result.epoch,
+            total_epochs=options.epochs,
+            train_loss=round(result.policy_loss, 6),
+            mean_reward=round(result.mean_reward, 6),
         )
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
         checkpoint_dir = ensure_checkpoint_dir(context.output_dir)

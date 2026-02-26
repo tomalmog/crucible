@@ -141,9 +141,12 @@ def orpo_data_file(tmp_path: Path) -> str:
 
 @pytest.fixture()
 def qlora_data_file(tmp_path: Path) -> str:
-    """JSONL file with text lines for QLoRA."""
+    """JSONL file with prompt/response pairs for QLoRA."""
     path = tmp_path / "qlora_data.jsonl"
-    lines = [json.dumps({"text": f"Training example {i}"}) for i in range(5)]
+    lines = [
+        json.dumps({"prompt": f"Question {i}", "response": f"Answer for example {i}"})
+        for i in range(5)
+    ]
     path.write_text("\n".join(lines))
     return str(path)
 

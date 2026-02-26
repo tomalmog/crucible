@@ -159,13 +159,20 @@ def _build_kto_batches(
         batches = []
         for i in range(0, len(exs), options.batch_size):
             batch = exs[i : i + options.batch_size]
-            token_ids = []
+            all_inputs = []
+            all_targets = []
             for ex in batch:
                 text = ex.prompt + " " + ex.response
                 ids = tokenizer.encode(text, options.max_token_length)
                 padded = ids + [0] * (options.max_token_length - len(ids))
-                token_ids.append(padded)
-            batches.append(SequenceBatch(inputs=token_ids, targets=list(token_ids)))
+                all_inputs.append(padded)
+                if ex.is_desirable:
+                    all_targets.append(list(padded))
+                else:
+                    # Mark undesirable targets as -1 so the loss function
+                    # can detect them and flip the gradient direction.
+                    all_targets.append([-1] * len(padded))
+            batches.append(SequenceBatch(inputs=all_inputs, targets=all_targets))
         return batches
 
     return to_batches(train_examples), to_batches(val_examples)

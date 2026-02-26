@@ -34,6 +34,7 @@ from serve.training_artifacts import (
 from serve.training_config_hash import compute_training_config_hash
 from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
+from serve.training_progress import emit_progress
 from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
 
 
@@ -293,8 +294,19 @@ def _run_distillation_loop(
         )
         start_epoch = resume.next_epoch
         global_step = resume.global_step
+    emit_progress(
+        "training_started",
+        total_epochs=options.epochs,
+        start_epoch=start_epoch,
+        method="distillation",
+    )
     epoch_metrics: list[EpochMetric] = []
     for epoch in range(start_epoch, options.epochs + 1):
+        emit_progress(
+            "training_epoch_started",
+            epoch=epoch,
+            total_epochs=options.epochs,
+        )
         train_loss = _run_distillation_pass(
             torch_module=torch_module,
             teacher=teacher,
@@ -319,9 +331,12 @@ def _run_distillation_loop(
             teacher_vocab_size=teacher_vocab_size,
             training=False,
         )
-        print(
-            f"  epoch {epoch}/{options.epochs}  "
-            f"train_loss={train_loss:.6f}  val_loss={val_loss:.6f}"
+        emit_progress(
+            "training_epoch_completed",
+            epoch=epoch,
+            total_epochs=options.epochs,
+            train_loss=round(train_loss, 6),
+            validation_loss=round(val_loss, 6),
         )
         epoch_metrics.append(
             EpochMetric(
@@ -385,10 +400,16 @@ def _run_distillation_pass(
             optimizer.zero_grad()
             if precision_runtime.scaler is not None:
                 precision_runtime.scaler.scale(loss).backward()
+                torch_module.nn.utils.clip_grad_norm_(
+                    student.parameters(), max_norm=1.0,
+                )
                 precision_runtime.scaler.step(optimizer)
                 precision_runtime.scaler.update()
             else:
                 loss.backward()
+                torch_module.nn.utils.clip_grad_norm_(
+                    student.parameters(), max_norm=1.0,
+                )
                 optimizer.step()
         total_loss += loss_value
     return total_loss / len(batches)

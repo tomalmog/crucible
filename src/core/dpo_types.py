@@ -12,12 +12,12 @@ from core.constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_DPO_BETA,
     DEFAULT_DPO_LABEL_SMOOTHING,
+    DEFAULT_DPO_LEARNING_RATE,
     DEFAULT_MAX_TOKEN_LENGTH,
     DEFAULT_TRAIN_ATTENTION_HEADS,
     DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS,
     DEFAULT_TRAIN_EPOCHS,
     DEFAULT_TRAIN_HIDDEN_DIM,
-    DEFAULT_TRAIN_LEARNING_RATE,
     DEFAULT_TRAIN_MLP_HIDDEN_DIM,
     DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS,
@@ -63,7 +63,7 @@ class DpoOptions:
     reference_model_path: str | None = None
     version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
-    learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
+    learning_rate: float = DEFAULT_DPO_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE
     max_token_length: int = DEFAULT_MAX_TOKEN_LENGTH
     validation_split: float = DEFAULT_TRAIN_VALIDATION_SPLIT

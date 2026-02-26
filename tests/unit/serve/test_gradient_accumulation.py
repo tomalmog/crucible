@@ -44,6 +44,9 @@ class _FakeModel:
     def train(self, mode: bool = True) -> None:
         pass
 
+    def parameters(self) -> list[Any]:
+        return []
+
 
 class _FakeOptimizer:
     def __init__(self) -> None:
@@ -62,8 +65,19 @@ class _FakeLossFunction:
         return _FakeTensor(0.5)
 
 
+class _FakeNnUtils:
+    @staticmethod
+    def clip_grad_norm_(parameters: Any, max_norm: float) -> None:
+        pass
+
+
+class _FakeNn:
+    utils = _FakeNnUtils()
+
+
 class _FakeTorchModule:
     long = "long"
+    nn = _FakeNn()
 
     @staticmethod
     def tensor(data: list[list[int]], dtype: str) -> "_FakeTorchTensor":

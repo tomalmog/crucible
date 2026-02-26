@@ -18,8 +18,6 @@ export function buildSharedTrainingArgs(
   config: SharedTrainingConfig,
 ): string[] {
   const args: string[] = [];
-  appendOptionalRaw(args, "--dataset", config.dataset);
-  appendOptionalRaw(args, "--version-id", config.versionId);
   appendOptionalRaw(args, "--epochs", config.epochs);
   appendOptionalRaw(args, "--learning-rate", config.learningRate);
   appendOptionalRaw(args, "--batch-size", config.batchSize);

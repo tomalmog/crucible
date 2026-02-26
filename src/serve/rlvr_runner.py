@@ -90,7 +90,7 @@ def _build_rlvr_context(records, options, training_options, random_seed, run_id,
     precision_runtime = build_training_precision_runtime(torch_module=torch_module, requested_mode=options.precision_mode, device=device)
     optimization = build_training_optimization(torch_module, model, training_options)
     hooks = load_training_hooks(options.hooks_path)
-    loss_fn = torch_module.nn.CrossEntropyLoss()
+    loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=0)
     return TrainingRuntimeContext(
         torch_module=torch_module, model=model, optimizer=optimization.optimizer, scheduler=optimization.scheduler,
         precision_runtime=precision_runtime, loss_function=loss_fn,

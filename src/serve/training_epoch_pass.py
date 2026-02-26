@@ -208,10 +208,16 @@ def _run_batch_step(
         context.optimizer.zero_grad()
         if context.precision_runtime.scaler is not None:
             context.precision_runtime.scaler.scale(loss).backward()
+            context.torch_module.nn.utils.clip_grad_norm_(
+                context.model.parameters(), max_norm=1.0,
+            )
             context.precision_runtime.scaler.step(context.optimizer)
             context.precision_runtime.scaler.update()
         else:
             loss.backward()
+            context.torch_module.nn.utils.clip_grad_norm_(
+                context.model.parameters(), max_norm=1.0,
+            )
             context.optimizer.step()
     except RuntimeError as runtime_err:
         if "out of memory" in str(runtime_err).lower():
