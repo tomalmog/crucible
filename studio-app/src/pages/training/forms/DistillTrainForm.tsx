@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface DistillTrainFormProps {
   extra: Record<string, string>;
@@ -14,11 +15,14 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
     <div className="stack-sm">
       <h4>Knowledge Distillation</h4>
       <div className="grid-2">
+        <FormField label="Dataset" required>
+          <input value={extra["--dataset"] ?? ""} onChange={(e) => update("--dataset", e.currentTarget.value)} placeholder="dataset name" />
+        </FormField>
         <FormField label="Teacher Model Path" required>
-          <input value={extra["--teacher-model-path"] ?? ""} onChange={(e) => update("--teacher-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
+          <PathInput value={extra["--teacher-model-path"] ?? ""} onChange={(v) => update("--teacher-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Student Model Path">
-          <input value={extra["--student-model-path"] ?? ""} onChange={(e) => update("--student-model-path", e.currentTarget.value)} placeholder="optional — HF model ID or path, trains new student if empty" />
+          <PathInput value={extra["--student-model-path"] ?? ""} onChange={(v) => update("--student-model-path", v)} placeholder="optional — HF model ID or path, trains new student if empty" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Temperature">
           <input value={extra["--temperature"] ?? "2.0"} onChange={(e) => update("--temperature", e.currentTarget.value)} />
@@ -27,7 +31,7 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
           <input value={extra["--alpha"] ?? "0.5"} onChange={(e) => update("--alpha", e.currentTarget.value)} />
         </FormField>
         <FormField label="Tokenizer Path">
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder="auto-detect" filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
       </div>
     </div>

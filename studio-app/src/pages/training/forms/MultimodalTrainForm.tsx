@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface MultimodalTrainFormProps {
   extra: Record<string, string>;
@@ -15,13 +16,13 @@ export function MultimodalTrainForm({ extra, setExtra }: MultimodalTrainFormProp
       <h4>Multimodal Fine-Tuning</h4>
       <div className="grid-2">
         <FormField label="Multimodal Data Path" required>
-          <input value={extra["--multimodal-data-path"] ?? ""} onChange={(e) => update("--multimodal-data-path", e.currentTarget.value)} placeholder="/path/to/image_text.jsonl" />
+          <PathInput value={extra["--multimodal-data-path"] ?? ""} onChange={(v) => update("--multimodal-data-path", v)} placeholder="/path/to/image_text.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to start from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Image Encoder">
           <input value={extra["--image-encoder"] ?? "clip-vit-base"} onChange={(e) => update("--image-encoder", e.currentTarget.value)} />

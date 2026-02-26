@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface RlhfTrainFormProps {
   extra: Record<string, string>;
@@ -15,13 +16,13 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
       <h4>RLHF Training</h4>
       <div className="grid-2">
         <FormField label="Policy Model Path" required>
-          <input value={extra["--policy-model-path"] ?? ""} onChange={(e) => update("--policy-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
+          <PathInput value={extra["--policy-model-path"] ?? ""} onChange={(v) => update("--policy-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Reward Model Path">
-          <input value={extra["--reward-model-path"] ?? ""} onChange={(e) => update("--reward-model-path", e.currentTarget.value)} placeholder="optional — or train from preference data" />
+          <PathInput value={extra["--reward-model-path"] ?? ""} onChange={(v) => update("--reward-model-path", v)} placeholder="optional — or train from preference data" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Preference Data Path">
-          <input value={extra["--preference-data-path"] ?? ""} onChange={(e) => update("--preference-data-path", e.currentTarget.value)} placeholder="/path/to/preferences.jsonl (for reward training)" />
+          <PathInput value={extra["--preference-data-path"] ?? ""} onChange={(v) => update("--preference-data-path", v)} placeholder="/path/to/preferences.jsonl (for reward training)" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Train Reward Model">
           <select value={extra["--train-reward-model"] ?? ""} onChange={(e) => update("--train-reward-model", e.currentTarget.value)}>
@@ -39,7 +40,7 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
           <input value={extra["--entropy-coeff"] ?? "0.01"} onChange={(e) => update("--entropy-coeff", e.currentTarget.value)} />
         </FormField>
         <FormField label="Tokenizer Path">
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder="auto-detect" filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
       </div>
     </div>

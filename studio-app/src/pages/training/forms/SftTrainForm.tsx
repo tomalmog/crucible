@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface SftTrainFormProps {
   extra: Record<string, string>;
@@ -17,16 +18,16 @@ export function SftTrainForm({ extra, setExtra }: SftTrainFormProps) {
       <h4>Supervised Fine-Tuning</h4>
       <div className="grid-2">
         <FormField label="SFT Data Path" required>
-          <input value={extra["--sft-data-path"] ?? ""} onChange={(e) => update("--sft-data-path", e.currentTarget.value)} placeholder="/path/to/sft_data.jsonl" />
+          <PathInput value={extra["--sft-data-path"] ?? ""} onChange={(v) => update("--sft-data-path", v)} placeholder="/path/to/sft_data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to resume from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} />
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
       </div>
     </div>

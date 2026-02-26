@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface BasicTrainFormProps {
   extra: Record<string, string>;
@@ -17,11 +18,14 @@ export function BasicTrainForm({ extra, setExtra }: BasicTrainFormProps) {
         Standard supervised training from dataset. Configure shared parameters below.
       </p>
       <div className="grid-2">
+        <FormField label="Dataset" required>
+          <input value={extra["--dataset"] ?? ""} onChange={(e) => update("--dataset", e.currentTarget.value)} placeholder="dataset name" />
+        </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to resume from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Tokenizer Path">
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder="auto-detect" />
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder="auto-detect" filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
       </div>
     </div>

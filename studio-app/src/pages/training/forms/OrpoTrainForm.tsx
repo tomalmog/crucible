@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface OrpoTrainFormProps {
   extra: Record<string, string>;
@@ -15,13 +16,13 @@ export function OrpoTrainForm({ extra, setExtra }: OrpoTrainFormProps) {
       <h4>Odds Ratio Preference Optimization</h4>
       <div className="grid-2">
         <FormField label="ORPO Data Path" required>
-          <input value={extra["--orpo-data-path"] ?? ""} onChange={(e) => update("--orpo-data-path", e.currentTarget.value)} placeholder="/path/to/preferences.jsonl" />
+          <PathInput value={extra["--orpo-data-path"] ?? ""} onChange={(v) => update("--orpo-data-path", v)} placeholder="/path/to/preferences.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to start from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Lambda (odds-ratio weight)">
           <input value={extra["--lambda-orpo"] ?? "1.0"} onChange={(e) => update("--lambda-orpo", e.currentTarget.value)} />

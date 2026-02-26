@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface RlvrTrainFormProps {
   extra: Record<string, string>;
@@ -15,13 +16,13 @@ export function RlvrTrainForm({ extra, setExtra }: RlvrTrainFormProps) {
       <h4>RL with Verifiable Rewards</h4>
       <div className="grid-2">
         <FormField label="RLVR Data Path" required>
-          <input value={extra["--rlvr-data-path"] ?? ""} onChange={(e) => update("--rlvr-data-path", e.currentTarget.value)} placeholder="/path/to/tasks.jsonl" />
+          <PathInput value={extra["--rlvr-data-path"] ?? ""} onChange={(v) => update("--rlvr-data-path", v)} placeholder="/path/to/tasks.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to start from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Verifier Type">
           <select value={extra["--verifier-type"] ?? "code"} onChange={(e) => update("--verifier-type", e.currentTarget.value)}>

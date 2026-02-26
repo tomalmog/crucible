@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface QloraTrainFormProps {
   extra: Record<string, string>;
@@ -15,10 +16,10 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
       <h4>Quantized LoRA (QLoRA)</h4>
       <div className="grid-2">
         <FormField label="Training Data Path" required>
-          <input value={extra["--qlora-data-path"] ?? ""} onChange={(e) => update("--qlora-data-path", e.currentTarget.value)} placeholder="/path/to/data.jsonl" />
+          <PathInput value={extra["--qlora-data-path"] ?? ""} onChange={(v) => update("--qlora-data-path", v)} placeholder="/path/to/data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
+          <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Quantization Bits">
           <select value={extra["--quantization-bits"] ?? "4"} onChange={(e) => update("--quantization-bits", e.currentTarget.value)}>

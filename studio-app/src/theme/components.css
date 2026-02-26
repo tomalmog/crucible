@@ -126,6 +126,24 @@ label {
     letter-spacing: 0.01em;
 }
 
+/* ─── Path Input ─── */
+
+.path-input {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.path-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.path-input-browse {
+  flex-shrink: 0;
+  padding: 6px;
+}
+
 /* ─── Metric Cards ─── */
 
 .metric-card {

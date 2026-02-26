@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface KtoTrainFormProps {
   extra: Record<string, string>;
@@ -15,13 +16,13 @@ export function KtoTrainForm({ extra, setExtra }: KtoTrainFormProps) {
       <h4>Kahneman-Tversky Optimization</h4>
       <div className="grid-2">
         <FormField label="KTO Data Path" required>
-          <input value={extra["--kto-data-path"] ?? ""} onChange={(e) => update("--kto-data-path", e.currentTarget.value)} placeholder="/path/to/kto_data.jsonl" />
+          <PathInput value={extra["--kto-data-path"] ?? ""} onChange={(v) => update("--kto-data-path", v)} placeholder="/path/to/kto_data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to start from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Beta">
           <input value={extra["--beta"] ?? "0.1"} onChange={(e) => update("--beta", e.currentTarget.value)} />
@@ -33,7 +34,7 @@ export function KtoTrainForm({ extra, setExtra }: KtoTrainFormProps) {
           <input value={extra["--undesirable-weight"] ?? "1.0"} onChange={(e) => update("--undesirable-weight", e.currentTarget.value)} />
         </FormField>
         <FormField label="Reference Model Path">
-          <input value={extra["--reference-model-path"] ?? ""} onChange={(e) => update("--reference-model-path", e.currentTarget.value)} placeholder="optional — defaults to policy model" />
+          <PathInput value={extra["--reference-model-path"] ?? ""} onChange={(v) => update("--reference-model-path", v)} placeholder="optional — defaults to policy model" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
       </div>
     </div>

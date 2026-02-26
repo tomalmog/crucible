@@ -1,14 +1,14 @@
 import { SharedTrainingConfig } from "../../../types/training";
 import { FormField } from "../../../components/shared/FormField";
 import { FormSection } from "../../../components/shared/FormSection";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface SharedTrainingFieldsProps {
   config: SharedTrainingConfig;
   onChange: (config: SharedTrainingConfig) => void;
-  showDataset?: boolean;
 }
 
-export function SharedTrainingFields({ config, onChange, showDataset = true }: SharedTrainingFieldsProps) {
+export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsProps) {
   function update(key: keyof SharedTrainingConfig, value: string) {
     onChange({ ...config, [key]: value });
   }
@@ -16,16 +16,6 @@ export function SharedTrainingFields({ config, onChange, showDataset = true }: S
   return (
     <>
       <div className="grid-2">
-        {showDataset && (
-          <>
-            <FormField label="Dataset" required>
-              <input value={config.dataset} onChange={(e) => update("dataset", e.currentTarget.value)} placeholder="dataset name" />
-            </FormField>
-            <FormField label="Version ID (optional)">
-              <input value={config.versionId} onChange={(e) => update("versionId", e.currentTarget.value)} placeholder="latest" />
-            </FormField>
-          </>
-        )}
         <FormField label="Epochs">
           <input type="number" value={config.epochs} onChange={(e) => update("epochs", e.currentTarget.value)} />
         </FormField>
@@ -36,7 +26,7 @@ export function SharedTrainingFields({ config, onChange, showDataset = true }: S
           <input type="number" value={config.batchSize} onChange={(e) => update("batchSize", e.currentTarget.value)} />
         </FormField>
         <FormField label="Output Directory">
-          <input value={config.outputDir} onChange={(e) => update("outputDir", e.currentTarget.value)} />
+          <PathInput value={config.outputDir} onChange={(v) => update("outputDir", v)} kind="folder" />
         </FormField>
       </div>
 
@@ -82,7 +72,7 @@ export function SharedTrainingFields({ config, onChange, showDataset = true }: S
 
       <FormSection title="Resume Training">
         <FormField label="Resume Checkpoint Path">
-          <input value={config.resumeCheckpointPath} onChange={(e) => update("resumeCheckpointPath", e.currentTarget.value)} placeholder="path/to/checkpoint" />
+          <PathInput value={config.resumeCheckpointPath} onChange={(v) => update("resumeCheckpointPath", v)} placeholder="path/to/checkpoint" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
       </FormSection>
     </>

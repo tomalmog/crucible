@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface LoraTrainFormProps {
   extra: Record<string, string>;
@@ -18,13 +19,13 @@ export function LoraTrainForm({ extra, setExtra }: LoraTrainFormProps) {
       <h4>LoRA Training</h4>
       <div className="grid-2">
         <FormField label="Base Model" required>
-          <input value={extra["--base-model-path"] ?? ""} onChange={(e) => update("--base-model-path", e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
+          <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
-          <input value={extra["--tokenizer-path"] ?? ""} onChange={(e) => update("--tokenizer-path", e.currentTarget.value)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect from model"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} />
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect from model"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
         <FormField label="LoRA Data Path" required>
-          <input value={extra["--lora-data-path"] ?? ""} onChange={(e) => update("--lora-data-path", e.currentTarget.value)} placeholder="/path/to/lora_data.jsonl" />
+          <PathInput value={extra["--lora-data-path"] ?? ""} onChange={(v) => update("--lora-data-path", v)} placeholder="/path/to/lora_data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="LoRA Rank">
           <input type="number" value={extra["--lora-rank"] ?? "8"} onChange={(e) => update("--lora-rank", e.currentTarget.value)} />

@@ -1,4 +1,5 @@
 import { FormField } from "../../../components/shared/FormField";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface GrpoTrainFormProps {
   extra: Record<string, string>;
@@ -15,16 +16,16 @@ export function GrpoTrainForm({ extra, setExtra }: GrpoTrainFormProps) {
       <h4>Group Relative Policy Optimization</h4>
       <div className="grid-2">
         <FormField label="GRPO Data Path" required>
-          <input value={extra["--grpo-data-path"] ?? ""} onChange={(e) => update("--grpo-data-path", e.currentTarget.value)} placeholder="/path/to/prompts.jsonl" />
+          <PathInput value={extra["--grpo-data-path"] ?? ""} onChange={(v) => update("--grpo-data-path", v)} placeholder="/path/to/prompts.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="Base Model" required>
-          <input value={extra["--base-model"] ?? ""} onChange={(e) => update("--base-model", e.currentTarget.value)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
         </FormField>
         <FormField label="Initial Weights">
-          <input value={extra["--initial-weights-path"] ?? ""} onChange={(e) => update("--initial-weights-path", e.currentTarget.value)} placeholder="optional — .pt checkpoint to start from" />
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Reward Function Path">
-          <input value={extra["--reward-function-path"] ?? ""} onChange={(e) => update("--reward-function-path", e.currentTarget.value)} placeholder="optional — /path/to/reward.py" />
+          <PathInput value={extra["--reward-function-path"] ?? ""} onChange={(v) => update("--reward-function-path", v)} placeholder="optional — /path/to/reward.py" filters={[{ name: "Python", extensions: ["py"] }]} />
         </FormField>
         <FormField label="Group Size">
           <input type="number" value={extra["--group-size"] ?? "4"} onChange={(e) => update("--group-size", e.currentTarget.value)} />
