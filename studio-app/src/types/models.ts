@@ -1,7 +1,8 @@
-export interface ModelEntry {
-  name: string;
-  version: string;
-  path: string;
-  tags: string[];
+export interface ModelVersion {
+  versionId: string;
+  modelPath: string;
+  runId: string | null;
+  parentVersionId: string | null;
   createdAt: string;
+  isActive: boolean;
 }

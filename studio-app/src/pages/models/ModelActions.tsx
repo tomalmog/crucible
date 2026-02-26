@@ -2,27 +2,32 @@ import { useState } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { FormField } from "../../components/shared/FormField";
 import { StatusConsole } from "../../components/shared/StatusConsole";
+import { PathInput } from "../../components/shared/PathInput";
+import type { ModelVersion } from "../../types/models";
 
 interface ModelActionsProps {
   dataRoot: string;
+  versions: ModelVersion[];
 }
 
-export function ModelActions({ dataRoot }: ModelActionsProps) {
+export function ModelActions({ dataRoot, versions }: ModelActionsProps) {
   const command = useForgeCommand();
   const [action, setAction] = useState<"tag" | "rollback" | "export">("tag");
-  const [name, setName] = useState("");
   const [version, setVersion] = useState("");
   const [tag, setTag] = useState("");
   const [exportPath, setExportPath] = useState("");
 
   async function runAction() {
-    if (!name.trim() || !version.trim()) return;
+    if (!version) return;
+    const v = versions.find((mv) => mv.versionId === version);
+    if (!v) return;
     if (action === "tag") {
-      await command.run(dataRoot, ["model", "tag", "--name", name.trim(), "--version", version.trim(), "--tag", tag.trim()]);
+      if (!tag.trim()) return;
+      await command.run(dataRoot, ["model", "tag", "--name", v.modelPath, "--version", version, "--tag", tag.trim()]);
     } else if (action === "rollback") {
-      await command.run(dataRoot, ["model", "rollback", "--name", name.trim(), "--version", version.trim()]);
+      await command.run(dataRoot, ["model", "rollback", "--name", v.modelPath, "--version", version]);
     } else {
-      const args = ["export-spec", "--name", name.trim(), "--version", version.trim()];
+      const args = ["export-spec", "--name", v.modelPath, "--version", version];
       if (exportPath.trim()) args.push("--output", exportPath.trim());
       await command.run(dataRoot, args);
     }
@@ -39,12 +44,16 @@ export function ModelActions({ dataRoot }: ModelActionsProps) {
         ))}
       </div>
 
-      <div className="grid-2">
-        <FormField label="Model Name">
-          <input value={name} onChange={(e) => setName(e.currentTarget.value)} placeholder="my-model" />
-        </FormField>
+      <div className="grid-2 gap-top">
         <FormField label="Version">
-          <input value={version} onChange={(e) => setVersion(e.currentTarget.value)} placeholder="v1" />
+          <select value={version} onChange={(e) => setVersion(e.currentTarget.value)}>
+            <option value="">Select version...</option>
+            {versions.map((v) => (
+              <option key={v.versionId} value={v.versionId}>
+                {v.versionId.slice(0, 16)}... {v.isActive ? "(active)" : ""}
+              </option>
+            ))}
+          </select>
         </FormField>
         {action === "tag" && (
           <FormField label="Tag">
@@ -53,12 +62,12 @@ export function ModelActions({ dataRoot }: ModelActionsProps) {
         )}
         {action === "export" && (
           <FormField label="Export Path (optional)">
-            <input value={exportPath} onChange={(e) => setExportPath(e.currentTarget.value)} placeholder="./exports" />
+            <PathInput value={exportPath} onChange={setExportPath} placeholder="./exports" kind="folder" />
           </FormField>
         )}
       </div>
 
-      <button className="btn btn-primary gap-top" onClick={() => runAction().catch(console.error)} disabled={command.isRunning}>
+      <button className="btn btn-primary gap-top" onClick={() => runAction().catch(console.error)} disabled={command.isRunning || !version}>
         {command.isRunning ? "Running..." : `Run ${action}`}
       </button>
 

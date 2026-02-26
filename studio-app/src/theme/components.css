@@ -855,6 +855,66 @@ label {
 
 /* ─── Docs Page ─── */
 
+.docs-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    min-height: 0;
+}
+
+.docs-sidebar {
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.docs-sidebar-group {
+    margin-bottom: 16px;
+}
+
+.docs-sidebar-category {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    padding: 0 8px;
+    margin-bottom: 4px;
+}
+
+.docs-sidebar-item {
+    display: block;
+    width: 100%;
+    padding: 4px 8px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.docs-sidebar-item:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.docs-sidebar-item.active {
+    background: var(--bg-active);
+    color: var(--text);
+    font-weight: 500;
+}
+
+.docs-article {
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+}
+
 .docs-content {
     max-width: 720px;
     line-height: 1.6;
@@ -1096,4 +1156,21 @@ label {
 .panel-flush {
     padding: 0;
     overflow: hidden;
+}
+
+/* ─── Model Version List ─── */
+
+.model-version-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    min-width: 0;
+}
+
+.model-version-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
 }
