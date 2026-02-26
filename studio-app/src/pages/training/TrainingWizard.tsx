@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { TrainingMethod, TRAINING_METHODS, SharedTrainingConfig, getDefaultConfigForMethod } from "../../types/training";
+import { TrainingMethod, TRAINING_METHODS } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useTrainingConfig } from "../../hooks/useTrainingConfig";
 import { buildTrainingArgs } from "../../api/commandArgs";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
@@ -17,7 +18,7 @@ import { OrpoTrainForm } from "./forms/OrpoTrainForm";
 import { MultimodalTrainForm } from "./forms/MultimodalTrainForm";
 import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, RotateCcw } from "lucide-react";
 
 /** Required extra fields per training method. */
 const REQUIRED_EXTRA_FIELDS: Record<TrainingMethod, string[]> = {
@@ -62,10 +63,8 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
   const command = useForgeCommand();
   const [step, setStep] = useState<Step>("config");
-  const [shared, setShared] = useState<SharedTrainingConfig>(
-    getDefaultConfigForMethod(method),
-  );
-  const [extra, setExtra] = useState<Record<string, string>>({});
+  const config = useTrainingConfig(method, dataRoot);
+  const { shared, setShared, extra, setExtra } = config;
 
   const missing = useMemo(
     () => getMissingFields(method, extra),
@@ -88,6 +87,8 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     { label: "Running", key: "running" },
     { label: "Results", key: "done" },
   ];
+
+  if (!config.isLoaded) return null;
 
   return (
     <div>
@@ -142,13 +143,22 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
               Missing required fields: {missing.join(", ")}
             </div>
           )}
-          <button
-            className="btn btn-primary btn-lg"
-            onClick={() => startTraining().catch(console.error)}
-            disabled={!canStart}
-          >
-            Start Training
-          </button>
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={() => startTraining().catch(console.error)}
+              disabled={!canStart}
+            >
+              Start Training
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={config.resetToDefaults}
+              title="Reset to defaults"
+            >
+              <RotateCcw size={12} /> Reset
+            </button>
+          </div>
         </div>
       )}
 

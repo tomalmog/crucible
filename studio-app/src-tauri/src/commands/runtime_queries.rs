@@ -209,7 +209,7 @@ fn workspace_root_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn resolve_data_root_path(data_root: &str) -> PathBuf {
+pub fn resolve_data_root_path(data_root: &str) -> PathBuf {
     let raw_path = Path::new(data_root);
     if raw_path.is_absolute() {
         return raw_path.to_path_buf();

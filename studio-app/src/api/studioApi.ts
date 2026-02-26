@@ -116,3 +116,18 @@ export async function getHardwareProfile(
 ): Promise<Record<string, string>> {
   return invoke<Record<string, string>>("get_hardware_profile", { dataRoot });
 }
+
+export async function loadTrainingConfig(
+  dataRoot: string,
+  method: string,
+): Promise<import("../types/training").TrainingConfigFile> {
+  return invoke("load_training_config", { dataRoot, method });
+}
+
+export async function saveTrainingConfig(
+  dataRoot: string,
+  method: string,
+  payload: object,
+): Promise<void> {
+  return invoke("save_training_config", { dataRoot, method, payload });
+}

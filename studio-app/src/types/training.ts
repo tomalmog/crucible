@@ -89,3 +89,12 @@ const METHOD_CONFIG_OVERRIDES: Partial<Record<TrainingMethod, Partial<SharedTrai
 export function getDefaultConfigForMethod(method: TrainingMethod): SharedTrainingConfig {
   return { ...DEFAULT_SHARED_CONFIG, ...METHOD_CONFIG_OVERRIDES[method] };
 }
+
+export interface TrainingConfigDraft {
+  shared: SharedTrainingConfig;
+  extra: Record<string, string>;
+}
+
+export interface TrainingConfigFile {
+  draft: TrainingConfigDraft | null;
+}

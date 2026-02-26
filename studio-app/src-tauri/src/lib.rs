@@ -24,7 +24,9 @@ pub fn run() {
             commands::forge_commands::delete_forge_task,
             commands::runtime_queries::list_training_runs,
             commands::runtime_queries::get_lineage_graph,
-            commands::runtime_queries::get_hardware_profile
+            commands::runtime_queries::get_hardware_profile,
+            commands::config_store::load_training_config,
+            commands::config_store::save_training_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
