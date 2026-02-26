@@ -13,6 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from core.chat_types import ChatTokenizer
 from core.errors import ForgeDependencyError, ForgeLoraError, ForgeServeError, ForgeTrainingDivergedError
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
 from serve.model_format import detect_model_format
@@ -275,28 +276,19 @@ def _build_lora_optimizer(
     )
 
 
-def _load_lora_tokenizer(options: LoraTrainingOptions) -> Any:
-    """Load tokenizer for LoRA training.
+def _load_lora_tokenizer(options: LoraTrainingOptions) -> ChatTokenizer | None:
+    """Load tokenizer for LoRA training via the shared resolve_tokenizer helper.
 
     Tries in order:
     1. Explicit tokenizer_path from options
     2. HuggingFace AutoTokenizer from the base model ID
     3. Forge vocabulary tokenizer from model directory
     """
-    if options.tokenizer_path:
-        try:
-            from transformers import AutoTokenizer
-            return AutoTokenizer.from_pretrained(options.tokenizer_path)
-        except Exception:
-            from serve.training_metadata import load_tokenizer_from_path
-            return load_tokenizer_from_path(options.tokenizer_path)
+    from serve.training_setup import resolve_tokenizer
 
-    if is_huggingface_model_id(options.base_model_path):
-        try:
-            from serve.hf_model_loader import load_huggingface_tokenizer
-            return load_huggingface_tokenizer(options.base_model_path)
-        except Exception:
-            pass
+    resolved = resolve_tokenizer(options.tokenizer_path, options.base_model_path)
+    if resolved is not None:
+        return resolved
 
     from serve.training_metadata import load_tokenizer
     return load_tokenizer(options.base_model_path)
@@ -304,7 +296,7 @@ def _load_lora_tokenizer(options: LoraTrainingOptions) -> Any:
 
 def _load_lora_sequences(
     data_path: str,
-    tokenizer: Any,
+    tokenizer: ChatTokenizer,
     max_token_length: int,
 ) -> list[SftSequence]:
     """Load LoRA training data with prompt masking via SFT pipeline.

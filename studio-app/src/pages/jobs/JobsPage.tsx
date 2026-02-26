@@ -92,7 +92,7 @@ export function JobsPage() {
           <p>Launch a training run from the Training page to see it here.</p>
         </div>
       ) : (
-        <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="panel panel-flush">
           {filtered.map((job) => (
             <JobRow
               key={job.task_id}
@@ -159,16 +159,17 @@ function JobRow({
   }
 
   return (
-    <div className="run-row" style={{ borderBottom: "1px solid var(--border)" }}>
+    <div className="run-row section-divider">
       <div className="run-row-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" onClick={onToggle} style={{ padding: 2 }}>
+        <div className="flex-row">
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onToggle}>
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
           {editing ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div className="flex-row-tight">
               <input
                 autoFocus
+                className="job-inline-input"
                 value={draft}
                 onChange={(e) => setDraft(e.currentTarget.value)}
                 onKeyDown={(e) => {
@@ -176,12 +177,11 @@ function JobRow({
                   if (e.key === "Escape") cancelRename();
                 }}
                 placeholder={job.task_id}
-                style={{ width: 180, padding: "2px 6px", fontSize: "0.75rem" }}
               />
-              <button className="btn btn-ghost btn-sm" onClick={confirmRename} style={{ padding: 2 }}>
+              <button className="btn btn-ghost btn-sm btn-icon" onClick={confirmRename}>
                 <Check size={12} />
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={cancelRename} style={{ padding: 2 }}>
+              <button className="btn btn-ghost btn-sm btn-icon" onClick={cancelRename}>
                 <X size={12} />
               </button>
             </div>
@@ -189,10 +189,9 @@ function JobRow({
             <>
               <span className="run-row-id">{displayName}</span>
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm btn-icon"
                 onClick={startEditing}
                 title="Rename"
-                style={{ padding: 2 }}
               >
                 <Pencil size={11} />
               </button>
@@ -200,7 +199,7 @@ function JobRow({
           )}
           <span className={statusBadgeClass(job.status)}>{job.status}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="flex-row">
           <span className="run-row-meta">
             {isFinished ? `took ${formatElapsed(job.elapsed_seconds)}` : formatElapsed(job.elapsed_seconds)}
           </span>
@@ -220,13 +219,7 @@ function JobRow({
       <div className="run-row-path">{commandLabel}</div>
 
       {job.status === "running" && progress && (
-        <div style={{
-          display: "flex",
-          gap: 16,
-          fontSize: "0.75rem",
-          color: "var(--text-secondary)",
-          marginTop: 4,
-        }}>
+        <div className="job-progress-meta">
           <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
           {progress.loss != null && <span>Loss: {progress.loss.toFixed(4)}</span>}
           {progress.meanReward != null && <span>Reward: {progress.meanReward.toFixed(4)}</span>}
@@ -234,7 +227,7 @@ function JobRow({
       )}
 
       {job.status === "running" && (
-        <div className="progress-bar" style={{ marginTop: 6 }}>
+        <div className="progress-bar gap-top-sm">
           <div className="progress-bar-header">
             <span className="progress-label">Progress</span>
             <span className="progress-value">{job.progress_percent.toFixed(0)}%</span>
@@ -253,10 +246,10 @@ function JobRow({
       )}
 
       {isExpanded && (
-        <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+        <div className="job-expanded">
           {job.stdout && (
             <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
+              <div className="job-output-label">
                 stdout
               </div>
               <pre className="console console-short">{job.stdout}</pre>
@@ -267,28 +260,13 @@ function JobRow({
               {job.status === "failed" && (() => {
                 const friendly = extractForgeError(job.stderr);
                 return friendly ? (
-                  <div style={{
-                    padding: "8px 12px",
-                    marginBottom: 8,
-                    borderRadius: 6,
-                    background: "color-mix(in srgb, var(--error) 12%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--error) 30%, transparent)",
-                    color: "var(--error)",
-                    fontSize: "0.8125rem",
-                    fontWeight: 500,
-                  }}>
+                  <div className="error-alert-prominent">
                     {friendly}
                   </div>
                 ) : null;
               })()}
               <details open={job.status !== "failed"}>
-                <summary style={{
-                  fontSize: "0.6875rem",
-                  color: job.status === "failed" ? "var(--error)" : "var(--text-tertiary)",
-                  marginBottom: 4,
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}>
+                <summary className={`job-traceback-toggle ${job.status === "failed" ? "error-text" : ""}`}>
                   {job.status === "failed" ? "full traceback" : "logs"}
                 </summary>
                 <pre className="console console-short">{job.stderr}</pre>
@@ -296,7 +274,7 @@ function JobRow({
             </div>
           )}
           {!job.stdout && !job.stderr && (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", padding: "8px 0" }}>
+            <div className="job-no-output">
               No output yet.
             </div>
           )}

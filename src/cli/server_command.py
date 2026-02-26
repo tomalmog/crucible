@@ -7,13 +7,12 @@ collaboration server via uvicorn.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.errors import ForgeDependencyError
 from store.dataset_sdk import ForgeClient
 
 
-def add_server_command(subparsers: Any) -> None:
+def add_server_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the server subcommand on the CLI parser.
 
     Args:

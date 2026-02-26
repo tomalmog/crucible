@@ -7,7 +7,7 @@ mapping CLI arguments to SftOptions for supervised fine-tuning.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -85,7 +85,7 @@ def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_sft_command(subparsers: Any) -> None:
+def add_sft_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register SFT subcommand.
 
     Args:

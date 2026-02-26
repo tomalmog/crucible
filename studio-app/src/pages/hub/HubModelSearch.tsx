@@ -59,6 +59,7 @@ export function HubModelSearch() {
     setSearching(false);
   }
 
+  // Run default search on first mount once dataRoot is available
   useEffect(() => {
     if (dataRoot && !didLoad.current) {
       didLoad.current = true;
@@ -95,7 +96,7 @@ export function HubModelSearch() {
       {error && <p className="error-text">{error}</p>}
 
       {searching && results.length === 0 && (
-        <p className="text-tertiary" style={{ fontSize: "0.75rem" }}>Loading models...</p>
+        <p className="text-tertiary text-xs">Loading models...</p>
       )}
 
       {results.length > 0 && (
@@ -140,7 +141,7 @@ export function HubModelSearch() {
       )}
 
       {!searching && !error && results.length === 0 && didLoad.current && (
-        <p className="text-tertiary" style={{ fontSize: "0.75rem" }}>No models found.</p>
+        <p className="text-tertiary text-xs">No models found.</p>
       )}
     </div>
   );

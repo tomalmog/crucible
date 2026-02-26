@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.ab_chat import AbComparison, export_preferences_as_dpo, generate_ab_responses
 from store.dataset_sdk import ForgeClient
@@ -26,7 +25,7 @@ def run_ab_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_ab_chat_command(subparsers: Any) -> None:
+def add_ab_chat_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ab-chat subcommand."""
     parser = subparsers.add_parser("ab-chat", help="A/B model comparison chat")
     parser.add_argument("--model-a", required=True, help="Path to model A")

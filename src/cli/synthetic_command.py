@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
 from serve.synthetic_data import export_synthetic_data, filter_by_quality, generate_synthetic_data
 from store.dataset_sdk import ForgeClient
@@ -44,7 +43,7 @@ def _load_seed_prompts(path: str) -> list[str]:
     return prompts
 
 
-def add_synthetic_command(subparsers: Any) -> None:
+def add_synthetic_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("synthetic", help="Generate synthetic training data")
     parser.add_argument("--model-path", help="Model to use for generation")
     parser.add_argument("--seed-prompts", required=True, help="Path to seed prompts file")

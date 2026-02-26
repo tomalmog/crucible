@@ -13,17 +13,8 @@ export function FormField({ label, htmlFor, required, hint, children }: FormFiel
     <label htmlFor={htmlFor}>
       <span>
         {label}
-        {required && <span style={{ color: "var(--error)", marginLeft: 2 }}>*</span>}
-        {hint && (
-          <span style={{
-            fontWeight: 400,
-            color: "var(--text-tertiary)",
-            fontSize: "0.625rem",
-            marginLeft: 6,
-          }}>
-            {hint}
-          </span>
-        )}
+        {required && <span className="form-field-required">*</span>}
+        {hint && <span className="form-field-hint">{hint}</span>}
       </span>
       {children}
     </label>

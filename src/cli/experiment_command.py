@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
 
 from serve.experiment_tracker import ExperimentTracker
 from store.dataset_sdk import ForgeClient
@@ -68,7 +67,7 @@ def _run_delete(tracker: ExperimentTracker, run_id: str) -> int:
     return 0
 
 
-def add_experiment_command(subparsers: Any) -> None:
+def add_experiment_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register experiment subcommand with sub-subcommands."""
     parser = subparsers.add_parser("experiment", help="Experiment tracking and comparison")
     sub = parser.add_subparsers(dest="experiment_subcommand", required=True)

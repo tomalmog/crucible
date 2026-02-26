@@ -7,7 +7,6 @@ multiple model weights into a single model.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.model_merger import SUPPORTED_MERGE_METHODS, MergeConfig, merge_models
 from store.dataset_sdk import ForgeClient
@@ -30,7 +29,7 @@ def run_merge_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_merge_command(subparsers: Any) -> None:
+def add_merge_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register merge subcommand."""
     parser = subparsers.add_parser("merge", help="Merge multiple model weights")
     parser.add_argument("--models", nargs="+", required=True, help="Paths to models to merge")

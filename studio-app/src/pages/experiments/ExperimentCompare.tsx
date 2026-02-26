@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 
+interface ComparisonEntry {
+  run_id: string;
+  metric_names?: string[];
+  [metricKey: string]: unknown;
+}
+
 interface ExperimentCompareProps {
   runIds: string[];
   dataRoot: string;
@@ -8,13 +14,16 @@ interface ExperimentCompareProps {
 
 export function ExperimentCompare({ runIds, dataRoot }: ExperimentCompareProps) {
   const command = useForgeCommand();
-  const [comparisons, setComparisons] = useState<any[]>([]);
+  const [comparisons, setComparisons] = useState<ComparisonEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch comparison data from CLI when run IDs or dataRoot change
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       const status = await command.run(dataRoot, ["experiment", "compare", ...runIds]);
+      if (cancelled) return;
       if (status.status === "completed" && command.output) {
         try {
           setComparisons(JSON.parse(command.output));
@@ -25,6 +34,7 @@ export function ExperimentCompare({ runIds, dataRoot }: ExperimentCompareProps) 
       setLoading(false);
     }
     load().catch(console.error);
+    return () => { cancelled = true; };
   }, [runIds.join(","), dataRoot]);
 
   if (loading) return <div className="panel"><p>Loading comparison...</p></div>;
@@ -54,7 +64,7 @@ export function ExperimentCompare({ runIds, dataRoot }: ExperimentCompareProps) 
             <tr key={metric}>
               <td>{metric} (final)</td>
               {comparisons.map((c) => (
-                <td key={c.run_id}>{c[`${metric}_final`] ?? "-"}</td>
+                <td key={c.run_id}>{String(c[`${metric}_final`] ?? "-")}</td>
               ))}
             </tr>
           ))}

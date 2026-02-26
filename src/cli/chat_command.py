@@ -7,7 +7,7 @@ It supports quick inference checks against trained model weights.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.chat_types import ChatOptions
 from core.constants import (
@@ -60,7 +60,7 @@ def run_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_chat_command(subparsers: Any) -> None:
+def add_chat_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register chat subcommand."""
     parser = subparsers.add_parser(
         "chat",

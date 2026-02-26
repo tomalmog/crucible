@@ -7,7 +7,7 @@ mapping CLI arguments to DpoOptions for preference optimization.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -87,7 +87,7 @@ def run_dpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_dpo_command(subparsers: Any) -> None:
+def add_dpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register DPO subcommand.
 
     Args:

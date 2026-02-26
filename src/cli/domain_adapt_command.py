@@ -7,7 +7,7 @@ mapping CLI arguments to DomainAdaptationOptions for continued pretraining.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -86,7 +86,7 @@ def run_domain_adapt_command(
     return 0
 
 
-def add_domain_adapt_command(subparsers: Any) -> None:
+def add_domain_adapt_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register domain-adapt subcommand.
 
     Args:

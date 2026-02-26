@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
 from eval.llm_judge import DEFAULT_CRITERIA, JudgeCriteria, LlmJudge
 from store.dataset_sdk import ForgeClient
@@ -60,7 +59,7 @@ def _load_test_prompts(path: str) -> list[str]:
     return prompts
 
 
-def add_judge_command(subparsers: Any) -> None:
+def add_judge_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register judge subcommand."""
     parser = subparsers.add_parser("judge", help="Evaluate model with LLM-as-Judge")
     parser.add_argument("--model-path", required=True, help="Path to model to evaluate")

@@ -6,7 +6,6 @@ Extracted from main.py to keep the dispatcher under the 300-line limit.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.constants import DEFAULT_QUALITY_MODEL
 from core.types import IngestOptions, MetadataFilter
@@ -65,7 +64,7 @@ def run_export_training_command(client: ForgeClient, args: argparse.Namespace) -
     return 0
 
 
-def add_ingest_command(subparsers: Any) -> None:
+def add_ingest_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ingest subcommand."""
     parser = subparsers.add_parser("ingest", help="Ingest a local path or S3 prefix")
     parser.add_argument("source", help="Source file, directory, or s3://bucket/prefix")
@@ -82,13 +81,13 @@ def add_ingest_command(subparsers: Any) -> None:
     )
 
 
-def add_versions_command(subparsers: Any) -> None:
+def add_versions_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register versions subcommand."""
     parser = subparsers.add_parser("versions", help="List dataset versions")
     parser.add_argument("--dataset", required=True, help="Dataset name")
 
 
-def add_filter_command(subparsers: Any) -> None:
+def add_filter_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register filter subcommand."""
     parser = subparsers.add_parser("filter", help="Create metadata-filtered snapshot")
     parser.add_argument("--dataset", required=True, help="Dataset name")
@@ -97,7 +96,7 @@ def add_filter_command(subparsers: Any) -> None:
     parser.add_argument("--source-prefix", help="Source URI prefix filter")
 
 
-def add_export_training_command(subparsers: Any) -> None:
+def add_export_training_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register export-training subcommand."""
     parser = subparsers.add_parser(
         "export-training", help="Export a version into sharded local training files",

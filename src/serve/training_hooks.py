@@ -7,12 +7,17 @@ without requiring users to replace the entire training loop implementation.
 from __future__ import annotations
 
 import importlib.util
+import types
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, cast
 
 from core.errors import ForgeServeError
 
+# Hook type aliases use Any for the context parameter because of a circular
+# import: training_context imports TrainingHooks from this module, so we
+# cannot import TrainingRuntimeContext here. At runtime, the first argument
+# is always a TrainingRuntimeContext instance.
 OnRunStartHook = Callable[[Any], None]
 OnEpochStartHook = Callable[[Any, int], None]
 OnBatchEndHook = Callable[[Any, str, int, int, int, float], None]
@@ -106,7 +111,7 @@ def invoke_hook(
         ) from error
 
 
-def _load_optional_hook(module: Any, attribute_name: str) -> Callable[..., object] | None:
+def _load_optional_hook(module: types.ModuleType, attribute_name: str) -> Callable[..., object] | None:
     hook = getattr(module, attribute_name, None)
     if hook is None:
         return None
@@ -115,7 +120,7 @@ def _load_optional_hook(module: Any, attribute_name: str) -> Callable[..., objec
     raise ForgeServeError(f"Invalid hooks file: '{attribute_name}' exists but is not callable.")
 
 
-def _load_python_module(module_path: Path) -> Any:
+def _load_python_module(module_path: Path) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location("forge_user_training_hooks", str(module_path))
     if spec is None or spec.loader is None:
         raise ForgeServeError(

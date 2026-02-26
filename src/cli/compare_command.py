@@ -7,7 +7,6 @@ execution logic, mapping CLI arguments to the model comparison module.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.errors import ForgeServeError
 from serve.model_comparison import (
@@ -17,7 +16,7 @@ from serve.model_comparison import (
 from store.dataset_sdk import ForgeClient
 
 
-def add_compare_command(subparsers: Any) -> None:
+def add_compare_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register compare subcommand.
 
     Args:

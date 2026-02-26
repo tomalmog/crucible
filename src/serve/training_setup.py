@@ -13,9 +13,31 @@ from core.constants import (
     SUPPORTED_TRAIN_PRECISION_MODES,
     SUPPORTED_TRAIN_SCHEDULER_TYPES,
 )
+from core.chat_types import ChatTokenizer
 from core.errors import ForgeServeError
 from core.types import DataRecord, TrainingOptions
 from serve.tokenization import VocabularyTokenizer
+
+
+def resolve_tokenizer(
+    tokenizer_path: str | None = None,
+    base_model: str | None = None,
+) -> ChatTokenizer | None:
+    """Resolve a pre-trained tokenizer from an explicit path or HF model ID.
+
+    Returns a tokenizer satisfying the ChatTokenizer protocol if one can
+    be loaded from the given path or base model, or None if neither is
+    available.  All HuggingFace tokenizers are wrapped so that
+    .encode(text, max_length) uses the Forge signature.
+    """
+    if tokenizer_path:
+        return _load_tokenizer_from_option(tokenizer_path)
+    if base_model:
+        from serve.hf_model_loader import is_huggingface_model_id
+
+        if is_huggingface_model_id(base_model):
+            return _load_hf_tokenizer_as_vocabulary(base_model)
+    return None
 
 
 def fit_training_tokenizer(
@@ -30,13 +52,9 @@ def fit_training_tokenizer(
     When ``base_model`` is a HuggingFace model ID and no explicit
     tokenizer path is provided, auto-loads the HF tokenizer.
     """
-    if options.tokenizer_path:
-        return _load_tokenizer_from_option(options.tokenizer_path)
-    if base_model:
-        from serve.hf_model_loader import is_huggingface_model_id
-
-        if is_huggingface_model_id(base_model):
-            return _load_hf_tokenizer_as_vocabulary(base_model)
+    resolved = resolve_tokenizer(options.tokenizer_path, base_model)
+    if resolved is not None:
+        return resolved
     tokenizer = VocabularyTokenizer.create()
     tokenizer.fit(
         (record.text for record in records),

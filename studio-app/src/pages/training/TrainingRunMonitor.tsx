@@ -66,6 +66,7 @@ export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
     [command.output],
   );
 
+  // Auto-scroll console to bottom when new output arrives
   useEffect(() => {
     if (consoleRef.current) {
       consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
@@ -81,7 +82,7 @@ export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
       {progress && (
         <div className="panel">
           <h4 className="panel-title">Training Progress</h4>
-          <div style={{ display: "grid", gap: 12, padding: "4px 0" }}>
+          <div className="training-progress-grid">
             <div className="progress-bar">
               <div className="progress-bar-header">
                 <span className="progress-label">
@@ -125,14 +126,7 @@ export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
               </div>
             )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: 24,
-                fontSize: "0.8125rem",
-                color: "var(--text-secondary)",
-              }}
-            >
+            <div className="training-metrics">
               {progress.loss != null && (
                 <span>
                   Loss: <strong>{progress.loss.toFixed(4)}</strong>

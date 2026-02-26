@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
 from serve.dataset_curator import compute_distributions, score_examples
 from store.dataset_sdk import ForgeClient
@@ -61,7 +60,7 @@ def _run_remove(client: ForgeClient, dataset_name: str, record_ids: list[str]) -
     return 0
 
 
-def add_curate_command(subparsers: Any) -> None:
+def add_curate_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register curate subcommand."""
     parser = subparsers.add_parser("curate", help="Dataset curation and quality analysis")
     sub = parser.add_subparsers(dest="curate_subcommand", required=True)

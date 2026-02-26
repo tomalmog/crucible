@@ -7,7 +7,7 @@ mapping CLI arguments to DistillationOptions for knowledge distillation.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -86,7 +86,7 @@ def run_distillation_command(client: ForgeClient, args: argparse.Namespace) -> i
     return 0
 
 
-def add_distillation_command(subparsers: Any) -> None:
+def add_distillation_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register distill subcommand.
 
     Args:

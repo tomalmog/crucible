@@ -58,7 +58,7 @@ export function CompareChatPage() {
 
       <div className="panel stack-md">
         {comparisons.map((c, i) => (
-          <div key={i} className="stack-sm" style={{ borderBottom: "1px solid var(--border)" , paddingBottom: "1rem" }}>
+          <div key={i} className="stack-sm section-divider">
             <p><strong>Prompt:</strong> {c.prompt}</p>
             <div className="grid-2">
               <div className="panel">

@@ -133,17 +133,11 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           <SharedTrainingFields config={shared} onChange={setShared} />
 
           {!canStart && (
-            <div style={{
-              fontSize: "0.75rem",
-              color: "var(--error)",
-              padding: "8px 12px",
-              borderRadius: 6,
-              background: "var(--error-muted)",
-            }}>
+            <div className="error-alert">
               Missing required fields: {missing.join(", ")}
             </div>
           )}
-          <div className="row" style={{ gap: 8 }}>
+          <div className="flex-row">
             <button
               className="btn btn-primary btn-lg"
               onClick={() => startTraining().catch(console.error)}

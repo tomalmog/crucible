@@ -7,7 +7,7 @@ mapping CLI arguments to OrpoOptions for odds ratio preference optimization.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -67,7 +67,7 @@ def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_orpo_command(subparsers: Any) -> None:
+def add_orpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ORPO subcommand."""
     parser = subparsers.add_parser("orpo-train", help="Odds Ratio Preference Optimization training")
     parser.add_argument("--output-dir", required=True, help="Output directory")

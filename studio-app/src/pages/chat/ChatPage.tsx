@@ -36,6 +36,7 @@ export function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
+  // Sync dataset name from global context when it changes
   useEffect(() => {
     if (selectedDataset) setDatasetName(selectedDataset);
   }, [selectedDataset]);

@@ -7,7 +7,6 @@ pushing models and datasets to the HuggingFace Hub.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.huggingface_hub import (
     download_dataset,
@@ -101,7 +100,7 @@ def _run_push(model_path: str, repo_id: str, message: str, private: bool) -> int
     return 0
 
 
-def add_hub_command(subparsers: Any) -> None:
+def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register hub subcommand."""
     parser = subparsers.add_parser("hub", help="HuggingFace Hub operations")
     sub = parser.add_subparsers(dest="hub_subcommand", required=True)

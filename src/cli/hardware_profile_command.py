@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+import argparse
 
 from serve.hardware_profile import detect_hardware_profile
 
 
-def add_hardware_profile_command(subparsers: Any) -> None:
+def add_hardware_profile_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register hardware-profile subcommand."""
     subparsers.add_parser(
         "hardware-profile",

@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any
-
 from core.errors import ForgeServeError
 from core.run_spec_export import export_run_to_yaml
 from core.types import TrainingOptions
+from serve.training_run_types import TrainingRunRecord
 from store.dataset_sdk import ForgeClient
 
 
@@ -43,7 +42,7 @@ def run_export_spec_command(client: ForgeClient, args: argparse.Namespace) -> in
     return 0
 
 
-def add_export_spec_command(subparsers: Any) -> None:
+def add_export_spec_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register export-spec subcommand."""
     parser = subparsers.add_parser(
         "export-spec",
@@ -53,10 +52,10 @@ def add_export_spec_command(subparsers: Any) -> None:
     parser.add_argument("--output", help="Output YAML file path (prints to stdout if omitted)")
 
 
-def _find_training_config(run_record: Any) -> str | None:
+def _find_training_config(run_record: TrainingRunRecord) -> str | None:
     """Locate the training config JSON beside the model path."""
-    output_dir = getattr(run_record, "output_dir", None)
-    if output_dir is None:
+    output_dir = run_record.output_dir
+    if not output_dir:
         return None
     model_path = Path(output_dir) / "model.pt"
     if model_path.exists():

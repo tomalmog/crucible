@@ -7,13 +7,12 @@ shared run-spec engine used by CLI and SDK entry points.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.run_spec_execution import execute_run_spec_file
 from store.dataset_sdk import ForgeClient
 
 
-def add_run_spec_command(subparsers: Any) -> None:
+def add_run_spec_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register run-spec subcommand."""
     parser = subparsers.add_parser(
         "run-spec",

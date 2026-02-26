@@ -7,14 +7,13 @@ logic, mapping CLI arguments to ModelRegistry operations.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.errors import ForgeModelRegistryError
 from store.dataset_sdk import ForgeClient
 from store.model_diff import format_model_diff
 
 
-def add_model_command(subparsers: Any) -> None:
+def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register model subcommand with sub-subcommands.
 
     Args:
@@ -56,12 +55,12 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 2
 
 
-def _add_list_subcommand(model_subs: Any) -> None:
+def _add_list_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the list sub-subcommand."""
     model_subs.add_parser("list", help="List all model versions")
 
 
-def _add_tag_subcommand(model_subs: Any) -> None:
+def _add_tag_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the tag sub-subcommand."""
     tag_parser = model_subs.add_parser("tag", help="Tag a model version")
     tag_parser.add_argument(
@@ -76,7 +75,7 @@ def _add_tag_subcommand(model_subs: Any) -> None:
     )
 
 
-def _add_diff_subcommand(model_subs: Any) -> None:
+def _add_diff_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the diff sub-subcommand."""
     diff_parser = model_subs.add_parser(
         "diff",
@@ -94,7 +93,7 @@ def _add_diff_subcommand(model_subs: Any) -> None:
     )
 
 
-def _add_rollback_subcommand(model_subs: Any) -> None:
+def _add_rollback_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the rollback sub-subcommand."""
     rb_parser = model_subs.add_parser(
         "rollback",

@@ -13,6 +13,7 @@ export function DocsPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
+  // Scroll to anchor when URL hash changes (e.g. clicking doc section links)
   useEffect(() => {
     if (location.hash && contentRef.current) {
       const id = location.hash.slice(1);

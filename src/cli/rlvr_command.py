@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import *
 from core.rlvr_types import RlvrOptions
@@ -41,7 +41,7 @@ def run_rlvr_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_rlvr_command(subparsers: Any) -> None:
+def add_rlvr_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("rlvr-train", help="RL with verifiable rewards training")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--rlvr-data-path", required=True, help="Path to verifiable tasks JSONL")

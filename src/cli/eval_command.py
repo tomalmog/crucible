@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
 
 from eval.evaluation_harness import EvaluationHarness
 from eval.benchmark_runner import AVAILABLE_BENCHMARKS
@@ -35,7 +34,7 @@ def run_eval_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_eval_command(subparsers: Any) -> None:
+def add_eval_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register eval subcommand."""
     parser = subparsers.add_parser("eval", help="Run evaluation benchmarks against a model")
     parser.add_argument("--model-path", required=True, help="Path to the model to evaluate")

@@ -74,11 +74,13 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
     setHardwareProfile(profile);
   }, [dataRoot]);
 
+  // Fetch datasets and hardware profile on initial mount
   useEffect(() => {
     refreshDatasets().catch(console.error);
     refreshHardwareProfile().catch(console.error);
   }, []);
 
+  // Reload versions, dashboard, and samples when dataset or version changes
   useEffect(() => {
     if (!selectedDataset) {
       setVersions([]);
@@ -86,8 +88,10 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       setSamples([]);
       return;
     }
+    let cancelled = false;
     (async () => {
       const versionRows = await listVersions(dataRoot, selectedDataset);
+      if (cancelled) return;
       setVersions(versionRows);
       if (versionRows.length === 0) {
         setDashboard(null);
@@ -96,11 +100,14 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       }
       const dashboardRow = await getDatasetDashboard(dataRoot, selectedDataset, selectedVersion);
       const sampleRows = await sampleRecords(dataRoot, selectedDataset, selectedVersion, 0, 12);
+      if (cancelled) return;
       setDashboard(dashboardRow);
       setSamples(sampleRows);
     })().catch(console.error);
+    return () => { cancelled = true; };
   }, [dataRoot, selectedDataset, selectedVersion]);
 
+  // Persist session state to localStorage when selection changes
   useEffect(() => {
     saveSessionState({
       data_root: dataRoot,

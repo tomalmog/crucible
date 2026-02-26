@@ -7,7 +7,7 @@ mapping CLI arguments to QloraOptions for quantized LoRA training.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -96,7 +96,7 @@ def run_qlora_command(
     return 0
 
 
-def add_qlora_command(subparsers: Any) -> None:
+def add_qlora_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register QLoRA subcommand."""
     parser = subparsers.add_parser(
         "qlora-train", help="Quantized LoRA fine-tuning",

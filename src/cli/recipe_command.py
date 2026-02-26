@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
 
 from serve.recipe_manager import RecipeManager
 from store.dataset_sdk import ForgeClient
@@ -55,7 +54,7 @@ def _run_apply(manager: RecipeManager, name: str) -> int:
     return 0
 
 
-def add_recipe_command(subparsers: Any) -> None:
+def add_recipe_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register recipe subcommand."""
     parser = subparsers.add_parser("recipe", help="Training recipe management")
     sub = parser.add_subparsers(dest="recipe_subcommand", required=True)

@@ -7,14 +7,13 @@ It keeps the top-level CLI module focused and within size constraints.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.types import TrainingRunResult
 from serve.reproducibility_replay import replay_training_run
 from store.dataset_sdk import ForgeClient
 
 
-def add_replay_command(subparsers: Any) -> None:
+def add_replay_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register replay subcommand.
 
     Args:

@@ -11,7 +11,7 @@ export function ExperimentsPage() {
   const { dataRoot } = useForge();
   const command = useForgeCommand();
   const [view, setView] = useState<View>("list");
-  const [runs, setRuns] = useState<any[]>([]);
+  const [runs, setRuns] = useState<{ run_id: string; loss: string }[]>([]);
   const [selectedRun, setSelectedRun] = useState<string>("");
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +31,7 @@ export function ExperimentsPage() {
     setLoading(false);
   }
 
+  // Fetch experiment runs on mount and when dataRoot changes
   useEffect(() => {
     loadRuns().catch(console.error);
   }, [dataRoot]);

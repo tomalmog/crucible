@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
 
 from core.errors import ForgeSafetyError
 from core.safety_types import SafetyEvalConfig
@@ -70,7 +69,7 @@ def run_safety_eval_command(
     return 0
 
 
-def add_safety_eval_command(subparsers: Any) -> None:
+def add_safety_eval_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register safety-eval subcommand.
 
     Args:
@@ -120,7 +119,7 @@ def run_safety_gate_command(
     return 0 if result.passed else 1
 
 
-def add_safety_gate_command(subparsers: Any) -> None:
+def add_safety_gate_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register safety-gate subcommand.
 
     Args:

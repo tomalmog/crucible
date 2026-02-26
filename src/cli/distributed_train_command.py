@@ -7,16 +7,16 @@ training across available GPUs.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 from core.errors import ForgeDistributedError
 from store.dataset_sdk import ForgeClient
 
 
-def add_distributed_train_command(subparsers: Any) -> None:
+def add_distributed_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register distributed-train subcommand.
 
     Args:
@@ -66,7 +66,7 @@ def add_distributed_train_command(subparsers: Any) -> None:
 
 
 def run_distributed_train_command(
-    client: ForgeClient, args: Any,
+    client: ForgeClient, args: argparse.Namespace,
 ) -> int:
     """Handle distributed-train command invocation.
 

@@ -7,7 +7,6 @@ mapping CLI arguments to LoraTrainingOptions for adapter fine-tuning.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -101,7 +100,7 @@ def run_lora_merge_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def add_lora_train_command(subparsers: Any) -> None:
+def add_lora_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register lora-train subcommand."""
     parser = subparsers.add_parser(
         "lora-train", help="Fine-tune a model using LoRA adapters"
@@ -144,7 +143,7 @@ def add_lora_train_command(subparsers: Any) -> None:
     parser.add_argument("--resume-checkpoint-path", default=None, help="Path to checkpoint to resume training from")
 
 
-def add_lora_merge_command(subparsers: Any) -> None:
+def add_lora_merge_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register lora-merge subcommand."""
     parser = subparsers.add_parser(
         "lora-merge", help="Merge LoRA adapter into base model weights"

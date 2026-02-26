@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from core.chat_types import ChatTokenizer
 from core.sft_types import SftExample
-from serve.tokenization import VocabularyTokenizer
 
 IGNORE_INDEX = -100
 
@@ -30,7 +30,7 @@ class SftSequence:
 
 def build_sft_sequences(
     examples: list[SftExample],
-    tokenizer: VocabularyTokenizer,
+    tokenizer: ChatTokenizer,
     max_token_length: int,
     mask_prompt_tokens: bool,
 ) -> list[SftSequence]:
@@ -107,7 +107,7 @@ def pack_sft_sequences(
 
 def _build_single_sequence(
     example: SftExample,
-    tokenizer: VocabularyTokenizer,
+    tokenizer: ChatTokenizer,
     max_token_length: int,
     mask_prompt_tokens: bool,
 ) -> SftSequence | None:

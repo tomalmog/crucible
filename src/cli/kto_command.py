@@ -7,7 +7,7 @@ mapping CLI arguments to KtoOptions for Kahneman-Tversky Optimization.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -74,7 +74,7 @@ def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_kto_command(subparsers: Any) -> None:
+def add_kto_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register KTO subcommand."""
     parser = subparsers.add_parser("kto-train", help="Kahneman-Tversky Optimization training")
     parser.add_argument("--output-dir", required=True, help="Output directory")

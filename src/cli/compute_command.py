@@ -7,14 +7,13 @@ mapping CLI arguments to local executor operations for job management.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from compute.compute_target import resolve_executor
 from core.compute_types import ComputeTarget, JobSubmission
 from store.dataset_sdk import ForgeClient
 
 
-def add_compute_command(subparsers: Any) -> None:
+def add_compute_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register compute subcommand with sub-subcommands.
 
     Args:
@@ -52,7 +51,7 @@ def run_compute_command(
     return 2
 
 
-def _add_submit_subcommand(compute_subs: Any) -> None:
+def _add_submit_subcommand(compute_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the submit sub-subcommand."""
     submit_parser = compute_subs.add_parser(
         "submit",
@@ -68,7 +67,7 @@ def _add_submit_subcommand(compute_subs: Any) -> None:
     )
 
 
-def _add_status_subcommand(compute_subs: Any) -> None:
+def _add_status_subcommand(compute_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the status sub-subcommand."""
     status_parser = compute_subs.add_parser(
         "status",

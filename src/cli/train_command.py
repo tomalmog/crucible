@@ -7,7 +7,7 @@ It keeps the top-level CLI module focused and within size constraints.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -40,6 +40,7 @@ from core.constants import (
     SUPPORTED_TRAIN_PRECISION_MODES,
     SUPPORTED_TRAIN_SCHEDULER_TYPES,
 )
+from core.training_types import TrainingRunResult
 from core.types import (
     OptimizerType,
     PositionEmbeddingType,
@@ -61,7 +62,7 @@ def run_train_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _print_training_result(result: Any) -> None:
+def _print_training_result(result: TrainingRunResult) -> None:
     """Print training result summary to stdout."""
     print(f"model_path={result.model_path}")
     print(f"history_path={result.history_path}")
@@ -121,7 +122,7 @@ def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
     )
 
 
-def add_train_command(subparsers: Any) -> None:
+def add_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register train subcommand."""
     parser = subparsers.add_parser(
         "train", help="Train a PyTorch language model on a dataset version"

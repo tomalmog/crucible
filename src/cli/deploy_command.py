@@ -7,7 +7,6 @@ packaging, quantization, latency profiling, and readiness checking.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.deployment_types import QuantizationConfig
 from deploy.latency_profiler import (
@@ -23,7 +22,7 @@ from deploy.readiness_checklist import (
 from store.dataset_sdk import ForgeClient
 
 
-def add_deploy_command(subparsers: Any) -> None:
+def add_deploy_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register deploy subcommand with its sub-subcommands.
 
     Args:
@@ -67,7 +66,7 @@ def run_deploy_command(
     return handler(args)
 
 
-def _add_package_subcommand(sub: Any) -> None:
+def _add_package_subcommand(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the 'package' sub-subcommand."""
     p = sub.add_parser("package", help="Build deployment package")
     p.add_argument(
@@ -87,7 +86,7 @@ def _add_package_subcommand(sub: Any) -> None:
     )
 
 
-def _add_quantize_subcommand(sub: Any) -> None:
+def _add_quantize_subcommand(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the 'quantize' sub-subcommand."""
     p = sub.add_parser("quantize", help="Quantize ONNX model")
     p.add_argument(
@@ -105,7 +104,7 @@ def _add_quantize_subcommand(sub: Any) -> None:
     )
 
 
-def _add_profile_subcommand(sub: Any) -> None:
+def _add_profile_subcommand(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the 'profile' sub-subcommand."""
     p = sub.add_parser("profile", help="Profile model latency")
     p.add_argument(
@@ -129,7 +128,7 @@ def _add_profile_subcommand(sub: Any) -> None:
     )
 
 
-def _add_checklist_subcommand(sub: Any) -> None:
+def _add_checklist_subcommand(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the 'checklist' sub-subcommand."""
     p = sub.add_parser(
         "checklist", help="Run deployment readiness checklist",

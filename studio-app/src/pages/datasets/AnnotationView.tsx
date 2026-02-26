@@ -26,7 +26,7 @@ export function AnnotationView() {
       <h3>Data Annotation</h3>
       <p className="text-muted">Completed: {completed} / {tasks.length}</p>
       {tasks.map((task, i) => (
-        <div key={task.id} className="stack-sm" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
+        <div key={task.id} className="stack-sm section-divider">
           <p><strong>Prompt:</strong> {task.prompt}</p>
           <div className="grid-2">
             <div className="panel"><h4>Response A</h4><p>{task.responseA}</p></div>

@@ -1,174 +1,264 @@
-# Forge Phase-One MVP
+# Forge
 
-Forge phase one includes:
+End-to-end machine learning training platform. Ingest data, train models across 13 algorithms, evaluate results, and deploy — from a single CLI or a desktop app.
 
-- CLI ingest for local paths and optional S3 prefixes.
-- Built-in transforms: exact deduplication, language detection, and perplexity quality scoring.
-- Immutable dataset snapshots with version catalog and lineage links.
-- Python SDK for ingest, version listing, metadata filtering, and optional S3 export.
-- PyTorch DataLoader integration with tokenization and shuffling helpers.
-- PyTorch training command with default loop, optional custom loop, and loss curves.
-- Shared YAML run-spec execution for CLI and Python SDK workflows.
-- Training lifecycle registry + lineage graph + artifact contract metadata for each run.
-- Hardware capability profiling command with recommended precision and batch defaults.
+Forge handles the full ML lifecycle: data ingestion with built-in transforms, versioned dataset management, training with live progress streaming, experiment tracking with cost analysis, model versioning with lineage, safety evaluation, and deployment packaging. Everything is reproducible — every run produces a replay bundle that can recreate the exact training configuration.
+
+## Install
+
+```bash
+python3 -m pip install -e .
+```
+
+With optional dependencies:
+
+```bash
+pip install -e ".[serve]"       # PyTorch training
+pip install -e ".[s3]"          # S3 ingest/export
+pip install -e ".[onnx]"        # ONNX model support
+pip install -e ".[lance]"       # Lance vector storage
+pip install -e ".[logging]"     # Structured logging
+pip install -e ".[tokenizers]"  # HuggingFace tokenizers
+```
 
 ## Quickstart
 
 ```bash
-python3 -m pip install -e .
-forge ingest tests/fixtures/raw_valid --dataset demo
-forge versions --dataset demo
-forge filter --dataset demo --language en --min-quality 0.2
-forge train --dataset demo --output-dir ./outputs/train/demo
+# Ingest raw data into a versioned dataset
+forge ingest ./data --dataset my-dataset
+
+# Filter by language and quality
+forge filter --dataset my-dataset --language en --min-quality 0.2
+
+# Train a model
+forge train --dataset my-dataset --output-dir ./outputs/train
+
+# Fine-tune with LoRA
+forge lora-train --dataset my-dataset --model-path meta-llama/Llama-2-7b --output-dir ./outputs/lora
+
+# Chat with the trained model
+forge chat --model-path ./outputs/train/model.pt --prompt "hello"
+
+# Check hardware capabilities
 forge hardware-profile
 ```
 
-## One-Command Smoke Test
+## Training Methods
+
+Forge supports 13 training algorithms, all accessible from the CLI and the desktop app:
+
+| Method | Command | Use Case |
+|--------|---------|----------|
+| Train | `forge train` | Train from scratch on raw text |
+| SFT | `forge sft` | Supervised fine-tuning on instruction data |
+| DPO | `forge dpo-train` | Direct preference optimization (chosen/rejected pairs) |
+| RLHF | `forge rlhf-train` | Reinforcement learning from human feedback (PPO) |
+| LoRA | `forge lora-train` | Parameter-efficient fine-tuning with low-rank adapters |
+| QLoRA | `forge qlora-train` | 4-bit quantized LoRA |
+| Distillation | `forge distill` | Transfer knowledge from teacher to student model |
+| Domain Adapt | `forge domain-adapt` | Continue pretraining on domain-specific text |
+| GRPO | `forge grpo-train` | Group relative policy optimization with reward functions |
+| KTO | `forge kto-train` | Kahneman-Tversky optimization (unpaired preferences) |
+| ORPO | `forge orpo-train` | Odds ratio preference optimization |
+| Multimodal | `forge multimodal-train` | Vision-language model fine-tuning |
+| RLVR | `forge rlvr-train` | RL with verifiable rewards (code/math) |
+
+All methods support: mixed precision (fp32/fp16/bfloat16), gradient clipping, checkpoint save/resume, custom architectures, lifecycle hooks, and configurable optimizers/schedulers.
+
+## Data Pipeline
 
 ```bash
-scripts/run_phase1_smoke_test.sh
+# Ingest with built-in transforms (dedup, language detection, quality scoring)
+forge ingest ./raw-data --dataset research-papers
+
+# List versions
+forge versions --dataset research-papers
+
+# Filter to English, high-quality records
+forge filter --dataset research-papers --language en --min-quality 0.5
+
+# Export for training
+forge export-training --dataset research-papers --output-dir ./training-data
+
+# Generate synthetic training data
+forge synthetic --seed-prompts ./prompts.json --output synthetic-data.jsonl
+
+# Score and curate dataset quality
+forge curate score --dataset research-papers
+forge curate stats --dataset research-papers
 ```
 
-Run this for full validation (tests + typecheck + lint):
+Datasets are immutable versioned snapshots with full lineage tracking.
+
+## Experiment Tracking
 
 ```bash
-scripts/run_phase1_smoke_test.sh --full
+# List all runs
+forge experiment list
+
+# Compare runs side by side
+forge experiment compare --run-ids run-001 run-002 run-003
+
+# View cost breakdown
+forge cost summary
+forge cost run --run-id run-001
+
+# Run hyperparameter sweep
+forge sweep --config sweep.yaml
+
+# Replay a previous run exactly
+forge replay --bundle ./outputs/train/reproducibility_bundle.json
 ```
 
-PyTorch training smoke test:
+## Model Management
 
 ```bash
-scripts/run_training_smoke_test.sh
+# List model versions
+forge model list
+
+# Tag a version
+forge model tag --version v3 --tag production
+
+# Compare two versions
+forge model diff --version-a v2 --version-b v3
+
+# Merge models (slerp, ties, dare, average)
+forge merge --models model-a.pt model-b.pt --method slerp --output merged.pt
+
+# Rollback to previous version
+forge model rollback --version v2
 ```
 
-Platform verification command:
+## Evaluation & Safety
 
 ```bash
-forge verify --mode quick
-forge verify --mode full --keep-artifacts
+# Run standardized benchmarks
+forge eval --model-path ./model.pt --benchmark hellaswag
+
+# LLM-as-Judge evaluation
+forge judge --model-path ./model.pt --criteria accuracy helpfulness
+
+# Toxicity scoring
+forge safety-eval --model-path ./model.pt --samples test-prompts.json
+
+# Pre-deployment safety gate (pass/fail)
+forge safety-gate --model-path ./model.pt --threshold 0.3
 ```
 
-Verification coverage and manual test steps live in `docs/verification_matrix.md`.
-
-Release merge gate:
+## Deployment
 
 ```bash
-scripts/run_release_gate.sh
+# Build deployment package
+forge deploy package --model-path ./model.pt --output-dir ./deploy
+
+# Quantize model
+forge deploy quantize --model-path ./model.onnx --quantize-type dynamic
+
+# Profile latency
+forge deploy profile --model-path ./model.onnx --batch-sizes 1 4 8
+
+# Run readiness checklist
+forge deploy checklist --model-path ./model.pt
 ```
 
-## Optional Dependencies
-
-- S3 ingest/export: `pip install -e .[s3]`
-- Structured logging: `pip install -e .[logging]`
-- Lance conversion: `pip install -e .[lance]`
-- PyTorch serving: `pip install -e .[serve]`
-- ONNX model support (chat + initial-weights loading): `pip install -e .[onnx]`
-
-## Training
-
-Run default training loop:
+## HuggingFace Hub
 
 ```bash
-forge train --dataset demo --output-dir ./outputs/train/demo
+# Search and download models
+forge hub search-models llama --limit 10
+forge hub download-model meta-llama/Llama-2-7b
+
+# Search and download datasets
+forge hub search-datasets instruction --limit 10
+forge hub download-dataset tatsu-lab/alpaca
+
+# Push trained model
+forge hub push --model-path ./model.pt --repo-id my-org/my-model
 ```
 
-Run with configurable default architecture:
+## Studio Desktop App
+
+Forge includes a desktop application built with Tauri, React, and TypeScript. It provides a visual interface for every CLI feature:
+
+- **Training** — Method picker, configuration wizard with auto-saved drafts, live progress streaming, training curve visualization
+- **Datasets** — Ingest, filter, version browser, sample inspector, annotation interface, synthetic data generation
+- **Models** — Version registry, diffing, merging, tagging, rollback
+- **Chat** — Single-model inference and A/B model comparison with DPO export
+- **Experiments** — Run tracking, multi-run comparison, cost analysis, LLM judge evaluation
+- **Safety** — Toxicity scoring and deployment gating
+- **Deploy** — Packaging, quantization, latency profiling, readiness checklist
+- **Hub** — Search, download, and push models/datasets to HuggingFace
+- **Jobs** — Job queue monitoring with live progress, rename, kill
+
+To run the desktop app:
 
 ```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo \
-  --hidden-dim 256 \
-  --num-layers 4 \
-  --attention-heads 8 \
-  --mlp-hidden-dim 1024 \
-  --mlp-layers 2 \
-  --dropout 0.1 \
-  --position-embedding-type learned \
-  --vocabulary-size 20000
+cd studio-app
+npm install
+npm run tauri dev
 ```
 
-Use custom architecture file:
+## Declarative Pipelines
+
+Define multi-step workflows in YAML:
+
+```yaml
+steps:
+  - command: ingest
+    args: { path: ./data, dataset: demo }
+  - command: filter
+    args: { dataset: demo, language: en, min_quality: 0.3 }
+  - command: train
+    args: { dataset: demo, output_dir: ./outputs/demo }
+```
 
 ```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo \
-  --architecture-file ./architectures/my_model.py
+forge run-spec pipeline.yaml
 ```
 
-Use custom training loop:
+## Distributed Training
 
 ```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo \
-  --custom-loop-file ./loops/my_training_loop.py
+forge distributed-train --dataset my-dataset --output-dir ./outputs --nproc-per-node 4
 ```
 
-Use optional lifecycle hooks (run/epoch/batch/checkpoint/custom loss):
+## Cloud Training
 
 ```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo \
-  --hooks-file ./hooks/my_training_hooks.py
+forge cloud estimate --model-size 7b --epochs 3 --provider aws
+forge cloud submit --config cloud-config.yaml
+forge cloud status --job-id job-123
+forge cloud sync --job-id job-123 --output-dir ./results
 ```
 
-Fine-tune from existing model weights:
+## Output Artifacts
+
+Every training run produces:
+
+| File | Contents |
+|------|----------|
+| `model.pt` | Trained model weights |
+| `history.json` | Batch and epoch loss history |
+| `training_curves.png` | Loss visualization |
+| `training_config.json` | Full config for reproducible inference |
+| `tokenizer_vocab.json` | Fitted tokenizer vocabulary |
+| `training_artifacts_manifest.json` | Artifact contract with paths and metadata |
+| `reproducibility_bundle.json` | Config hash + environment snapshot for replay |
+
+## Verification
 
 ```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo-finetune \
-  --initial-weights-path ./outputs/train/demo/model.pt
+forge verify --mode quick    # Fast smoke test
+forge verify --mode full     # Comprehensive validation
 ```
 
-Fine-tune from ONNX initializer weights:
+## Requirements
 
-```bash
-forge train \
-  --dataset demo \
-  --output-dir ./outputs/train/demo-from-onnx \
-  --initial-weights-path ./exports/model.onnx
-```
+- Python >= 3.11
+- PyTorch >= 2.6 (for training)
+- Node.js >= 18 (for Studio desktop app)
+- Rust toolchain (for Tauri builds)
 
-Run a chat inference check against trained weights:
+## License
 
-```bash
-forge chat \
-  --dataset demo \
-  --model-path ./outputs/train/demo/model.pt \
-  --position-embedding-type learned \
-  --prompt "hello"
-```
-
-Run chat inference against an ONNX model artifact:
-
-```bash
-forge chat \
-  --dataset demo \
-  --model-path ./exports/model.onnx \
-  --prompt "hello"
-```
-
-Run a declarative pipeline spec:
-
-```bash
-forge run-spec ./pipeline.yaml
-```
-
-Artifacts written to output dir:
-
-- `model.pt` (trained model weights)
-- `history.json` (batch-level training loss + epoch train/validation loss)
-- `training_curves.png` (loss graph; requires matplotlib)
-- `training_config.json` (training architecture/config used for reproducible inference)
-- `tokenizer_vocab.json` (fitted tokenizer vocabulary reused by `forge chat`)
-- `training_artifacts_manifest.json` (artifact contract with stable paths and run metadata)
-- `reproducibility_bundle.json` (config hash + environment snapshot for replay)
-
-Lifecycle and lineage files are stored under your data-root:
-
-- `.forge/runs/index.json` and `.forge/runs/<run_id>/lifecycle.json`
-- `.forge/lineage/model_lineage.json`
+See [LICENSE](LICENSE).

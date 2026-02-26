@@ -6,7 +6,6 @@ This module provides hardware-aware training configuration suggestions.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.gpu_profiles import list_gpu_profiles
 from serve.smart_config import suggest_training_config
@@ -40,7 +39,7 @@ def run_suggest_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_suggest_command(subparsers: Any) -> None:
+def add_suggest_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register suggest subcommand."""
     parser = subparsers.add_parser("suggest", help="Get hardware-aware training config suggestions")
     parser.add_argument("--model-size", type=float, default=7.0, help="Model size in billions of parameters")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import *
 from core.multimodal_types import MultimodalOptions
@@ -41,7 +41,7 @@ def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int
     return 0
 
 
-def add_multimodal_command(subparsers: Any) -> None:
+def add_multimodal_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("multimodal-train", help="Multimodal vision-language fine-tuning")
     parser.add_argument("--output-dir", required=True, help="Output directory")
     parser.add_argument("--multimodal-data-path", required=True, help="Path to image+text JSONL")

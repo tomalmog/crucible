@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.cloud_burst import (
     estimate_cloud_cost,
@@ -59,7 +58,7 @@ def _run_sync(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_cloud_command(subparsers: Any) -> None:
+def add_cloud_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register cloud subcommand."""
     parser = subparsers.add_parser("cloud", help="Cloud GPU burst training")
     sub = parser.add_subparsers(dest="cloud_subcommand", required=True)

@@ -8,10 +8,20 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Protocol, runtime_checkable
 
 
-def get_logger(name: str) -> Any:
+@runtime_checkable
+class StructuredLogger(Protocol):
+    """Protocol for structured loggers (structlog or stdlib fallback)."""
+
+    def debug(self, event: str, **fields: object) -> None: ...
+    def info(self, event: str, **fields: object) -> None: ...
+    def warning(self, event: str, **fields: object) -> None: ...
+    def error(self, event: str, **fields: object) -> None: ...
+
+
+def get_logger(name: str) -> StructuredLogger:
     """Return a module logger instance.
 
     Args:
@@ -36,7 +46,7 @@ def get_logger(name: str) -> Any:
     return structlog.get_logger(name)
 
 
-def _get_standard_logger(name: str) -> Any:
+def _get_standard_logger(name: str) -> _StructuredStandardLogger:
     """Create a stdlib logger fallback.
 
     Args:

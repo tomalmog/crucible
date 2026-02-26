@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from serve.cost_tracker import CostTracker
 from store.dataset_sdk import ForgeClient
@@ -46,7 +45,7 @@ def _run_detail(tracker: CostTracker, run_id: str) -> int:
     return 0
 
 
-def add_cost_command(subparsers: Any) -> None:
+def add_cost_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register cost subcommand."""
     parser = subparsers.add_parser("cost", help="Training cost tracking")
     sub = parser.add_subparsers(dest="cost_subcommand", required=True)

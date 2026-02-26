@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Callable, Sequence
 
 from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
 from cli.benchmark_command import add_benchmark_command, run_benchmark_command
@@ -80,7 +80,7 @@ from store.dataset_sdk import ForgeClient
 
 _CommandHandler = Callable[..., int]
 
-_COMMAND_REGISTRARS: tuple[Callable[[Any], None], ...] = (
+_COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.ArgumentParser]], None], ...] = (
     add_ingest_command, add_versions_command, add_filter_command,
     add_export_training_command, add_run_spec_command, add_verify_command,
     add_hardware_profile_command, add_train_command, add_sft_command,

@@ -17,7 +17,7 @@ from serve.sweep_runner import run_sweep
 from store.dataset_sdk import ForgeClient
 
 
-def add_sweep_command(subparsers: Any) -> None:
+def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register sweep subcommand.
 
     Args:

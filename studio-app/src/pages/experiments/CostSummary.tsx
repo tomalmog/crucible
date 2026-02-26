@@ -18,6 +18,7 @@ export function CostSummary() {
     setLoading(false);
   }
 
+  // Fetch cost summary on mount and when dataRoot changes
   useEffect(() => {
     loadSummary().catch(console.error);
   }, [dataRoot]);

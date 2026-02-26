@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.errors import ForgeVerificationError
 from core.verification import (
@@ -16,7 +16,7 @@ from core.verification import (
 from store.dataset_sdk import ForgeClient
 
 
-def add_verify_command(subparsers: Any) -> None:
+def add_verify_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register verify subcommand."""
     parser = subparsers.add_parser(
         "verify",

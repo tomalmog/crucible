@@ -7,7 +7,7 @@ mapping CLI arguments to GrpoOptions for group relative policy optimization.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -85,7 +85,7 @@ def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_grpo_command(subparsers: Any) -> None:
+def add_grpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register GRPO subcommand."""
     parser = subparsers.add_parser(
         "grpo-train",

@@ -41,6 +41,7 @@ export function useJobs() {
     [refresh],
   );
 
+  // Poll for job status updates every 2 seconds
   useEffect(() => {
     refresh();
     intervalRef.current = setInterval(refresh, POLL_INTERVAL_MS);

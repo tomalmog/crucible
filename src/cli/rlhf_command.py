@@ -8,7 +8,7 @@ from human feedback training.
 from __future__ import annotations
 
 import argparse
-from typing import Any, cast
+from typing import cast
 
 from core.constants import (
     DEFAULT_BATCH_SIZE,
@@ -94,7 +94,7 @@ def run_rlhf_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def add_rlhf_command(subparsers: Any) -> None:
+def add_rlhf_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register RLHF subcommand.
 
     Args:

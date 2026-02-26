@@ -7,7 +7,6 @@ mapping CLI arguments to BenchmarkConfig for evaluation runs.
 from __future__ import annotations
 
 import argparse
-from typing import Any
 
 from core.benchmark_types import BenchmarkConfig
 from serve.benchmark_runner import format_benchmark_report, run_benchmark
@@ -48,7 +47,7 @@ def run_benchmark_command(
     return 0
 
 
-def add_benchmark_command(subparsers: Any) -> None:
+def add_benchmark_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register benchmark subcommand.
 
     Args:

@@ -39,6 +39,7 @@ export function RecipeLibrary() {
     }
   }
 
+  // Fetch recipe list on mount and when dataRoot changes
   useEffect(() => {
     loadRecipes().catch(console.error);
   }, [dataRoot]);
