@@ -29,7 +29,7 @@ export function LlmJudgeForm() {
   }
 
   return (
-    <div className="panel stack-md">
+    <div className="panel stack">
       <h3>LLM-as-Judge Evaluation</h3>
       <div className="grid-2">
         <FormField label="Model Path">

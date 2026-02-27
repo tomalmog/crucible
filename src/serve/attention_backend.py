@@ -95,6 +95,36 @@ def apply_attention_backend(
 ) -> Any:
     """Apply the selected attention backend to a model.
 
-    Returns the model with the attention mechanism configured.
+    Configures PyTorch SDPA kernel dispatch based on the selected backend.
+    Flash Attention 2, memory-efficient, or math-only kernels are toggled
+    via torch.backends.cuda so that F.scaled_dot_product_attention routes
+    to the correct implementation.
+
+    Returns the model unchanged (kernel selection is global state).
     """
+    cuda_backends = getattr(torch_module, "backends", None)
+    if cuda_backends is None:
+        return model
+    cuda = getattr(cuda_backends, "cuda", None)
+    if cuda is None:
+        return model
+    if backend == "flash":
+        _safe_call(cuda, "enable_flash_sdp", True)
+        _safe_call(cuda, "enable_mem_efficient_sdp", True)
+        _safe_call(cuda, "enable_math_sdp", False)
+    elif backend == "sdpa":
+        _safe_call(cuda, "enable_flash_sdp", False)
+        _safe_call(cuda, "enable_mem_efficient_sdp", True)
+        _safe_call(cuda, "enable_math_sdp", False)
+    else:
+        _safe_call(cuda, "enable_flash_sdp", False)
+        _safe_call(cuda, "enable_mem_efficient_sdp", False)
+        _safe_call(cuda, "enable_math_sdp", True)
     return model
+
+
+def _safe_call(obj: Any, method_name: str, value: bool) -> None:
+    """Call a method if it exists, silently skip otherwise."""
+    fn = getattr(obj, method_name, None)
+    if callable(fn):
+        fn(value)

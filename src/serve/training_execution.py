@@ -157,6 +157,7 @@ def _run_default_training_loop(
                 train_loss,
                 validation_loss,
             )
+            _log_to_tracking_adapters(context, epoch_index, train_loss, validation_loss)
             (
                 checkpoint_dir,
                 best_checkpoint_path,
@@ -309,3 +310,18 @@ def _transition_run_state(context: TrainingRuntimeContext, state: TrainingRunSta
     if context.run_registry is None or context.run_id is None:
         return
     context.run_registry.transition(context.run_id, state)
+
+
+def _log_to_tracking_adapters(
+    context: TrainingRuntimeContext,
+    epoch: int,
+    train_loss: float,
+    validation_loss: float,
+) -> None:
+    """Send epoch metrics to any configured tracking adapters."""
+    adapters = context.telemetry_collector
+    if not adapters or not isinstance(adapters, list):
+        return
+    metrics = {"train_loss": train_loss, "validation_loss": validation_loss}
+    for adapter in adapters:
+        adapter.log_metrics(epoch, metrics)

@@ -1,0 +1,167 @@
+"""Shared model loading utilities for evaluation benchmarks.
+
+Loads a trained Forge model and tokenizer from disk for inference,
+providing helpers for logit computation, perplexity, and text generation.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from core.errors import ForgeBenchmarkError, ForgeDependencyError
+
+
+@dataclass
+class EvalModel:
+    """Loaded model and tokenizer ready for benchmark evaluation."""
+
+    model: Any
+    tokenizer: Any
+    torch_module: Any
+    device: Any
+    max_token_length: int
+
+
+def load_eval_model(model_path: str) -> EvalModel:
+    """Load a trained Forge model for evaluation.
+
+    Args:
+        model_path: Path to the model checkpoint (.pt file).
+
+    Returns:
+        EvalModel with model in eval mode.
+    """
+    torch_module = _import_torch()
+    from serve.chat_option_resolver import (
+        resolve_chat_model_vocab_size,
+        resolve_chat_training_options,
+    )
+    from serve.architecture_loader import load_training_model
+    from serve.device_selection import resolve_execution_device
+    from serve.model_weights import load_initial_weights, read_model_state_dict
+    from serve.training_metadata import load_tokenizer
+
+    device = resolve_execution_device(torch_module)
+    model_state = read_model_state_dict(torch_module, model_path, device)
+
+    from core.chat_types import ChatOptions
+    chat_opts = ChatOptions(model_path=model_path, prompt="")
+    training_options = resolve_chat_training_options(chat_opts, model_state)
+
+    tokenizer = load_tokenizer(model_path)
+    if tokenizer is None:
+        raise ForgeBenchmarkError(
+            f"No tokenizer found beside model at {model_path}. "
+            "Ensure vocab.json exists in the model directory."
+        )
+
+    vocab_size = resolve_chat_model_vocab_size(
+        tokenizer.vocabulary, model_state, training_options,
+    )
+    model = load_training_model(torch_module, training_options, vocab_size)
+    model = model.to(device)
+    load_initial_weights(torch_module, model, model_path, device)
+    model.eval()
+
+    return EvalModel(
+        model=model,
+        tokenizer=tokenizer,
+        torch_module=torch_module,
+        device=device,
+        max_token_length=training_options.max_token_length,
+    )
+
+
+def compute_logits(eval_model: EvalModel, text: str) -> Any:
+    """Run a forward pass and return logits for the last token.
+
+    Args:
+        eval_model: Loaded model context.
+        text: Input text to tokenize and feed.
+
+    Returns:
+        Logits tensor of shape [vocab_size] for the last position.
+    """
+    torch = eval_model.torch_module
+    ids = eval_model.tokenizer.encode(text, eval_model.max_token_length)
+    if not ids:
+        return torch.zeros(1)
+    tensor = torch.tensor([ids], dtype=torch.long).to(eval_model.device)
+    with torch.no_grad():
+        output = eval_model.model(tensor)
+    logits = output.logits if hasattr(output, "logits") else output
+    return logits[0, -1, :]
+
+
+def compute_sequence_loss(eval_model: EvalModel, text: str) -> float:
+    """Compute average cross-entropy loss over a text sequence.
+
+    Lower loss means the model assigns higher probability to the text.
+    Used for perplexity-based scoring in multiple-choice benchmarks.
+
+    Args:
+        eval_model: Loaded model context.
+        text: Full text to score.
+
+    Returns:
+        Average cross-entropy loss (lower = better fit).
+    """
+    torch = eval_model.torch_module
+    ids = eval_model.tokenizer.encode(text, eval_model.max_token_length)
+    if len(ids) < 2:
+        return float("inf")
+    tensor = torch.tensor([ids], dtype=torch.long).to(eval_model.device)
+    with torch.no_grad():
+        output = eval_model.model(tensor)
+    logits = output.logits if hasattr(output, "logits") else output
+    shift_logits = logits[0, :-1, :]
+    shift_labels = tensor[0, 1:]
+    loss_fn = torch.nn.CrossEntropyLoss()
+    loss = loss_fn(shift_logits, shift_labels)
+    return float(loss.item())
+
+
+def generate_text(
+    eval_model: EvalModel,
+    prompt: str,
+    max_new_tokens: int = 256,
+) -> str:
+    """Generate text autoregressively using greedy decoding.
+
+    Args:
+        eval_model: Loaded model context.
+        prompt: Input prompt text.
+        max_new_tokens: Maximum tokens to generate.
+
+    Returns:
+        Generated text (excluding prompt).
+    """
+    torch = eval_model.torch_module
+    context_ids = eval_model.tokenizer.encode(prompt, eval_model.max_token_length)
+    generated: list[int] = []
+
+    for _ in range(max_new_tokens):
+        window = context_ids[-(eval_model.max_token_length):]
+        tensor = torch.tensor([window], dtype=torch.long).to(eval_model.device)
+        with torch.no_grad():
+            output = eval_model.model(tensor)
+        logits = output.logits if hasattr(output, "logits") else output
+        next_id = int(logits[0, -1, :].argmax().item())
+        if next_id == 0:
+            break
+        context_ids.append(next_id)
+        generated.append(next_id)
+
+    return eval_model.tokenizer.decode(generated)
+
+
+def _import_torch() -> Any:
+    """Import torch dependency."""
+    try:
+        import torch
+        return torch
+    except ImportError as error:
+        raise ForgeDependencyError(
+            "Evaluation benchmarks require torch. Install torch to run evaluations."
+        ) from error

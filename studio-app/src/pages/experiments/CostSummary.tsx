@@ -24,7 +24,7 @@ export function CostSummary() {
   }, [dataRoot]);
 
   return (
-    <div className="panel stack-md">
+    <div className="panel stack">
       <div className="row">
         <h3>Cost Summary</h3>
         <div className="spacer" />

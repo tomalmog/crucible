@@ -102,6 +102,31 @@ def format_sweep_report(result: SweepResult) -> str:
     return "\n".join(lines)
 
 
+def format_sweep_report_json(result: SweepResult) -> dict[str, object]:
+    """Format sweep results as a JSON-serializable dict.
+
+    Args:
+        result: Full sweep result with all trials.
+
+    Returns:
+        Dictionary with trials, best trial info, and parameters.
+    """
+    return {
+        "trials": [
+            {
+                "trial_id": t.trial_id,
+                "parameters": t.parameters,
+                "metric_value": t.metric_value,
+                "model_path": t.model_path,
+            }
+            for t in result.trials
+        ],
+        "best_trial_id": result.best_trial_id,
+        "best_parameters": result.best_parameters,
+        "best_metric_value": result.best_metric_value,
+    }
+
+
 def _format_params_compact(params: dict[str, float]) -> str:
     """Format parameter dict as compact key=value string.
 

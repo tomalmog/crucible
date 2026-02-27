@@ -75,6 +75,17 @@ export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsP
           <PathInput value={config.resumeCheckpointPath} onChange={(v) => update("resumeCheckpointPath", v)} placeholder="path/to/checkpoint" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
       </FormSection>
+
+      <FormSection title="Experiment Tracking">
+        <div className="grid-2">
+          <FormField label="W&B Project (optional)">
+            <input value={config.wandbProject} onChange={(e) => update("wandbProject", e.currentTarget.value)} placeholder="my-project" />
+          </FormField>
+          <FormField label="TensorBoard Dir (optional)">
+            <PathInput value={config.tensorboardDir} onChange={(v) => update("tensorboardDir", v)} placeholder="./tb_logs" kind="folder" />
+          </FormField>
+        </div>
+      </FormSection>
     </>
   );
 }

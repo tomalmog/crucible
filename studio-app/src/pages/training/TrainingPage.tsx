@@ -3,10 +3,11 @@ import { PageHeader } from "../../components/shared/PageHeader";
 import { TrainingMethodPicker } from "./TrainingMethodPicker";
 import { TrainingWizard } from "./TrainingWizard";
 import { TrainingRunHistory } from "./TrainingRunHistory";
+import { SweepConfigForm } from "./SweepConfigForm";
 import { TrainingMethod } from "../../types/training";
 import { useForge } from "../../context/ForgeContext";
 
-type View = "pick" | "wizard" | "history";
+type View = "pick" | "wizard" | "history" | "sweep";
 
 export function TrainingPage() {
   const [view, setView] = useState<View>("pick");
@@ -33,6 +34,12 @@ export function TrainingPage() {
           New Run
         </button>
         <button
+          className={`btn ${view === "sweep" ? "btn-primary" : ""}`}
+          onClick={() => setView("sweep")}
+        >
+          Sweep
+        </button>
+        <button
           className={`btn ${view === "history" ? "btn-primary" : ""}`}
           onClick={() => setView("history")}
         >
@@ -44,6 +51,7 @@ export function TrainingPage() {
       {view === "wizard" && selectedMethod && (
         <TrainingWizard method={selectedMethod} dataRoot={dataRoot} onBack={onBack} />
       )}
+      {view === "sweep" && <SweepConfigForm />}
       {view === "history" && <TrainingRunHistory dataRoot={dataRoot} />}
     </>
   );

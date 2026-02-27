@@ -40,8 +40,55 @@ def _build_default_model_class(
     torch_nn = torch_module.nn
     module_base = cast(type, torch_module.nn.Module)
 
+    functional = torch_module.nn.functional
+
+    class ForgeMultiHeadAttention(module_base):  # type: ignore[misc,valid-type]
+        """Multi-head attention using F.scaled_dot_product_attention."""
+
+        def __init__(self, d_model: int, nhead: int, dropout: float) -> None:
+            super().__init__()
+            self.nhead = nhead
+            self.head_dim = d_model // nhead
+            self.qkv_proj = torch_nn.Linear(d_model, 3 * d_model)
+            self.out_proj = torch_nn.Linear(d_model, d_model)
+            self.dropout = dropout
+
+        def forward(self, x: Any, is_causal: bool = True) -> Any:
+            batch, seq_len, _ = x.shape
+            qkv = self.qkv_proj(x)
+            qkv = qkv.reshape(batch, seq_len, 3, self.nhead, self.head_dim)
+            qkv = qkv.permute(2, 0, 3, 1, 4)
+            q, k, v = qkv[0], qkv[1], qkv[2]
+            drop = self.dropout if self.training else 0.0
+            attn_out = functional.scaled_dot_product_attention(
+                q, k, v, is_causal=is_causal, dropout_p=drop,
+            )
+            attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, -1)
+            return self.out_proj(attn_out)
+
+    class ForgeTransformerBlock(module_base):  # type: ignore[misc,valid-type]
+        """Pre-norm transformer block with SDPA-based attention."""
+
+        def __init__(self, d_model: int, nhead: int, dim_ff: int, dropout: float) -> None:
+            super().__init__()
+            self.norm1 = torch_nn.LayerNorm(d_model)
+            self.attn = ForgeMultiHeadAttention(d_model, nhead, dropout)
+            self.norm2 = torch_nn.LayerNorm(d_model)
+            self.ffn = torch_nn.Sequential(
+                torch_nn.Linear(d_model, dim_ff),
+                torch_nn.GELU(),
+                torch_nn.Dropout(dropout),
+                torch_nn.Linear(dim_ff, d_model),
+                torch_nn.Dropout(dropout),
+            )
+
+        def forward(self, x: Any) -> Any:
+            x = x + self.attn(self.norm1(x))
+            x = x + self.ffn(self.norm2(x))
+            return x
+
     class DefaultCausalModel(module_base):  # type: ignore[misc,valid-type]
-        """Embedding + transformer encoder with causal mask."""
+        """Embedding + transformer blocks with SDPA attention."""
 
         def __init__(self) -> None:
             super().__init__()
@@ -61,17 +108,16 @@ def _build_default_model_class(
                     ),
                     persistent=False,
                 )
-            encoder_layer = torch_nn.TransformerEncoderLayer(
-                d_model=options.hidden_dim,
-                nhead=options.attention_heads,
-                dim_feedforward=options.mlp_hidden_dim,
-                dropout=options.dropout,
-                batch_first=True,
-            )
-            self.encoder = torch_nn.TransformerEncoder(
-                encoder_layer,
-                num_layers=options.num_layers,
-            )
+            self.blocks = torch_nn.ModuleList([
+                ForgeTransformerBlock(
+                    d_model=options.hidden_dim,
+                    nhead=options.attention_heads,
+                    dim_ff=options.mlp_hidden_dim,
+                    dropout=options.dropout,
+                )
+                for _ in range(options.num_layers)
+            ])
+            self.final_norm = torch_nn.LayerNorm(options.hidden_dim)
             self.output = _build_projection_head(
                 torch_module=torch_module,
                 input_dim=options.hidden_dim,
@@ -86,13 +132,10 @@ def _build_default_model_class(
             positions = _position_ids(torch_module, inputs)
             positional = _resolve_position_embeddings(self, positions)
             hidden_states = embedded + positional
-            sequence_length = int(inputs.shape[1])
-            mask = torch_module.triu(
-                torch_module.ones(sequence_length, sequence_length, device=inputs.device),
-                diagonal=1,
-            ).bool()
-            encoded = self.encoder(hidden_states, mask=mask)
-            logits = self.output(encoded)
+            for block in self.blocks:
+                hidden_states = block(hidden_states)
+            hidden_states = self.final_norm(hidden_states)
+            logits = self.output(hidden_states)
             return logits
 
     return DefaultCausalModel

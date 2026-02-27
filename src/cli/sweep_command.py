@@ -12,7 +12,7 @@ from typing import Any
 
 from core.errors import ForgeDependencyError, ForgeSweepError
 from core.sweep_types import SweepConfig, SweepParameter
-from serve.sweep_analysis import format_sweep_report
+from serve.sweep_analysis import format_sweep_report, format_sweep_report_json
 from serve.sweep_runner import run_sweep
 from store.dataset_sdk import ForgeClient
 
@@ -35,8 +35,13 @@ def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     )
     parser.add_argument(
         "--config-file",
-        required=True,
+        default=None,
         help="YAML file with sweep parameter definitions",
+    )
+    parser.add_argument(
+        "--params",
+        default=None,
+        help="Inline JSON parameter definitions (alternative to --config-file)",
     )
     parser.add_argument(
         "--strategy",
@@ -61,6 +66,12 @@ def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         default=False,
         help="Maximize metric instead of minimizing",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Output results as JSON",
+    )
 
 
 def run_sweep_command(client: ForgeClient, args: argparse.Namespace) -> int:
@@ -73,26 +84,40 @@ def run_sweep_command(client: ForgeClient, args: argparse.Namespace) -> int:
     Returns:
         Exit code.
     """
+    import json as _json
     config = _build_sweep_config(args)
     result = run_sweep(client, config, random_seed=42)
-    report = format_sweep_report(result)
-    print(report)
+    if getattr(args, "json", False):
+        print(_json.dumps(format_sweep_report_json(result)))
+    else:
+        report = format_sweep_report(result)
+        print(report)
     return 0
 
 
 def _build_sweep_config(args: argparse.Namespace) -> SweepConfig:
-    """Build SweepConfig from CLI arguments and YAML config.
+    """Build SweepConfig from CLI arguments and config source.
+
+    Supports YAML file (--config-file) or inline JSON (--params).
 
     Args:
-        args: Parsed CLI arguments with config_file path.
+        args: Parsed CLI arguments.
 
     Returns:
         Validated SweepConfig.
 
     Raises:
-        ForgeSweepError: If config file is invalid.
+        ForgeSweepError: If config is invalid or missing.
     """
-    parameters = _load_parameters_from_yaml(args.config_file)
+    if args.params:
+        parameters = _parse_inline_params(args.params)
+    elif args.config_file:
+        parameters = _load_parameters_from_yaml(args.config_file)
+    else:
+        raise ForgeSweepError(
+            "Sweep requires --config-file or --params. "
+            "Provide parameter definitions via one of these flags."
+        )
     return SweepConfig(
         dataset_name=args.dataset,
         output_dir=args.output_dir,
@@ -103,6 +128,27 @@ def _build_sweep_config(args: argparse.Namespace) -> SweepConfig:
         metric=args.metric,
         minimize=not args.maximize,
     )
+
+
+def _parse_inline_params(params_json: str) -> tuple[SweepParameter, ...]:
+    """Parse sweep parameters from inline JSON string.
+
+    Expected format: {"parameters": [{"name": "learning_rate", "values": [0.001, 0.01]}]}
+
+    Args:
+        params_json: JSON string with parameter definitions.
+
+    Returns:
+        Tuple of SweepParameter instances.
+    """
+    import json as _json
+    try:
+        raw = _json.loads(params_json)
+    except _json.JSONDecodeError as error:
+        raise ForgeSweepError(
+            f"Failed to parse --params JSON: {error}."
+        ) from error
+    return _parse_parameters(raw)
 
 
 def _load_parameters_from_yaml(config_path: str) -> tuple[SweepParameter, ...]:

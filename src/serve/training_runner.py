@@ -10,6 +10,8 @@ from typing import Any
 from core.errors import ForgeDependencyError, ForgeServeError
 from core.types import BatchLossMetric, DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
+from serve.attention_backend import apply_attention_backend, select_attention_backend
+from serve.tracking_adapters import TrackingAdapter, build_tracking_adapters
 from serve.device_selection import resolve_execution_device
 from serve.gradient_checkpointing import apply_gradient_checkpointing
 from serve.memory_aware_batching import plan_memory_aware_batching
@@ -61,6 +63,7 @@ def run_training(
         config_hash=config_hash,
     )
     context: TrainingRuntimeContext | None = None
+    adapters: list[TrackingAdapter] = []
     try:
         context = _build_runtime_context(
             records=records,
@@ -71,6 +74,14 @@ def run_training(
             config_hash=config_hash,
             run_registry=run_registry,
         )
+        adapters = build_tracking_adapters(
+            wandb_project=options.wandb_project,
+            tensorboard_dir=options.tensorboard_dir,
+            run_name=run_record.run_id,
+        )
+        context.telemetry_collector = adapters
+        for adapter in adapters:
+            adapter.log_hyperparameters(asdict(options))
         run_registry.transition(run_record.run_id, "running")
         invoke_hook("on_run_start", context.hooks.on_run_start, context)
         loop_result = run_training_loop(context)
@@ -83,6 +94,8 @@ def run_training(
             random_seed=random_seed,
         )
         invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
+        for adapter in adapters:
+            adapter.finish()
         run_registry.transition(
             run_id=run_record.run_id,
             next_state="completed",
@@ -96,6 +109,8 @@ def run_training(
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
             except ForgeServeError:
                 pass
+        for adapter in adapters:
+            adapter.finish()
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
 
@@ -137,6 +152,8 @@ def _build_runtime_context(
         initial_weights_path=options.initial_weights_path,
         device=device,
     )
+    attention_backend = select_attention_backend()
+    model = apply_attention_backend(model, attention_backend, torch_module)
     if options.gradient_checkpointing:
         apply_gradient_checkpointing(torch_module, model)
     precision_runtime = build_training_precision_runtime(

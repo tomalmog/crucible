@@ -103,6 +103,8 @@ class TrainingOptions:
     auto_micro_batch: bool = False
     gradient_checkpointing: bool = DEFAULT_GRADIENT_CHECKPOINTING_ENABLED
     tokenizer_path: str | None = None
+    wandb_project: str | None = None
+    tensorboard_dir: str | None = None
 
 
 @dataclass(frozen=True)

@@ -69,6 +69,8 @@ export interface SharedTrainingConfig {
   mlpHiddenDim: string;
   mlpLayers: string;
   resumeCheckpointPath: string;
+  wandbProject: string;
+  tensorboardDir: string;
 }
 
 export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
@@ -86,6 +88,8 @@ export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
   mlpHiddenDim: "512",
   mlpLayers: "1",
   resumeCheckpointPath: "",
+  wandbProject: "",
+  tensorboardDir: "",
 };
 
 /** Per-method overrides for shared config defaults. Fine-tuning methods

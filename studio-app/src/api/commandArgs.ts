@@ -38,6 +38,8 @@ export function buildSharedTrainingArgs(
   if (config.resumeCheckpointPath) {
     args.push("--resume-checkpoint-path", config.resumeCheckpointPath);
   }
+  appendOptionalRaw(args, "--wandb-project", config.wandbProject);
+  appendOptionalRaw(args, "--tensorboard-dir", config.tensorboardDir);
   return args;
 }
 

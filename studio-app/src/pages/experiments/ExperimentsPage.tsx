@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
+import { PageHeader } from "../../components/shared/PageHeader";
 import { RunTable } from "./RunTable";
 import { ExperimentDetail } from "./ExperimentDetail";
 import { ExperimentCompare } from "./ExperimentCompare";
+import { EvalResultsView } from "./EvalResultsView";
+import { LlmJudgeForm } from "./LlmJudgeForm";
+import { CostSummary } from "./CostSummary";
 
-type View = "list" | "detail" | "compare";
+type View = "list" | "detail" | "compare" | "eval" | "judge" | "cost";
 
 export function ExperimentsPage() {
   const { dataRoot } = useForge();
@@ -31,7 +35,6 @@ export function ExperimentsPage() {
     setLoading(false);
   }
 
-  // Fetch experiment runs on mount and when dataRoot changes
   useEffect(() => {
     loadRuns().catch(console.error);
   }, [dataRoot]);
@@ -47,35 +50,39 @@ export function ExperimentsPage() {
   }
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Experiments</h1>
-        <div className="spacer" />
+    <>
+      <PageHeader title="Experiments">
         {view !== "list" && (
           <button className="btn btn-ghost" onClick={() => setView("list")}>
-            Back to List
+            Back
           </button>
         )}
-        <button className="btn" onClick={() => loadRuns().catch(console.error)} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
+        <button className={`btn ${view === "list" ? "btn-primary" : ""}`} onClick={() => { setView("list"); loadRuns().catch(console.error); }} disabled={loading}>
+          {loading ? "Loading..." : "Runs"}
         </button>
-      </div>
+        <button className={`btn ${view === "eval" ? "btn-primary" : ""}`} onClick={() => setView("eval")}>
+          Evaluate
+        </button>
+        <button className={`btn ${view === "judge" ? "btn-primary" : ""}`} onClick={() => setView("judge")}>
+          LLM Judge
+        </button>
+        <button className={`btn ${view === "cost" ? "btn-primary" : ""}`} onClick={() => setView("cost")}>
+          Cost
+        </button>
+      </PageHeader>
 
       {view === "list" && (
-        <RunTable
-          runs={runs}
-          onSelect={showDetail}
-          onCompare={startCompare}
-        />
+        <RunTable runs={runs} onSelect={showDetail} onCompare={startCompare} />
       )}
-
       {view === "detail" && (
         <ExperimentDetail runId={selectedRun} dataRoot={dataRoot ?? ""} />
       )}
-
       {view === "compare" && (
         <ExperimentCompare runIds={compareIds} dataRoot={dataRoot ?? ""} />
       )}
-    </div>
+      {view === "eval" && <EvalResultsView />}
+      {view === "judge" && <LlmJudgeForm />}
+      {view === "cost" && <CostSummary />}
+    </>
   );
 }

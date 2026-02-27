@@ -119,6 +119,8 @@ def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
         auto_micro_batch=args.auto_micro_batch,
         gradient_checkpointing=args.gradient_checkpointing,
         tokenizer_path=args.tokenizer_path,
+        wandb_project=getattr(args, "wandb_project", None),
+        tensorboard_dir=getattr(args, "tensorboard_dir", None),
     )
 
 
@@ -274,4 +276,14 @@ def add_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         action="store_true",
         default=False,
         help="Auto-configure training defaults from detected hardware profile",
+    )
+    parser.add_argument(
+        "--wandb-project",
+        default=None,
+        help="W&B project name for experiment tracking (requires wandb package)",
+    )
+    parser.add_argument(
+        "--tensorboard-dir",
+        default=None,
+        help="TensorBoard log directory for experiment tracking (requires tensorboard)",
     )
