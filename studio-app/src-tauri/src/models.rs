@@ -126,6 +126,17 @@ pub struct LineageEdge {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelVersionSummary {
+    pub version_id: String,
+    pub model_path: String,
+    pub run_id: Option<String>,
+    pub parent_version_id: Option<String>,
+    pub created_at: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct LineageGraphSummary {
     pub run_count: u64,
     pub edge_count: u64,

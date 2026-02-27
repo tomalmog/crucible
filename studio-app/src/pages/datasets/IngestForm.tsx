@@ -11,14 +11,11 @@ export function IngestForm() {
   const command = useForgeCommand();
   const [source, setSource] = useState("");
   const [dataset, setDataset] = useState("");
-  const [language, setLanguage] = useState("");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!source.trim() || !dataset.trim()) return;
-    const extra: Record<string, string> = {};
-    if (language.trim()) extra["--language"] = language.trim();
-    const args = buildIngestArgs(source.trim(), dataset.trim(), extra);
+    const args = buildIngestArgs(source.trim(), dataset.trim(), {});
     await command.run(dataRoot, args);
     await refreshDatasets();
   }
@@ -28,13 +25,10 @@ export function IngestForm() {
       <h3 className="panel-title">Ingest Data</h3>
       <form onSubmit={(e) => onSubmit(e).catch(console.error)} className="stack">
         <FormField label="Source path or URL">
-          <input value={source} onChange={(e) => setSource(e.currentTarget.value)} placeholder="/path/to/data.jsonl" />
+          <input value={source} onChange={(e) => setSource(e.currentTarget.value)} placeholder="/path/to/data.jsonl or s3://bucket/prefix" />
         </FormField>
         <FormField label="Dataset name">
           <input value={dataset} onChange={(e) => setDataset(e.currentTarget.value)} placeholder="my-dataset" />
-        </FormField>
-        <FormField label="Language (optional)">
-          <input value={language} onChange={(e) => setLanguage(e.currentTarget.value)} placeholder="en" />
         </FormField>
         <button className="btn btn-primary btn-lg" type="submit" disabled={command.isRunning || !source.trim() || !dataset.trim()}>
           {command.isRunning ? "Ingesting..." : "Start Ingest"}

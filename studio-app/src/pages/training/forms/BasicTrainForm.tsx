@@ -1,3 +1,4 @@
+import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { PathInput } from "../../../components/shared/PathInput";
 
@@ -19,7 +20,7 @@ export function BasicTrainForm({ extra, setExtra }: BasicTrainFormProps) {
       </p>
       <div className="grid-2">
         <FormField label="Dataset" required>
-          <input value={extra["--dataset"] ?? ""} onChange={(e) => update("--dataset", e.currentTarget.value)} placeholder="dataset name" />
+          <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Initial Weights">
           <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />

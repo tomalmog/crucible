@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import {
   listDatasets,
+  listModelVersions,
   listVersions,
   getDatasetDashboard,
   sampleRecords,
@@ -11,6 +12,7 @@ import {
   RecordSample,
   VersionSummary,
 } from "../types";
+import type { ModelVersion } from "../types/models";
 import { loadSessionState, saveSessionState } from "../session_state";
 
 interface ForgeContextValue {
@@ -24,6 +26,10 @@ interface ForgeContextValue {
   setSelectedVersion: (id: string | null) => void;
   dashboard: DatasetDashboard | null;
   samples: RecordSample[];
+  modelVersions: ModelVersion[];
+  selectedModel: ModelVersion | null;
+  setSelectedModel: (version: ModelVersion | null) => void;
+  refreshModels: () => Promise<void>;
   hardwareProfile: Record<string, string> | null;
   refreshDatasets: () => Promise<void>;
   refreshHardwareProfile: () => Promise<void>;
@@ -51,7 +57,26 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
   );
   const [dashboard, setDashboard] = useState<DatasetDashboard | null>(null);
   const [samples, setSamples] = useState<RecordSample[]>([]);
+  const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelVersion | null>(null);
   const [hardwareProfile, setHardwareProfile] = useState<Record<string, string> | null>(null);
+
+  const refreshModels = useCallback(async () => {
+    const rows = await listModelVersions(dataRoot);
+    setModelVersions(rows);
+    if (rows.length === 0) {
+      setSelectedModel(null);
+      return;
+    }
+    setSelectedModel((current) => {
+      if (current && rows.some((r) => r.versionId === current.versionId)) {
+        return current;
+      }
+      const savedId = INITIAL.selected_model_version_id;
+      const saved = savedId ? rows.find((r) => r.versionId === savedId) : null;
+      return saved ?? rows[0];
+    });
+  }, [dataRoot]);
 
   const refreshDatasets = useCallback(async () => {
     const rows = await listDatasets(dataRoot);
@@ -74,9 +99,10 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
     setHardwareProfile(profile);
   }, [dataRoot]);
 
-  // Fetch datasets and hardware profile on initial mount
+  // Fetch datasets, models, and hardware profile on initial mount
   useEffect(() => {
     refreshDatasets().catch(console.error);
+    refreshModels().catch(console.error);
     refreshHardwareProfile().catch(console.error);
   }, []);
 
@@ -113,9 +139,10 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       data_root: dataRoot,
       selected_dataset: selectedDataset,
       selected_version: selectedVersion,
+      selected_model_version_id: selectedModel?.versionId ?? null,
       last_route: window.location.hash,
     });
-  }, [dataRoot, selectedDataset, selectedVersion]);
+  }, [dataRoot, selectedDataset, selectedVersion, selectedModel]);
 
   return (
     <ForgeCtx.Provider
@@ -130,6 +157,10 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
         setSelectedVersion,
         dashboard,
         samples,
+        modelVersions,
+        selectedModel,
+        setSelectedModel,
+        refreshModels,
         hardwareProfile,
         refreshDatasets,
         refreshHardwareProfile,

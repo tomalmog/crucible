@@ -70,7 +70,7 @@ def _run_search_models(
         print(_json.dumps([
             {"repo_id": m.repo_id, "author": m.author, "downloads": m.downloads,
              "likes": m.likes, "tags": list(m.tags), "task": m.pipeline_tag,
-             "last_modified": m.last_modified}
+             "last_modified": m.last_modified, "total_size": m.total_size}
             for m in models
         ]))
     else:
@@ -114,7 +114,8 @@ def _run_search_datasets(
     if json_output:
         print(_json.dumps([
             {"repo_id": d.repo_id, "author": d.author, "downloads": d.downloads,
-             "tags": list(d.tags), "last_modified": d.last_modified}
+             "tags": list(d.tags), "last_modified": d.last_modified,
+             "total_size": d.total_size}
             for d in datasets
         ]))
     else:

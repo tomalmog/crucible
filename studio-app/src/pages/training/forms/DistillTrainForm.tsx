@@ -1,3 +1,4 @@
+import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { PathInput } from "../../../components/shared/PathInput";
 
@@ -16,7 +17,7 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
       <h4>Knowledge Distillation</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
-          <input value={extra["--dataset"] ?? ""} onChange={(e) => update("--dataset", e.currentTarget.value)} placeholder="dataset name" />
+          <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Teacher Model Path" required>
           <PathInput value={extra["--teacher-model-path"] ?? ""} onChange={(v) => update("--teacher-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />

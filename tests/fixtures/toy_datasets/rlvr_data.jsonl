@@ -1,0 +1,10 @@
+{"prompt": "Write a Python function that returns the factorial of a number n.", "solution": "def factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)"}
+{"prompt": "Write a Python function that checks if a string is a palindrome.", "solution": "def is_palindrome(s):\n    s = s.lower().replace(' ', '')\n    return s == s[::-1]"}
+{"prompt": "Write a Python function that returns the nth Fibonacci number.", "solution": "def fibonacci(n):\n    if n <= 0:\n        return 0\n    if n == 1:\n        return 1\n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    return b"}
+{"prompt": "Write a Python function to find the greatest common divisor of two numbers.", "solution": "def gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return a"}
+{"prompt": "Write a Python function to reverse a linked list.", "solution": "def reverse_list(head):\n    prev = None\n    current = head\n    while current:\n        next_node = current.next\n        current.next = prev\n        prev = current\n        current = next_node\n    return prev"}
+{"prompt": "Solve: What is 15 * 23 + 47?", "solution": "392"}
+{"prompt": "Solve: If x + 5 = 12, what is x?", "solution": "7"}
+{"prompt": "Solve: What is the square root of 144?", "solution": "12"}
+{"prompt": "Solve: What is 2^10?", "solution": "1024"}
+{"prompt": "Solve: What is the sum of the first 10 positive integers?", "solution": "55"}

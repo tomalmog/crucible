@@ -1,5 +1,6 @@
 //! Dataset query commands used by Studio panels.
 
+use crate::commands::runtime_queries::resolve_data_root_path;
 use crate::models::{DatasetDashboard, RecordSample, SourceCount, TrainingHistory, VersionDiff, VersionSummary};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -8,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 #[tauri::command]
 pub fn list_datasets(data_root: String) -> Result<Vec<String>, String> {
-    let datasets_dir = Path::new(&data_root).join("datasets");
+    let datasets_dir = resolve_data_root_path(&data_root).join("datasets");
     if !datasets_dir.exists() {
         return Ok(vec![]);
     }
@@ -147,7 +148,7 @@ pub fn load_training_history(history_path: String) -> Result<TrainingHistory, St
 }
 
 fn dataset_root(data_root: &str, dataset_name: &str) -> PathBuf {
-    Path::new(data_root).join("datasets").join(dataset_name)
+    resolve_data_root_path(data_root).join("datasets").join(dataset_name)
 }
 
 fn records_path(data_root: &str, dataset_name: &str, version_id: &str) -> PathBuf {

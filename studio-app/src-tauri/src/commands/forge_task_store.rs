@@ -189,7 +189,8 @@ impl CommandTaskStore {
 
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>) {
         let working_directory = workspace_root_dir();
-        let spawn_result = Command::new("forge")
+        let forge_bin = resolve_forge_binary(&working_directory);
+        let spawn_result = Command::new(forge_bin)
             .current_dir(working_directory)
             .arg("--data-root")
             .arg(&data_root)
@@ -423,6 +424,14 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
 fn workspace_root_dir() -> PathBuf {
     // `CARGO_MANIFEST_DIR` points to `studio-app/src-tauri`.
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+fn resolve_forge_binary(workspace_root: &Path) -> PathBuf {
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    if venv_binary.exists() {
+        return venv_binary;
+    }
+    PathBuf::from("forge")
 }
 
 #[cfg(test)]

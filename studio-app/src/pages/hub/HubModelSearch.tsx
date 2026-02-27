@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { ArrowDownToLine, Heart, Download, Check, Loader, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { PathInput } from "../../components/shared/PathInput";
 import { FormField } from "../../components/shared/FormField";
-import { formatCount, repoAuthor, formatDate } from "./hubUtils";
+import { formatBytes, formatCount, repoAuthor, formatDate } from "./hubUtils";
 import { HubModelDetail } from "./HubModelDetail";
 
 interface ModelResult {
@@ -15,6 +15,7 @@ interface ModelResult {
   tags: string[];
   task: string;
   last_modified: string;
+  total_size: number;
 }
 
 type DownloadStatus = "idle" | "downloading" | "done" | "error";
@@ -34,7 +35,10 @@ const SORT_OPTIONS = [
   { value: "downloads", label: "Downloads" },
   { value: "likes", label: "Likes" },
   { value: "createdAt", label: "Newest" },
+  { value: "size-desc", label: "Size (largest)" },
+  { value: "size-asc", label: "Size (smallest)" },
 ];
+const LOCAL_SORTS = new Set(["size-desc", "size-asc"]);
 
 export function HubModelSearch() {
   const { dataRoot } = useForge();
@@ -52,8 +56,13 @@ export function HubModelSearch() {
   const [filterSort, setFilterSort] = useState("downloads");
   const didLoad = useRef(false);
 
-  const totalPages = Math.ceil(results.length / PER_PAGE);
-  const pageResults = results.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const sortedResults = useMemo(() => {
+    if (filterSort === "size-desc") return [...results].sort((a, b) => b.total_size - a.total_size);
+    if (filterSort === "size-asc") return [...results].sort((a, b) => a.total_size - b.total_size);
+    return results;
+  }, [results, filterSort]);
+  const totalPages = Math.ceil(sortedResults.length / PER_PAGE);
+  const pageResults = sortedResults.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
   const hasFilters = filterTask || filterLibrary || filterSort !== "downloads";
 
   async function runSearch(searchQuery: string) {
@@ -61,7 +70,8 @@ export function HubModelSearch() {
     const args = ["hub", "search-models", searchQuery, "--limit", "40", "--json"];
     if (filterTask) args.push("--filter", filterTask);
     if (filterLibrary) args.push("--library", filterLibrary);
-    if (filterSort !== "downloads") args.push("--sort", filterSort);
+    const apiSort = LOCAL_SORTS.has(filterSort) ? "downloads" : filterSort;
+    if (apiSort !== "downloads") args.push("--sort", apiSort);
     const status = await searchCmd.run(dataRoot, args);
     if (status.status === "completed" && status.stdout) {
       setResults(JSON.parse(status.stdout));
@@ -211,6 +221,9 @@ export function HubModelSearch() {
                         <Heart size={12} />
                         {formatCount(r.likes)}
                       </span>
+                      {r.total_size > 0 && (
+                        <span className="hub-card-stat">{formatBytes(r.total_size)}</span>
+                      )}
                       {r.last_modified && (
                         <span className="hub-card-stat hub-card-date">
                           {formatDate(r.last_modified)}

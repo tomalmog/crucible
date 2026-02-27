@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ class HubModelInfo:
         tags: Model tags.
         pipeline_tag: Primary task tag.
         last_modified: ISO timestamp of last modification.
+        total_size: Total size in bytes (0 when unavailable).
     """
 
     repo_id: str
@@ -36,6 +38,7 @@ class HubModelInfo:
     tags: tuple[str, ...] = ()
     pipeline_tag: str = ""
     last_modified: str = ""
+    total_size: int = 0
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,7 @@ class HubDatasetInfo:
         downloads: Total download count.
         tags: Dataset tags.
         last_modified: ISO timestamp of last modification.
+        total_size: Total size in bytes (0 when unavailable).
     """
 
     repo_id: str
@@ -55,6 +59,7 @@ class HubDatasetInfo:
     downloads: int = 0
     tags: tuple[str, ...] = ()
     last_modified: str = ""
+    total_size: int = 0
 
 
 def _import_huggingface_hub() -> Any:
@@ -88,7 +93,7 @@ def search_models(
         kwargs["author"] = author
     if tags:
         kwargs["filter"] = tags
-    results = api.list_models(**kwargs)
+    results = list(api.list_models(**kwargs))
     models: list[HubModelInfo] = []
     for model in results:
         modified = ""
@@ -103,7 +108,49 @@ def search_models(
             pipeline_tag=model.pipeline_tag or "",
             last_modified=modified,
         ))
-    return models
+    sizes = _fetch_model_sizes(api, [m.repo_id for m in models])
+    return [
+        HubModelInfo(
+            repo_id=m.repo_id, author=m.author, downloads=m.downloads,
+            likes=m.likes, tags=m.tags, pipeline_tag=m.pipeline_tag,
+            last_modified=m.last_modified, total_size=sizes.get(m.repo_id, 0),
+        )
+        for m in models
+    ]
+
+
+def _fetch_repo_size(api: Any, repo_id: str, repo_type: str) -> tuple[str, int]:
+    """Fetch total file size for a single repo. Returns (repo_id, size)."""
+    try:
+        if repo_type == "model":
+            info = api.model_info(repo_id, files_metadata=True)
+        else:
+            info = api.dataset_info(repo_id, files_metadata=True)
+        total = sum(getattr(s, "size", None) or 0 for s in (info.siblings or []))
+        return (repo_id, total)
+    except Exception:
+        return (repo_id, 0)
+
+
+def _fetch_model_sizes(api: Any, repo_ids: list[str]) -> dict[str, int]:
+    """Fetch total sizes for a batch of model repos in parallel."""
+    return _fetch_sizes_parallel(api, repo_ids, "model")
+
+
+def _fetch_dataset_sizes(api: Any, repo_ids: list[str]) -> dict[str, int]:
+    """Fetch total sizes for a batch of dataset repos in parallel."""
+    return _fetch_sizes_parallel(api, repo_ids, "dataset")
+
+
+def _fetch_sizes_parallel(api: Any, repo_ids: list[str], repo_type: str) -> dict[str, int]:
+    """Fetch sizes for repos in parallel using a thread pool."""
+    sizes: dict[str, int] = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch_repo_size, api, rid, repo_type): rid for rid in repo_ids}
+        for future in as_completed(futures):
+            repo_id, size = future.result()
+            sizes[repo_id] = size
+    return sizes
 
 
 def download_model(
@@ -136,7 +183,7 @@ def search_datasets(
         kwargs["author"] = author
     if filter_tags:
         kwargs["filter"] = filter_tags
-    results = api.list_datasets(**kwargs)
+    results = list(api.list_datasets(**kwargs))
     datasets: list[HubDatasetInfo] = []
     for ds in results:
         modified = ""
@@ -149,7 +196,15 @@ def search_datasets(
             tags=tuple(ds.tags or []),
             last_modified=modified,
         ))
-    return datasets
+    sizes = _fetch_dataset_sizes(api, [d.repo_id for d in datasets])
+    return [
+        HubDatasetInfo(
+            repo_id=d.repo_id, author=d.author, downloads=d.downloads,
+            tags=d.tags, last_modified=d.last_modified,
+            total_size=sizes.get(d.repo_id, 0),
+        )
+        for d in datasets
+    ]
 
 
 def download_dataset(

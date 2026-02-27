@@ -1,0 +1,20 @@
+{"text": "The quick brown fox jumps over the lazy dog. This classic pangram contains every letter of the English alphabet at least once."}
+{"text": "Machine learning models learn patterns from data. They generalize these patterns to make predictions on unseen examples."}
+{"text": "Neural networks consist of layers of neurons. Each neuron applies a weighted sum followed by a nonlinear activation function."}
+{"text": "Gradient descent optimizes model parameters by iteratively moving in the direction that reduces the loss function value."}
+{"text": "Transformers use self-attention to weigh the importance of different parts of the input when producing each output element."}
+{"text": "Convolutional neural networks are particularly effective for image recognition tasks due to their ability to capture spatial hierarchies."}
+{"text": "Recurrent neural networks process sequential data by maintaining a hidden state that carries information across time steps."}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs, allowing higher learning rates and reducing sensitivity to initialization."}
+{"text": "The softmax function converts logits into a probability distribution, commonly used as the final layer in classification networks."}
+{"text": "Cross-validation splits data into multiple folds to evaluate model performance more robustly than a single train-test split."}
+{"text": "Reinforcement learning agents learn optimal behavior through trial and error, receiving rewards or penalties for their actions."}
+{"text": "Natural language processing enables computers to understand, interpret, and generate human language in useful ways."}
+{"text": "Feature engineering transforms raw data into informative features that improve the performance of machine learning algorithms."}
+{"text": "Ensemble methods combine predictions from multiple models to produce more accurate and robust results than any single model."}
+{"text": "Hyperparameter tuning searches for the optimal configuration of parameters that control the learning process itself."}
+{"text": "Dimensionality reduction techniques like PCA compress high-dimensional data into fewer dimensions while preserving important structure."}
+{"text": "Generative adversarial networks consist of a generator and discriminator that compete, producing increasingly realistic synthetic data."}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input, dramatically improving performance on long sequences."}
+{"text": "Pre-training on large corpora followed by fine-tuning on specific tasks has become the dominant paradigm in modern NLP."}
+{"text": "Distributed training splits computation across multiple GPUs or machines, enabling training of models that exceed single-device memory."}

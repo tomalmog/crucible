@@ -1,0 +1,10 @@
+{"prompt": "What is the capital of France?", "response": "The capital of France is Paris, a major European city known for the Eiffel Tower and its rich cultural heritage.", "is_desirable": true}
+{"prompt": "What is the capital of France?", "response": "I think it might be London or something.", "is_desirable": false}
+{"prompt": "How do you make coffee?", "response": "Grind fresh beans, heat water to about 200F, pour over grounds in a filter, and let it drip into your cup for 3-4 minutes.", "is_desirable": true}
+{"prompt": "How do you make coffee?", "response": "Just buy it from a store.", "is_desirable": false}
+{"prompt": "Explain gravity.", "response": "Gravity is a fundamental force of attraction between objects with mass. The more massive an object, the stronger its gravitational pull.", "is_desirable": true}
+{"prompt": "Explain gravity.", "response": "Things fall down.", "is_desirable": false}
+{"prompt": "What is photosynthesis?", "response": "Photosynthesis is the process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen using chlorophyll.", "is_desirable": true}
+{"prompt": "What is photosynthesis?", "response": "Plants eat sunlight somehow.", "is_desirable": false}
+{"prompt": "How does Wi-Fi work?", "response": "Wi-Fi uses radio waves to transmit data between a router and devices, operating on 2.4GHz and 5GHz frequency bands.", "is_desirable": true}
+{"prompt": "How does Wi-Fi work?", "response": "Magic internet waves.", "is_desirable": false}

@@ -13,26 +13,45 @@ export type TrainingMethod =
   | "multimodal-train"
   | "rlvr-train";
 
+export type TrainingMethodCategory =
+  | "pre-training"
+  | "fine-tuning"
+  | "alignment"
+  | "knowledge-transfer";
+
+export interface TrainingMethodCategoryInfo {
+  id: TrainingMethodCategory;
+  label: string;
+}
+
+export const TRAINING_METHOD_CATEGORIES: TrainingMethodCategoryInfo[] = [
+  { id: "pre-training", label: "Pre-Training" },
+  { id: "fine-tuning", label: "Fine-Tuning" },
+  { id: "alignment", label: "Alignment" },
+  { id: "knowledge-transfer", label: "Knowledge Transfer" },
+];
+
 export interface TrainingMethodInfo {
   id: TrainingMethod;
   name: string;
   description: string;
+  category: TrainingMethodCategory;
 }
 
 export const TRAINING_METHODS: TrainingMethodInfo[] = [
-  { id: "train", name: "Basic Training", description: "Standard supervised training from scratch" },
-  { id: "sft", name: "SFT", description: "Supervised fine-tuning on instruction data" },
-  { id: "dpo-train", name: "DPO", description: "Direct preference optimization with chosen/rejected pairs" },
-  { id: "rlhf-train", name: "RLHF", description: "Reinforcement learning from human feedback" },
-  { id: "lora-train", name: "LoRA", description: "Low-rank adaptation for parameter-efficient fine-tuning" },
-  { id: "distill", name: "Distillation", description: "Knowledge distillation from a teacher model" },
-  { id: "domain-adapt", name: "Domain Adaptation", description: "Adapt a pre-trained model to a new domain" },
-  { id: "grpo-train", name: "GRPO", description: "Group relative policy optimization with reward functions" },
-  { id: "qlora-train", name: "QLoRA", description: "Quantized LoRA for memory-efficient fine-tuning" },
-  { id: "kto-train", name: "KTO", description: "Kahneman-Tversky optimization with unpaired preferences" },
-  { id: "orpo-train", name: "ORPO", description: "Odds ratio preference optimization (SFT + preference)" },
-  { id: "multimodal-train", name: "Multimodal", description: "Vision-language model fine-tuning" },
-  { id: "rlvr-train", name: "RLVR", description: "RL with verifiable rewards for code and math" },
+  { id: "train", name: "Basic Training", description: "Standard supervised training from scratch", category: "pre-training" },
+  { id: "sft", name: "SFT", description: "Supervised fine-tuning on instruction data", category: "fine-tuning" },
+  { id: "lora-train", name: "LoRA", description: "Low-rank adaptation for parameter-efficient fine-tuning", category: "fine-tuning" },
+  { id: "qlora-train", name: "QLoRA", description: "Quantized LoRA for memory-efficient fine-tuning", category: "fine-tuning" },
+  { id: "domain-adapt", name: "Domain Adaptation", description: "Adapt a pre-trained model to a new domain", category: "fine-tuning" },
+  { id: "multimodal-train", name: "Multimodal", description: "Vision-language model fine-tuning", category: "fine-tuning" },
+  { id: "dpo-train", name: "DPO", description: "Direct preference optimization with chosen/rejected pairs", category: "alignment" },
+  { id: "rlhf-train", name: "RLHF", description: "Reinforcement learning from human feedback", category: "alignment" },
+  { id: "kto-train", name: "KTO", description: "Kahneman-Tversky optimization with unpaired preferences", category: "alignment" },
+  { id: "orpo-train", name: "ORPO", description: "Odds ratio preference optimization (SFT + preference)", category: "alignment" },
+  { id: "grpo-train", name: "GRPO", description: "Group relative policy optimization with reward functions", category: "alignment" },
+  { id: "rlvr-train", name: "RLVR", description: "RL with verifiable rewards for code and math", category: "alignment" },
+  { id: "distill", name: "Distillation", description: "Knowledge distillation from a teacher model", category: "knowledge-transfer" },
 ];
 
 export interface SharedTrainingConfig {

@@ -10,6 +10,11 @@ import {
   VersionDiff,
   VersionSummary,
 } from "../types";
+import type { ModelVersion } from "../types/models";
+
+export async function listModelVersions(dataRoot: string): Promise<ModelVersion[]> {
+  return invoke<ModelVersion[]>("list_model_versions", { dataRoot });
+}
 
 export async function listDatasets(dataRoot: string): Promise<string[]> {
   return invoke<string[]>("list_datasets", { dataRoot });

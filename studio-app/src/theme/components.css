@@ -519,6 +519,15 @@ label {
     line-height: 1.4;
 }
 
+.method-category-header {
+    padding: 12px 12px 4px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 /* ─── Wizard Steps ─── */
 
 .wizard-header {
@@ -1418,4 +1427,45 @@ label {
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+}
+
+/* ─── Dataset Select ─── */
+
+.dataset-select {
+    position: relative;
+}
+
+.dataset-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.dataset-select-option {
+    display: block;
+    width: 100%;
+    padding: 5px 10px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.dataset-select-option:hover {
+    background: var(--bg-hover);
 }

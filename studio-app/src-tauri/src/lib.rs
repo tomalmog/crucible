@@ -25,6 +25,7 @@ pub fn run() {
             commands::runtime_queries::list_training_runs,
             commands::runtime_queries::get_lineage_graph,
             commands::runtime_queries::get_hardware_profile,
+            commands::model_queries::list_model_versions,
             commands::config_store::load_training_config,
             commands::config_store::save_training_config
         ])

@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState, Dispatch, SetStateAction } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, Dispatch, SetStateAction } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useForge } from "../../context/ForgeContext";
 import { getForgeCommandStatus, startForgeCommand } from "../../api/studioApi";
+import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
 
@@ -35,11 +36,19 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const chatThreadRef = useRef<HTMLDivElement>(null);
 
   // Sync dataset name from global context when it changes
   useEffect(() => {
     if (selectedDataset) setDatasetName(selectedDataset);
   }, [selectedDataset]);
+
+  // Auto-scroll chat thread to bottom when new messages arrive
+  useEffect(() => {
+    if (chatThreadRef.current) {
+      chatThreadRef.current.scrollTop = chatThreadRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const canSend = useMemo(
     () => modelPath.trim().length > 0 && draftMessage.trim().length > 0 && !isSending,
@@ -109,7 +118,7 @@ export function ChatPage() {
               <input value={modelPath} onChange={(e) => setModelPath(e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
             </FormField>
             <FormField label="Dataset (optional)">
-              <input value={datasetName} onChange={(e) => setDatasetName(e.currentTarget.value)} placeholder="optional" />
+              <DatasetSelect value={datasetName} onChange={(v) => setDatasetName(v)} placeholder="optional" />
             </FormField>
             <FormField label="Tokenizer Path">
               <input value={tokenizerPath} onChange={(e) => setTokenizerPath(e.currentTarget.value)} placeholder="auto-detect" />
@@ -146,7 +155,7 @@ export function ChatPage() {
           </div>
         </FormSection>
 
-        <div className="chat-thread">
+        <div className="chat-thread" ref={chatThreadRef}>
           {messages.length === 0 ? (
             <p className="chat-empty">Send a message to evaluate your trained model.</p>
           ) : (

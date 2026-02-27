@@ -1,0 +1,10 @@
+{"prompt": "Summarize the concept of transformers in ML.", "response": "Transformers are neural network architectures that use self-attention mechanisms to process sequential data in parallel, replacing recurrent networks for many NLP tasks."}
+{"prompt": "What is tokenization?", "response": "Tokenization is the process of breaking text into smaller units called tokens, which can be words, subwords, or characters, for processing by language models."}
+{"prompt": "Explain fine-tuning.", "response": "Fine-tuning adapts a pre-trained model to a specific task by continuing training on task-specific data with a smaller learning rate to preserve learned representations."}
+{"prompt": "What is a learning rate?", "response": "The learning rate is a hyperparameter that controls how much model weights are adjusted during each training step, balancing convergence speed and stability."}
+{"prompt": "Define an embedding.", "response": "An embedding is a dense vector representation of discrete data like words or tokens in a continuous vector space, capturing semantic relationships between items."}
+{"prompt": "What is dropout?", "response": "Dropout is a regularization technique that randomly deactivates a fraction of neurons during training to prevent co-adaptation and reduce overfitting."}
+{"prompt": "Explain softmax.", "response": "Softmax converts a vector of raw scores into a probability distribution by exponentiating each score and normalizing by the sum of all exponentiated scores."}
+{"prompt": "What is cross-entropy loss?", "response": "Cross-entropy loss measures the dissimilarity between predicted probability distributions and true labels, commonly used for classification tasks."}
+{"prompt": "Define a hyperparameter.", "response": "A hyperparameter is a configuration value set before training begins that controls the learning process, such as learning rate, batch size, and number of layers."}
+{"prompt": "What is model pruning?", "response": "Model pruning removes redundant or less important weights from a trained neural network to reduce model size and inference time while maintaining performance."}
