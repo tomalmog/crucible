@@ -69,11 +69,25 @@ def _import_huggingface_hub() -> Any:
         ) from error
 
 
-def search_models(query: str, limit: int = 20) -> list[HubModelInfo]:
+def search_models(
+    query: str,
+    limit: int = 20,
+    author: str = "",
+    filter_tags: list[str] | None = None,
+    library: str = "",
+    sort: str = "downloads",
+) -> list[HubModelInfo]:
     """Search HuggingFace Hub for models matching a query."""
     hf = _import_huggingface_hub()
     api = hf.HfApi()
-    results = api.list_models(search=query, limit=limit, sort="downloads", direction=-1)
+    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort, "direction": -1}
+    if author:
+        kwargs["author"] = author
+    if filter_tags:
+        kwargs["filter"] = filter_tags
+    if library:
+        kwargs["library"] = library
+    results = api.list_models(**kwargs)
     models: list[HubModelInfo] = []
     for model in results:
         modified = ""
@@ -106,11 +120,22 @@ def download_model(
     return str(path)
 
 
-def search_datasets(query: str, limit: int = 20) -> list[HubDatasetInfo]:
+def search_datasets(
+    query: str,
+    limit: int = 20,
+    author: str = "",
+    filter_tags: list[str] | None = None,
+    sort: str = "downloads",
+) -> list[HubDatasetInfo]:
     """Search HuggingFace Hub for datasets matching a query."""
     hf = _import_huggingface_hub()
     api = hf.HfApi()
-    results = api.list_datasets(search=query, limit=limit, sort="downloads", direction=-1)
+    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort, "direction": -1}
+    if author:
+        kwargs["author"] = author
+    if filter_tags:
+        kwargs["filter"] = filter_tags
+    results = api.list_datasets(**kwargs)
     datasets: list[HubDatasetInfo] = []
     for ds in results:
         modified = ""
@@ -140,6 +165,64 @@ def download_dataset(
         revision=revision,
     )
     return str(path)
+
+
+def get_model_info(repo_id: str) -> dict[str, Any]:
+    """Fetch detailed model info from HuggingFace Hub."""
+    hf = _import_huggingface_hub()
+    api = hf.HfApi()
+    info = api.model_info(repo_id, files_metadata=True)
+    files = []
+    total_size = 0
+    for s in info.siblings or []:
+        size = getattr(s, "size", None) or 0
+        files.append({"filename": s.rfilename, "size": size})
+        total_size += size
+    card = getattr(info, "card_data", None)
+    return {
+        "repo_id": info.id,
+        "author": info.author or "",
+        "downloads": info.downloads or 0,
+        "likes": info.likes or 0,
+        "tags": list(info.tags or []),
+        "task": info.pipeline_tag or "",
+        "last_modified": info.last_modified.isoformat() if info.last_modified else "",
+        "created_at": info.created_at.isoformat() if info.created_at else "",
+        "license": getattr(card, "license", "") or "" if card else "",
+        "base_model": (getattr(card, "base_model", "") or "") if card else "",
+        "library": info.library_name or "",
+        "gated": info.gated if info.gated else False,
+        "files": files,
+        "total_size": total_size,
+    }
+
+
+def get_dataset_info(repo_id: str) -> dict[str, Any]:
+    """Fetch detailed dataset info from HuggingFace Hub."""
+    hf = _import_huggingface_hub()
+    api = hf.HfApi()
+    info = api.dataset_info(repo_id, files_metadata=True)
+    files = []
+    total_size = 0
+    for s in info.siblings or []:
+        size = getattr(s, "size", None) or 0
+        files.append({"filename": s.rfilename, "size": size})
+        total_size += size
+    card = getattr(info, "card_data", None)
+    return {
+        "repo_id": info.id,
+        "author": info.author or "",
+        "downloads": info.downloads or 0,
+        "likes": getattr(info, "likes", 0) or 0,
+        "tags": list(info.tags or []),
+        "task_categories": (getattr(card, "task_categories", []) or []) if card else [],
+        "last_modified": info.last_modified.isoformat() if info.last_modified else "",
+        "created_at": info.created_at.isoformat() if info.created_at else "",
+        "license": getattr(card, "license", "") or "" if card else "",
+        "gated": info.gated if info.gated else False,
+        "files": files,
+        "total_size": total_size,
+    }
 
 
 def push_model(

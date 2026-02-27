@@ -165,7 +165,7 @@ label {
 
 .metric-value {
     font-size: 0.9375rem;
-    font-weight: 600;
+    font-weight: 500;
     font-family: var(--font-mono);
     color: var(--text);
     letter-spacing: -0.01em;
@@ -404,7 +404,7 @@ label {
 .chat-message header {
     color: var(--text-tertiary);
     font-size: 0.625rem;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin-bottom: 3px;
@@ -871,6 +871,27 @@ label {
     flex: 1;
 }
 
+.hub-search-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.hub-filter-row {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+}
+
+.hub-filter-row label {
+    min-width: 0;
+}
+
+.hub-filter-row select {
+    width: auto;
+    min-width: 120px;
+}
+
 .hub-download-target {
     max-width: 360px;
 }
@@ -908,6 +929,154 @@ label {
     color: var(--text-secondary);
     min-width: 48px;
     text-align: center;
+}
+
+/* ─── Hub Detail View ─── */
+
+.hub-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.hub-detail-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.hub-detail-body {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.hub-detail-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hub-detail-title {
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.hub-detail-author {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: -8px;
+}
+
+.hub-detail-meta {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.hub-detail-kv {
+    display: grid;
+    gap: 0;
+    margin: 0;
+}
+
+.hub-detail-kv-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+}
+
+.hub-detail-kv-row:last-child {
+    border-bottom: none;
+}
+
+.hub-detail-kv-row dt {
+    color: var(--text-tertiary);
+}
+
+.hub-detail-kv-row dd {
+    margin: 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-align: right;
+    word-break: break-all;
+}
+
+.hub-detail-files {
+    min-width: 0;
+}
+
+.hub-detail-files-heading {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+}
+
+.hub-detail-file-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.hub-detail-file-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.hub-detail-file-row:last-child {
+    border-bottom: none;
+}
+
+.hub-detail-file-row:hover {
+    background: var(--bg-hover);
+}
+
+.hub-detail-file-name {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hub-detail-file-size {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.hub-detail-show-more {
+    margin-top: 6px;
+}
+
+.hub-card-hint {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.hub-card:hover .hub-card-hint {
+    opacity: 1;
 }
 
 .btn-success {
@@ -952,7 +1121,7 @@ label {
 
 .docs-sidebar-category {
     font-size: 0.625rem;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-tertiary);
@@ -1001,14 +1170,14 @@ label {
 
 .docs-content h1 {
     font-size: 1.25rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
     margin: 0 0 8px;
 }
 
 .docs-content h2 {
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
     margin: 32px 0 12px;
     padding-bottom: 6px;
@@ -1017,7 +1186,7 @@ label {
 
 .docs-content h3 {
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
     margin: 24px 0 8px;
 }
@@ -1028,7 +1197,7 @@ label {
 
 .docs-content strong {
     color: var(--text);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .docs-content code {
@@ -1089,7 +1258,7 @@ label {
 
 .docs-table th {
     text-align: left;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
     padding: 6px 10px;
     border-bottom: 1px solid var(--border);

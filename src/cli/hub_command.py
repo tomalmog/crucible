@@ -11,6 +11,8 @@ import argparse
 from serve.huggingface_hub import (
     download_dataset,
     download_model,
+    get_dataset_info,
+    get_model_info,
     push_model,
     search_datasets,
     search_models,
@@ -22,11 +24,26 @@ def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle hub subcommand dispatch."""
     subcmd = args.hub_subcommand
     if subcmd == "search-models":
-        return _run_search_models(args.query, args.limit, getattr(args, "json", False))
+        return _run_search_models(
+            args.query, args.limit, getattr(args, "json", False),
+            author=getattr(args, "author", ""),
+            library=getattr(args, "library", ""),
+            filter_tag=getattr(args, "filter", ""),
+            sort=getattr(args, "sort", "downloads"),
+        )
+    if subcmd == "model-info":
+        return _run_model_info(args.repo_id, getattr(args, "json", False))
     if subcmd == "download-model":
         return _run_download_model(args.repo_id, args.target_dir, args.revision)
     if subcmd == "search-datasets":
-        return _run_search_datasets(args.query, args.limit, getattr(args, "json", False))
+        return _run_search_datasets(
+            args.query, args.limit, getattr(args, "json", False),
+            author=getattr(args, "author", ""),
+            filter_tag=getattr(args, "filter", ""),
+            sort=getattr(args, "sort", "downloads"),
+        )
+    if subcmd == "dataset-info":
+        return _run_dataset_info(args.repo_id, getattr(args, "json", False))
     if subcmd == "download-dataset":
         return _run_download_dataset(args.repo_id, args.target_dir, args.revision)
     if subcmd == "push":
@@ -35,10 +52,14 @@ def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 1
 
 
-def _run_search_models(query: str, limit: int, json_output: bool = False) -> int:
+def _run_search_models(
+    query: str, limit: int, json_output: bool = False,
+    author: str = "", library: str = "", filter_tag: str = "", sort: str = "downloads",
+) -> int:
     """Search for models on HuggingFace Hub."""
     import json as _json
-    models = search_models(query, limit)
+    tags = [filter_tag] if filter_tag else None
+    models = search_models(query, limit, author=author, filter_tags=tags, library=library, sort=sort)
     if not models:
         if json_output:
             print("[]")
@@ -58,6 +79,17 @@ def _run_search_models(query: str, limit: int, json_output: bool = False) -> int
     return 0
 
 
+def _run_model_info(repo_id: str, json_output: bool = False) -> int:
+    """Fetch detailed model info from HuggingFace Hub."""
+    import json as _json
+    info = get_model_info(repo_id)
+    if json_output:
+        print(_json.dumps(info))
+    else:
+        print(f"{info['repo_id']}  size={info['total_size']}  license={info['license']}")
+    return 0
+
+
 def _run_download_model(repo_id: str, target_dir: str, revision: str | None) -> int:
     """Download a model from HuggingFace Hub."""
     path = download_model(repo_id, target_dir, revision)
@@ -65,10 +97,14 @@ def _run_download_model(repo_id: str, target_dir: str, revision: str | None) -> 
     return 0
 
 
-def _run_search_datasets(query: str, limit: int, json_output: bool = False) -> int:
+def _run_search_datasets(
+    query: str, limit: int, json_output: bool = False,
+    author: str = "", filter_tag: str = "", sort: str = "downloads",
+) -> int:
     """Search for datasets on HuggingFace Hub."""
     import json as _json
-    datasets = search_datasets(query, limit)
+    tags = [filter_tag] if filter_tag else None
+    datasets = search_datasets(query, limit, author=author, filter_tags=tags, sort=sort)
     if not datasets:
         if json_output:
             print("[]")
@@ -84,6 +120,17 @@ def _run_search_datasets(query: str, limit: int, json_output: bool = False) -> i
     else:
         for d in datasets:
             print(f"{d.repo_id}  downloads={d.downloads}")
+    return 0
+
+
+def _run_dataset_info(repo_id: str, json_output: bool = False) -> int:
+    """Fetch detailed dataset info from HuggingFace Hub."""
+    import json as _json
+    info = get_dataset_info(repo_id)
+    if json_output:
+        print(_json.dumps(info))
+    else:
+        print(f"{info['repo_id']}  size={info['total_size']}  license={info['license']}")
     return 0
 
 
@@ -110,6 +157,14 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     sm.add_argument("query", help="Search query")
     sm.add_argument("--limit", type=int, default=20, help="Max results")
     sm.add_argument("--json", action="store_true", help="Output as JSON")
+    sm.add_argument("--author", default="", help="Filter by author")
+    sm.add_argument("--library", default="", help="Filter by library (transformers, gguf, etc.)")
+    sm.add_argument("--filter", default="", help="Filter by tag (text-generation, etc.)")
+    sm.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, created")
+
+    mi = sub.add_parser("model-info", help="Get detailed model info")
+    mi.add_argument("repo_id", help="Model repository ID")
+    mi.add_argument("--json", action="store_true", help="Output as JSON")
 
     dm = sub.add_parser("download-model", help="Download a model")
     dm.add_argument("repo_id", help="Model repository ID")
@@ -120,6 +175,13 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     sd.add_argument("query", help="Search query")
     sd.add_argument("--limit", type=int, default=20, help="Max results")
     sd.add_argument("--json", action="store_true", help="Output as JSON")
+    sd.add_argument("--author", default="", help="Filter by author")
+    sd.add_argument("--filter", default="", help="Filter by tag")
+    sd.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, created")
+
+    di = sub.add_parser("dataset-info", help="Get detailed dataset info")
+    di.add_argument("repo_id", help="Dataset repository ID")
+    di.add_argument("--json", action="store_true", help="Output as JSON")
 
     dd = sub.add_parser("download-dataset", help="Download a dataset")
     dd.add_argument("repo_id", help="Dataset repository ID")

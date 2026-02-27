@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowDownToLine, Download, Check, Loader, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDownToLine, Download, Check, Loader, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { PathInput } from "../../components/shared/PathInput";
 import { FormField } from "../../components/shared/FormField";
 import { formatCount, repoAuthor, formatDate, sizeTag } from "./hubUtils";
+import { HubDatasetDetail } from "./HubDatasetDetail";
 
 interface DatasetResult {
   repo_id: string;
@@ -17,6 +18,18 @@ interface DatasetResult {
 type DownloadStatus = "idle" | "downloading" | "done" | "error";
 const PER_PAGE = 12;
 
+const TASK_OPTIONS = [
+  "", "text-classification", "question-answering", "summarization",
+  "translation", "text-generation", "conversational", "text2text-generation",
+  "token-classification", "image-classification",
+];
+
+const SORT_OPTIONS = [
+  { value: "downloads", label: "Downloads" },
+  { value: "likes", label: "Likes" },
+  { value: "created", label: "Newest" },
+];
+
 export function HubDatasetSearch() {
   const { dataRoot } = useForge();
   const searchCmd = useForgeCommand();
@@ -26,16 +39,22 @@ export function HubDatasetSearch() {
   const [page, setPage] = useState(0);
   const [targetDir, setTargetDir] = useState("./datasets");
   const [downloadStates, setDownloadStates] = useState<Record<string, DownloadStatus>>({});
+  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterTask, setFilterTask] = useState("");
+  const [filterSort, setFilterSort] = useState("downloads");
   const didLoad = useRef(false);
 
   const totalPages = Math.ceil(results.length / PER_PAGE);
   const pageResults = results.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const hasFilters = filterTask || filterSort !== "downloads";
 
   async function runSearch(searchQuery: string) {
     if (!dataRoot) return;
-    const status = await searchCmd.run(dataRoot, [
-      "hub", "search-datasets", searchQuery, "--limit", "40", "--json",
-    ]);
+    const args = ["hub", "search-datasets", searchQuery, "--limit", "40", "--json"];
+    if (filterTask) args.push("--filter", filterTask);
+    if (filterSort !== "downloads") args.push("--sort", filterSort);
+    const status = await searchCmd.run(dataRoot, args);
     if (status.status === "completed" && status.stdout) {
       setResults(JSON.parse(status.stdout));
       setDownloadStates({});
@@ -67,6 +86,16 @@ export function HubDatasetSearch() {
     }
   }
 
+  if (selectedRepo) {
+    return (
+      <HubDatasetDetail
+        repoId={selectedRepo}
+        targetDir={targetDir}
+        onBack={() => setSelectedRepo(null)}
+      />
+    );
+  }
+
   return (
     <div className="hub-search-layout">
       <div className="hub-search-row">
@@ -79,14 +108,53 @@ export function HubDatasetSearch() {
             onKeyDown={(e) => e.key === "Enter" && query.trim() && runSearch(query).catch(console.error)}
           />
         </label>
-        <button
-          className="btn btn-primary"
-          onClick={() => runSearch(query).catch(console.error)}
-          disabled={searchCmd.isRunning || !query.trim()}
-        >
-          {searchCmd.isRunning ? "Searching..." : "Search"}
-        </button>
+        <div className="hub-search-actions">
+          <button
+            className={`btn btn-sm ${showFilters || hasFilters ? "btn-primary" : ""}`}
+            onClick={() => setShowFilters((v) => !v)}
+            title="Filters"
+          >
+            <SlidersHorizontal size={13} />
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => runSearch(query).catch(console.error)}
+            disabled={searchCmd.isRunning || !query.trim()}
+          >
+            {searchCmd.isRunning ? "Searching..." : "Search"}
+          </button>
+        </div>
       </div>
+
+      {showFilters && (
+        <div className="hub-filter-row">
+          <label>
+            <span>Task</span>
+            <select value={filterTask} onChange={(e) => setFilterTask(e.target.value)}>
+              <option value="">Any task</option>
+              {TASK_OPTIONS.filter(Boolean).map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Sort by</span>
+            <select value={filterSort} onChange={(e) => setFilterSort(e.target.value)}>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          {hasFilters && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setFilterTask(""); setFilterSort("downloads"); }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="hub-download-target">
         <FormField label="Download To">
@@ -108,7 +176,7 @@ export function HubDatasetSearch() {
               const author = repoAuthor(r.repo_id, r.author);
               const size = sizeTag(r.tags);
               return (
-                <div className="hub-card" key={r.repo_id}>
+                <div className="hub-card" key={r.repo_id} onClick={() => setSelectedRepo(r.repo_id)}>
                   <div className="hub-card-header">
                     <div>
                       <div className="hub-card-repo">{r.repo_id}</div>
@@ -128,6 +196,7 @@ export function HubDatasetSearch() {
                           {formatDate(r.last_modified)}
                         </span>
                       )}
+                      <span className="hub-card-hint">View details</span>
                     </div>
                     <button
                       className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : ""}`}
