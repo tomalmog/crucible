@@ -104,6 +104,7 @@ Reference document for context recovery. Everything listed here is implemented, 
 - **Datasets** — Two-column layout: dataset/version list + tabs (overview dashboard, version diff, sample inspector, ingest form, filter form)
 - **Models** — Registry browser with tabs: version list, model diff, actions (tag/rollback/export)
 - **Chat** — Model inference with configurable sampling, streaming responses, conversation history
+- **Hub** — Tabbed search for models and datasets with detail views, filters, and download
 - **Safety** — Tabs: evaluation form + deployment gate form + results view
 - **Deploy** — Tabs: package, quantize, latency profile, readiness checklist
 - **Settings** — Data root config + hardware profile display
@@ -113,6 +114,26 @@ Reference document for context recovery. Everything listed here is implemented, 
 - Dataset queries (direct file-based)
 - Training history JSON loading and chart data prep
 - Lineage graph visualization data
+
+## HuggingFace Hub Integration
+
+### CLI Commands
+- **hub search-models** — Search models with optional filters (task, library, sort). Query is optional when filters are set.
+- **hub search-datasets** — Search datasets with optional filters (task, sort)
+- **hub model-info** — Fetch detailed model info: file listing with sizes, license, base model, library, gated status, creation date, downloads, likes
+- **hub dataset-info** — Fetch detailed dataset info: file listing with sizes, license, task categories, gated status, creation date, downloads, likes
+- **hub download-model** — Download a model to a target directory
+- **hub download-dataset** — Download a dataset to a target directory
+- **hub push** — Push a trained model to HuggingFace Hub
+
+### Studio Hub Page
+- **Model search** — 3-column card grid with pagination (12 per page), shows repo name, author, task, downloads, likes, date. Click card to view details.
+- **Dataset search** — Same grid layout for datasets, shows size category tag
+- **Search filters** — Toggle filter bar with task dropdown, library dropdown (models only), sort by (downloads/likes/newest). Filters work with or without a text query.
+- **Model detail view** — Two-column layout: left sidebar with repo name, author, and key-value metadata (size, downloads, likes, license, library, task, base model, gated, created date); right panel with file listing sorted by size descending. Download button with total size shown.
+- **Dataset detail view** — Same two-column layout adapted for datasets (task categories instead of library/base model). File list shows top 20 largest files with incremental "show 20 more" pagination for datasets with hundreds/thousands of files.
+- **Download flow** — Download button on cards and detail view with status feedback (downloading/done/error/retry). Configurable target directory with PathInput browser.
+- **Push tab** — Push trained models to Hub with configurable repo ID and commit message
 
 ## Codebase Quality
 - 148+ Python files, 148+ test files

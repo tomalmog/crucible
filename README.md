@@ -164,12 +164,25 @@ forge deploy checklist --model-path ./model.pt
 ## HuggingFace Hub
 
 ```bash
-# Search and download models
+# Search models (with optional filters)
 forge hub search-models llama --limit 10
+forge hub search-models --filter text-generation --library gguf --sort likes
+forge hub search-models "" --filter text-to-image --sort createdAt
+
+# Get detailed model info (file listing, sizes, license, etc.)
+forge hub model-info meta-llama/Llama-3.1-8B-Instruct --json
+
+# Download a model
 forge hub download-model meta-llama/Llama-2-7b
 
-# Search and download datasets
+# Search datasets (with optional filters)
 forge hub search-datasets instruction --limit 10
+forge hub search-datasets --filter question-answering --sort likes
+
+# Get detailed dataset info
+forge hub dataset-info tatsu-lab/alpaca --json
+
+# Download a dataset
 forge hub download-dataset tatsu-lab/alpaca
 
 # Push trained model
@@ -187,7 +200,7 @@ Forge includes a desktop application built with Tauri, React, and TypeScript. It
 - **Experiments** — Run tracking, multi-run comparison, cost analysis, LLM judge evaluation
 - **Safety** — Toxicity scoring and deployment gating
 - **Deploy** — Packaging, quantization, latency profiling, readiness checklist
-- **Hub** — Search, download, and push models/datasets to HuggingFace
+- **Hub** — Search models/datasets with filters (task, library, sort), click into detail views with file listings and sizes before downloading, push to HuggingFace
 - **Jobs** — Job queue monitoring with live progress, rename, kill
 
 To run the desktop app:

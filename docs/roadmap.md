@@ -25,11 +25,11 @@ Currently only loss curves exist. Need:
 - Artifact lineage: which dataset version + config produced which model
 - This transforms Forge from "a training launcher" into "a training platform"
 
-### HuggingFace Hub Integration
-- Browse and download models from the Hub in the UI
-- Browse and download datasets from the Hub
-- Push trained models/adapters back to the Hub
-- This is the distribution channel for open-source ML. Without it, users have to manually manage files.
+### HuggingFace Hub Integration ✓ DONE
+- ~~Browse and download models from the Hub in the UI~~ — Implemented with search, filters (task/library/sort), detail views with file listings and sizes, and download
+- ~~Browse and download datasets from the Hub~~ — Implemented with search, filters, detail views with paginated file listings, and download
+- ~~Push trained models/adapters back to the Hub~~ — Implemented via CLI and Studio Push tab
+- **Remaining:** Cancel in-progress downloads, resume partial downloads
 
 ### Flash Attention
 Integrate Flash Attention 2 (or torch SDPA as fallback). 2-4x faster attention, significantly less memory. Table stakes for any training tool in 2026.
@@ -130,7 +130,7 @@ The domain-adapt command exists but could be expanded: unstructured text input a
 Phase 1: **GRPO + QLoRA + Flash Attention**
 Close the algorithm gap. After this, Forge trains anything Axolotl/Unsloth can.
 
-Phase 2: **Experiment Tracking + HuggingFace Hub**
+Phase 2: **Experiment Tracking + HuggingFace Hub** (Hub ✓ done)
 Close the workflow gap. After this, Forge replaces the "Axolotl + W&B + manual file management" stack.
 
 Phase 3: **Eval Harness + Sweep UI + Smart Hardware Config**
