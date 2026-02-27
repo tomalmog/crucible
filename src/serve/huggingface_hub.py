@@ -80,13 +80,14 @@ def search_models(
     """Search HuggingFace Hub for models matching a query."""
     hf = _import_huggingface_hub()
     api = hf.HfApi()
-    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort, "direction": -1}
+    tags = list(filter_tags) if filter_tags else []
+    if library:
+        tags.append(library)
+    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort}
     if author:
         kwargs["author"] = author
-    if filter_tags:
-        kwargs["filter"] = filter_tags
-    if library:
-        kwargs["library"] = library
+    if tags:
+        kwargs["filter"] = tags
     results = api.list_models(**kwargs)
     models: list[HubModelInfo] = []
     for model in results:
@@ -130,7 +131,7 @@ def search_datasets(
     """Search HuggingFace Hub for datasets matching a query."""
     hf = _import_huggingface_hub()
     api = hf.HfApi()
-    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort, "direction": -1}
+    kwargs: dict[str, Any] = {"search": query, "limit": limit, "sort": sort}
     if author:
         kwargs["author"] = author
     if filter_tags:

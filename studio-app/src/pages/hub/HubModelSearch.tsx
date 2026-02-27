@@ -33,7 +33,7 @@ const LIBRARY_OPTIONS = [
 const SORT_OPTIONS = [
   { value: "downloads", label: "Downloads" },
   { value: "likes", label: "Likes" },
-  { value: "created", label: "Newest" },
+  { value: "createdAt", label: "Newest" },
 ];
 
 export function HubModelSearch() {
@@ -113,7 +113,7 @@ export function HubModelSearch() {
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             placeholder="llama, mistral, phi, bert..."
-            onKeyDown={(e) => e.key === "Enter" && query.trim() && runSearch(query).catch(console.error)}
+            onKeyDown={(e) => e.key === "Enter" && (query.trim() || hasFilters) && runSearch(query).catch(console.error)}
           />
         </label>
         <div className="hub-search-actions">
@@ -127,7 +127,7 @@ export function HubModelSearch() {
           <button
             className="btn btn-primary"
             onClick={() => runSearch(query).catch(console.error)}
-            disabled={searchCmd.isRunning || !query.trim()}
+            disabled={searchCmd.isRunning || (!query.trim() && !hasFilters)}
           >
             {searchCmd.isRunning ? "Searching..." : "Search"}
           </button>

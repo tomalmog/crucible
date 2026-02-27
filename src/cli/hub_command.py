@@ -154,13 +154,13 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     sub = parser.add_subparsers(dest="hub_subcommand", required=True)
 
     sm = sub.add_parser("search-models", help="Search Hub models")
-    sm.add_argument("query", help="Search query")
+    sm.add_argument("query", nargs="?", default="", help="Search query")
     sm.add_argument("--limit", type=int, default=20, help="Max results")
     sm.add_argument("--json", action="store_true", help="Output as JSON")
     sm.add_argument("--author", default="", help="Filter by author")
     sm.add_argument("--library", default="", help="Filter by library (transformers, gguf, etc.)")
     sm.add_argument("--filter", default="", help="Filter by tag (text-generation, etc.)")
-    sm.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, created")
+    sm.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, createdAt")
 
     mi = sub.add_parser("model-info", help="Get detailed model info")
     mi.add_argument("repo_id", help="Model repository ID")
@@ -172,12 +172,12 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     dm.add_argument("--revision", help="Model revision/branch")
 
     sd = sub.add_parser("search-datasets", help="Search Hub datasets")
-    sd.add_argument("query", help="Search query")
+    sd.add_argument("query", nargs="?", default="", help="Search query")
     sd.add_argument("--limit", type=int, default=20, help="Max results")
     sd.add_argument("--json", action="store_true", help="Output as JSON")
     sd.add_argument("--author", default="", help="Filter by author")
     sd.add_argument("--filter", default="", help="Filter by tag")
-    sd.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, created")
+    sd.add_argument("--sort", default="downloads", help="Sort by: downloads, likes, createdAt")
 
     di = sub.add_parser("dataset-info", help="Get detailed dataset info")
     di.add_argument("repo_id", help="Dataset repository ID")
