@@ -33,7 +33,7 @@ export function useTrainingConfig(
       .then((file: TrainingConfigFile) => {
         if (cancelled) return;
         if (file.draft) {
-          setShared(file.draft.shared);
+          setShared({ ...getDefaultConfigForMethod(method), ...file.draft.shared });
           setExtra(file.draft.extra);
         }
         loadedRef.current = true;
