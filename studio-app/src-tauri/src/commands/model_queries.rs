@@ -168,11 +168,16 @@ fn parse_model_version(
 pub fn get_model_architecture(model_path: String) -> Result<Value, String> {
     let model = std::path::PathBuf::from(&model_path);
     let parent = model.parent().ok_or("Invalid model path")?;
-    let config_path = parent.join("training_config.json");
-    if !config_path.exists() {
-        return Ok(Value::Null);
+    // Prefer Forge training config, fall back to HuggingFace config.json
+    let training_config = parent.join("training_config.json");
+    if training_config.exists() {
+        return read_json_file(&training_config);
     }
-    read_json_file(&config_path)
+    let hf_config = parent.join("config.json");
+    if hf_config.exists() {
+        return read_json_file(&hf_config);
+    }
+    Ok(Value::Null)
 }
 
 fn first_version_created_at(models_dir: &Path, group: &Value) -> String {

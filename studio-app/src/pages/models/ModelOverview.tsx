@@ -6,24 +6,38 @@ interface ModelOverviewProps {
   version: ModelVersion;
 }
 
-const ARCH_FIELDS: { key: string; label: string }[] = [
-  { key: "hidden_dim", label: "Embedding Dim" },
-  { key: "num_layers", label: "Layers" },
-  { key: "attention_heads", label: "Attention Heads" },
-  { key: "mlp_hidden_dim", label: "MLP Hidden Dim" },
-  { key: "mlp_layers", label: "MLP Layers" },
-  { key: "dropout", label: "Dropout" },
-  { key: "position_embedding_type", label: "Position Embedding" },
+// Each entry can have multiple keys (Forge name, HuggingFace name) — first match wins
+const ARCH_FIELDS: { keys: string[]; label: string }[] = [
+  { keys: ["architectures"], label: "Architecture" },
+  { keys: ["model_type"], label: "Model Type" },
+  { keys: ["hidden_dim", "hidden_size"], label: "Hidden Size" },
+  { keys: ["num_layers", "num_hidden_layers"], label: "Layers" },
+  { keys: ["attention_heads", "num_attention_heads"], label: "Attention Heads" },
+  { keys: ["mlp_hidden_dim", "intermediate_size"], label: "Intermediate Size" },
+  { keys: ["vocab_size"], label: "Vocab Size" },
+  { keys: ["dropout", "hidden_dropout_prob"], label: "Dropout" },
+  { keys: ["position_embedding_type"], label: "Position Embedding" },
+  { keys: ["torch_dtype"], label: "Dtype" },
 ];
 
-const TRAINING_FIELDS: { key: string; label: string }[] = [
-  { key: "epochs", label: "Epochs" },
-  { key: "learning_rate", label: "Learning Rate" },
-  { key: "batch_size", label: "Batch Size" },
-  { key: "optimizer_type", label: "Optimizer" },
-  { key: "precision_mode", label: "Precision" },
-  { key: "max_token_length", label: "Max Token Length" },
+const TRAINING_FIELDS: { keys: string[]; label: string }[] = [
+  { keys: ["epochs"], label: "Epochs" },
+  { keys: ["learning_rate"], label: "Learning Rate" },
+  { keys: ["batch_size"], label: "Batch Size" },
+  { keys: ["optimizer_type"], label: "Optimizer" },
+  { keys: ["precision_mode"], label: "Precision" },
+  { keys: ["max_token_length", "max_position_embeddings"], label: "Max Token Length" },
 ];
+
+function resolveField(config: Record<string, unknown>, keys: string[]): unknown | undefined {
+  for (const k of keys) {
+    if (config[k] != null) {
+      const v = config[k];
+      return Array.isArray(v) ? v.join(", ") : v;
+    }
+  }
+  return undefined;
+}
 
 export function ModelOverview({ version }: ModelOverviewProps) {
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
@@ -67,28 +81,30 @@ export function ModelOverview({ version }: ModelOverviewProps) {
           <div className="panel">
             <h3 className="panel-title">Architecture</h3>
             <div className="stats-grid">
-              {ARCH_FIELDS.map((f) =>
-                config[f.key] != null ? (
-                  <div key={f.key} className="metric-card">
+              {ARCH_FIELDS.map((f) => {
+                const v = resolveField(config, f.keys);
+                return v !== undefined ? (
+                  <div key={f.label} className="metric-card">
                     <span className="metric-label">{f.label}</span>
-                    <span className="metric-value">{String(config[f.key])}</span>
+                    <span className="metric-value">{String(v)}</span>
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
           </div>
 
           <div className="panel">
             <h3 className="panel-title">Training</h3>
             <div className="stats-grid">
-              {TRAINING_FIELDS.map((f) =>
-                config[f.key] != null ? (
-                  <div key={f.key} className="metric-card">
+              {TRAINING_FIELDS.map((f) => {
+                const v = resolveField(config, f.keys);
+                return v !== undefined ? (
+                  <div key={f.label} className="metric-card">
                     <span className="metric-label">{f.label}</span>
-                    <span className="metric-value">{String(config[f.key])}</span>
+                    <span className="metric-value">{String(v)}</span>
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
           </div>
         </>
