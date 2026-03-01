@@ -14,9 +14,12 @@ from core.errors import ForgeModelRegistryError
 from core.model_registry_types import ModelTag, ModelVersion
 from store.model_diff import diff_model_versions
 from store.model_registry_io import (
+    load_model_group,
     load_model_tag,
     load_model_version,
     load_registry_index,
+    migrate_flat_to_grouped,
+    save_model_group,
     save_model_tag,
     save_model_version,
     save_registry_index,
@@ -39,6 +42,7 @@ class ModelRegistry:
         """
         self._data_root = data_root
         self._models_root = data_root / "models"
+        _ensure_migrated(self._models_root)
 
     @property
     def models_root(self) -> Path:
@@ -47,6 +51,7 @@ class ModelRegistry:
 
     def register_model(
         self,
+        model_name: str,
         model_path: str,
         run_id: str | None = None,
         parent_version_id: str | None = None,
@@ -54,6 +59,7 @@ class ModelRegistry:
         """Register a new model version in the registry.
 
         Args:
+            model_name: Name of the model to register under.
             model_path: Filesystem path to the model artifact.
             run_id: Optional training run that produced the model.
             parent_version_id: Optional parent version identifier.
@@ -65,29 +71,56 @@ class ModelRegistry:
         created_at = _now_iso()
         version = ModelVersion(
             version_id=version_id,
+            model_name=model_name,
             model_path=model_path,
             run_id=run_id,
             created_at=created_at,
             parent_version_id=parent_version_id,
         )
         save_model_version(self._models_root, version)
-        _append_version_to_index(self._models_root, version_id)
+        _append_version_to_group(self._models_root, model_name, version_id)
         return version
 
-    def list_versions(self) -> tuple[ModelVersion, ...]:
-        """List all registered model versions.
+    def list_model_names(self) -> tuple[str, ...]:
+        """List all registered model names.
 
         Returns:
-            Tuple of all ModelVersion records in registration order.
+            Tuple of model names in registration order.
         """
         index = load_registry_index(self._models_root)
-        version_ids = index.get("version_ids", [])
+        names = index.get("model_names", [])
+        if not isinstance(names, list):
+            return ()
+        return tuple(str(n) for n in names)
+
+    def list_versions_for_model(self, model_name: str) -> tuple[ModelVersion, ...]:
+        """List all versions belonging to a named model.
+
+        Args:
+            model_name: Name of the model to list versions for.
+
+        Returns:
+            Tuple of ModelVersion records in registration order.
+        """
+        group = load_model_group(self._models_root, model_name)
+        version_ids = group.get("version_ids", [])
         if not isinstance(version_ids, list):
             return ()
         versions: list[ModelVersion] = []
         for vid in version_ids:
             versions.append(load_model_version(self._models_root, str(vid)))
         return tuple(versions)
+
+    def list_versions(self) -> tuple[ModelVersion, ...]:
+        """List all registered model versions across all models.
+
+        Returns:
+            Tuple of all ModelVersion records.
+        """
+        all_versions: list[ModelVersion] = []
+        for name in self.list_model_names():
+            all_versions.extend(self.list_versions_for_model(name))
+        return tuple(all_versions)
 
     def get_version(self, version_id: str) -> ModelVersion:
         """Load a specific model version by ID.
@@ -101,13 +134,20 @@ class ModelRegistry:
         Raises:
             ForgeModelRegistryError: If version does not exist.
         """
-        index = load_registry_index(self._models_root)
-        version_ids = index.get("version_ids", [])
-        if version_id not in version_ids:
+        version_path = self._models_root / "versions" / f"{version_id}.json"
+        if not version_path.exists():
             raise ForgeModelRegistryError(
                 f"Model version {version_id} not found in registry."
             )
         return load_model_version(self._models_root, version_id)
+
+    def get_active_version_id_for_model(self, model_name: str) -> str | None:
+        """Return the active version ID for a named model, or None."""
+        group = load_model_group(self._models_root, model_name)
+        active = group.get("active_version_id")
+        if active is None:
+            return None
+        return str(active)
 
     def tag_version(self, version_id: str, tag_name: str) -> ModelTag:
         """Create a named tag pointing to a model version.
@@ -179,10 +219,11 @@ class ModelRegistry:
         version_b = self.get_version(version_id_b)
         return diff_model_versions(version_a, version_b)
 
-    def rollback_to_version(self, version_id: str) -> ModelVersion:
-        """Mark a version as the active model version.
+    def rollback_to_version(self, model_name: str, version_id: str) -> ModelVersion:
+        """Mark a version as the active model version within a model group.
 
         Args:
+            model_name: Name of the model to rollback within.
             version_id: Identifier of the version to activate.
 
         Returns:
@@ -191,15 +232,17 @@ class ModelRegistry:
         Raises:
             ForgeModelRegistryError: If version does not exist.
         """
-        return rollback_active_version(self, version_id)
+        return rollback_active_version(self, model_name, version_id)
 
     def get_active_version_id(self) -> str | None:
-        """Return the currently active version ID, or None."""
-        index = load_registry_index(self._models_root)
-        active = index.get("active_version_id")
-        if active is None:
+        """Return the currently active version ID of the first model, or None.
+
+        Deprecated: use get_active_version_id_for_model instead.
+        """
+        names = self.list_model_names()
+        if not names:
             return None
-        return str(active)
+        return self.get_active_version_id_for_model(names[0])
 
 
 def _generate_version_id() -> str:
@@ -212,17 +255,38 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _append_version_to_index(models_root: Path, version_id: str) -> None:
-    """Add a version ID to the registry index.
+def _ensure_migrated(models_root: Path) -> None:
+    """Run migration if the registry uses the old flat format."""
+    migrate_flat_to_grouped(models_root)
+
+
+def _append_version_to_group(
+    models_root: Path,
+    model_name: str,
+    version_id: str,
+) -> None:
+    """Add a version ID to a model group, creating the group if needed.
+
+    Also ensures the model name is in the global index.
 
     Args:
         models_root: Root path for model registry storage.
+        model_name: Name of the model group.
         version_id: Identifier to append.
     """
-    index = load_registry_index(models_root)
-    version_ids = list(index.get("version_ids", []))
+    # Update group index
+    group = load_model_group(models_root, model_name)
+    version_ids = list(group.get("version_ids", []))
     version_ids.append(version_id)
-    index["version_ids"] = version_ids
-    if index.get("active_version_id") is None:
-        index["active_version_id"] = version_id
-    save_registry_index(models_root, index)
+    group["version_ids"] = version_ids
+    if group.get("active_version_id") is None:
+        group["active_version_id"] = version_id
+    save_model_group(models_root, model_name, group)
+
+    # Ensure model name is in global index
+    index = load_registry_index(models_root)
+    model_names = list(index.get("model_names", []))
+    if model_name not in model_names:
+        model_names.append(model_name)
+        index["model_names"] = model_names
+        save_registry_index(models_root, index)

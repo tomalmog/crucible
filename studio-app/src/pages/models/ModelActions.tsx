@@ -8,9 +8,10 @@ import type { ModelVersion } from "../../types/models";
 interface ModelActionsProps {
   dataRoot: string;
   versions: ModelVersion[];
+  modelName: string | null;
 }
 
-export function ModelActions({ dataRoot, versions }: ModelActionsProps) {
+export function ModelActions({ dataRoot, versions, modelName }: ModelActionsProps) {
   const command = useForgeCommand();
   const [action, setAction] = useState<"tag" | "rollback" | "export">("tag");
   const [version, setVersion] = useState("");
@@ -19,13 +20,12 @@ export function ModelActions({ dataRoot, versions }: ModelActionsProps) {
 
   async function runAction() {
     if (!version) return;
-    const v = versions.find((mv) => mv.versionId === version);
-    if (!v) return;
     if (action === "tag") {
       if (!tag.trim()) return;
       await command.run(dataRoot, ["model", "tag", "--version-id", version, "--tag", tag.trim()]);
     } else if (action === "rollback") {
-      await command.run(dataRoot, ["model", "rollback", "--version-id", version]);
+      if (!modelName) return;
+      await command.run(dataRoot, ["model", "rollback", "--name", modelName, "--version-id", version]);
     } else {
       const args = ["export-spec", "--run-id", version];
       if (exportPath.trim()) args.push("--output", exportPath.trim());

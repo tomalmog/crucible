@@ -105,6 +105,10 @@
     color: var(--text);
 }
 
+.nav-item-nested {
+    padding-left: 28px;
+}
+
 .nav-item-icon {
     width: 16px;
     height: 16px;

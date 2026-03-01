@@ -1,7 +1,7 @@
 """Typed models for model versioning and registry.
 
 This module defines immutable data models used by the model registry
-to track model versions, tags, and branches.
+to track model versions, tags, and groups.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ class ModelVersion:
 
     Attributes:
         version_id: Unique identifier for this model version.
+        model_name: Name of the model this version belongs to.
         model_path: Filesystem path to the model artifact.
         run_id: Optional training run that produced this model.
         tags: Descriptive tags associated with this version.
@@ -23,6 +24,7 @@ class ModelVersion:
     """
 
     version_id: str
+    model_name: str
     model_path: str
     run_id: str | None
     tags: tuple[str, ...] = ()
@@ -46,15 +48,17 @@ class ModelTag:
 
 
 @dataclass(frozen=True)
-class ModelBranch:
-    """Named branch tracking the latest model version.
+class ModelGroup:
+    """Summary of a named model with its version history.
 
     Attributes:
-        branch_name: Human-readable branch identifier.
-        head_version_id: Model version at the branch head.
-        created_at: ISO-8601 UTC creation timestamp.
+        model_name: Human-readable model name.
+        version_ids: Ordered tuple of version identifiers.
+        active_version_id: Currently active version, or None.
+        created_at: ISO-8601 UTC timestamp of first version.
     """
 
-    branch_name: str
-    head_version_id: str
+    model_name: str
+    version_ids: tuple[str, ...]
+    active_version_id: str | None
     created_at: str

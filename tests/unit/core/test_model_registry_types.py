@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from core.model_registry_types import ModelBranch, ModelTag, ModelVersion
+from core.model_registry_types import ModelGroup, ModelTag, ModelVersion
 
 
 def test_model_version_is_frozen() -> None:
     """ModelVersion should be immutable after construction."""
     version = ModelVersion(
         version_id="mv-abc123",
+        model_name="test-model",
         model_path="/tmp/model.pt",
         run_id="run-001",
     )
@@ -22,6 +23,7 @@ def test_model_version_fields_present() -> None:
     """ModelVersion should expose all expected fields with defaults."""
     version = ModelVersion(
         version_id="mv-abc123",
+        model_name="my-model",
         model_path="/tmp/model.pt",
         run_id=None,
         tags=("prod", "v1"),
@@ -29,6 +31,7 @@ def test_model_version_fields_present() -> None:
         parent_version_id="mv-parent",
     )
     assert version.version_id == "mv-abc123"
+    assert version.model_name == "my-model"
     assert version.model_path == "/tmp/model.pt"
     assert version.run_id is None
     assert version.tags == ("prod", "v1")
@@ -48,3 +51,19 @@ def test_model_tag_is_frozen() -> None:
     assert tag.tag_name == "production"
     assert tag.version_id == "mv-abc123"
     assert tag.created_at == "2026-01-01T00:00:00+00:00"
+
+
+def test_model_group_is_frozen() -> None:
+    """ModelGroup should be immutable after construction."""
+    group = ModelGroup(
+        model_name="my-model",
+        version_ids=("mv-aaa", "mv-bbb"),
+        active_version_id="mv-aaa",
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+    with pytest.raises(AttributeError):
+        group.model_name = "other"  # type: ignore[misc]
+    assert group.model_name == "my-model"
+    assert group.version_ids == ("mv-aaa", "mv-bbb")
+    assert group.active_version_id == "mv-aaa"
+    assert group.created_at == "2026-01-01T00:00:00+00:00"

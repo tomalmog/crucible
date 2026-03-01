@@ -142,7 +142,7 @@ export function SweepConfigForm() {
         const bestPath = parseBestModelPath(status.stdout);
         if (bestPath) {
           const regStatus = await registerCommand.run(dataRoot, [
-            "model", "register", "--model-path", bestPath, "--tag", modelName.trim(),
+            "model", "register", "--name", modelName.trim(), "--model-path", bestPath,
           ]);
           if (regStatus.status === "completed" && regStatus.exit_code === 0) {
             setRegistered(true);

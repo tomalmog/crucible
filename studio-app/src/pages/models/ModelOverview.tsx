@@ -6,6 +6,7 @@ interface ModelOverviewProps {
 
 export function ModelOverview({ version }: ModelOverviewProps) {
   const fields = [
+    { label: "Model Name", value: version.modelName },
     { label: "Version ID", value: version.versionId },
     { label: "Model Path", value: version.modelPath },
     { label: "Training Run", value: version.runId ?? "\u2014" },

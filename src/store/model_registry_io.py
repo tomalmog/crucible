@@ -1,7 +1,7 @@
 """Persistence helpers for model registry storage.
 
-This module handles reading and writing model version, tag, and index
-JSON files under the .forge/models/ directory tree.
+This module handles reading and writing model version, tag, group,
+and index JSON files under the .forge/models/ directory tree.
 """
 
 from __future__ import annotations
@@ -115,6 +115,52 @@ def load_model_tag(models_root: Path, tag_name: str) -> ModelTag:
     )
 
 
+def save_model_group(models_root: Path, model_name: str, group_data: dict[str, object]) -> Path:
+    """Persist a model group index to disk.
+
+    Args:
+        models_root: Root path for model registry storage.
+        model_name: Name of the model group.
+        group_data: Group dictionary with version_ids and active_version_id.
+
+    Returns:
+        Path to the written JSON file.
+    """
+    groups_dir = models_root / "groups"
+    groups_dir.mkdir(parents=True, exist_ok=True)
+    target = groups_dir / f"{model_name}.json"
+    try:
+        write_json_file(target, group_data)
+    except Exception as error:
+        raise ForgeModelRegistryError(
+            f"Failed to save model group {model_name}: {error}."
+        ) from error
+    return target
+
+
+def load_model_group(models_root: Path, model_name: str) -> dict[str, object]:
+    """Load a model group index from disk.
+
+    Args:
+        models_root: Root path for model registry storage.
+        model_name: Name of the model group to load.
+
+    Returns:
+        Group dictionary with version_ids and active_version_id.
+    """
+    target = models_root / "groups" / f"{model_name}.json"
+    default: dict[str, object] = {"version_ids": [], "active_version_id": None}
+    try:
+        raw = read_json_file(target, default_value=default)
+    except Exception as error:
+        raise ForgeModelRegistryError(
+            f"Failed to load model group {model_name}: {error}."
+        ) from error
+    if not isinstance(raw, dict):
+        return dict(default)
+    return dict(raw)
+
+
 def save_registry_index(models_root: Path, index: dict[str, object]) -> Path:
     """Persist the registry index to disk.
 
@@ -143,10 +189,10 @@ def load_registry_index(models_root: Path) -> dict[str, object]:
         models_root: Root path for model registry storage.
 
     Returns:
-        Index dictionary with version IDs and active version.
+        Index dictionary with model_names list.
     """
     target = models_root / "index.json"
-    default: dict[str, object] = {"version_ids": [], "active_version_id": None}
+    default: dict[str, object] = {"model_names": []}
     try:
         raw = read_json_file(target, default_value=default)
     except Exception as error:
@@ -158,10 +204,59 @@ def load_registry_index(models_root: Path) -> dict[str, object]:
     return dict(raw)
 
 
+def migrate_flat_to_grouped(models_root: Path) -> None:
+    """One-time migration from flat version list to per-model groups.
+
+    Detects the old index format (has ``version_ids`` key) and migrates
+    all existing versions into a ``default`` model group. Backfills
+    ``model_name`` into each version JSON and rewrites the global index.
+    """
+    index_path = models_root / "index.json"
+    if not index_path.exists():
+        return
+
+    raw = read_json_file(index_path, default_value={})
+    if not isinstance(raw, dict):
+        return
+
+    # Already migrated — new format uses model_names
+    if "model_names" in raw:
+        return
+    # Old format has version_ids
+    if "version_ids" not in raw:
+        return
+
+    version_ids = list(raw.get("version_ids", []))
+    active_version_id = raw.get("active_version_id")
+
+    # Backfill model_name into each version JSON
+    versions_dir = models_root / "versions"
+    for vid in version_ids:
+        version_path = versions_dir / f"{vid}.json"
+        if not version_path.exists():
+            continue
+        version_data = read_json_file(version_path)
+        if isinstance(version_data, dict) and "model_name" not in version_data:
+            version_data["model_name"] = "default"
+            write_json_file(version_path, version_data)
+
+    # Create group file for default model
+    group_data: dict[str, object] = {
+        "version_ids": version_ids,
+        "active_version_id": active_version_id,
+    }
+    save_model_group(models_root, "default", group_data)
+
+    # Rewrite global index
+    new_index: dict[str, object] = {"model_names": ["default"] if version_ids else []}
+    save_registry_index(models_root, new_index)
+
+
 def _version_to_dict(version: ModelVersion) -> dict[str, object]:
     """Convert a ModelVersion to a serializable dictionary."""
     return {
         "version_id": version.version_id,
+        "model_name": version.model_name,
         "model_path": version.model_path,
         "run_id": version.run_id,
         "tags": list(version.tags),
@@ -174,6 +269,7 @@ def _dict_to_version(raw: dict[str, object]) -> ModelVersion:
     """Reconstruct a ModelVersion from a dictionary."""
     return ModelVersion(
         version_id=str(raw["version_id"]),
+        model_name=str(raw.get("model_name", "default")),
         model_path=str(raw["model_path"]),
         run_id=raw.get("run_id") if raw.get("run_id") is not None else None,  # type: ignore[arg-type]
         tags=tuple(raw.get("tags", ())),  # type: ignore[arg-type]

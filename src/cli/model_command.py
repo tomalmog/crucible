@@ -46,7 +46,7 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """
     action = args.model_action
     if action == "list":
-        return _run_list(client)
+        return _run_list(client, args)
     if action == "register":
         return _run_register(client, args)
     if action == "tag":
@@ -60,12 +60,22 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
 
 def _add_list_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the list sub-subcommand."""
-    model_subs.add_parser("list", help="List all model versions")
+    list_parser = model_subs.add_parser("list", help="List models or model versions")
+    list_parser.add_argument(
+        "--name",
+        default=None,
+        help="List versions of a specific model (omit to list all model names)",
+    )
 
 
 def _add_register_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the register sub-subcommand."""
     reg_parser = model_subs.add_parser("register", help="Register a model version")
+    reg_parser.add_argument(
+        "--name",
+        required=True,
+        help="Model name to register version under",
+    )
     reg_parser.add_argument(
         "--model-path",
         required=True,
@@ -118,6 +128,11 @@ def _add_rollback_subcommand(model_subs: argparse._SubParsersAction[argparse.Arg
         help="Rollback to a model version",
     )
     rb_parser.add_argument(
+        "--name",
+        required=True,
+        help="Model name to rollback within",
+    )
+    rb_parser.add_argument(
         "--version-id",
         required=True,
         help="Model version ID to roll back to",
@@ -135,7 +150,7 @@ def _run_register(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     registry = client.model_registry()
-    version = registry.register_model(args.model_path)
+    version = registry.register_model(args.name, args.model_path)
     if args.tag:
         registry.tag_version(version.version_id, args.tag)
         print(f"version_id={version.version_id}")
@@ -145,29 +160,45 @@ def _run_register(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_list(client: ForgeClient) -> int:
+def _run_list(client: ForgeClient, args: argparse.Namespace) -> int:
     """Execute the model list subcommand.
 
     Args:
         client: SDK client instance.
+        args: Parsed CLI arguments.
 
     Returns:
         Exit code.
     """
     registry = client.model_registry()
-    versions = registry.list_versions()
-    if not versions:
-        print("No model versions registered.")
+
+    if args.name:
+        # List versions of a specific model
+        versions = registry.list_versions_for_model(args.name)
+        if not versions:
+            print(f"No versions registered for model '{args.name}'.")
+            return 0
+        active_id = registry.get_active_version_id_for_model(args.name)
+        for v in versions:
+            marker = " [active]" if v.version_id == active_id else ""
+            run_info = v.run_id or "-"
+            parent = v.parent_version_id or "-"
+            print(
+                f"{v.version_id}\t{v.model_path}\t"
+                f"{run_info}\t{parent}\t{v.created_at}{marker}"
+            )
         return 0
-    active_id = registry.get_active_version_id()
-    for v in versions:
-        marker = " [active]" if v.version_id == active_id else ""
-        run_info = v.run_id or "-"
-        parent = v.parent_version_id or "-"
-        print(
-            f"{v.version_id}\t{v.model_path}\t"
-            f"{run_info}\t{parent}\t{v.created_at}{marker}"
-        )
+
+    # List all model names with version counts
+    names = registry.list_model_names()
+    if not names:
+        print("No models registered.")
+        return 0
+    for name in names:
+        versions = registry.list_versions_for_model(name)
+        active_id = registry.get_active_version_id_for_model(name)
+        active_label = f" (active: {active_id})" if active_id else ""
+        print(f"{name}\t{len(versions)} version(s){active_label}")
     return 0
 
 
@@ -216,6 +247,6 @@ def _run_rollback(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     registry = client.model_registry()
-    version = registry.rollback_to_version(args.version_id)
+    version = registry.rollback_to_version(args.name, args.version_id)
     print(f"Rolled back to version {version.version_id}")
     return 0

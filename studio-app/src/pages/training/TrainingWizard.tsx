@@ -83,7 +83,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           const modelPath = parseModelPath(status.stdout);
           if (modelPath) {
             const regStatus = await registerCommand.run(dataRoot, [
-              "model", "register", "--model-path", modelPath, "--tag", modelName.trim(),
+              "model", "register", "--name", modelName.trim(), "--model-path", modelPath,
             ]);
             if (regStatus.status === "completed" && regStatus.exit_code === 0) {
               setRegistered(true);

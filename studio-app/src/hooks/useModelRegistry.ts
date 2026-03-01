@@ -15,8 +15,8 @@ export function useModelRegistry(dataRoot: string) {
     return command.run(dataRoot, ["model", "tag", "--version-id", versionId, "--tag", tag]);
   }, [dataRoot, command]);
 
-  const rollbackModel = useCallback(async (versionId: string) => {
-    return command.run(dataRoot, ["model", "rollback", "--version-id", versionId]);
+  const rollbackModel = useCallback(async (modelName: string, versionId: string) => {
+    return command.run(dataRoot, ["model", "rollback", "--name", modelName, "--version-id", versionId]);
   }, [dataRoot, command]);
 
   const diffModel = useCallback(async (versionA: string, versionB: string) => {

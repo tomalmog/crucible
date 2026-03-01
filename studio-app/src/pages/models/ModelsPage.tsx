@@ -11,7 +11,7 @@ import { ModelMergeForm } from "./ModelMergeForm";
 type Tab = "overview" | "diff" | "actions" | "merge";
 
 export function ModelsPage() {
-  const { dataRoot, modelVersions, selectedModel, refreshModels } = useForge();
+  const { dataRoot, modelVersions, selectedModel, selectedModelName, refreshModels } = useForge();
   const [tab, setTab] = useState<Tab>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -49,7 +49,7 @@ export function ModelsPage() {
               : <EmptyState title="No model selected" description="Select a model version from the list." />
           )}
           {tab === "diff" && <ModelDiffView dataRoot={dataRoot} versions={modelVersions} />}
-          {tab === "actions" && <ModelActions dataRoot={dataRoot} versions={modelVersions} />}
+          {tab === "actions" && <ModelActions dataRoot={dataRoot} versions={modelVersions} modelName={selectedModelName} />}
           {tab === "merge" && <ModelMergeForm />}
         </div>
       </div>

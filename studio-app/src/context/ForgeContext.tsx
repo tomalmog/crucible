@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import {
   listDatasets,
+  listModelGroups,
   listModelVersions,
   listVersions,
   getDatasetDashboard,
@@ -12,7 +13,7 @@ import {
   RecordSample,
   VersionSummary,
 } from "../types";
-import type { ModelVersion } from "../types/models";
+import type { ModelGroup, ModelVersion } from "../types/models";
 import { loadSessionState, saveSessionState } from "../session_state";
 
 interface ForgeContextValue {
@@ -26,6 +27,9 @@ interface ForgeContextValue {
   setSelectedVersion: (id: string | null) => void;
   dashboard: DatasetDashboard | null;
   samples: RecordSample[];
+  modelGroups: ModelGroup[];
+  selectedModelName: string | null;
+  setSelectedModelName: (name: string | null) => void;
   modelVersions: ModelVersion[];
   selectedModel: ModelVersion | null;
   setSelectedModel: (version: ModelVersion | null) => void;
@@ -57,26 +61,58 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
   );
   const [dashboard, setDashboard] = useState<DatasetDashboard | null>(null);
   const [samples, setSamples] = useState<RecordSample[]>([]);
+  const [modelGroups, setModelGroups] = useState<ModelGroup[]>([]);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(
+    INITIAL.selected_model_name,
+  );
   const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelVersion | null>(null);
   const [hardwareProfile, setHardwareProfile] = useState<Record<string, string> | null>(null);
 
   const refreshModels = useCallback(async () => {
-    const rows = await listModelVersions(dataRoot);
-    setModelVersions(rows);
-    if (rows.length === 0) {
+    const groups = await listModelGroups(dataRoot);
+    setModelGroups(groups);
+    if (groups.length === 0) {
+      setSelectedModelName(null);
+      setModelVersions([]);
       setSelectedModel(null);
       return;
     }
-    setSelectedModel((current) => {
-      if (current && rows.some((r) => r.versionId === current.versionId)) {
+    // Auto-select model name if none selected or current no longer exists
+    setSelectedModelName((current) => {
+      if (current && groups.some((g) => g.modelName === current)) {
         return current;
       }
-      const savedId = INITIAL.selected_model_version_id;
-      const saved = savedId ? rows.find((r) => r.versionId === savedId) : null;
-      return saved ?? rows[0];
+      const saved = INITIAL.selected_model_name;
+      const found = saved ? groups.find((g) => g.modelName === saved) : null;
+      return found ? found.modelName : groups[0].modelName;
     });
   }, [dataRoot]);
+
+  // Fetch versions when selectedModelName changes
+  useEffect(() => {
+    if (!selectedModelName) {
+      setModelVersions([]);
+      setSelectedModel(null);
+      return;
+    }
+    let cancelled = false;
+    listModelVersions(dataRoot, selectedModelName)
+      .then((rows) => {
+        if (cancelled) return;
+        setModelVersions(rows);
+        setSelectedModel((current) => {
+          if (current && rows.some((r) => r.versionId === current.versionId)) {
+            return current;
+          }
+          const savedId = INITIAL.selected_model_version_id;
+          const saved = savedId ? rows.find((r) => r.versionId === savedId) : null;
+          return saved ?? rows[0] ?? null;
+        });
+      })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [dataRoot, selectedModelName]);
 
   const refreshDatasets = useCallback(async () => {
     const rows = await listDatasets(dataRoot);
@@ -139,10 +175,11 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       data_root: dataRoot,
       selected_dataset: selectedDataset,
       selected_version: selectedVersion,
+      selected_model_name: selectedModelName,
       selected_model_version_id: selectedModel?.versionId ?? null,
       last_route: window.location.hash,
     });
-  }, [dataRoot, selectedDataset, selectedVersion, selectedModel]);
+  }, [dataRoot, selectedDataset, selectedVersion, selectedModelName, selectedModel]);
 
   return (
     <ForgeCtx.Provider
@@ -157,6 +194,9 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
         setSelectedVersion,
         dashboard,
         samples,
+        modelGroups,
+        selectedModelName,
+        setSelectedModelName,
         modelVersions,
         selectedModel,
         setSelectedModel,
