@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshModels } = useForge();
   const infoCmd = useForgeCommand();
   const downloadCmd = useForgeCommand();
   const [detail, setDetail] = useState<ModelDetail | null>(null);
@@ -32,7 +32,9 @@ export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
     setDlState("downloading");
     try {
       const s = await downloadCmd.run(dataRoot, ["hub", "download-model", repoId, "--target-dir", targetDir]);
-      setDlState(s.status === "completed" ? "done" : "error");
+      const success = s.status === "completed";
+      setDlState(success ? "done" : "error");
+      if (success) refreshModels().catch(console.error);
     } catch { setDlState("error"); }
   }
 

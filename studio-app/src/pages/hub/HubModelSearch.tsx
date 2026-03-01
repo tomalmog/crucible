@@ -41,7 +41,7 @@ const SORT_OPTIONS = [
 const LOCAL_SORTS = new Set(["size-desc", "size-asc"]);
 
 export function HubModelSearch() {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshModels } = useForge();
   const searchCmd = useForgeCommand();
   const downloadCmd = useForgeCommand();
   const [query, setQuery] = useState("");
@@ -95,10 +95,12 @@ export function HubModelSearch() {
       const status = await downloadCmd.run(dataRoot, [
         "hub", "download-model", repoId, "--target-dir", targetDir,
       ]);
+      const success = status.status === "completed";
       setDownloadStates((s) => ({
         ...s,
-        [repoId]: status.status === "completed" ? "done" : "error",
+        [repoId]: success ? "done" : "error",
       }));
+      if (success) refreshModels().catch(console.error);
     } catch {
       setDownloadStates((s) => ({ ...s, [repoId]: "error" }));
     }

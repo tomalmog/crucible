@@ -34,7 +34,7 @@ def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
     if subcmd == "model-info":
         return _run_model_info(args.repo_id, getattr(args, "json", False))
     if subcmd == "download-model":
-        return _run_download_model(args.repo_id, args.target_dir, args.revision)
+        return _run_download_model(client, args.repo_id, args.target_dir, args.revision)
     if subcmd == "search-datasets":
         return _run_search_datasets(
             args.query, args.limit, getattr(args, "json", False),
@@ -90,10 +90,15 @@ def _run_model_info(repo_id: str, json_output: bool = False) -> int:
     return 0
 
 
-def _run_download_model(repo_id: str, target_dir: str, revision: str | None) -> int:
-    """Download a model from HuggingFace Hub."""
+def _run_download_model(
+    client: ForgeClient, repo_id: str, target_dir: str, revision: str | None,
+) -> int:
+    """Download a model from HuggingFace Hub and register it."""
     path = download_model(repo_id, target_dir, revision)
     print(f"model_path={path}")
+    registry = client.model_registry()
+    version = registry.register_model(repo_id, path)
+    print(f"version_id={version.version_id}")
     return 0
 
 
