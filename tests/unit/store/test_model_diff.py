@@ -10,6 +10,7 @@ def test_diff_identical_versions_returns_empty() -> None:
     """Diffing identical versions should return an empty dict."""
     version = ModelVersion(
         version_id="mv-aaa",
+        model_name="default",
         model_path="/tmp/m.pt",
         run_id="r1",
         created_at="2026-01-01T00:00:00+00:00",
@@ -22,12 +23,14 @@ def test_diff_different_versions_detects_changes() -> None:
     """Diffing versions with differences should return changed fields."""
     v_a = ModelVersion(
         version_id="mv-aaa",
+        model_name="default",
         model_path="/tmp/m1.pt",
         run_id="r1",
         created_at="2026-01-01T00:00:00+00:00",
     )
     v_b = ModelVersion(
         version_id="mv-bbb",
+        model_name="default",
         model_path="/tmp/m2.pt",
         run_id="r2",
         created_at="2026-01-02T00:00:00+00:00",

@@ -23,7 +23,7 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
             let name = raw_name
                 .as_str()
                 .ok_or_else(|| "model_name entry is not a string".to_string())?;
-            let group_path = groups_dir.join(format!("{name}.json"));
+            let group_path = groups_dir.join(format!("{}.json", safe_filename(name)));
             let group = if group_path.exists() {
                 read_json_file(&group_path)?
             } else {
@@ -81,7 +81,7 @@ pub fn list_model_versions(
     let models_dir = resolve_data_root_path(&data_root).join("models");
 
     // Try new grouped format first
-    let group_path = models_dir.join("groups").join(format!("{model_name}.json"));
+    let group_path = models_dir.join("groups").join(format!("{}.json", safe_filename(&model_name)));
     let (version_ids, active_version_id) = if group_path.exists() {
         let group = read_json_file(&group_path)?;
         let vids = group
@@ -205,6 +205,10 @@ fn read_json_file(path: &Path) -> Result<Value, String> {
         .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
     serde_json::from_str(&payload)
         .map_err(|error| format!("Failed to parse {}: {error}", path.display()))
+}
+
+fn safe_filename(name: &str) -> String {
+    name.replace('/', "--")
 }
 
 fn string_field(map: &serde_json::Map<String, Value>, key: &str) -> Result<String, String> {

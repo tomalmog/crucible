@@ -48,7 +48,7 @@ function FileList({ files, visibleCount, onShowMore }: {
 }
 
 export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshDatasets } = useForge();
   const infoCmd = useForgeCommand();
   const downloadCmd = useForgeCommand();
   const [detail, setDetail] = useState<DatasetDetail | null>(null);
@@ -67,7 +67,9 @@ export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
     setDlState("downloading");
     try {
       const s = await downloadCmd.run(dataRoot, ["hub", "download-dataset", repoId, "--target-dir", targetDir]);
-      setDlState(s.status === "completed" ? "done" : "error");
+      const success = s.status === "completed";
+      setDlState(success ? "done" : "error");
+      if (success) refreshDatasets().catch(console.error);
     } catch { setDlState("error"); }
   }
 

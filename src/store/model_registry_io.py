@@ -115,6 +115,11 @@ def load_model_tag(models_root: Path, tag_name: str) -> ModelTag:
     )
 
 
+def _safe_filename(name: str) -> str:
+    """Sanitize a model name for use as a filename (replaces ``/`` with ``--``)."""
+    return name.replace("/", "--")
+
+
 def save_model_group(models_root: Path, model_name: str, group_data: dict[str, object]) -> Path:
     """Persist a model group index to disk.
 
@@ -128,7 +133,7 @@ def save_model_group(models_root: Path, model_name: str, group_data: dict[str, o
     """
     groups_dir = models_root / "groups"
     groups_dir.mkdir(parents=True, exist_ok=True)
-    target = groups_dir / f"{model_name}.json"
+    target = groups_dir / f"{_safe_filename(model_name)}.json"
     try:
         write_json_file(target, group_data)
     except Exception as error:
@@ -148,7 +153,7 @@ def load_model_group(models_root: Path, model_name: str) -> dict[str, object]:
     Returns:
         Group dictionary with version_ids and active_version_id.
     """
-    target = models_root / "groups" / f"{model_name}.json"
+    target = models_root / "groups" / f"{_safe_filename(model_name)}.json"
     default: dict[str, object] = {"version_ids": [], "active_version_id": None}
     try:
         raw = read_json_file(target, default_value=default)

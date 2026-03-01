@@ -7,6 +7,7 @@ pushing models and datasets to the HuggingFace Hub.
 from __future__ import annotations
 
 import argparse
+import sys
 
 from serve.huggingface_hub import (
     download_dataset,
@@ -96,9 +97,12 @@ def _run_download_model(
     """Download a model from HuggingFace Hub and register it."""
     path = download_model(repo_id, target_dir, revision)
     print(f"model_path={path}")
-    registry = client.model_registry()
-    version = registry.register_model(repo_id, path)
-    print(f"version_id={version.version_id}")
+    try:
+        registry = client.model_registry()
+        version = registry.register_model(repo_id, path)
+        print(f"version_id={version.version_id}")
+    except Exception as exc:
+        print(f"warning: auto-registration failed: {exc}", file=sys.stderr)
     return 0
 
 
