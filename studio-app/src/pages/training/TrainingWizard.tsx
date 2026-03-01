@@ -18,7 +18,15 @@ import { OrpoTrainForm } from "./forms/OrpoTrainForm";
 import { MultimodalTrainForm } from "./forms/MultimodalTrainForm";
 import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
-import { ArrowLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { FormField } from "../../components/shared/FormField";
+import { ArrowLeft, ChevronRight, RotateCcw, Check } from "lucide-react";
+
+function parseModelPath(stdout: string): string | null {
+  for (const line of stdout.split("\n")) {
+    if (line.startsWith("model_path=")) return line.slice("model_path=".length).trim();
+  }
+  return null;
+}
 
 function getMissingFields(
   method: TrainingMethod,
@@ -45,7 +53,11 @@ interface TrainingWizardProps {
 export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
   const command = useForgeCommand();
+  const registerCommand = useForgeCommand();
   const [step, setStep] = useState<Step>("config");
+  const [registerModel, setRegisterModel] = useState(false);
+  const [modelName, setModelName] = useState("My-Model-0");
+  const [registered, setRegistered] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
 
@@ -58,10 +70,22 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   async function startTraining() {
     if (!canStart) return;
     setStep("running");
+    setRegistered(false);
     const args = buildTrainingArgs(method, shared, extra);
     const status = await command.run(dataRoot, args);
     if (status.status === "completed" && status.exit_code === 0) {
       setStep("done");
+      if (registerModel && modelName.trim()) {
+        const modelPath = parseModelPath(status.stdout);
+        if (modelPath) {
+          const regStatus = await registerCommand.run(dataRoot, [
+            "model", "register", "--model-path", modelPath, "--tag", modelName.trim(),
+          ]);
+          if (regStatus.status === "completed" && regStatus.exit_code === 0) {
+            setRegistered(true);
+          }
+        }
+      }
     }
   }
 
@@ -115,6 +139,24 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
           <SharedTrainingFields config={shared} onChange={setShared} />
 
+          <FormField label="Register output as model">
+            <input
+              type="checkbox"
+              checked={registerModel}
+              onChange={(e) => setRegisterModel(e.target.checked)}
+              style={{ width: "auto" }}
+            />
+          </FormField>
+          {registerModel && (
+            <FormField label="Model Name" required>
+              <input
+                value={modelName}
+                onChange={(e) => setModelName(e.currentTarget.value)}
+                placeholder="My-Model-0"
+              />
+            </FormField>
+          )}
+
           {!canStart && (
             <div className="error-alert">
               Missing required fields: {missing.join(", ")}
@@ -158,6 +200,17 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
                 <span className="metric-label">Duration</span>
                 <span className="metric-value">{command.status.elapsed_seconds}s</span>
               </div>
+            </div>
+          )}
+          {registered && (
+            <div className="flex-row" style={{ color: "var(--color-success)" }}>
+              <Check size={14} />
+              <span>Model registered as &ldquo;{modelName}&rdquo;</span>
+            </div>
+          )}
+          {registerModel && registerCommand.error && (
+            <div className="error-alert">
+              Failed to register model: {registerCommand.error}
             </div>
           )}
           <pre className="console">{command.output}</pre>

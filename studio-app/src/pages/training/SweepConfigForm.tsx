@@ -12,7 +12,7 @@ import {
   TRAINING_METHODS,
   REQUIRED_METHOD_FIELDS,
 } from "../../types/training";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check } from "lucide-react";
 
 interface SweepParam {
   name: string;
@@ -45,9 +45,27 @@ function isPathField(flag: string): boolean {
   return flag.includes("-path") || flag.includes("-dir");
 }
 
+function parseBestModelPath(output: string): string | null {
+  try {
+    const lines = output.split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (line.startsWith("{") && line.includes("best_trial_id")) {
+        const data = JSON.parse(line);
+        const bestTrial = data.trials?.find(
+          (t: { trial_id: number }) => t.trial_id === data.best_trial_id,
+        );
+        return bestTrial?.model_path || null;
+      }
+    }
+  } catch { /* ignore parse errors */ }
+  return null;
+}
+
 export function SweepConfigForm() {
   const { dataRoot } = useForge();
   const command = useForgeCommand();
+  const registerCommand = useForgeCommand();
   const [method, setMethod] = useState<TrainingMethod>("train");
   const [dataset, setDataset] = useState("");
   const [outputDir, setOutputDir] = useState("./outputs/sweep");
@@ -60,6 +78,9 @@ export function SweepConfigForm() {
   ]);
   const [methodArgs, setMethodArgs] = useState<Record<string, string>>({});
   const [results, setResults] = useState<string>("");
+  const [registerModel, setRegisterModel] = useState(false);
+  const [modelName, setModelName] = useState("My-Model-0");
+  const [registered, setRegistered] = useState(false);
 
   /** Get the required fields for the current method, excluding --dataset (handled separately). */
   const requiredMethodFields = useMemo(
@@ -113,9 +134,21 @@ export function SweepConfigForm() {
         args.push("--method-args", JSON.stringify(mArgs));
       }
     }
+    setRegistered(false);
     const status = await command.run(dataRoot, args);
-    if (status.status === "completed" && command.output) {
-      setResults(command.output);
+    if (status.status === "completed" && status.stdout) {
+      setResults(status.stdout);
+      if (registerModel && modelName.trim() && dataRoot) {
+        const bestPath = parseBestModelPath(status.stdout);
+        if (bestPath) {
+          const regStatus = await registerCommand.run(dataRoot, [
+            "model", "register", "--model-path", bestPath, "--tag", modelName.trim(),
+          ]);
+          if (regStatus.status === "completed" && regStatus.exit_code === 0) {
+            setRegistered(true);
+          }
+        }
+      }
     }
   }
 
@@ -139,7 +172,13 @@ export function SweepConfigForm() {
   }, [dataset, outputDir, params, metric, requiredMethodFields, methodArgs]);
 
   if (results) {
-    return <SweepResultsView output={results} onBack={() => setResults("")} />;
+    return (
+      <SweepResultsView
+        output={results}
+        onBack={() => setResults("")}
+        registeredAs={registered ? modelName : null}
+      />
+    );
   }
 
   return (
@@ -242,6 +281,24 @@ export function SweepConfigForm() {
           </select>
         </FormField>
       </div>
+
+      <FormField label="Register best model">
+        <input
+          type="checkbox"
+          checked={registerModel}
+          onChange={(e) => setRegisterModel(e.target.checked)}
+          style={{ width: "auto" }}
+        />
+      </FormField>
+      {registerModel && (
+        <FormField label="Model Name" required>
+          <input
+            value={modelName}
+            onChange={(e) => setModelName(e.currentTarget.value)}
+            placeholder="My-Model-0"
+          />
+        </FormField>
+      )}
     </CommandFormPanel>
   );
 }

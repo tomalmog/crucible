@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, Check } from "lucide-react";
 
 interface SweepTrial {
   trial_id: number;
@@ -18,9 +18,10 @@ interface SweepData {
 interface SweepResultsViewProps {
   output: string;
   onBack: () => void;
+  registeredAs?: string | null;
 }
 
-export function SweepResultsView({ output, onBack }: SweepResultsViewProps) {
+export function SweepResultsView({ output, onBack, registeredAs }: SweepResultsViewProps) {
   const data = useMemo((): SweepData | null => {
     try {
       return JSON.parse(output) as SweepData;
@@ -66,6 +67,13 @@ export function SweepResultsView({ output, onBack }: SweepResultsViewProps) {
           <span className="metric-value">{data.best_metric_value.toFixed(6)}</span>
         </div>
       </div>
+
+      {registeredAs && (
+        <div className="flex-row" style={{ color: "var(--color-success)" }}>
+          <Check size={14} />
+          <span>Best model registered as &ldquo;{registeredAs}&rdquo;</span>
+        </div>
+      )}
 
       <div className="docs-table-wrap">
         <table className="docs-table">

@@ -28,6 +28,7 @@ def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         required=True,
     )
     _add_list_subcommand(model_subs)
+    _add_register_subcommand(model_subs)
     _add_tag_subcommand(model_subs)
     _add_diff_subcommand(model_subs)
     _add_rollback_subcommand(model_subs)
@@ -46,6 +47,8 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
     action = args.model_action
     if action == "list":
         return _run_list(client)
+    if action == "register":
+        return _run_register(client, args)
     if action == "tag":
         return _run_tag(client, args)
     if action == "diff":
@@ -58,6 +61,21 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
 def _add_list_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the list sub-subcommand."""
     model_subs.add_parser("list", help="List all model versions")
+
+
+def _add_register_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """Register the register sub-subcommand."""
+    reg_parser = model_subs.add_parser("register", help="Register a model version")
+    reg_parser.add_argument(
+        "--model-path",
+        required=True,
+        help="Path to model artifact",
+    )
+    reg_parser.add_argument(
+        "--tag",
+        default=None,
+        help="Tag name for the registered version",
+    )
 
 
 def _add_tag_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -104,6 +122,27 @@ def _add_rollback_subcommand(model_subs: argparse._SubParsersAction[argparse.Arg
         required=True,
         help="Model version ID to roll back to",
     )
+
+
+def _run_register(client: ForgeClient, args: argparse.Namespace) -> int:
+    """Execute the model register subcommand.
+
+    Args:
+        client: SDK client instance.
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    registry = client.model_registry()
+    version = registry.register_model(args.model_path)
+    if args.tag:
+        registry.tag_version(version.version_id, args.tag)
+        print(f"version_id={version.version_id}")
+        print(f"tag={args.tag}")
+    else:
+        print(f"version_id={version.version_id}")
+    return 0
 
 
 def _run_list(client: ForgeClient) -> int:
