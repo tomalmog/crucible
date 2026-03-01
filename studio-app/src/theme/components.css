@@ -177,6 +177,40 @@ label {
     gap: 8px;
 }
 
+/* ─── Overview Table ─── */
+
+.overview-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.overview-table td {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.overview-table tr:last-child td {
+    border-bottom: none;
+}
+
+.overview-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    width: 120px;
+    padding-right: 16px;
+}
+
+.overview-value {
+    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    color: var(--text);
+    word-break: break-all;
+}
+
 /* ─── Bar Charts ─── */
 
 .bar-row {

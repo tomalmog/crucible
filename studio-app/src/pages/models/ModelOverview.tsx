@@ -18,14 +18,16 @@ export function ModelOverview({ version }: ModelOverviewProps) {
   return (
     <div className="panel">
       <h3 className="panel-title">Version Overview</h3>
-      <div className="stats-grid">
-        {fields.map((f) => (
-          <div key={f.label} className="metric-card">
-            <span className="metric-label">{f.label}</span>
-            <span className="metric-value">{f.value}</span>
-          </div>
-        ))}
-      </div>
+      <table className="overview-table">
+        <tbody>
+          {fields.map((f) => (
+            <tr key={f.label}>
+              <td className="overview-label">{f.label}</td>
+              <td className="overview-value">{f.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
