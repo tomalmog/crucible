@@ -164,6 +164,17 @@ fn parse_model_version(
     })
 }
 
+#[tauri::command]
+pub fn get_model_architecture(model_path: String) -> Result<Value, String> {
+    let model = std::path::PathBuf::from(&model_path);
+    let parent = model.parent().ok_or("Invalid model path")?;
+    let config_path = parent.join("training_config.json");
+    if !config_path.exists() {
+        return Ok(Value::Null);
+    }
+    read_json_file(&config_path)
+}
+
 fn first_version_created_at(models_dir: &Path, group: &Value) -> String {
     if let Some(first_id) = group
         .get("version_ids")

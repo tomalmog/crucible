@@ -20,6 +20,10 @@ export async function listModelVersions(dataRoot: string, modelName: string): Pr
   return invoke<ModelVersion[]>("list_model_versions", { dataRoot, modelName });
 }
 
+export async function getModelArchitecture(modelPath: string): Promise<Record<string, unknown> | null> {
+  return invoke<Record<string, unknown> | null>("get_model_architecture", { modelPath });
+}
+
 export async function deleteDataset(dataRoot: string, datasetName: string): Promise<void> {
   return invoke<void>("delete_dataset", { dataRoot, datasetName });
 }

@@ -30,6 +30,7 @@ pub fn run() {
             commands::runtime_queries::get_hardware_profile,
             commands::model_queries::list_model_groups,
             commands::model_queries::list_model_versions,
+            commands::model_queries::get_model_architecture,
             commands::config_store::load_training_config,
             commands::config_store::save_training_config
         ])
