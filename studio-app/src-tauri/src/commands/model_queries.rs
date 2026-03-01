@@ -167,15 +167,17 @@ fn parse_model_version(
 #[tauri::command]
 pub fn get_model_architecture(model_path: String) -> Result<Value, String> {
     let model = std::path::PathBuf::from(&model_path);
-    let parent = model.parent().ok_or("Invalid model path")?;
-    // Prefer Forge training config, fall back to HuggingFace config.json
-    let training_config = parent.join("training_config.json");
-    if training_config.exists() {
-        return read_json_file(&training_config);
-    }
-    let hf_config = parent.join("config.json");
-    if hf_config.exists() {
-        return read_json_file(&hf_config);
+    // model_path may be a directory (hub downloads) or a file (trained models)
+    // Check the path itself first (if directory), then its parent (if file)
+    for dir in [model.as_path(), model.parent().unwrap_or(model.as_path())] {
+        let training_config = dir.join("training_config.json");
+        if training_config.exists() {
+            return read_json_file(&training_config);
+        }
+        let hf_config = dir.join("config.json");
+        if hf_config.exists() {
+            return read_json_file(&hf_config);
+        }
     }
     Ok(Value::Null)
 }
