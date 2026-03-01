@@ -22,5 +22,9 @@ These options are available across all training methods:
 | \`--checkpoint-every-epochs\` | 0 | Save checkpoint interval (0 = off) |
 | \`--resume-checkpoint-path\` | — | Resume from checkpoint |
 | \`--hooks-file\` | — | Python callback hooks module |
+| \`--wandb-project\` | — | W&B project name (enables logging) |
+| \`--tensorboard-dir\` | — | TensorBoard event file directory |
+
+See [Experiment Tracking](#experiment-tracking) for details on W&B and TensorBoard integration.
 `,
 };

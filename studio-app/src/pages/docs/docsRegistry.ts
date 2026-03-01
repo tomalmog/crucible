@@ -41,6 +41,8 @@ import { trainingOrpo } from "./content/training-orpo";
 import { trainingMultimodal } from "./content/training-multimodal";
 import { trainingRlvr } from "./content/training-rlvr";
 import { trainingCommonOptions } from "./content/training-common-options";
+import { hyperparameterSweeps } from "./content/hyperparameter-sweeps";
+import { experimentTracking } from "./content/experiment-tracking";
 import { dataFormats } from "./content/data-formats";
 import { dataManagement } from "./content/data-management";
 import { concepts } from "./content/concepts";
@@ -65,6 +67,8 @@ export const DOC_ENTRIES: DocEntry[] = [
   trainingMultimodal,
   trainingRlvr,
   trainingCommonOptions,
+  hyperparameterSweeps,
+  experimentTracking,
   dataFormats,
   dataManagement,
   concepts,

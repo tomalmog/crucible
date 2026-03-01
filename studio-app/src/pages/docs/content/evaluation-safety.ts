@@ -9,6 +9,28 @@ export const evaluationSafety: DocEntry = {
 
 Training a model is only half the job. Forge provides tools to evaluate quality and catch safety issues before deployment.
 
+### Benchmarks
+
+Run standard evaluation benchmarks to measure model quality:
+
+\`\`\`bash
+forge eval --model-path ./outputs/model.pt --benchmarks mmlu,gsm8k,hellaswag
+\`\`\`
+
+Forge includes seven benchmarks, each testing a different capability:
+
+| Benchmark | What It Measures | Scoring |
+|-----------|-----------------|---------|
+| **MMLU** | Broad knowledge across 57 subjects | Multiple-choice accuracy (A/B/C/D) |
+| **HellaSwag** | Commonsense reasoning (sentence completion) | Lowest-perplexity completion |
+| **ARC** | Grade-school science questions (ARC-Challenge) | Multiple-choice via sequence loss |
+| **WinoGrande** | Pronoun resolution / commonsense | Binary choice comparison |
+| **GSM8K** | Grade-school math word problems | Generated answer exact-match |
+| **TruthfulQA** | Resistance to common misconceptions | Multiple-choice (MC1 format) |
+| **HumanEval** | Python code generation | Sandboxed test-case execution |
+
+Benchmark datasets are downloaded automatically from HuggingFace on first use.
+
 ### Verify Command
 
 Run automated checks on a trained model with a single command:
@@ -19,13 +41,15 @@ forge verify --model <path>
 
 This runs a suite of checks: model loads correctly, generates coherent output, meets minimum quality thresholds, and passes safety filters. The output is a pass/fail report with details on each check.
 
-### Benchmarks
-
-Measure model quality with standard evaluation tasks. Forge computes **perplexity** on held-out data and can run accuracy benchmarks against common evaluation sets. Lower perplexity means the model is better at predicting text. Always evaluate on data the model has never seen during training.
-
 ### LLM-as-Judge
 
 Use a stronger model to score your model's outputs. Forge sends your model's responses to a judge model that rates them on configurable criteria: helpfulness, accuracy, coherence, and safety. This provides a scalable quality signal that correlates well with human evaluation.
+
+\`\`\`bash
+forge judge --model-path ./outputs/model.pt \\
+  --judge-api https://api.openai.com/v1/chat/completions \\
+  --criteria helpfulness,accuracy,safety
+\`\`\`
 
 ### Toxicity Scoring
 
@@ -40,6 +64,16 @@ Define pass/fail criteria that a model must meet before it is considered ready f
 - Required judge scores above a minimum
 
 If any gate fails, Forge flags the model and blocks downstream export steps. Gates are configurable per project.
+
+### Studio UI
+
+The **Experiments** page provides three evaluation tools:
+
+- **Evaluate** — Run benchmarks against a model checkpoint. Select the model path and choose which benchmarks to run.
+- **LLM Judge** — Configure a judge API endpoint, criteria, and optional test prompts to score your model.
+- **Cost** — View a summary of compute costs across all training runs.
+
+All three tools show required fields with a \`*\` marker and validate inputs before running.
 
 ### Best Practices
 

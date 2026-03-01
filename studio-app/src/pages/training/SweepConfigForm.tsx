@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
+import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { PathInput } from "../../components/shared/PathInput";
@@ -46,7 +47,7 @@ export function SweepConfigForm() {
   }
 
   async function startSweep() {
-    if (!dataRoot || !dataset.trim() || params.length === 0) return;
+    if (!dataRoot) return;
     const paramDefs = params.map((p) => ({
       name: p.name,
       values: p.values.split(",").map((v) => parseFloat(v.trim())).filter((v) => !isNaN(v)),
@@ -64,25 +65,45 @@ export function SweepConfigForm() {
     }
   }
 
+  const missing = useMemo(() => {
+    const m: string[] = [];
+    if (!dataset.trim()) m.push("dataset");
+    if (!outputDir.trim()) m.push("output directory");
+    if (params.length === 0) m.push("parameters");
+    const hasEmptyValues = params.some(
+      (p) => p.values.split(",").map((v) => parseFloat(v.trim())).filter((v) => !isNaN(v)).length === 0,
+    );
+    if (params.length > 0 && hasEmptyValues) m.push("parameter values");
+    if (!metric.trim()) m.push("metric");
+    return m;
+  }, [dataset, outputDir, params, metric]);
+
   if (results) {
     return <SweepResultsView output={results} onBack={() => setResults("")} />;
   }
 
   return (
-    <div className="panel stack-lg">
-      <h3>Hyperparameter Sweep</h3>
+    <CommandFormPanel
+      title="Hyperparameter Sweep"
+      missing={missing}
+      isRunning={command.isRunning}
+      submitLabel="Start Sweep"
+      runningLabel="Running Sweep..."
+      onSubmit={() => startSweep().catch(console.error)}
+      error={command.error}
+    >
       <div className="grid-2">
-        <FormField label="Dataset">
+        <FormField label="Dataset" required>
           <DatasetSelect value={dataset} onChange={setDataset} />
         </FormField>
-        <FormField label="Output Directory">
+        <FormField label="Output Directory" required>
           <PathInput value={outputDir} onChange={setOutputDir} kind="folder" />
         </FormField>
       </div>
 
       <div className="stack-sm">
         <div className="row-between">
-          <span className="text-sm text-secondary">Parameters</span>
+          <span className="text-sm text-secondary">Parameters *</span>
           <button className="btn btn-ghost btn-sm" onClick={addParam}>
             <Plus size={13} /> Add
           </button>
@@ -95,7 +116,7 @@ export function SweepConfigForm() {
                   {PARAM_NAME_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </FormField>
-              <FormField label="Values (comma-separated)">
+              <FormField label="Values (comma-separated)" required>
                 <input value={p.values} onChange={(e) => updateParam(i, "values", e.currentTarget.value)} />
               </FormField>
             </div>
@@ -116,7 +137,7 @@ export function SweepConfigForm() {
         <FormField label="Max Trials">
           <input type="number" value={maxTrials} onChange={(e) => setMaxTrials(e.currentTarget.value)} disabled={strategy !== "random"} />
         </FormField>
-        <FormField label="Metric">
+        <FormField label="Metric" required>
           <input value={metric} onChange={(e) => setMetric(e.currentTarget.value)} />
         </FormField>
         <FormField label="Direction">
@@ -126,15 +147,6 @@ export function SweepConfigForm() {
           </select>
         </FormField>
       </div>
-
-      <button
-        className="btn btn-primary"
-        onClick={() => startSweep().catch(console.error)}
-        disabled={command.isRunning || !dataset.trim() || params.length === 0}
-      >
-        {command.isRunning ? "Running Sweep..." : "Start Sweep"}
-      </button>
-      {command.error && <p className="error-text">{command.error}</p>}
-    </div>
+    </CommandFormPanel>
   );
 }
