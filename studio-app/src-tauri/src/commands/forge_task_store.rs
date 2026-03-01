@@ -165,6 +165,26 @@ impl CommandTaskStore {
         Ok(())
     }
 
+    /// Kill all running child processes. Called on app exit to prevent orphans.
+    pub fn kill_all_running(&self) {
+        let pids: Vec<u32> = {
+            let tasks = match self.inner.tasks.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            tasks
+                .values()
+                .filter(|t| t.status == TaskLifecycleStatus::Running)
+                .filter_map(|t| t.pid)
+                .collect()
+        };
+        for pid in pids {
+            unsafe {
+                libc::kill(pid as i32, libc::SIGTERM);
+            }
+        }
+    }
+
     pub fn kill_task(&self, task_id: &str) -> Result<(), String> {
         let pid = {
             let tasks = self

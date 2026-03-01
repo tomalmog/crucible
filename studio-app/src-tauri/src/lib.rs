@@ -3,9 +3,11 @@
 mod commands;
 mod models;
 
+use tauri::{Manager, RunEvent};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(commands::forge_task_store::CommandTaskStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -30,6 +32,13 @@ pub fn run() {
             commands::config_store::load_training_config,
             commands::config_store::save_training_config
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::ExitRequested { .. } = event {
+            let store = app_handle.state::<commands::forge_task_store::CommandTaskStore>();
+            store.kill_all_running();
+        }
+    });
 }
