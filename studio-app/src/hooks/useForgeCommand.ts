@@ -39,7 +39,7 @@ export function useForgeCommand(): ForgeCommandState {
       while (true) {
         taskStatus = await getForgeCommandStatus(taskStart.task_id);
         setStatus(taskStatus);
-        setOutput(taskStatus.stdout || taskStatus.stderr);
+        setOutput([taskStatus.stdout, taskStatus.stderr].filter(Boolean).join("\n"));
         if (taskStatus.status !== "running") break;
         await new Promise((r) => setTimeout(r, POLL_MS));
       }

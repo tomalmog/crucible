@@ -71,21 +71,25 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     if (!canStart) return;
     setStep("running");
     setRegistered(false);
-    const args = buildTrainingArgs(method, shared, extra);
-    const status = await command.run(dataRoot, args);
-    if (status.status === "completed" && status.exit_code === 0) {
+    try {
+      const args = buildTrainingArgs(method, shared, extra);
+      const status = await command.run(dataRoot, args);
       setStep("done");
-      if (registerModel && modelName.trim()) {
-        const modelPath = parseModelPath(status.stdout);
-        if (modelPath) {
-          const regStatus = await registerCommand.run(dataRoot, [
-            "model", "register", "--model-path", modelPath, "--tag", modelName.trim(),
-          ]);
-          if (regStatus.status === "completed" && regStatus.exit_code === 0) {
-            setRegistered(true);
+      if (status.status === "completed" && status.exit_code === 0) {
+        if (registerModel && modelName.trim()) {
+          const modelPath = parseModelPath(status.stdout);
+          if (modelPath) {
+            const regStatus = await registerCommand.run(dataRoot, [
+              "model", "register", "--model-path", modelPath, "--tag", modelName.trim(),
+            ]);
+            if (regStatus.status === "completed" && regStatus.exit_code === 0) {
+              setRegistered(true);
+            }
           }
         }
       }
+    } catch {
+      setStep("done");
     }
   }
 
@@ -187,12 +191,16 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
       {step === "done" && (
         <div className="panel stack-lg">
-          <h3 className="text-success">Training Complete</h3>
+          {command.status?.exit_code === 0 ? (
+            <h3 className="text-success">Training Complete</h3>
+          ) : (
+            <h3 className="error-text">Training Failed</h3>
+          )}
           {command.status && (
             <div className="stats-grid">
               <div className="metric-card">
                 <span className="metric-label">Status</span>
-                <span className="metric-value text-success">
+                <span className={`metric-value ${command.status.exit_code === 0 ? "text-success" : "error-text"}`}>
                   {command.status.status}
                 </span>
               </div>
@@ -201,6 +209,9 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
                 <span className="metric-value">{command.status.elapsed_seconds}s</span>
               </div>
             </div>
+          )}
+          {command.error && (
+            <div className="error-alert">{command.error}</div>
           )}
           {registered && (
             <div className="flex-row" style={{ color: "var(--color-success)" }}>

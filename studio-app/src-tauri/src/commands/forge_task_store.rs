@@ -212,6 +212,7 @@ impl CommandTaskStore {
         let forge_bin = resolve_forge_binary(&working_directory);
         let spawn_result = Command::new(forge_bin)
             .current_dir(working_directory)
+            .env("PYTHONUNBUFFERED", "1")
             .arg("--data-root")
             .arg(&data_root)
             .args(args)

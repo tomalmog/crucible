@@ -76,6 +76,7 @@ from cli.synthetic_command import add_synthetic_command, run_synthetic_command
 from cli.train_command import add_train_command, run_train_command
 from cli.verify_command import add_verify_command, run_verify_command
 from core.config import ForgeConfig
+from serve.training_progress import emit_progress
 from store.dataset_sdk import ForgeClient
 
 _CommandHandler = Callable[..., int]
@@ -163,6 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+_TRAINING_COMMANDS = frozenset({
+    "train", "sft", "dpo-train", "rlhf-train", "lora-train", "distill",
+    "domain-adapt", "grpo-train", "qlora-train", "kto-train", "orpo-train",
+    "multimodal-train", "rlvr-train", "distributed-train",
+})
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the Forge CLI."""
     parser = build_parser()
@@ -173,6 +181,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if handler is None:
         parser.error(f"Unsupported command: {args.command}")
         return 2
+    if args.command in _TRAINING_COMMANDS:
+        emit_progress("training_preparing", method=args.command)
     return handler(client, args)
 
 
