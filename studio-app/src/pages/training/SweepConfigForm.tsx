@@ -63,7 +63,7 @@ function parseBestModelPath(output: string): string | null {
 }
 
 export function SweepConfigForm() {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshModels } = useForge();
   const command = useForgeCommand();
   const registerCommand = useForgeCommand();
   const [method, setMethod] = useState<TrainingMethod>("train");
@@ -146,6 +146,7 @@ export function SweepConfigForm() {
           ]);
           if (regStatus.status === "completed" && regStatus.exit_code === 0) {
             setRegistered(true);
+            refreshModels().catch(console.error);
           }
         }
       }

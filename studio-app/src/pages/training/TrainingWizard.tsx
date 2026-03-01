@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useForge } from "../../context/ForgeContext";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
 import { buildTrainingArgs } from "../../api/commandArgs";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
@@ -52,6 +53,7 @@ interface TrainingWizardProps {
 
 export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
+  const { refreshModels } = useForge();
   const command = useForgeCommand();
   const registerCommand = useForgeCommand();
   const [step, setStep] = useState<Step>("config");
@@ -85,6 +87,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
             ]);
             if (regStatus.status === "completed" && regStatus.exit_code === 0) {
               setRegistered(true);
+              refreshModels().catch(console.error);
             }
           }
         }
