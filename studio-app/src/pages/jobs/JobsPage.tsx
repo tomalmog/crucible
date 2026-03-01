@@ -8,11 +8,13 @@ import {
   Square,
   ChevronDown,
   ChevronRight,
+  Eye,
   Pencil,
   Trash2,
   Check,
   X,
 } from "lucide-react";
+import { JobResultDetail } from "./JobResultDetail";
 
 type Filter = "all" | "running" | "completed" | "failed";
 
@@ -49,6 +51,7 @@ export function JobsPage() {
   const { jobs, kill, rename, remove } = useJobs();
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
 
@@ -62,6 +65,10 @@ export function JobsPage() {
   }
 
   const runningCount = jobs.filter((j) => j.status === "running").length;
+
+  if (viewingJob) {
+    return <JobResultDetail job={viewingJob} onBack={() => setViewingJob(null)} />;
+  }
 
   return (
     <>
@@ -102,6 +109,7 @@ export function JobsPage() {
               onKill={() => kill(job.task_id)}
               onRename={(label) => rename(job.task_id, label)}
               onDelete={() => remove(job.task_id)}
+              onView={() => setViewingJob(job)}
             />
           ))}
         </div>
@@ -126,6 +134,7 @@ function JobRow({
   onKill,
   onRename,
   onDelete,
+  onView,
 }: {
   job: CommandTaskStatus;
   isExpanded: boolean;
@@ -133,6 +142,7 @@ function JobRow({
   onKill: () => void;
   onRename: (label: string) => void;
   onDelete: () => void;
+  onView: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -209,9 +219,14 @@ function JobRow({
             </button>
           )}
           {isFinished && (
-            <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete job">
-              <Trash2 size={12} />
-            </button>
+            <>
+              <button className="btn btn-sm" onClick={onView} title="View result">
+                <Eye size={12} /> Result
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete job">
+                <Trash2 size={12} />
+              </button>
+            </>
           )}
         </div>
       </div>

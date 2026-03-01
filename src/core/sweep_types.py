@@ -44,6 +44,10 @@ class SweepConfig:
         max_trials: Maximum number of trials for random search.
         metric: Metric name to optimize.
         minimize: True if lower metric values are better.
+        training_method: Training method to use for each trial.
+        method_args: Fixed method-specific args as key-value pairs
+            (e.g. sft_data_path, base_model). Stored as tuple of pairs
+            for frozen dataclass compatibility.
     """
 
     dataset_name: str
@@ -54,6 +58,8 @@ class SweepConfig:
     max_trials: int = 10
     metric: str = "validation_loss"
     minimize: bool = True
+    training_method: str = "train"
+    method_args: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)

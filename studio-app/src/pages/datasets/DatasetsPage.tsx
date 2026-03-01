@@ -12,7 +12,13 @@ type Tab = "overview" | "diff" | "samples" | "ingest" | "filter";
 
 export function DatasetsPage() {
   const [tab, setTab] = useState<Tab>("overview");
-  const { selectedDataset, refreshDatasets } = useForge();
+  const { selectedDataset, setSelectedDataset, setSelectedVersion, refreshDatasets } = useForge();
+
+  function handleSelectDataset(ds: string) {
+    setSelectedDataset(ds);
+    setSelectedVersion(null);
+    setTab("overview");
+  }
 
   return (
     <>
@@ -23,7 +29,7 @@ export function DatasetsPage() {
       </PageHeader>
 
       <div className="two-column">
-        <DatasetListPanel />
+        <DatasetListPanel onSelect={handleSelectDataset} />
         <div>
           <div className="tab-list">
             {(["overview", "diff", "samples", "ingest", "filter"] as Tab[]).map((t) => (

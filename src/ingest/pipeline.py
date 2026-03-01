@@ -160,6 +160,7 @@ class IngestPipelineRunner:
             records=tuple(records),
             recipe_steps=recipe_steps,
             parent_version=parent_version,
+            source_uri=self._options.source_uri,
         )
         return self._store.create_snapshot(write_request)
 

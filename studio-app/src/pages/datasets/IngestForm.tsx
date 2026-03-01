@@ -3,6 +3,7 @@ import { useForge } from "../../context/ForgeContext";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { buildIngestArgs } from "../../api/commandArgs";
 import { FormField } from "../../components/shared/FormField";
+import { PathInput } from "../../components/shared/PathInput";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import { CommandProgress } from "../../components/shared/CommandProgress";
 
@@ -25,7 +26,13 @@ export function IngestForm() {
       <h3 className="panel-title">Ingest Data</h3>
       <form onSubmit={(e) => onSubmit(e).catch(console.error)} className="stack">
         <FormField label="Source path or URL">
-          <input value={source} onChange={(e) => setSource(e.currentTarget.value)} placeholder="/path/to/data.jsonl or s3://bucket/prefix" />
+          <PathInput
+            value={source}
+            onChange={setSource}
+            placeholder="/path/to/data.jsonl or s3://bucket/prefix"
+            kind="file"
+            filters={[{ name: "Data files", extensions: ["jsonl", "json", "csv", "parquet"] }]}
+          />
         </FormField>
         <FormField label="Dataset name">
           <input value={dataset} onChange={(e) => setDataset(e.currentTarget.value)} placeholder="my-dataset" />

@@ -82,8 +82,8 @@ class LoraTrainingOptions:
 
     dataset_name: str
     output_dir: str
-    lora_data_path: str
-    base_model_path: str
+    lora_data_path: str = ""
+    base_model_path: str = ""
     lora_config: LoraConfig = LoraConfig()
     tokenizer_path: str | None = None
     resume_checkpoint_path: str | None = None

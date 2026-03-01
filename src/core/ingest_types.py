@@ -79,6 +79,7 @@ class SnapshotWriteRequest:
     records: tuple[DataRecord, ...]
     recipe_steps: tuple[str, ...]
     parent_version: str | None = None
+    source_uri: str | None = None
 
 
 @dataclass(frozen=True)

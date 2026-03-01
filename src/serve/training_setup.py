@@ -92,7 +92,7 @@ def validate_file_paths(**paths: str | None) -> None:
     with a clear message if any file path does not exist.
     """
     for name, path in paths.items():
-        if path is None:
+        if not path:
             continue
         from serve.hf_model_loader import is_huggingface_model_id
 

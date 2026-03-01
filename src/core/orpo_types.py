@@ -57,7 +57,7 @@ class OrpoOptions:
 
     dataset_name: str
     output_dir: str
-    orpo_data_path: str
+    orpo_data_path: str = ""
     lambda_orpo: float = DEFAULT_ORPO_LAMBDA
     beta: float = DEFAULT_ORPO_BETA
     version_id: str | None = None

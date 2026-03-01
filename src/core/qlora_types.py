@@ -50,8 +50,8 @@ class QloraOptions:
 
     dataset_name: str
     output_dir: str
-    qlora_data_path: str
-    base_model_path: str
+    qlora_data_path: str = ""
+    base_model_path: str = ""
     quantization_bits: int = DEFAULT_QLORA_BITS
     qlora_type: str = DEFAULT_QLORA_TYPE
     double_quantize: bool = DEFAULT_QLORA_DOUBLE_QUANTIZE

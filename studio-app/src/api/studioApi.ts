@@ -16,6 +16,10 @@ export async function listModelVersions(dataRoot: string): Promise<ModelVersion[
   return invoke<ModelVersion[]>("list_model_versions", { dataRoot });
 }
 
+export async function deleteDataset(dataRoot: string, datasetName: string): Promise<void> {
+  return invoke<void>("delete_dataset", { dataRoot, datasetName });
+}
+
 export async function listDatasets(dataRoot: string): Promise<string[]> {
   return invoke<string[]>("list_datasets", { dataRoot });
 }

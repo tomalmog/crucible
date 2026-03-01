@@ -1,8 +1,26 @@
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useForge } from "../../context/ForgeContext";
+import { deleteDataset } from "../../api/studioApi";
 
-export function DatasetListPanel() {
-  const { datasets, selectedDataset, setSelectedDataset, versions,
-    selectedVersion, setSelectedVersion } = useForge();
+interface DatasetListPanelProps {
+  onSelect?: (dataset: string) => void;
+}
+
+export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
+  const { dataRoot, datasets, selectedDataset, setSelectedDataset, versions,
+    selectedVersion, setSelectedVersion, refreshDatasets } = useForge();
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+
+  async function handleDelete(ds: string) {
+    if (confirmingDelete !== ds) {
+      setConfirmingDelete(ds);
+      return;
+    }
+    await deleteDataset(dataRoot, ds);
+    setConfirmingDelete(null);
+    await refreshDatasets();
+  }
 
   return (
     <div className="panel overflow-auto">
@@ -14,13 +32,33 @@ export function DatasetListPanel() {
       ) : (
         <div>
           {datasets.map((ds) => (
-            <button
-              key={ds}
-              className={`nav-item ${ds === selectedDataset ? "active" : ""}`}
-              onClick={() => { setSelectedDataset(ds); setSelectedVersion(null); }}
-            >
-              {ds}
-            </button>
+            <div key={ds} className="flex-row" style={{ alignItems: "center" }}>
+              <button
+                className={`nav-item ${ds === selectedDataset ? "active" : ""}`}
+                style={{ flex: 1 }}
+                onClick={() => { if (onSelect) { onSelect(ds); } else { setSelectedDataset(ds); } setSelectedVersion(null); setConfirmingDelete(null); }}
+              >
+                {ds}
+              </button>
+              {confirmingDelete === ds ? (
+                <button
+                  className="btn btn-sm"
+                  style={{ color: "var(--color-error)", flexShrink: 0 }}
+                  onClick={() => handleDelete(ds).catch(console.error)}
+                >
+                  Delete?
+                </button>
+              ) : (
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => handleDelete(ds).catch(console.error)}
+                  title="Delete dataset"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

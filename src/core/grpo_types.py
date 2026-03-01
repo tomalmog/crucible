@@ -44,7 +44,7 @@ class GrpoOptions:
 
     dataset_name: str
     output_dir: str
-    grpo_data_path: str
+    grpo_data_path: str = ""
     reward_function_path: str | None = None
     group_size: int = DEFAULT_GRPO_GROUP_SIZE
     kl_coeff: float = DEFAULT_GRPO_KL_COEFF

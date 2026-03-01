@@ -5,7 +5,13 @@ import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { PathInput } from "../../components/shared/PathInput";
+import { MetricSelect } from "../../components/shared/MetricSelect";
 import { SweepResultsView } from "./SweepResultsView";
+import {
+  TrainingMethod,
+  TRAINING_METHODS,
+  REQUIRED_METHOD_FIELDS,
+} from "../../types/training";
 import { Plus, Trash2 } from "lucide-react";
 
 interface SweepParam {
@@ -18,9 +24,31 @@ const PARAM_NAME_OPTIONS = [
   "attention_heads", "dropout", "weight_decay", "mlp_hidden_dim",
 ];
 
+/**
+ * Convert a CLI flag like "--sft-data-path" to a Python kwarg name "sft_data_path".
+ * Strips leading dashes and replaces remaining dashes with underscores.
+ */
+function flagToArgName(flag: string): string {
+  return flag.replace(/^--/, "").replace(/-/g, "_");
+}
+
+/** Return a human-readable label from a CLI flag. */
+function flagToLabel(flag: string): string {
+  return flag
+    .replace(/^--/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Check if a flag represents a file/folder path field. */
+function isPathField(flag: string): boolean {
+  return flag.includes("-path") || flag.includes("-dir");
+}
+
 export function SweepConfigForm() {
   const { dataRoot } = useForge();
   const command = useForgeCommand();
+  const [method, setMethod] = useState<TrainingMethod>("train");
   const [dataset, setDataset] = useState("");
   const [outputDir, setOutputDir] = useState("./outputs/sweep");
   const [strategy, setStrategy] = useState("grid");
@@ -30,7 +58,14 @@ export function SweepConfigForm() {
   const [params, setParams] = useState<SweepParam[]>([
     { name: "learning_rate", values: "0.001, 0.01, 0.1" },
   ]);
+  const [methodArgs, setMethodArgs] = useState<Record<string, string>>({});
   const [results, setResults] = useState<string>("");
+
+  /** Get the required fields for the current method, excluding --dataset (handled separately). */
+  const requiredMethodFields = useMemo(
+    () => REQUIRED_METHOD_FIELDS[method].filter((f) => f !== "--dataset"),
+    [method],
+  );
 
   function addParam() {
     setParams([...params, { name: "batch_size", values: "8, 16, 32" }]);
@@ -46,6 +81,10 @@ export function SweepConfigForm() {
     setParams(updated);
   }
 
+  function updateMethodArg(flag: string, value: string) {
+    setMethodArgs((prev) => ({ ...prev, [flag]: value }));
+  }
+
   async function startSweep() {
     if (!dataRoot) return;
     const paramDefs = params.map((p) => ({
@@ -56,9 +95,24 @@ export function SweepConfigForm() {
     const args = [
       "sweep", "--dataset", dataset, "--output-dir", outputDir,
       "--params", paramsJson, "--strategy", strategy,
-      "--max-trials", maxTrials, "--metric", metric, "--json",
+      "--max-trials", maxTrials, "--metric", metric,
+      "--method", method, "--json",
     ];
     if (maximize) args.push("--maximize");
+    // Build method-args JSON from filled required fields
+    if (requiredMethodFields.length > 0) {
+      const mArgs: Record<string, string> = {};
+      for (const flag of requiredMethodFields) {
+        const argName = flagToArgName(flag);
+        const value = methodArgs[flag];
+        if (value?.trim()) {
+          mArgs[argName] = value.trim();
+        }
+      }
+      if (Object.keys(mArgs).length > 0) {
+        args.push("--method-args", JSON.stringify(mArgs));
+      }
+    }
     const status = await command.run(dataRoot, args);
     if (status.status === "completed" && command.output) {
       setResults(command.output);
@@ -75,8 +129,14 @@ export function SweepConfigForm() {
     );
     if (params.length > 0 && hasEmptyValues) m.push("parameter values");
     if (!metric.trim()) m.push("metric");
+    // Check required method-specific fields
+    for (const flag of requiredMethodFields) {
+      if (!(methodArgs[flag] ?? "").trim()) {
+        m.push(flagToLabel(flag).toLowerCase());
+      }
+    }
     return m;
-  }, [dataset, outputDir, params, metric]);
+  }, [dataset, outputDir, params, metric, requiredMethodFields, methodArgs]);
 
   if (results) {
     return <SweepResultsView output={results} onBack={() => setResults("")} />;
@@ -92,6 +152,41 @@ export function SweepConfigForm() {
       onSubmit={() => startSweep().catch(console.error)}
       error={command.error}
     >
+      <FormField label="Training Method">
+        <select
+          value={method}
+          onChange={(e) => {
+            setMethod(e.currentTarget.value as TrainingMethod);
+            setMethodArgs({});
+          }}
+        >
+          {TRAINING_METHODS.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+      </FormField>
+
+      {requiredMethodFields.length > 0 && (
+        <div className="grid-2">
+          {requiredMethodFields.map((flag) => (
+            <FormField key={flag} label={flagToLabel(flag)} required>
+              {isPathField(flag) ? (
+                <PathInput
+                  value={methodArgs[flag] ?? ""}
+                  onChange={(v) => updateMethodArg(flag, v)}
+                  kind="file"
+                />
+              ) : (
+                <input
+                  value={methodArgs[flag] ?? ""}
+                  onChange={(e) => updateMethodArg(flag, e.currentTarget.value)}
+                />
+              )}
+            </FormField>
+          ))}
+        </div>
+      )}
+
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={dataset} onChange={setDataset} />
@@ -138,7 +233,7 @@ export function SweepConfigForm() {
           <input type="number" value={maxTrials} onChange={(e) => setMaxTrials(e.currentTarget.value)} disabled={strategy !== "random"} />
         </FormField>
         <FormField label="Metric" required>
-          <input value={metric} onChange={(e) => setMetric(e.currentTarget.value)} />
+          <MetricSelect value={metric} onChange={setMetric} />
         </FormField>
         <FormField label="Direction">
           <select value={maximize ? "maximize" : "minimize"} onChange={(e) => setMaximize(e.currentTarget.value === "maximize")}>

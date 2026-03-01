@@ -58,7 +58,7 @@ class KtoOptions:
 
     dataset_name: str
     output_dir: str
-    kto_data_path: str
+    kto_data_path: str = ""
     beta: float = DEFAULT_KTO_BETA
     desirable_weight: float = DEFAULT_KTO_DESIRABLE_WEIGHT
     undesirable_weight: float = DEFAULT_KTO_UNDESIRABLE_WEIGHT

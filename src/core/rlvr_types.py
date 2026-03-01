@@ -32,7 +32,7 @@ class RlvrOptions:
 
     dataset_name: str
     output_dir: str
-    rlvr_data_path: str
+    rlvr_data_path: str = ""
     verifier_type: VerifierType = "code"
     max_verification_attempts: int = 3
     reward_correct: float = 1.0

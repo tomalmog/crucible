@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { TrainingMethod, TRAINING_METHODS } from "../../types/training";
+import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
 import { buildTrainingArgs } from "../../api/commandArgs";
@@ -20,29 +20,12 @@ import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ArrowLeft, ChevronRight, RotateCcw } from "lucide-react";
 
-/** Required extra fields per training method. */
-const REQUIRED_EXTRA_FIELDS: Record<TrainingMethod, string[]> = {
-  train: ["--dataset"],
-  sft: ["--sft-data-path", "--base-model"],
-  "dpo-train": ["--dpo-data-path", "--base-model"],
-  "rlhf-train": ["--policy-model-path"],
-  "lora-train": ["--lora-data-path", "--base-model-path"],
-  distill: ["--dataset", "--teacher-model-path"],
-  "domain-adapt": ["--dataset", "--base-model-path"],
-  "grpo-train": ["--grpo-data-path", "--base-model"],
-  "qlora-train": ["--qlora-data-path", "--base-model-path"],
-  "kto-train": ["--kto-data-path", "--base-model"],
-  "orpo-train": ["--orpo-data-path", "--base-model"],
-  "multimodal-train": ["--multimodal-data-path", "--base-model"],
-  "rlvr-train": ["--rlvr-data-path", "--base-model"],
-};
-
 function getMissingFields(
   method: TrainingMethod,
   extra: Record<string, string>,
 ): string[] {
   const missing: string[] = [];
-  for (const flag of REQUIRED_EXTRA_FIELDS[method]) {
+  for (const flag of REQUIRED_METHOD_FIELDS[method]) {
     if (!(extra[flag] ?? "").trim()) {
       const label = flag.replace(/^--/, "").replace(/-/g, " ");
       missing.push(label);

@@ -12,6 +12,7 @@ from typing import Any
 
 from core.errors import ForgeDependencyError, ForgeSweepError
 from core.sweep_types import SweepConfig, SweepParameter
+from core.training_methods import ALL_TRAINING_METHODS
 from serve.sweep_analysis import format_sweep_report, format_sweep_report_json
 from serve.sweep_runner import run_sweep
 from store.dataset_sdk import ForgeClient
@@ -67,6 +68,17 @@ def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         help="Maximize metric instead of minimizing",
     )
     parser.add_argument(
+        "--method",
+        default="train",
+        choices=list(ALL_TRAINING_METHODS),
+        help="Training method to use for each trial",
+    )
+    parser.add_argument(
+        "--method-args",
+        default=None,
+        help="JSON string with fixed method-specific arguments (e.g. base_model, sft_data_path)",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -118,6 +130,18 @@ def _build_sweep_config(args: argparse.Namespace) -> SweepConfig:
             "Sweep requires --config-file or --params. "
             "Provide parameter definitions via one of these flags."
         )
+    method_args: tuple[tuple[str, str], ...] = ()
+    if args.method_args:
+        import json as _json
+        try:
+            raw_args = _json.loads(args.method_args)
+        except _json.JSONDecodeError as error:
+            raise ForgeSweepError(
+                f"Failed to parse --method-args JSON: {error}."
+            ) from error
+        if not isinstance(raw_args, dict):
+            raise ForgeSweepError("--method-args must be a JSON object.")
+        method_args = tuple((k, str(v)) for k, v in raw_args.items())
     return SweepConfig(
         dataset_name=args.dataset,
         output_dir=args.output_dir,
@@ -127,6 +151,8 @@ def _build_sweep_config(args: argparse.Namespace) -> SweepConfig:
         max_trials=args.max_trials,
         metric=args.metric,
         minimize=not args.maximize,
+        training_method=args.method,
+        method_args=method_args,
     )
 
 

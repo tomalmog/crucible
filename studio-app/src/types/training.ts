@@ -113,6 +113,25 @@ export function getDefaultConfigForMethod(method: TrainingMethod): SharedTrainin
   return { ...DEFAULT_SHARED_CONFIG, ...METHOD_CONFIG_OVERRIDES[method] };
 }
 
+/** Required extra fields per training method (CLI flags).
+ *  Data path fields (e.g. --sft-data-path) are auto-resolved from the
+ *  dataset's source URI and excluded here. */
+export const REQUIRED_METHOD_FIELDS: Record<TrainingMethod, string[]> = {
+  train: ["--dataset"],
+  sft: ["--base-model"],
+  "dpo-train": ["--base-model"],
+  "rlhf-train": ["--policy-model-path"],
+  "lora-train": ["--base-model-path"],
+  distill: ["--dataset", "--teacher-model-path"],
+  "domain-adapt": ["--dataset", "--base-model-path"],
+  "grpo-train": ["--base-model"],
+  "qlora-train": ["--base-model-path"],
+  "kto-train": ["--base-model"],
+  "orpo-train": ["--base-model"],
+  "multimodal-train": ["--base-model"],
+  "rlvr-train": ["--base-model"],
+};
+
 export interface TrainingConfigDraft {
   shared: SharedTrainingConfig;
   extra: Record<string, string>;

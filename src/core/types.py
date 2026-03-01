@@ -79,6 +79,7 @@ class SnapshotManifest:
         parent_version: Previous version id when derived.
         recipe_steps: Ordered transforms used to create snapshot.
         record_count: Number of records in snapshot.
+        source_uri: Original ingest source path, if available.
     """
 
     dataset_name: str
@@ -87,3 +88,4 @@ class SnapshotManifest:
     parent_version: str | None
     recipe_steps: tuple[str, ...]
     record_count: int
+    source_uri: str | None = None

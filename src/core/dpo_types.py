@@ -57,7 +57,7 @@ class DpoOptions:
 
     dataset_name: str
     output_dir: str
-    dpo_data_path: str
+    dpo_data_path: str = ""
     beta: float = DEFAULT_DPO_BETA
     label_smoothing: float = DEFAULT_DPO_LABEL_SMOOTHING
     reference_model_path: str | None = None

@@ -93,6 +93,7 @@ class SnapshotStore:
             parent_version=request.parent_version,
             recipe_steps=request.recipe_steps,
             record_count=len(request.records),
+            source_uri=request.source_uri,
         )
         write_manifest_file(version_dir, manifest, lance_written)
         update_catalog(dataset_root / CATALOG_FILE_NAME, manifest)

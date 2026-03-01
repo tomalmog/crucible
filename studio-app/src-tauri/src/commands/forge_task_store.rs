@@ -217,37 +217,59 @@ impl CommandTaskStore {
     }
 
     fn stream_child_output(&self, task_id: &str, child: &mut std::process::Child) {
-        let Some(mut stdout) = child.stdout.take() else {
-            return;
-        };
-        let mut buf = [0u8; 64];
-        loop {
-            match stdout.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
-                    if let Ok(mut tasks) = self.inner.tasks.lock() {
-                        if let Some(task) = tasks.get_mut(task_id) {
-                            task.stdout.push_str(&chunk);
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        // Drain stderr on a separate thread to prevent deadlock.
+        // If stderr's OS pipe buffer fills up while we only read stdout,
+        // the child blocks on stderr writes and never closes stdout.
+        let stderr_store = self.clone();
+        let stderr_task_id = task_id.to_string();
+        let stderr_thread = stderr.map(|mut stderr_pipe| {
+            std::thread::spawn(move || {
+                let mut buf = [0u8; 4096];
+                loop {
+                    match stderr_pipe.read(&mut buf) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
+                            if let Ok(mut tasks) = stderr_store.inner.tasks.lock() {
+                                if let Some(task) = tasks.get_mut(&stderr_task_id) {
+                                    task.stderr.push_str(&chunk);
+                                }
+                            }
                         }
                     }
                 }
-                Err(_) => break,
+            })
+        });
+
+        // Read stdout on the current thread.
+        if let Some(mut stdout_pipe) = stdout {
+            let mut buf = [0u8; 4096];
+            loop {
+                match stdout_pipe.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
+                        if let Ok(mut tasks) = self.inner.tasks.lock() {
+                            if let Some(task) = tasks.get_mut(task_id) {
+                                task.stdout.push_str(&chunk);
+                            }
+                        }
+                    }
+                }
             }
+        }
+
+        // Wait for stderr drain to finish.
+        if let Some(handle) = stderr_thread {
+            let _ = handle.join();
         }
     }
 
     fn finalize_child(&self, task_id: &str, command_name: &str, child: &mut std::process::Child) {
         let exit_status = child.wait();
-        let stderr_text = child
-            .stderr
-            .take()
-            .map(|mut s| {
-                let mut buf = String::new();
-                let _ = s.read_to_string(&mut buf);
-                buf
-            })
-            .unwrap_or_default();
 
         let now = Instant::now();
         let mut observed_elapsed_seconds = None;
@@ -257,7 +279,6 @@ impl CommandTaskStore {
                     .map(|s| s.code().unwrap_or(-1))
                     .unwrap_or(-1);
                 task.exit_code = Some(exit_code);
-                task.stderr = stderr_text;
                 task.status = if exit_code == 0 {
                     TaskLifecycleStatus::Completed
                 } else {
@@ -413,7 +434,11 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
     match command_name {
         "ingest" => 60,
         "filter" => 30,
-        "train" => 240,
+        "train" | "sft" | "dpo-train" | "rlhf-train" | "lora-train"
+        | "qlora-train" | "grpo-train" | "kto-train" | "orpo-train"
+        | "multimodal-train" | "rlvr-train" | "distill" | "domain-adapt" => 240,
+        "sweep" => 900,
+        "eval" => 300,
         "export-training" => 60,
         "versions" => 8,
         "chat" => 20,

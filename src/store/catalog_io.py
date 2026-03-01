@@ -120,4 +120,5 @@ def manifest_from_dict(payload: dict[str, Any]) -> SnapshotManifest:
         parent_version=str(payload["parent_version"]) if payload["parent_version"] else None,
         recipe_steps=tuple(str(step) for step in payload["recipe_steps"]),
         record_count=int(payload["record_count"]),
+        source_uri=payload.get("source_uri"),
     )

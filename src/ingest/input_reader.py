@@ -126,12 +126,18 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
             f"{error.msg}. Fix the JSON syntax and retry ingest."
         ) from error
     text_value = payload.get("text")
-    if not isinstance(text_value, str):
-        raise ForgeIngestError(
-            f"Invalid JSONL record at {file_path}:{line_number}: "
-            "expected string field 'text'. Add a text field and retry ingest."
-        )
-    return {"text": text_value}
+    if isinstance(text_value, str):
+        return {"text": text_value}
+    # Support prompt/response format (SFT, LoRA, etc.)
+    prompt = payload.get("prompt")
+    response = payload.get("response")
+    if isinstance(prompt, str) and isinstance(response, str):
+        return {"text": f"{prompt}\n{response}"}
+    raise ForgeIngestError(
+        f"Invalid JSONL record at {file_path}:{line_number}: "
+        "expected 'text' field or 'prompt'/'response' fields. "
+        "Fix the format and retry ingest."
+    )
 
 
 def _read_s3_records(source_uri: str, config: ForgeConfig) -> list[SourceTextRecord]:

@@ -11,6 +11,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::dataset_queries::get_dataset_dashboard,
+            commands::dataset_queries::delete_dataset,
             commands::dataset_queries::list_datasets,
             commands::dataset_queries::list_versions,
             commands::dataset_queries::load_training_history,

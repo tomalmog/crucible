@@ -75,12 +75,46 @@ class ForgeClient:
         """Get dataset handle by name."""
         return Dataset(dataset_name, self._store)
 
+    def resolve_dataset_source(self, dataset_name: str) -> str | None:
+        """Look up the original source URI for a dataset's latest version."""
+        if not dataset_name:
+            return None
+        try:
+            manifests = self._store.list_versions(dataset_name)
+        except Exception:
+            return None
+        return manifests[-1].source_uri if manifests else None
+
+    def _resolve_data_path(self, options: object, data_path_field: str) -> object:
+        """Fill an empty data path from the dataset's stored source URI.
+
+        Raises:
+            ForgeServeError: If the data path is empty and cannot be
+                auto-resolved from the dataset's stored source URI.
+        """
+        current = getattr(options, data_path_field, "")
+        if current:
+            return options
+        source = self.resolve_dataset_source(getattr(options, "dataset_name", ""))
+        if source:
+            resolved = Path(source).expanduser().resolve()
+            if resolved.exists():
+                return replace(options, **{data_path_field: str(resolved)})
+        flag = data_path_field.replace("_", "-")
+        dataset = getattr(options, "dataset_name", "")
+        raise ForgeServeError(
+            f"No data path provided (--{flag}). "
+            f"Re-ingest the dataset{' ' + repr(dataset) if dataset else ''} "
+            f"to store the source path, or pass --{flag} explicitly."
+        )
+
     def train(self, options: TrainingOptions) -> TrainingRunResult:
         """Train a model on a dataset version using PyTorch."""
         return self.dataset(options.dataset_name).train(options)
 
     def sft_train(self, options: SftOptions) -> TrainingRunResult:
         """Run supervised fine-tuning on a dataset version."""
+        options = self._resolve_data_path(options, "sft_data_path")
         if not options.dataset_name:
             return run_sft_training(
                 records=[], options=options, random_seed=42,
@@ -90,6 +124,7 @@ class ForgeClient:
 
     def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
         """Run LoRA fine-tuning."""
+        options = self._resolve_data_path(options, "lora_data_path")
         if not options.dataset_name:
             from serve.lora_training_runner import run_lora_training
             return run_lora_training(
@@ -102,6 +137,7 @@ class ForgeClient:
 
     def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
         """Run DPO preference optimization on a dataset version."""
+        options = self._resolve_data_path(options, "dpo_data_path")
         if not options.dataset_name:
             return run_dpo_training(
                 records=[], options=options, random_seed=42,
@@ -128,6 +164,7 @@ class ForgeClient:
 
     def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:
         """Run GRPO training on a dataset version."""
+        options = self._resolve_data_path(options, "grpo_data_path")
         if not options.dataset_name:
             return run_grpo_training(
                 records=[], options=options, random_seed=42,
@@ -137,6 +174,7 @@ class ForgeClient:
 
     def qlora_train(self, options: QloraOptions) -> TrainingRunResult:
         """Run QLoRA training on a dataset version."""
+        options = self._resolve_data_path(options, "qlora_data_path")
         if not options.dataset_name:
             return run_qlora_training(
                 records=[], options=options, random_seed=42,
@@ -146,6 +184,7 @@ class ForgeClient:
 
     def kto_train(self, options: KtoOptions) -> TrainingRunResult:
         """Run KTO training on a dataset version."""
+        options = self._resolve_data_path(options, "kto_data_path")
         if not options.dataset_name:
             return run_kto_training(
                 records=[], options=options, random_seed=42,
@@ -155,6 +194,7 @@ class ForgeClient:
 
     def orpo_train(self, options: OrpoOptions) -> TrainingRunResult:
         """Run ORPO training on a dataset version."""
+        options = self._resolve_data_path(options, "orpo_data_path")
         if not options.dataset_name:
             return run_orpo_training(
                 records=[], options=options, random_seed=42,
@@ -164,6 +204,7 @@ class ForgeClient:
 
     def multimodal_train(self, options: MultimodalOptions) -> TrainingRunResult:
         """Run multimodal fine-tuning on a dataset version."""
+        options = self._resolve_data_path(options, "multimodal_data_path")
         if not options.dataset_name:
             return run_multimodal_training(
                 records=[], options=options, random_seed=42,
@@ -173,6 +214,7 @@ class ForgeClient:
 
     def rlvr_train(self, options: RlvrOptions) -> TrainingRunResult:
         """Run RLVR training on a dataset version."""
+        options = self._resolve_data_path(options, "rlvr_data_path")
         if not options.dataset_name:
             return run_rlvr_training(
                 records=[], options=options, random_seed=42,

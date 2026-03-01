@@ -58,7 +58,7 @@ class SftOptions:
 
     dataset_name: str
     output_dir: str
-    sft_data_path: str
+    sft_data_path: str = ""
     version_id: str | None = None
     mask_prompt_tokens: bool = DEFAULT_SFT_MASK_PROMPT_TOKENS
     packing_enabled: bool = DEFAULT_SFT_PACKING_ENABLED

@@ -147,6 +147,16 @@ pub fn load_training_history(history_path: String) -> Result<TrainingHistory, St
         .map_err(|error| format!("Failed to parse history file {history_path}: {error}"))
 }
 
+#[tauri::command]
+pub fn delete_dataset(data_root: String, dataset_name: String) -> Result<(), String> {
+    let dataset_dir = dataset_root(&data_root, &dataset_name);
+    if !dataset_dir.exists() {
+        return Err(format!("Dataset '{}' not found", dataset_name));
+    }
+    fs::remove_dir_all(&dataset_dir)
+        .map_err(|e| format!("Failed to delete dataset '{}': {}", dataset_name, e))
+}
+
 fn dataset_root(data_root: &str, dataset_name: &str) -> PathBuf {
     resolve_data_root_path(data_root).join("datasets").join(dataset_name)
 }

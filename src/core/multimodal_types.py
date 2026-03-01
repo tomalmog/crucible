@@ -29,7 +29,7 @@ class MultimodalOptions:
 
     dataset_name: str
     output_dir: str
-    multimodal_data_path: str
+    multimodal_data_path: str = ""
     image_encoder: str = "clip-vit-base"
     image_size: int = 224
     projection_dim: int = 512

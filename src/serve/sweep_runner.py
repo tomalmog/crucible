@@ -7,16 +7,22 @@ combinations and collects results to identify the best configuration.
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+import sys
 from pathlib import Path
 from typing import Any
 
 from core.errors import ForgeSweepError
 from core.sweep_types import SweepConfig, SweepResult, SweepTrialResult
-from core.types import TrainingOptions, TrainingRunResult
+from core.training_methods import TRAINING_METHOD_DISPATCH, TRAINING_METHOD_LABELS, dispatch_training
+from core.training_types import TrainingRunResult
 from serve.sweep_analysis import find_best_trial, rank_trials
 from serve.sweep_parameter_generator import generate_sweep_parameters
 from store.dataset_sdk import ForgeClient
+
+
+def _log(message: str) -> None:
+    """Print a progress message and flush immediately for piped output."""
+    print(message, flush=True)
 
 
 def run_sweep(
@@ -38,12 +44,18 @@ def run_sweep(
         ForgeSweepError: If no trials complete successfully.
     """
     param_combos = generate_sweep_parameters(config, random_seed)
+    total_trials = len(param_combos)
+    method_label = TRAINING_METHOD_LABELS.get(config.training_method, config.training_method)
     base_output = Path(config.base_output_dir)
     base_output.mkdir(parents=True, exist_ok=True)
+    _log(f"Sweep: {total_trials} trials | method={method_label} | strategy={config.strategy} | metric={config.metric}")
     trials: list[SweepTrialResult] = []
+    errors: list[str] = []
     for trial_id, params in enumerate(param_combos):
+        params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+        _log(f"Trial {trial_id + 1}/{total_trials} | {params_str} | starting...")
         trial_output = str(base_output / f"trial_{trial_id:04d}")
-        result = _run_single_trial(
+        result, error = _run_single_trial(
             client=client,
             config=config,
             trial_id=trial_id,
@@ -52,7 +64,12 @@ def run_sweep(
         )
         if result is not None:
             trials.append(result)
-    return _build_sweep_result(trials, config.minimize)
+            _log(f"Trial {trial_id + 1}/{total_trials} | {params_str} | {config.metric}={result.metric_value:.6f}")
+        else:
+            errors.append(error or "unknown error")
+            _log(f"Trial {trial_id + 1}/{total_trials} | {params_str} | FAILED: {error}")
+    _log(f"Sweep complete: {len(trials)}/{total_trials} trials succeeded")
+    return _build_sweep_result(trials, config.minimize, errors)
 
 
 def _run_single_trial(
@@ -61,7 +78,7 @@ def _run_single_trial(
     trial_id: int,
     params: dict[str, float],
     trial_output: str,
-) -> SweepTrialResult | None:
+) -> tuple[SweepTrialResult | None, str | None]:
     """Execute one training trial with overridden parameters.
 
     Args:
@@ -72,11 +89,13 @@ def _run_single_trial(
         trial_output: Output directory for this trial.
 
     Returns:
-        Trial result or None if trial failed.
+        Tuple of (trial result, error message). One will be None.
     """
     try:
-        options = _build_trial_options(config, params, trial_output)
-        training_result = client.train(options)
+        kwargs = _build_trial_kwargs(config, params, trial_output)
+        training_result = dispatch_training(
+            client, config.training_method, kwargs,
+        )
         metric_value = _extract_metric(training_result, config.metric)
         return SweepTrialResult(
             trial_id=trial_id,
@@ -84,60 +103,72 @@ def _run_single_trial(
             metric_value=metric_value,
             model_path=training_result.model_path,
             history_path=training_result.history_path,
-        )
+        ), None
     except Exception as exc:
-        print(f"Trial {trial_id} failed: {exc}")
-        return None
+        return None, str(exc)
 
 
-def _build_trial_options(
+def _build_trial_kwargs(
     config: SweepConfig,
     params: dict[str, float],
     trial_output: str,
-) -> TrainingOptions:
-    """Build TrainingOptions with sweep parameter overrides.
+) -> dict[str, Any]:
+    """Build keyword arguments for the training options dataclass.
+
+    Merges base config, method-specific fixed args, and swept parameters.
 
     Args:
-        config: Sweep configuration for base options.
-        params: Parameter name-to-value overrides.
+        config: Sweep configuration.
+        params: Swept parameter overrides for this trial.
         trial_output: Output directory for this trial.
 
     Returns:
-        TrainingOptions with overridden hyperparameters.
-
-    Raises:
-        ForgeSweepError: If a parameter name is not a valid field.
+        Keyword arguments dict for the target options class.
     """
-    base = TrainingOptions(
-        dataset_name=config.dataset_name,
-        output_dir=trial_output,
-    )
-    override_kwargs: dict[str, Any] = {}
-    valid_fields = {f for f in base.__dataclass_fields__}
+    method = config.training_method
+    if method not in TRAINING_METHOD_DISPATCH:
+        raise ForgeSweepError(
+            f"Unknown training method '{method}'."
+        )
+    _, options_class = TRAINING_METHOD_DISPATCH[method]
+    kwargs: dict[str, Any] = {
+        "dataset_name": config.dataset_name,
+        "output_dir": trial_output,
+    }
+    # Apply fixed method-specific args (e.g. sft_data_path, base_model)
+    for key, value in config.method_args:
+        kwargs[key] = value
+    # Apply swept parameters with type casting
+    valid_fields = set(options_class.__dataclass_fields__)
     for name, value in params.items():
         if name not in valid_fields:
             raise ForgeSweepError(
-                f"Parameter '{name}' is not a valid TrainingOptions field."
+                f"Parameter '{name}' is not a valid field for "
+                f"{options_class.__name__}."
             )
-        field_type = _infer_field_type(name, base)
-        override_kwargs[name] = field_type(value)
-    return replace(base, **override_kwargs)
+        kwargs[name] = _cast_field_value(name, value, options_class)
+    return kwargs
 
 
-def _infer_field_type(name: str, base: TrainingOptions) -> type:
-    """Infer the target type for a training option field.
+def _cast_field_value(
+    name: str,
+    value: float,
+    options_class: type,
+) -> int | float:
+    """Cast a swept parameter value to the correct type for the options class.
 
     Args:
-        name: Field name on TrainingOptions.
-        base: Base TrainingOptions instance for type inspection.
+        name: Field name.
+        value: Float value from sweep parameters.
+        options_class: Target dataclass type.
 
     Returns:
-        Python type to cast the parameter value to.
+        Value cast to int or float as appropriate.
     """
-    current_value = getattr(base, name)
-    if isinstance(current_value, int):
-        return int
-    return float
+    field_info = options_class.__dataclass_fields__.get(name)
+    if field_info is not None and field_info.type in ("int", int):
+        return int(value)
+    return value
 
 
 def _extract_metric(
@@ -209,12 +240,14 @@ def _parse_metric_from_history(
 def _build_sweep_result(
     trials: list[SweepTrialResult],
     minimize: bool,
+    errors: list[str] | None = None,
 ) -> SweepResult:
     """Build final SweepResult from completed trials.
 
     Args:
         trials: List of completed trial results.
         minimize: Whether lower metric values are better.
+        errors: Error messages from failed trials.
 
     Returns:
         SweepResult with ranked trials and best configuration.
@@ -223,10 +256,11 @@ def _build_sweep_result(
         ForgeSweepError: If no trials completed successfully.
     """
     if not trials:
-        raise ForgeSweepError(
-            "No sweep trials completed successfully. "
-            "Check training configuration and dataset."
-        )
+        msg = "No sweep trials completed successfully."
+        if errors:
+            first_error = errors[0]
+            msg += f" First trial error: {first_error}"
+        raise ForgeSweepError(msg)
     ranked = rank_trials(trials, minimize)
     best = find_best_trial(ranked)
     return SweepResult(
