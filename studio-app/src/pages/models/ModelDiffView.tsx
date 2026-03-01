@@ -21,7 +21,6 @@ export function ModelDiffView({ dataRoot, versions }: ModelDiffViewProps) {
     if (!va || !vb) return;
     await command.run(dataRoot, [
       "model", "diff",
-      "--name", va.modelPath,
       "--version-a", versionA,
       "--version-b", versionB,
     ]);

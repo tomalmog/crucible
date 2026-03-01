@@ -23,11 +23,11 @@ export function ModelActions({ dataRoot, versions }: ModelActionsProps) {
     if (!v) return;
     if (action === "tag") {
       if (!tag.trim()) return;
-      await command.run(dataRoot, ["model", "tag", "--name", v.modelPath, "--version", version, "--tag", tag.trim()]);
+      await command.run(dataRoot, ["model", "tag", "--version-id", version, "--tag", tag.trim()]);
     } else if (action === "rollback") {
-      await command.run(dataRoot, ["model", "rollback", "--name", v.modelPath, "--version", version]);
+      await command.run(dataRoot, ["model", "rollback", "--version-id", version]);
     } else {
-      const args = ["export-spec", "--name", v.modelPath, "--version", version];
+      const args = ["export-spec", "--run-id", version];
       if (exportPath.trim()) args.push("--output", exportPath.trim());
       await command.run(dataRoot, args);
     }
