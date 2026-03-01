@@ -44,7 +44,7 @@ def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int
         target_modules=tuple(args.lora_target_modules.split(",")),
     )
     options = LoraTrainingOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         lora_data_path=args.lora_data_path,
         base_model_path=args.base_model_path,
@@ -106,7 +106,8 @@ def add_lora_train_command(subparsers: argparse._SubParsersAction[argparse.Argum
         "lora-train", help="Fine-tune a model using LoRA adapters"
     )
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--lora-data-path", required=True, help="Path to JSONL file with training data")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--lora-data-path", default="", help="Path to JSONL file with training data")
     parser.add_argument("--base-model-path", required=True, help="Base model weights")
     parser.add_argument("--tokenizer-path", default=None, help="Path to tokenizer file (auto-detected if omitted)")
     parser.add_argument("--lora-rank", type=int, default=DEFAULT_LORA_RANK, help="LoRA rank")

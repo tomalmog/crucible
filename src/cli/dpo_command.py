@@ -46,7 +46,7 @@ def run_dpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     options = DpoOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         dpo_data_path=args.dpo_data_path,
         beta=args.beta,
@@ -101,8 +101,9 @@ def add_dpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
         "--output-dir", required=True,
         help="Training artifact output directory",
     )
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
     parser.add_argument(
-        "--dpo-data-path", required=True,
+        "--dpo-data-path", default="",
         help="Path to JSONL file with prompt/chosen/rejected triples",
     )
     parser.add_argument(

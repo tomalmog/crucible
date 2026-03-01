@@ -36,7 +36,7 @@ from store.dataset_sdk import ForgeClient
 def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle ORPO command invocation."""
     options = OrpoOptions(
-        dataset_name="", output_dir=args.output_dir,
+        dataset_name=args.dataset, output_dir=args.output_dir,
         orpo_data_path=args.orpo_data_path,
         lambda_orpo=args.lambda_orpo, beta=args.beta,
         version_id=None, epochs=args.epochs,
@@ -71,7 +71,8 @@ def add_orpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     """Register ORPO subcommand."""
     parser = subparsers.add_parser("orpo-train", help="Odds Ratio Preference Optimization training")
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--orpo-data-path", required=True, help="Path to JSONL with preference pairs")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--orpo-data-path", default="", help="Path to JSONL with preference pairs")
     parser.add_argument("--lambda-orpo", type=float, default=DEFAULT_ORPO_LAMBDA, help="ORPO lambda weight for odds-ratio term")
     parser.add_argument("--beta", type=float, default=DEFAULT_ORPO_BETA, help="ORPO beta parameter")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")

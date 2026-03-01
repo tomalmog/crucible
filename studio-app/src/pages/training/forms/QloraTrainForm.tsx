@@ -1,3 +1,4 @@
+import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { PathInput } from "../../../components/shared/PathInput";
 
@@ -15,8 +16,8 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
     <div className="stack-sm">
       <h4>Quantized LoRA (QLoRA)</h4>
       <div className="grid-2">
-        <FormField label="Training Data Path" required>
-          <PathInput value={extra["--qlora-data-path"] ?? ""} onChange={(v) => update("--qlora-data-path", v)} placeholder="/path/to/data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
+        <FormField label="Dataset" required>
+          <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
           <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />

@@ -41,7 +41,7 @@ from store.dataset_sdk import ForgeClient
 def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle KTO command invocation."""
     options = KtoOptions(
-        dataset_name="", output_dir=args.output_dir,
+        dataset_name=args.dataset, output_dir=args.output_dir,
         kto_data_path=args.kto_data_path,
         beta=args.beta, desirable_weight=args.desirable_weight,
         undesirable_weight=args.undesirable_weight,
@@ -78,7 +78,8 @@ def add_kto_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     """Register KTO subcommand."""
     parser = subparsers.add_parser("kto-train", help="Kahneman-Tversky Optimization training")
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--kto-data-path", required=True, help="Path to JSONL with prompt/response/label data")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--kto-data-path", default="", help="Path to JSONL with prompt/response/label data")
     parser.add_argument("--beta", type=float, default=DEFAULT_KTO_BETA, help="KTO beta parameter")
     parser.add_argument("--desirable-weight", type=float, default=DEFAULT_KTO_DESIRABLE_WEIGHT, help="Weight for desirable examples")
     parser.add_argument("--undesirable-weight", type=float, default=DEFAULT_KTO_UNDESIRABLE_WEIGHT, help="Weight for undesirable examples")

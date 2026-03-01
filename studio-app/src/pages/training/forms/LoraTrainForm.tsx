@@ -1,3 +1,4 @@
+import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { PathInput } from "../../../components/shared/PathInput";
 
@@ -18,14 +19,14 @@ export function LoraTrainForm({ extra, setExtra }: LoraTrainFormProps) {
     <div className="stack-sm">
       <h4>LoRA Training</h4>
       <div className="grid-2">
+        <FormField label="Dataset" required>
+          <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
+        </FormField>
         <FormField label="Base Model" required>
           <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
         <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
           <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect from model"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
-        </FormField>
-        <FormField label="LoRA Data Path" required>
-          <PathInput value={extra["--lora-data-path"] ?? ""} onChange={(v) => update("--lora-data-path", v)} placeholder="/path/to/lora_data.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
         </FormField>
         <FormField label="LoRA Rank">
           <input type="number" value={extra["--lora-rank"] ?? "8"} onChange={(e) => update("--lora-rank", e.currentTarget.value)} />

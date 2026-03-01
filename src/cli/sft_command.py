@@ -45,7 +45,7 @@ def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
         Exit code.
     """
     options = SftOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         sft_data_path=args.sft_data_path,
         version_id=None,
@@ -98,9 +98,10 @@ def add_sft_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     parser.add_argument(
         "--output-dir", required=True, help="Training artifact output directory"
     )
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
     parser.add_argument(
         "--sft-data-path",
-        required=True,
+        default="",
         help="Path to JSONL file with prompt/response pairs",
     )
     parser.add_argument(

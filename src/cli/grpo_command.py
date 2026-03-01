@@ -42,7 +42,7 @@ from store.dataset_sdk import ForgeClient
 def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle GRPO command invocation."""
     options = GrpoOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         grpo_data_path=args.grpo_data_path,
         reward_function_path=args.reward_function_path,
@@ -92,7 +92,8 @@ def add_grpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
         help="Group Relative Policy Optimization training",
     )
     parser.add_argument("--output-dir", required=True, help="Training artifact output directory")
-    parser.add_argument("--grpo-data-path", required=True, help="Path to JSONL file with prompts")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--grpo-data-path", default="", help="Path to JSONL file with prompts")
     parser.add_argument("--reward-function-path", help="Path to Python module with score() function")
     parser.add_argument("--group-size", type=int, default=DEFAULT_GRPO_GROUP_SIZE, help="Number of responses per prompt group")
     parser.add_argument("--kl-coeff", type=float, default=DEFAULT_GRPO_KL_COEFF, help="KL divergence penalty coefficient")

@@ -55,7 +55,7 @@ def run_rlhf_command(client: ForgeClient, args: argparse.Namespace) -> int:
         entropy_coeff=args.entropy_coeff,
     )
     options = RlhfOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         policy_model_path=args.policy_model_path,
         reward_config=reward_config,
@@ -120,8 +120,10 @@ def add_rlhf_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
         "--train-reward-model", action="store_true",
         help="Train reward model from preference data",
     )
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
     parser.add_argument(
         "--preference-data-path",
+        default="",
         help="JSONL file with prompt/chosen/rejected for reward training",
     )
     parser.add_argument(

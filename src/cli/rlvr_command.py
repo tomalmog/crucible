@@ -13,7 +13,7 @@ from store.dataset_sdk import ForgeClient
 
 def run_rlvr_command(client: ForgeClient, args: argparse.Namespace) -> int:
     options = RlvrOptions(
-        dataset_name="", output_dir=args.output_dir,
+        dataset_name=args.dataset, output_dir=args.output_dir,
         rlvr_data_path=args.rlvr_data_path, verifier_type=args.verifier_type,
         max_verification_attempts=args.max_attempts,
         reward_correct=args.reward_correct, reward_incorrect=args.reward_incorrect,
@@ -44,7 +44,8 @@ def run_rlvr_command(client: ForgeClient, args: argparse.Namespace) -> int:
 def add_rlvr_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("rlvr-train", help="RL with verifiable rewards training")
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--rlvr-data-path", required=True, help="Path to verifiable tasks JSONL")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--rlvr-data-path", default="", help="Path to verifiable tasks JSONL")
     parser.add_argument("--verifier-type", default="code", choices=["code", "math"], help="Verifier type")
     parser.add_argument("--max-attempts", type=int, default=3, help="Max verification attempts")
     parser.add_argument("--reward-correct", type=float, default=1.0, help="Reward for correct")

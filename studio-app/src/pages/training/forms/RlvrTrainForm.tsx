@@ -1,3 +1,4 @@
+import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { PathInput } from "../../../components/shared/PathInput";
 
@@ -15,8 +16,8 @@ export function RlvrTrainForm({ extra, setExtra }: RlvrTrainFormProps) {
     <div className="stack-sm">
       <h4>RL with Verifiable Rewards</h4>
       <div className="grid-2">
-        <FormField label="RLVR Data Path" required>
-          <PathInput value={extra["--rlvr-data-path"] ?? ""} onChange={(v) => update("--rlvr-data-path", v)} placeholder="/path/to/tasks.jsonl" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />
+        <FormField label="Dataset" required>
+          <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
           <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />

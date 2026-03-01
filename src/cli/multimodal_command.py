@@ -13,7 +13,7 @@ from store.dataset_sdk import ForgeClient
 
 def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int:
     options = MultimodalOptions(
-        dataset_name="", output_dir=args.output_dir,
+        dataset_name=args.dataset, output_dir=args.output_dir,
         multimodal_data_path=args.multimodal_data_path,
         image_encoder=args.image_encoder, image_size=args.image_size,
         projection_dim=args.projection_dim, version_id=None,
@@ -44,7 +44,8 @@ def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int
 def add_multimodal_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("multimodal-train", help="Multimodal vision-language fine-tuning")
     parser.add_argument("--output-dir", required=True, help="Output directory")
-    parser.add_argument("--multimodal-data-path", required=True, help="Path to image+text JSONL")
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
+    parser.add_argument("--multimodal-data-path", default="", help="Path to image+text JSONL")
     parser.add_argument("--image-encoder", default="clip-vit-base", help="Vision encoder")
     parser.add_argument("--image-size", type=int, default=224, help="Image input size")
     parser.add_argument("--projection-dim", type=int, default=512, help="Projection dimension")

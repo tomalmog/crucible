@@ -51,7 +51,7 @@ def run_qlora_command(
         else ("q_proj", "v_proj")
     )
     options = QloraOptions(
-        dataset_name="",
+        dataset_name=args.dataset,
         output_dir=args.output_dir,
         qlora_data_path=args.qlora_data_path,
         base_model_path=args.base_model_path,
@@ -104,9 +104,10 @@ def add_qlora_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--output-dir", required=True, help="Output directory",
     )
+    parser.add_argument("--dataset", default="", help="Dataset name (auto-resolves data path)")
     parser.add_argument(
         "--qlora-data-path",
-        required=True,
+        default="",
         help="Path to training data JSONL",
     )
     parser.add_argument(

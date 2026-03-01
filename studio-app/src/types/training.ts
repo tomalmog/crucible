@@ -118,18 +118,18 @@ export function getDefaultConfigForMethod(method: TrainingMethod): SharedTrainin
  *  dataset's source URI and excluded here. */
 export const REQUIRED_METHOD_FIELDS: Record<TrainingMethod, string[]> = {
   train: ["--dataset"],
-  sft: ["--base-model"],
-  "dpo-train": ["--base-model"],
-  "rlhf-train": ["--policy-model-path"],
-  "lora-train": ["--base-model-path"],
+  sft: ["--dataset", "--base-model"],
+  "dpo-train": ["--dataset", "--base-model"],
+  "rlhf-train": ["--dataset", "--policy-model-path"],
+  "lora-train": ["--dataset", "--base-model-path"],
   distill: ["--dataset", "--teacher-model-path"],
   "domain-adapt": ["--dataset", "--base-model-path"],
-  "grpo-train": ["--base-model"],
-  "qlora-train": ["--base-model-path"],
-  "kto-train": ["--base-model"],
-  "orpo-train": ["--base-model"],
-  "multimodal-train": ["--base-model"],
-  "rlvr-train": ["--base-model"],
+  "grpo-train": ["--dataset", "--base-model"],
+  "qlora-train": ["--dataset", "--base-model-path"],
+  "kto-train": ["--dataset", "--base-model"],
+  "orpo-train": ["--dataset", "--base-model"],
+  "multimodal-train": ["--dataset", "--base-model"],
+  "rlvr-train": ["--dataset", "--base-model"],
 };
 
 export interface TrainingConfigDraft {
