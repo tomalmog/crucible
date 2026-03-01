@@ -58,6 +58,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const [registerModel, setRegisterModel] = useState(false);
   const [modelName, setModelName] = useState("My-Model-0");
   const [registered, setRegistered] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
 
@@ -88,7 +89,8 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           }
         }
       }
-    } catch {
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
       setStep("done");
     }
   }
@@ -210,8 +212,8 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
               </div>
             </div>
           )}
-          {command.error && (
-            <div className="error-alert">{command.error}</div>
+          {(command.error || startError) && (
+            <div className="error-alert">{command.error || startError}</div>
           )}
           {registered && (
             <div className="flex-row" style={{ color: "var(--color-success)" }}>
