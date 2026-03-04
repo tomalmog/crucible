@@ -130,26 +130,45 @@ pub fn get_remote_job_logs(data_root: String, job_id: String) -> Result<String, 
 }
 
 #[tauri::command]
-pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String> {
+pub fn sync_remote_job_status(data_root: String, job_id: String) -> Result<RemoteJobSummary, String> {
     let job_path = resolve_data_root_path(&data_root)
         .join("remote-jobs")
         .join(format!("{job_id}.json"));
     if !job_path.exists() {
         return Err(format!("Remote job '{job_id}' not found"));
     }
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "status", "--job-id", &job_id])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(format!("Status sync failed: {stderr}"));
+    }
+    // Re-read the updated JSON file
     let data = read_json_file(&job_path)?;
-    let state = data
-        .as_object()
-        .and_then(|obj| obj.get("state"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    match state {
-        "completed" | "failed" | "cancelled" => {}
-        _ => {
-            return Err(format!(
-                "Cannot delete remote job in '{state}' state — wait until it finishes"
-            ));
-        }
+    parse_remote_job(&data)
+}
+
+#[tauri::command]
+pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String> {
+    let job_path = resolve_data_root_path(&data_root)
+        .join("remote-jobs")
+        .join(format!("{job_id}.json"));
+    if !job_path.exists() {
+        return Err(format!("Remote job '{job_id}' not found"));
     }
     fs::remove_file(&job_path)
         .map_err(|e| format!("Failed to delete {}: {e}", job_path.display()))

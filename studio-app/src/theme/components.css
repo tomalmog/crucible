@@ -646,12 +646,23 @@ label {
     display: grid;
     gap: 3px;
     padding: 10px 14px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .run-row-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.run-row-header > .flex-row:first-child {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.run-row-header > .flex-row:last-child {
+    flex-shrink: 0;
 }
 
 .run-row-id {
@@ -671,6 +682,9 @@ label {
     font-family: var(--font-mono);
     font-size: 0.625rem;
     color: var(--text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ─── Form Section (collapsible) ─── */

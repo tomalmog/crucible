@@ -7,7 +7,7 @@ import { CommandTaskStatus } from "../../types";
 import type { RemoteJobRecord } from "../../types/remote";
 import { parseTrainingProgress } from "../training/TrainingRunMonitor";
 import { startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
-import { getRemoteJobLogs } from "../../api/remoteApi";
+import { getRemoteJobLogs, syncRemoteJobStatus } from "../../api/remoteApi";
 import {
   Activity,
   Square,
@@ -65,37 +65,34 @@ export function JobsPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
   const syncedRef = useRef<Set<string>>(new Set());
+  const remoteJobsRef = useRef(remoteJobs);
+  remoteJobsRef.current = remoteJobs;
 
-  // Auto-sync running remote job states via the CLI
+  // Auto-sync running remote job states via the CLI (bypasses task store).
+  // Runs once on mount + every 30s. Uses a ref so the interval always
+  // reads the latest remoteJobs list instead of a stale closure.
   useEffect(() => {
     if (!dataRoot) return;
-    const running = remoteJobs.filter(
-      (j) => (j.state === "running" || j.state === "pending") && !syncedRef.current.has(j.jobId),
-    );
-    for (const rj of running) {
-      syncedRef.current.add(rj.jobId);
-      startForgeCommand(dataRoot, ["remote", "status", "--job-id", rj.jobId])
-        .then((task) => {
-          // Poll until complete, then refresh the list
-          const check = async () => {
-            for (let i = 0; i < 30; i++) {
-              await new Promise((r) => setTimeout(r, 1000));
-              const s = await getForgeCommandStatus(task.task_id);
-              if (s.status !== "running") {
-                syncedRef.current.delete(rj.jobId);
-                refreshRemote();
-                // Model may have been auto-registered on completion
-                refreshModels().catch(console.error);
-                return;
-              }
-            }
-            syncedRef.current.delete(rj.jobId);
-          };
-          check();
-        })
-        .catch(() => syncedRef.current.delete(rj.jobId));
-    }
-  }, [dataRoot, remoteJobs, refreshRemote, refreshModels]);
+    const syncRunning = () => {
+      const running = remoteJobsRef.current.filter(
+        (j) => (j.state === "running" || j.state === "pending") && !syncedRef.current.has(j.jobId),
+      );
+      for (const rj of running) {
+        syncedRef.current.add(rj.jobId);
+        syncRemoteJobStatus(dataRoot, rj.jobId)
+          .then(() => {
+            refreshRemote();
+            refreshModels().catch(console.error);
+          })
+          .catch(console.error)
+          .finally(() => syncedRef.current.delete(rj.jobId));
+      }
+    };
+    syncRunning();
+    const interval = setInterval(syncRunning, 30_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataRoot]);
 
   const filtered = filter === "remote"
     ? []

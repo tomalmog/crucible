@@ -153,7 +153,7 @@ def _build_runtime_context(
         device=device,
     )
     attention_backend = select_attention_backend()
-    model = apply_attention_backend(model, attention_backend, torch_module)
+    model = apply_attention_backend(model, attention_backend, torch_module, device=device)
     if options.gradient_checkpointing:
         apply_gradient_checkpointing(torch_module, model)
     precision_runtime = build_training_precision_runtime(

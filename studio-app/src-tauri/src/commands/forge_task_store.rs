@@ -13,8 +13,8 @@ const MAX_TASKS: usize = 200;
 const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
-/// Commands shown on the Jobs page (heavy-compute workloads).
-const JOBS_PAGE_COMMANDS: [&str; 20] = [
+/// Commands shown on the Jobs page (training workloads only).
+const JOBS_PAGE_COMMANDS: [&str; 16] = [
     "train",
     "sft",
     "dpo-train",
@@ -30,11 +30,7 @@ const JOBS_PAGE_COMMANDS: [&str; 20] = [
     "orpo-train",
     "multimodal-train",
     "rlvr-train",
-    "merge",
-    "eval",
     "sweep",
-    "ingest",
-    "remote",
 ];
 
 #[derive(Clone)]

@@ -92,6 +92,7 @@ def apply_attention_backend(
     model: Any,
     backend: AttentionBackend,
     torch_module: Any,
+    device: Any = None,
 ) -> Any:
     """Apply the selected attention backend to a model.
 
@@ -100,8 +101,13 @@ def apply_attention_backend(
     via torch.backends.cuda so that F.scaled_dot_product_attention routes
     to the correct implementation.
 
+    Kernel flags are only set when running on CUDA — on CPU the math
+    kernel is the only viable backend and must stay enabled.
+
     Returns the model unchanged (kernel selection is global state).
     """
+    if device is not None and str(device).split(":")[0] != "cuda":
+        return model
     cuda_backends = getattr(torch_module, "backends", None)
     if cuda_backends is None:
         return model

@@ -19,7 +19,8 @@ if TYPE_CHECKING:
     from serve.ssh_connection import SshSession
 
 _ENV_NAME = "forge"
-_PIP_PACKAGES = ("torch", "pyyaml", "matplotlib", "tokenizers")
+_PIP_PACKAGES = ("pyyaml", "matplotlib", "tokenizers")
+_TORCH_INSTALL = "torch --index-url https://download.pytorch.org/whl/cu121"
 
 # Shell snippet that sources conda's init script from common locations.
 # We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
@@ -87,6 +88,14 @@ def _create_env(session: SshSession) -> None:
     )
     if code != 0:
         raise ForgeRemoteError(f"conda create failed: {stderr.strip()}")
+
+    # Install CUDA-enabled torch first (separate index URL).
+    _, stderr, code = session.execute(
+        _conda_cmd(f"conda run -n {_ENV_NAME} pip install {_TORCH_INSTALL}"),
+        timeout=600,
+    )
+    if code != 0:
+        raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
 
     pip_list = " ".join(_PIP_PACKAGES)
     _, stderr, code = session.execute(

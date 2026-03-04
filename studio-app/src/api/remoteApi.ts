@@ -17,6 +17,10 @@ export async function getRemoteJobLogs(dataRoot: string, jobId: string): Promise
   return invoke<string>("get_remote_job_logs", { dataRoot, jobId });
 }
 
+export async function syncRemoteJobStatus(dataRoot: string, jobId: string): Promise<RemoteJobRecord> {
+  return invoke<RemoteJobRecord>("sync_remote_job_status", { dataRoot, jobId });
+}
+
 export async function deleteRemoteJob(dataRoot: string, jobId: string): Promise<void> {
   return invoke<void>("delete_remote_job", { dataRoot, jobId });
 }
