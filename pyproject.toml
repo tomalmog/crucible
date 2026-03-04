@@ -20,6 +20,7 @@ lance = ["lance==1.2.1", "pyarrow==19.0.0"]
 serve = ["torch==2.6.0", "matplotlib==3.10.0"]
 onnx = ["onnx==1.17.0", "onnxruntime==1.20.1", "numpy==2.2.2"]
 tokenizers = ["tokenizers==0.22.2"]
+remote = ["paramiko==3.5.0"]
 
 [project.scripts]
 forge = "cli.main:main"
@@ -59,5 +60,7 @@ module = [
   "onnxruntime",
   "numpy",
   "tokenizers",
+  "paramiko",
+  "paramiko.*",
 ]
 ignore_missing_imports = true

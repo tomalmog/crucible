@@ -58,6 +58,7 @@ from cli.multimodal_command import add_multimodal_command, run_multimodal_comman
 from cli.orpo_command import add_orpo_command, run_orpo_command
 from cli.qlora_command import add_qlora_command, run_qlora_command
 from cli.recipe_command import add_recipe_command, run_recipe_command
+from cli.remote_command import add_remote_command, run_remote_command
 from cli.replay_command import add_replay_command, run_replay_command
 from cli.rlhf_command import add_rlhf_command, run_rlhf_command
 from cli.rlvr_command import add_rlvr_command, run_rlvr_command
@@ -98,7 +99,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_eval_command, add_judge_command, add_curate_command,
     add_merge_command, add_ab_chat_command, add_recipe_command,
     add_cloud_command, add_cost_command, add_multimodal_command,
-    add_synthetic_command, add_rlvr_command,
+    add_synthetic_command, add_rlvr_command, add_remote_command,
 )
 
 
@@ -151,6 +152,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "multimodal-train": run_multimodal_command,
         "synthetic": run_synthetic_command,
         "rlvr-train": run_rlvr_command,
+        "remote": run_remote_command,
     }
 
 

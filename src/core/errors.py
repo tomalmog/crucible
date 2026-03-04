@@ -161,3 +161,7 @@ class ForgeRecipeError(ForgeError):
 
 class ForgeJudgeError(ForgeError):
     """Raised for LLM-as-judge evaluation failures."""
+
+
+class ForgeRemoteError(ForgeError):
+    """Raised for remote Slurm cluster operation failures."""
