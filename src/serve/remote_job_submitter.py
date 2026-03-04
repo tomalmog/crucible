@@ -21,6 +21,7 @@ from core.slurm_types import (
 )
 from core.training_methods import DATA_PATH_FIELDS
 from serve.agent_bundler import build_agent_tarball
+from serve.remote_env_setup import ensure_remote_env
 from serve.slurm_script_gen import (
     generate_multi_node_script,
     generate_single_node_script,
@@ -73,6 +74,7 @@ def submit_remote_job(
 
     with SshSession(cluster) as session:
         session.mkdir_p(workdir)
+        ensure_remote_env(session)
         _upload_bundle(session, tarball, workdir)
         _handle_data_strategy(
             session, data_strategy, dataset_path, method_args, workdir,
@@ -137,6 +139,7 @@ def submit_remote_sweep(
     with SshSession(cluster) as session:
         session.mkdir_p(workdir)
         session.mkdir_p(f"{workdir}/trials")
+        ensure_remote_env(session)
         _upload_bundle(session, tarball, workdir)
 
         # Handle data strategy first so paths are rewritten

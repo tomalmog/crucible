@@ -186,10 +186,20 @@ def _gpu_gres_line(resources: SlurmResourceConfig) -> str:
 
 
 def _module_load_lines(cluster: ClusterConfig) -> list[str]:
-    """Build module load lines from cluster configuration."""
+    """Build module load and conda activate lines from cluster config."""
     lines: list[str] = []
     for cmd in cluster.module_loads:
         lines.append(cmd)
-    if lines:
-        lines.append("")
+    # conda is a shell function — source its init script before activating.
+    # Cannot use ``eval "$(conda shell.bash hook)"`` because when conda
+    # is not on PATH the eval silently succeeds (exit 0) with empty input.
+    lines.append(
+        "for p in "
+        "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
+        "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
+        'if [ -f "$p/etc/profile.d/conda.sh" ]; then '
+        '. "$p/etc/profile.d/conda.sh"; break; fi; done'
+    )
+    lines.append("conda activate forge")
+    lines.append("")
     return lines

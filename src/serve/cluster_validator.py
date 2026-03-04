@@ -2,6 +2,10 @@
 
 Checks Python, PyTorch, CUDA, Slurm availability, discovers partitions
 and GPU types, and suggests module loads.
+
+Every check that relies on the forge conda env must prefix its command
+with the conda init + activate snippet because each ``session.execute``
+runs in its own shell.
 """
 
 from __future__ import annotations
@@ -11,6 +15,18 @@ from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, ClusterValidationResult
 from serve.ssh_connection import SshSession
+
+# Source conda's init script and activate the forge env.  Must be
+# prepended to every command that needs the forge env because each
+# session.execute() starts a fresh non-interactive shell.
+_CONDA_ACTIVATE = (
+    "for p in "
+    "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
+    "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
+    'if [ -f "$p/etc/profile.d/conda.sh" ]; then '
+    '. "$p/etc/profile.d/conda.sh"; break; fi; done'
+    " && conda activate forge"
+)
 
 
 def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
@@ -29,11 +45,6 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     errors: list[str] = []
 
     with SshSession(cluster) as session:
-        # Run module loads first if configured
-        if cluster.module_loads:
-            module_cmd = " && ".join(cluster.module_loads)
-            session.execute(module_cmd, timeout=30)
-
         result = _check_python(session, cluster, result, errors)
         result = _check_torch(session, cluster, result, errors)
         result = _check_slurm(session, result, errors)
@@ -43,16 +54,24 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     return replace(result, errors=tuple(errors))
 
 
+def _env_prefix(cluster: ClusterConfig) -> str:
+    """Build a shell prefix that loads modules and activates the forge env."""
+    parts: list[str] = list(cluster.module_loads)
+    parts.append(_CONDA_ACTIVATE)
+    return " && ".join(parts)
+
+
 def _check_python(
     session: SshSession,
     cluster: ClusterConfig,
     result: ClusterValidationResult,
     errors: list[str],
 ) -> ClusterValidationResult:
-    """Check if Python is accessible on the remote."""
+    """Check if Python is accessible inside the forge env."""
+    prefix = _env_prefix(cluster)
     py = cluster.python_path
     stdout, stderr, code = session.execute(
-        f"{py} --version", timeout=15,
+        f"{prefix} && {py} --version", timeout=30,
     )
     if code == 0:
         version = stdout.strip() or stderr.strip()
@@ -67,7 +86,8 @@ def _check_torch(
     result: ClusterValidationResult,
     errors: list[str],
 ) -> ClusterValidationResult:
-    """Check if PyTorch and CUDA are available."""
+    """Check if PyTorch and CUDA are available inside the forge env."""
+    prefix = _env_prefix(cluster)
     py = cluster.python_path
     script = (
         "import torch; "
@@ -76,7 +96,7 @@ def _check_torch(
         "print(f'cuda_ver={torch.version.cuda or \"\"}')"
     )
     stdout, stderr, code = session.execute(
-        f'{py} -c "{script}"', timeout=30,
+        f'{prefix} && {py} -c "{script}"', timeout=30,
     )
     if code != 0:
         errors.append(f"PyTorch not available: {stderr.strip()}")
