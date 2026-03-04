@@ -32,7 +32,12 @@ pub fn run() {
             commands::model_queries::list_model_versions,
             commands::model_queries::get_model_architecture,
             commands::config_store::load_training_config,
-            commands::config_store::save_training_config
+            commands::config_store::save_training_config,
+            commands::remote_queries::list_clusters,
+            commands::remote_queries::list_remote_jobs,
+            commands::remote_queries::get_remote_job,
+            commands::remote_queries::get_remote_job_logs,
+            commands::remote_queries::delete_remote_job
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

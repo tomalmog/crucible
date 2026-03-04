@@ -5,4 +5,5 @@ pub mod dataset_queries;
 pub mod forge_commands;
 pub mod forge_task_store;
 pub mod model_queries;
+pub mod remote_queries;
 pub mod runtime_queries;

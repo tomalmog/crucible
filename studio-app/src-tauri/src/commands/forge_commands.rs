@@ -4,7 +4,7 @@ use crate::commands::forge_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 45] = [
+const ALLOWED_COMMANDS: [&str; 46] = [
     "ingest",
     "filter",
     "train",
@@ -50,6 +50,7 @@ const ALLOWED_COMMANDS: [&str; 45] = [
     "cloud",
     "cost",
     "synthetic",
+    "remote",
 ];
 
 #[tauri::command]

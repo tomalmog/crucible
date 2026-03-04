@@ -14,7 +14,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page (heavy-compute workloads).
-const JOBS_PAGE_COMMANDS: [&str; 19] = [
+const JOBS_PAGE_COMMANDS: [&str; 20] = [
     "train",
     "sft",
     "dpo-train",
@@ -34,6 +34,7 @@ const JOBS_PAGE_COMMANDS: [&str; 19] = [
     "eval",
     "sweep",
     "ingest",
+    "remote",
 ];
 
 #[derive(Clone)]
