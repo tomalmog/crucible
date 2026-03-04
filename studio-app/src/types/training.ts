@@ -84,7 +84,7 @@ export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
   embeddingDim: "128",
   numHeads: "4",
   numLayers: "4",
-  checkpointEvery: "0",
+  checkpointEvery: "1",
   mlpHiddenDim: "512",
   mlpLayers: "1",
   resumeCheckpointPath: "",

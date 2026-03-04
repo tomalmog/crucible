@@ -12,7 +12,7 @@ import {
   TRAINING_METHODS,
   REQUIRED_METHOD_FIELDS,
 } from "../../types/training";
-import { Plus, Trash2, Check } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 interface SweepParam {
   name: string;
