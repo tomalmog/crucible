@@ -1,4 +1,5 @@
 import { SharedTrainingConfig, TrainingMethod } from "../types/training";
+import type { ClusterSubmitConfig } from "../pages/training/ClusterSubmitSection";
 
 function appendOptional(args: string[], flag: string, value: string | undefined): void {
   const trimmed = (value ?? "").trim();
@@ -219,5 +220,90 @@ export function buildAbChatArgs(extra: Record<string, string>): string[] {
   for (const [key, value] of Object.entries(extra)) {
     appendOptionalRaw(args, key, value);
   }
+  return args;
+}
+
+/** Flag-to-dataclass-field mapping for extra (method-specific) flags. */
+const EXTRA_FLAG_TO_FIELD: Record<string, string> = {
+  "--dataset": "dataset_name",
+  "--base-model": "base_model",
+  "--base-model-path": "base_model_path",
+  "--policy-model-path": "policy_model_path",
+  "--teacher-model-path": "teacher_model_path",
+  "--train-reward-model": "train_reward_model",
+};
+
+function flagToField(flag: string): string {
+  if (EXTRA_FLAG_TO_FIELD[flag]) return EXTRA_FLAG_TO_FIELD[flag];
+  return flag.replace(/^--/, "").replace(/-/g, "_");
+}
+
+function addIfPresent(out: Record<string, unknown>, key: string, raw: string | undefined, parse?: (v: string) => unknown): void {
+  const v = (raw ?? "").trim();
+  if (!v) return;
+  out[key] = parse ? parse(v) : v;
+}
+
+/** Convert the wizard's shared + extra state into a JSON-serializable dict
+ *  with Python dataclass field names for remote dispatch. */
+export function buildRemoteMethodArgs(
+  shared: SharedTrainingConfig,
+  extra: Record<string, string>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const int = (v: string) => parseInt(v, 10);
+  const float = (v: string) => parseFloat(v);
+
+  addIfPresent(out, "epochs", shared.epochs, int);
+  addIfPresent(out, "learning_rate", shared.learningRate, float);
+  addIfPresent(out, "batch_size", shared.batchSize, int);
+  addIfPresent(out, "optimizer_type", shared.optimizer);
+  addIfPresent(out, "precision_mode", shared.precision);
+  addIfPresent(out, "output_dir", shared.outputDir);
+  addIfPresent(out, "max_token_length", shared.maxTokenLength, int);
+  addIfPresent(out, "hidden_dim", shared.embeddingDim, int);
+  addIfPresent(out, "attention_heads", shared.numHeads, int);
+  addIfPresent(out, "num_layers", shared.numLayers, int);
+  addIfPresent(out, "checkpoint_every_epochs", shared.checkpointEvery, (v) => Math.max(1, int(v)));
+  addIfPresent(out, "mlp_hidden_dim", shared.mlpHiddenDim, int);
+  addIfPresent(out, "mlp_layers", shared.mlpLayers, int);
+  addIfPresent(out, "resume_checkpoint_path", shared.resumeCheckpointPath);
+
+  for (const [flag, value] of Object.entries(extra)) {
+    const v = (value ?? "").trim();
+    if (!v) continue;
+    if (BOOLEAN_FLAGS.has(flag)) {
+      if (v === "true") out[flagToField(flag)] = true;
+    } else {
+      out[flagToField(flag)] = v;
+    }
+  }
+
+  return out;
+}
+
+/** Build the full CLI args array for `forge remote submit ...`. */
+export function buildRemoteSubmitArgs(
+  method: TrainingMethod,
+  methodArgsJson: string,
+  config: ClusterSubmitConfig,
+  modelName?: string,
+): string[] {
+  const args = [
+    "remote", "submit",
+    "--cluster", config.cluster,
+    "--method", method,
+    "--method-args", methodArgsJson,
+    "--data-strategy", config.dataStrategy,
+    "--nodes", config.nodes,
+    "--gpus-per-node", config.gpusPerNode,
+    "--cpus-per-task", config.cpusPerTask,
+    "--memory", config.memory,
+    "--time-limit", config.timeLimit,
+  ];
+  if (config.partition) args.push("--partition", config.partition);
+  if (config.gpuType) args.push("--gpu-type", config.gpuType);
+  if (config.pullModel) args.push("--pull-model");
+  if (modelName) args.push("--model-name", modelName);
   return args;
 }

@@ -47,7 +47,9 @@ export function TrainingPage() {
         </button>
       </PageHeader>
 
-      {view === "pick" && <TrainingMethodPicker onSelect={onPickMethod} />}
+      {view === "pick" && (
+        <TrainingMethodPicker onSelect={onPickMethod} />
+      )}
       {view === "wizard" && selectedMethod && (
         <TrainingWizard method={selectedMethod} dataRoot={dataRoot} onBack={onBack} />
       )}

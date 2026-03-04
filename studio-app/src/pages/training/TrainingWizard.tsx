@@ -3,7 +3,8 @@ import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
-import { buildTrainingArgs } from "../../api/commandArgs";
+import { buildTrainingArgs, buildRemoteMethodArgs, buildRemoteSubmitArgs } from "../../api/commandArgs";
+import { startForgeCommand } from "../../api/studioApi";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -19,6 +20,8 @@ import { OrpoTrainForm } from "./forms/OrpoTrainForm";
 import { MultimodalTrainForm } from "./forms/MultimodalTrainForm";
 import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
+import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSection";
+import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
 import { FormField } from "../../components/shared/FormField";
 import { ArrowLeft, ChevronRight, RotateCcw, Check } from "lucide-react";
 
@@ -61,13 +64,18 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const [modelName, setModelName] = useState("My-Model-0");
   const [registered, setRegistered] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [remoteEnabled, setRemoteEnabled] = useState(false);
+  const [clusterConfig, setClusterConfig] = useState<ClusterSubmitConfig>(DEFAULT_CLUSTER_CONFIG);
+  const [remoteSubmitted, setRemoteSubmitted] = useState(false);
+  const [remoteSubmitting, setRemoteSubmitting] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
 
-  const missing = useMemo(
-    () => getMissingFields(method, extra),
-    [method, extra],
-  );
+  const missing = useMemo(() => {
+    const m = getMissingFields(method, extra);
+    if (remoteEnabled && !clusterConfig.cluster) m.push("cluster");
+    return m;
+  }, [method, extra, remoteEnabled, clusterConfig.cluster]);
   const canStart = missing.length === 0;
 
   async function startTraining() {
@@ -95,6 +103,30 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
       setStep("done");
+    }
+  }
+
+  async function submitToCluster() {
+    if (!canStart) return;
+    setRemoteSubmitting(true);
+    setRemoteSubmitted(false);
+    setStartError(null);
+    try {
+      const methodArgsObj = buildRemoteMethodArgs(shared, extra);
+      let extraOverrides: Record<string, unknown> = {};
+      try {
+        extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
+      } catch { /* ignore invalid JSON */ }
+      const merged = { ...methodArgsObj, ...extraOverrides };
+      const methodArgsJson = JSON.stringify(merged);
+      const effectiveName = registerModel && modelName.trim() ? modelName.trim() : undefined;
+      const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);
+      await startForgeCommand(dataRoot, args);
+      setRemoteSubmitted(true);
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRemoteSubmitting(false);
     }
   }
 
@@ -166,19 +198,45 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
             </FormField>
           )}
 
+          <ClusterSubmitSection
+            enabled={remoteEnabled}
+            onToggle={setRemoteEnabled}
+            clusterConfig={clusterConfig}
+            onChange={setClusterConfig}
+          />
+
           {!canStart && (
             <div className="error-alert">
               Missing required fields: {missing.join(", ")}
             </div>
           )}
+          {remoteSubmitted && (
+            <div className="flex-row" style={{ color: "var(--color-success)" }}>
+              <Check size={14} />
+              <span>Submitted! Track on Jobs page.</span>
+            </div>
+          )}
+          {startError && (
+            <div className="error-alert">{startError}</div>
+          )}
           <div className="flex-row">
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => startTraining().catch(console.error)}
-              disabled={!canStart}
-            >
-              Start Training
-            </button>
+            {remoteEnabled ? (
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={() => submitToCluster().catch(console.error)}
+                disabled={!canStart || remoteSubmitting}
+              >
+                {remoteSubmitting ? "Submitting..." : "Submit to Cluster"}
+              </button>
+            ) : (
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={() => startTraining().catch(console.error)}
+                disabled={!canStart}
+              >
+                Start Training
+              </button>
+            )}
             <button
               className="btn btn-ghost btn-sm"
               onClick={config.resetToDefaults}
