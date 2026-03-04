@@ -129,14 +129,33 @@ def _extract_lora_state_dict(model: Any) -> dict[str, Any]:
 
 
 def _merge_lora_layers(torch_module: Any, model: Any) -> int:
-    """Merge LoRA deltas into original weights in-place."""
-    merged = 0
+    """Merge LoRA deltas into original weights and replace LoRA modules.
+
+    After merging, each LoraLinear module is replaced with its inner
+    ``original`` nn.Linear (now containing merged weights) so that
+    ``model.state_dict()`` produces clean keys (``weight``, ``bias``)
+    instead of LoRA-structured keys (``original.weight``, ``lora_a``, etc.).
+    """
+    # Collect (parent, attr_name, lora_module) before mutating the tree
+    replacements: list[tuple[Any, str, Any]] = []
     for name, module in list(model.named_modules()):
         if not (hasattr(module, "lora_a") and hasattr(module, "original")):
             continue
         _merge_single_layer(torch_module, module)
-        merged += 1
-    return merged
+        # Find the parent module so we can swap out the LoraLinear
+        parts = name.rsplit(".", 1)
+        if len(parts) == 2:
+            parent = dict(model.named_modules())[parts[0]]
+            attr = parts[1]
+        else:
+            parent = model
+            attr = parts[0]
+        replacements.append((parent, attr, module.original))
+
+    for parent, attr, merged_linear in replacements:
+        setattr(parent, attr, merged_linear)
+
+    return len(replacements)
 
 
 def _merge_single_layer(torch_module: Any, lora_module: Any) -> None:

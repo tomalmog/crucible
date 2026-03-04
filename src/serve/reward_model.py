@@ -152,16 +152,20 @@ def build_reward_model_from_base(
 def _extract_encoder_hidden(base_model: Any, input_ids: Any) -> Any:
     """Extract encoder hidden states from the base model.
 
-    Runs the model's embedding and encoder layers to obtain hidden
+    Runs the model's embedding and transformer blocks to obtain hidden
     representations, bypassing the final output projection that maps
-    to vocabulary logits.  Falls back to the full forward pass when
-    the model lacks an explicit encoder attribute (e.g. custom
-    architecture).
+    to vocabulary logits.  Supports both the Forge DefaultCausalModel
+    (which uses ``blocks``) and models with an ``encoder`` attribute.
+    Falls back to the full forward pass for HuggingFace models.
     """
-    encoder = getattr(base_model, "encoder", None)
+    import torch
+
     embedding = getattr(base_model, "embedding", None)
-    if encoder is not None and embedding is not None:
-        import torch
+    # Forge DefaultCausalModel uses self.blocks; others may use self.encoder
+    encoder = getattr(base_model, "encoder", None)
+    blocks = getattr(base_model, "blocks", None)
+
+    if embedding is not None and (encoder is not None or blocks is not None):
         embedded = embedding(input_ids)
         pos_emb = getattr(base_model, "position_embedding", None)
         sinusoidal = getattr(base_model, "sinusoidal_position_encoding", None)
@@ -179,11 +183,19 @@ def _extract_encoder_hidden(base_model: Any, input_ids: Any) -> Any:
             hidden = embedded + pos_enc
         else:
             hidden = embedded
-        mask = torch.triu(
-            torch.ones(seq_len, seq_len, device=input_ids.device),
-            diagonal=1,
-        ).bool()
-        return encoder(hidden, mask=mask)
+        if encoder is not None:
+            mask = torch.triu(
+                torch.ones(seq_len, seq_len, device=input_ids.device),
+                diagonal=1,
+            ).bool()
+            return encoder(hidden, mask=mask)
+        # Forge model: run through blocks + final_norm
+        for block in blocks:
+            hidden = block(hidden)
+        final_norm = getattr(base_model, "final_norm", None)
+        if final_norm is not None:
+            hidden = final_norm(hidden)
+        return hidden
     # HuggingFace models: extract hidden states via output_hidden_states
     inner = getattr(base_model, "model", base_model)
     if hasattr(inner, "config"):

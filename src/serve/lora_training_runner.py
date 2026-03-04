@@ -100,10 +100,21 @@ def run_lora_training(
             device=device,
             options=options,
         )
-        model_path = save_model_weights(output_dir, torch_module, model)
         adapter_info = save_lora_adapter(
             torch_module, model, output_dir, lora_config,
         )
+        # Merge LoRA adapters into base weights so the saved model
+        # can be loaded and used directly without a separate merge step
+        from serve.lora_adapter_io import merge_lora_into_base
+        merged_path = str(output_dir / "model.pt")
+        merge_lora_into_base(torch_module, model, merged_path)
+        model_path = Path(merged_path)
+        # Save tokenizer and training config alongside the model
+        from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
+        tokenizer = _load_lora_tokenizer(options)
+        if tokenizer is not None:
+            save_tokenizer_vocabulary(output_dir, tokenizer)
+        save_training_config(output_dir, options)
         history_path = save_training_history(output_dir, epoch_metrics, [])
         result = TrainingRunResult(
             model_path=str(model_path),

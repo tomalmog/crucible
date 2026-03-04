@@ -372,11 +372,18 @@ def _persist_qlora_outputs(
     from dataclasses import asdict
 
     from serve.training_artifact_contract import save_training_artifact_contract
-    from serve.training_artifacts import save_model_weights, save_training_history, save_training_plot
+    from serve.training_artifacts import save_training_history, save_training_plot
     from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
     from serve.training_reproducibility_bundle import save_reproducibility_bundle
 
-    model_path = save_model_weights(context.output_dir, context.torch_module, context.model)
+    # Save adapter separately, then merge into base for a usable model
+    from serve.lora_adapter_io import merge_lora_into_base, save_lora_adapter
+    from core.lora_types import LoraConfig
+    qlora_config = LoraConfig(rank=getattr(context.options, 'lora_rank', 8))
+    save_lora_adapter(context.torch_module, context.model, context.output_dir, qlora_config)
+    merged_path = str(context.output_dir / "model.pt")
+    merge_lora_into_base(context.torch_module, context.model, merged_path)
+    model_path = Path(merged_path)
     config_path = save_training_config(context.output_dir, context.options)
     tokenizer_path = save_tokenizer_vocabulary(context.output_dir, context.tokenizer)
     history_path = save_training_history(
