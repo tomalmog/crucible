@@ -456,6 +456,8 @@ label {
     margin: 0;
     line-height: 1.5;
     white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: break-all;
     color: var(--text);
     font-size: 0.8125rem;
 }
@@ -1439,6 +1441,45 @@ label {
     font-size: 0.75rem;
     color: var(--text-tertiary);
     padding: 8px 0;
+}
+
+.pull-progress {
+    padding: var(--space-sm) 0;
+    display: grid;
+    gap: var(--space-xs);
+}
+
+.pull-steps {
+    display: grid;
+    gap: 2px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: var(--space-xs) 0;
+}
+
+.pull-step {
+    padding: 2px 0;
+    font-family: var(--font-mono);
+}
+
+.pull-step::before {
+    content: "→ ";
+    color: var(--clr-accent);
+}
+
+.pull-success {
+    font-size: 0.8rem;
+    color: var(--clr-success);
+    padding: var(--space-xs) 0;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1.2s linear infinite;
 }
 
 .panel-flush {
