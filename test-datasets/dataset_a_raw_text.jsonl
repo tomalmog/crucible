@@ -1,0 +1,200 @@
+{"text": "The quick brown fox jumps over the lazy dog. (Sample 1 of the training corpus.)"}
+{"text": "Machine learning is a subset of artificial intelligence that focuses on data-driven algorithms. (Sample 2 of the training corpus.)"}
+{"text": "Neural networks are composed of layers of interconnected nodes that process information. (Sample 3 of the training corpus.)"}
+{"text": "Deep learning has revolutionized computer vision, natural language processing, and speech recognition. (Sample 4 of the training corpus.)"}
+{"text": "Gradient descent is an optimization algorithm used to minimize the loss function. (Sample 5 of the training corpus.)"}
+{"text": "Backpropagation computes the gradient of the loss with respect to each weight. (Sample 6 of the training corpus.)"}
+{"text": "Transformers use self-attention mechanisms to process sequential data in parallel. (Sample 7 of the training corpus.)"}
+{"text": "Convolutional neural networks excel at recognizing spatial patterns in images. (Sample 8 of the training corpus.)"}
+{"text": "Recurrent neural networks maintain hidden states to process sequences of variable length. (Sample 9 of the training corpus.)"}
+{"text": "Transfer learning allows models to leverage knowledge from one task to improve another. (Sample 10 of the training corpus.)"}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs across mini-batches. (Sample 11 of the training corpus.)"}
+{"text": "Dropout randomly deactivates neurons during training to prevent overfitting. (Sample 12 of the training corpus.)"}
+{"text": "The softmax function converts raw logits into probability distributions over classes. (Sample 13 of the training corpus.)"}
+{"text": "Cross-entropy loss measures the difference between predicted and true probability distributions. (Sample 14 of the training corpus.)"}
+{"text": "Adam optimizer combines momentum and adaptive learning rates for efficient training. (Sample 15 of the training corpus.)"}
+{"text": "Learning rate scheduling adjusts the step size during training for better convergence. (Sample 16 of the training corpus.)"}
+{"text": "Data augmentation increases training data diversity through transformations like rotation and flipping. (Sample 17 of the training corpus.)"}
+{"text": "Regularization techniques like L1 and L2 penalties constrain model complexity. (Sample 18 of the training corpus.)"}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input sequence. (Sample 19 of the training corpus.)"}
+{"text": "Positional encodings provide sequence order information to transformer architectures. (Sample 20 of the training corpus.)"}
+{"text": "The embedding layer maps discrete tokens to dense continuous vector representations. (Sample 21 of the training corpus.)"}
+{"text": "Tokenization breaks text into smaller units like words, subwords, or characters. (Sample 22 of the training corpus.)"}
+{"text": "Vocabulary size affects both model capacity and computational requirements. (Sample 23 of the training corpus.)"}
+{"text": "Multi-head attention allows the model to attend to information from different subspaces. (Sample 24 of the training corpus.)"}
+{"text": "Layer normalization is applied before each sub-layer in modern transformer architectures. (Sample 25 of the training corpus.)"}
+{"text": "Feed-forward networks in transformers typically use GeLU or ReLU activation functions. (Sample 26 of the training corpus.)"}
+{"text": "The residual connections in transformers help gradient flow through deep networks. (Sample 27 of the training corpus.)"}
+{"text": "Causal masking ensures autoregressive models only attend to previous positions. (Sample 28 of the training corpus.)"}
+{"text": "Temperature scaling controls the sharpness of the output probability distribution. (Sample 29 of the training corpus.)"}
+{"text": "Top-k sampling restricts generation to the k most likely next tokens. (Sample 30 of the training corpus.)"}
+{"text": "Nucleus sampling selects from tokens whose cumulative probability exceeds a threshold. (Sample 31 of the training corpus.)"}
+{"text": "Beam search explores multiple candidate sequences to find high-probability outputs. (Sample 32 of the training corpus.)"}
+{"text": "Perplexity measures how well a language model predicts a sample of text. (Sample 33 of the training corpus.)"}
+{"text": "BLEU score evaluates machine translation quality by comparing n-gram overlaps. (Sample 34 of the training corpus.)"}
+{"text": "The training loop consists of forward pass, loss computation, backward pass, and parameter update. (Sample 35 of the training corpus.)"}
+{"text": "Mixed precision training uses both 16-bit and 32-bit floating point for efficiency. (Sample 36 of the training corpus.)"}
+{"text": "Gradient clipping prevents exploding gradients by capping the gradient norm. (Sample 37 of the training corpus.)"}
+{"text": "Weight initialization strategies like Xavier and He help models converge faster. (Sample 38 of the training corpus.)"}
+{"text": "The bias-variance tradeoff describes the balance between underfitting and overfitting. (Sample 39 of the training corpus.)"}
+{"text": "Ensemble methods combine multiple models to improve prediction accuracy and robustness. (Sample 40 of the training corpus.)"}
+{"text": "The quick brown fox jumps over the lazy dog. (Sample 41 of the training corpus.)"}
+{"text": "Machine learning is a subset of artificial intelligence that focuses on data-driven algorithms. (Sample 42 of the training corpus.)"}
+{"text": "Neural networks are composed of layers of interconnected nodes that process information. (Sample 43 of the training corpus.)"}
+{"text": "Deep learning has revolutionized computer vision, natural language processing, and speech recognition. (Sample 44 of the training corpus.)"}
+{"text": "Gradient descent is an optimization algorithm used to minimize the loss function. (Sample 45 of the training corpus.)"}
+{"text": "Backpropagation computes the gradient of the loss with respect to each weight. (Sample 46 of the training corpus.)"}
+{"text": "Transformers use self-attention mechanisms to process sequential data in parallel. (Sample 47 of the training corpus.)"}
+{"text": "Convolutional neural networks excel at recognizing spatial patterns in images. (Sample 48 of the training corpus.)"}
+{"text": "Recurrent neural networks maintain hidden states to process sequences of variable length. (Sample 49 of the training corpus.)"}
+{"text": "Transfer learning allows models to leverage knowledge from one task to improve another. (Sample 50 of the training corpus.)"}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs across mini-batches. (Sample 51 of the training corpus.)"}
+{"text": "Dropout randomly deactivates neurons during training to prevent overfitting. (Sample 52 of the training corpus.)"}
+{"text": "The softmax function converts raw logits into probability distributions over classes. (Sample 53 of the training corpus.)"}
+{"text": "Cross-entropy loss measures the difference between predicted and true probability distributions. (Sample 54 of the training corpus.)"}
+{"text": "Adam optimizer combines momentum and adaptive learning rates for efficient training. (Sample 55 of the training corpus.)"}
+{"text": "Learning rate scheduling adjusts the step size during training for better convergence. (Sample 56 of the training corpus.)"}
+{"text": "Data augmentation increases training data diversity through transformations like rotation and flipping. (Sample 57 of the training corpus.)"}
+{"text": "Regularization techniques like L1 and L2 penalties constrain model complexity. (Sample 58 of the training corpus.)"}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input sequence. (Sample 59 of the training corpus.)"}
+{"text": "Positional encodings provide sequence order information to transformer architectures. (Sample 60 of the training corpus.)"}
+{"text": "The embedding layer maps discrete tokens to dense continuous vector representations. (Sample 61 of the training corpus.)"}
+{"text": "Tokenization breaks text into smaller units like words, subwords, or characters. (Sample 62 of the training corpus.)"}
+{"text": "Vocabulary size affects both model capacity and computational requirements. (Sample 63 of the training corpus.)"}
+{"text": "Multi-head attention allows the model to attend to information from different subspaces. (Sample 64 of the training corpus.)"}
+{"text": "Layer normalization is applied before each sub-layer in modern transformer architectures. (Sample 65 of the training corpus.)"}
+{"text": "Feed-forward networks in transformers typically use GeLU or ReLU activation functions. (Sample 66 of the training corpus.)"}
+{"text": "The residual connections in transformers help gradient flow through deep networks. (Sample 67 of the training corpus.)"}
+{"text": "Causal masking ensures autoregressive models only attend to previous positions. (Sample 68 of the training corpus.)"}
+{"text": "Temperature scaling controls the sharpness of the output probability distribution. (Sample 69 of the training corpus.)"}
+{"text": "Top-k sampling restricts generation to the k most likely next tokens. (Sample 70 of the training corpus.)"}
+{"text": "Nucleus sampling selects from tokens whose cumulative probability exceeds a threshold. (Sample 71 of the training corpus.)"}
+{"text": "Beam search explores multiple candidate sequences to find high-probability outputs. (Sample 72 of the training corpus.)"}
+{"text": "Perplexity measures how well a language model predicts a sample of text. (Sample 73 of the training corpus.)"}
+{"text": "BLEU score evaluates machine translation quality by comparing n-gram overlaps. (Sample 74 of the training corpus.)"}
+{"text": "The training loop consists of forward pass, loss computation, backward pass, and parameter update. (Sample 75 of the training corpus.)"}
+{"text": "Mixed precision training uses both 16-bit and 32-bit floating point for efficiency. (Sample 76 of the training corpus.)"}
+{"text": "Gradient clipping prevents exploding gradients by capping the gradient norm. (Sample 77 of the training corpus.)"}
+{"text": "Weight initialization strategies like Xavier and He help models converge faster. (Sample 78 of the training corpus.)"}
+{"text": "The bias-variance tradeoff describes the balance between underfitting and overfitting. (Sample 79 of the training corpus.)"}
+{"text": "Ensemble methods combine multiple models to improve prediction accuracy and robustness. (Sample 80 of the training corpus.)"}
+{"text": "The quick brown fox jumps over the lazy dog. (Sample 81 of the training corpus.)"}
+{"text": "Machine learning is a subset of artificial intelligence that focuses on data-driven algorithms. (Sample 82 of the training corpus.)"}
+{"text": "Neural networks are composed of layers of interconnected nodes that process information. (Sample 83 of the training corpus.)"}
+{"text": "Deep learning has revolutionized computer vision, natural language processing, and speech recognition. (Sample 84 of the training corpus.)"}
+{"text": "Gradient descent is an optimization algorithm used to minimize the loss function. (Sample 85 of the training corpus.)"}
+{"text": "Backpropagation computes the gradient of the loss with respect to each weight. (Sample 86 of the training corpus.)"}
+{"text": "Transformers use self-attention mechanisms to process sequential data in parallel. (Sample 87 of the training corpus.)"}
+{"text": "Convolutional neural networks excel at recognizing spatial patterns in images. (Sample 88 of the training corpus.)"}
+{"text": "Recurrent neural networks maintain hidden states to process sequences of variable length. (Sample 89 of the training corpus.)"}
+{"text": "Transfer learning allows models to leverage knowledge from one task to improve another. (Sample 90 of the training corpus.)"}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs across mini-batches. (Sample 91 of the training corpus.)"}
+{"text": "Dropout randomly deactivates neurons during training to prevent overfitting. (Sample 92 of the training corpus.)"}
+{"text": "The softmax function converts raw logits into probability distributions over classes. (Sample 93 of the training corpus.)"}
+{"text": "Cross-entropy loss measures the difference between predicted and true probability distributions. (Sample 94 of the training corpus.)"}
+{"text": "Adam optimizer combines momentum and adaptive learning rates for efficient training. (Sample 95 of the training corpus.)"}
+{"text": "Learning rate scheduling adjusts the step size during training for better convergence. (Sample 96 of the training corpus.)"}
+{"text": "Data augmentation increases training data diversity through transformations like rotation and flipping. (Sample 97 of the training corpus.)"}
+{"text": "Regularization techniques like L1 and L2 penalties constrain model complexity. (Sample 98 of the training corpus.)"}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input sequence. (Sample 99 of the training corpus.)"}
+{"text": "Positional encodings provide sequence order information to transformer architectures. (Sample 100 of the training corpus.)"}
+{"text": "The embedding layer maps discrete tokens to dense continuous vector representations. (Sample 101 of the training corpus.)"}
+{"text": "Tokenization breaks text into smaller units like words, subwords, or characters. (Sample 102 of the training corpus.)"}
+{"text": "Vocabulary size affects both model capacity and computational requirements. (Sample 103 of the training corpus.)"}
+{"text": "Multi-head attention allows the model to attend to information from different subspaces. (Sample 104 of the training corpus.)"}
+{"text": "Layer normalization is applied before each sub-layer in modern transformer architectures. (Sample 105 of the training corpus.)"}
+{"text": "Feed-forward networks in transformers typically use GeLU or ReLU activation functions. (Sample 106 of the training corpus.)"}
+{"text": "The residual connections in transformers help gradient flow through deep networks. (Sample 107 of the training corpus.)"}
+{"text": "Causal masking ensures autoregressive models only attend to previous positions. (Sample 108 of the training corpus.)"}
+{"text": "Temperature scaling controls the sharpness of the output probability distribution. (Sample 109 of the training corpus.)"}
+{"text": "Top-k sampling restricts generation to the k most likely next tokens. (Sample 110 of the training corpus.)"}
+{"text": "Nucleus sampling selects from tokens whose cumulative probability exceeds a threshold. (Sample 111 of the training corpus.)"}
+{"text": "Beam search explores multiple candidate sequences to find high-probability outputs. (Sample 112 of the training corpus.)"}
+{"text": "Perplexity measures how well a language model predicts a sample of text. (Sample 113 of the training corpus.)"}
+{"text": "BLEU score evaluates machine translation quality by comparing n-gram overlaps. (Sample 114 of the training corpus.)"}
+{"text": "The training loop consists of forward pass, loss computation, backward pass, and parameter update. (Sample 115 of the training corpus.)"}
+{"text": "Mixed precision training uses both 16-bit and 32-bit floating point for efficiency. (Sample 116 of the training corpus.)"}
+{"text": "Gradient clipping prevents exploding gradients by capping the gradient norm. (Sample 117 of the training corpus.)"}
+{"text": "Weight initialization strategies like Xavier and He help models converge faster. (Sample 118 of the training corpus.)"}
+{"text": "The bias-variance tradeoff describes the balance between underfitting and overfitting. (Sample 119 of the training corpus.)"}
+{"text": "Ensemble methods combine multiple models to improve prediction accuracy and robustness. (Sample 120 of the training corpus.)"}
+{"text": "The quick brown fox jumps over the lazy dog. (Sample 121 of the training corpus.)"}
+{"text": "Machine learning is a subset of artificial intelligence that focuses on data-driven algorithms. (Sample 122 of the training corpus.)"}
+{"text": "Neural networks are composed of layers of interconnected nodes that process information. (Sample 123 of the training corpus.)"}
+{"text": "Deep learning has revolutionized computer vision, natural language processing, and speech recognition. (Sample 124 of the training corpus.)"}
+{"text": "Gradient descent is an optimization algorithm used to minimize the loss function. (Sample 125 of the training corpus.)"}
+{"text": "Backpropagation computes the gradient of the loss with respect to each weight. (Sample 126 of the training corpus.)"}
+{"text": "Transformers use self-attention mechanisms to process sequential data in parallel. (Sample 127 of the training corpus.)"}
+{"text": "Convolutional neural networks excel at recognizing spatial patterns in images. (Sample 128 of the training corpus.)"}
+{"text": "Recurrent neural networks maintain hidden states to process sequences of variable length. (Sample 129 of the training corpus.)"}
+{"text": "Transfer learning allows models to leverage knowledge from one task to improve another. (Sample 130 of the training corpus.)"}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs across mini-batches. (Sample 131 of the training corpus.)"}
+{"text": "Dropout randomly deactivates neurons during training to prevent overfitting. (Sample 132 of the training corpus.)"}
+{"text": "The softmax function converts raw logits into probability distributions over classes. (Sample 133 of the training corpus.)"}
+{"text": "Cross-entropy loss measures the difference between predicted and true probability distributions. (Sample 134 of the training corpus.)"}
+{"text": "Adam optimizer combines momentum and adaptive learning rates for efficient training. (Sample 135 of the training corpus.)"}
+{"text": "Learning rate scheduling adjusts the step size during training for better convergence. (Sample 136 of the training corpus.)"}
+{"text": "Data augmentation increases training data diversity through transformations like rotation and flipping. (Sample 137 of the training corpus.)"}
+{"text": "Regularization techniques like L1 and L2 penalties constrain model complexity. (Sample 138 of the training corpus.)"}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input sequence. (Sample 139 of the training corpus.)"}
+{"text": "Positional encodings provide sequence order information to transformer architectures. (Sample 140 of the training corpus.)"}
+{"text": "The embedding layer maps discrete tokens to dense continuous vector representations. (Sample 141 of the training corpus.)"}
+{"text": "Tokenization breaks text into smaller units like words, subwords, or characters. (Sample 142 of the training corpus.)"}
+{"text": "Vocabulary size affects both model capacity and computational requirements. (Sample 143 of the training corpus.)"}
+{"text": "Multi-head attention allows the model to attend to information from different subspaces. (Sample 144 of the training corpus.)"}
+{"text": "Layer normalization is applied before each sub-layer in modern transformer architectures. (Sample 145 of the training corpus.)"}
+{"text": "Feed-forward networks in transformers typically use GeLU or ReLU activation functions. (Sample 146 of the training corpus.)"}
+{"text": "The residual connections in transformers help gradient flow through deep networks. (Sample 147 of the training corpus.)"}
+{"text": "Causal masking ensures autoregressive models only attend to previous positions. (Sample 148 of the training corpus.)"}
+{"text": "Temperature scaling controls the sharpness of the output probability distribution. (Sample 149 of the training corpus.)"}
+{"text": "Top-k sampling restricts generation to the k most likely next tokens. (Sample 150 of the training corpus.)"}
+{"text": "Nucleus sampling selects from tokens whose cumulative probability exceeds a threshold. (Sample 151 of the training corpus.)"}
+{"text": "Beam search explores multiple candidate sequences to find high-probability outputs. (Sample 152 of the training corpus.)"}
+{"text": "Perplexity measures how well a language model predicts a sample of text. (Sample 153 of the training corpus.)"}
+{"text": "BLEU score evaluates machine translation quality by comparing n-gram overlaps. (Sample 154 of the training corpus.)"}
+{"text": "The training loop consists of forward pass, loss computation, backward pass, and parameter update. (Sample 155 of the training corpus.)"}
+{"text": "Mixed precision training uses both 16-bit and 32-bit floating point for efficiency. (Sample 156 of the training corpus.)"}
+{"text": "Gradient clipping prevents exploding gradients by capping the gradient norm. (Sample 157 of the training corpus.)"}
+{"text": "Weight initialization strategies like Xavier and He help models converge faster. (Sample 158 of the training corpus.)"}
+{"text": "The bias-variance tradeoff describes the balance between underfitting and overfitting. (Sample 159 of the training corpus.)"}
+{"text": "Ensemble methods combine multiple models to improve prediction accuracy and robustness. (Sample 160 of the training corpus.)"}
+{"text": "The quick brown fox jumps over the lazy dog. (Sample 161 of the training corpus.)"}
+{"text": "Machine learning is a subset of artificial intelligence that focuses on data-driven algorithms. (Sample 162 of the training corpus.)"}
+{"text": "Neural networks are composed of layers of interconnected nodes that process information. (Sample 163 of the training corpus.)"}
+{"text": "Deep learning has revolutionized computer vision, natural language processing, and speech recognition. (Sample 164 of the training corpus.)"}
+{"text": "Gradient descent is an optimization algorithm used to minimize the loss function. (Sample 165 of the training corpus.)"}
+{"text": "Backpropagation computes the gradient of the loss with respect to each weight. (Sample 166 of the training corpus.)"}
+{"text": "Transformers use self-attention mechanisms to process sequential data in parallel. (Sample 167 of the training corpus.)"}
+{"text": "Convolutional neural networks excel at recognizing spatial patterns in images. (Sample 168 of the training corpus.)"}
+{"text": "Recurrent neural networks maintain hidden states to process sequences of variable length. (Sample 169 of the training corpus.)"}
+{"text": "Transfer learning allows models to leverage knowledge from one task to improve another. (Sample 170 of the training corpus.)"}
+{"text": "Batch normalization stabilizes training by normalizing layer inputs across mini-batches. (Sample 171 of the training corpus.)"}
+{"text": "Dropout randomly deactivates neurons during training to prevent overfitting. (Sample 172 of the training corpus.)"}
+{"text": "The softmax function converts raw logits into probability distributions over classes. (Sample 173 of the training corpus.)"}
+{"text": "Cross-entropy loss measures the difference between predicted and true probability distributions. (Sample 174 of the training corpus.)"}
+{"text": "Adam optimizer combines momentum and adaptive learning rates for efficient training. (Sample 175 of the training corpus.)"}
+{"text": "Learning rate scheduling adjusts the step size during training for better convergence. (Sample 176 of the training corpus.)"}
+{"text": "Data augmentation increases training data diversity through transformations like rotation and flipping. (Sample 177 of the training corpus.)"}
+{"text": "Regularization techniques like L1 and L2 penalties constrain model complexity. (Sample 178 of the training corpus.)"}
+{"text": "Attention mechanisms allow models to focus on relevant parts of the input sequence. (Sample 179 of the training corpus.)"}
+{"text": "Positional encodings provide sequence order information to transformer architectures. (Sample 180 of the training corpus.)"}
+{"text": "The embedding layer maps discrete tokens to dense continuous vector representations. (Sample 181 of the training corpus.)"}
+{"text": "Tokenization breaks text into smaller units like words, subwords, or characters. (Sample 182 of the training corpus.)"}
+{"text": "Vocabulary size affects both model capacity and computational requirements. (Sample 183 of the training corpus.)"}
+{"text": "Multi-head attention allows the model to attend to information from different subspaces. (Sample 184 of the training corpus.)"}
+{"text": "Layer normalization is applied before each sub-layer in modern transformer architectures. (Sample 185 of the training corpus.)"}
+{"text": "Feed-forward networks in transformers typically use GeLU or ReLU activation functions. (Sample 186 of the training corpus.)"}
+{"text": "The residual connections in transformers help gradient flow through deep networks. (Sample 187 of the training corpus.)"}
+{"text": "Causal masking ensures autoregressive models only attend to previous positions. (Sample 188 of the training corpus.)"}
+{"text": "Temperature scaling controls the sharpness of the output probability distribution. (Sample 189 of the training corpus.)"}
+{"text": "Top-k sampling restricts generation to the k most likely next tokens. (Sample 190 of the training corpus.)"}
+{"text": "Nucleus sampling selects from tokens whose cumulative probability exceeds a threshold. (Sample 191 of the training corpus.)"}
+{"text": "Beam search explores multiple candidate sequences to find high-probability outputs. (Sample 192 of the training corpus.)"}
+{"text": "Perplexity measures how well a language model predicts a sample of text. (Sample 193 of the training corpus.)"}
+{"text": "BLEU score evaluates machine translation quality by comparing n-gram overlaps. (Sample 194 of the training corpus.)"}
+{"text": "The training loop consists of forward pass, loss computation, backward pass, and parameter update. (Sample 195 of the training corpus.)"}
+{"text": "Mixed precision training uses both 16-bit and 32-bit floating point for efficiency. (Sample 196 of the training corpus.)"}
+{"text": "Gradient clipping prevents exploding gradients by capping the gradient norm. (Sample 197 of the training corpus.)"}
+{"text": "Weight initialization strategies like Xavier and He help models converge faster. (Sample 198 of the training corpus.)"}
+{"text": "The bias-variance tradeoff describes the balance between underfitting and overfitting. (Sample 199 of the training corpus.)"}
+{"text": "Ensemble methods combine multiple models to improve prediction accuracy and robustness. (Sample 200 of the training corpus.)"}
