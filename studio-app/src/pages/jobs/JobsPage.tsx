@@ -352,7 +352,7 @@ function JobRow({
 }
 
 function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () => void }) {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshModels } = useForge();
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepArraySize} trials)` : "";
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>("");
@@ -430,6 +430,7 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
             clearInterval(poll);
             if (status.status === "completed") {
               setPullDone(true);
+              refreshModels().catch(console.error);
             } else {
               setPullError(status.stderr || "Pull failed");
             }
@@ -445,7 +446,7 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
       setPulling(false);
       setPullError(`Failed to start pull: ${err}`);
     }
-  }, [dataRoot, job.jobId, job.trainingMethod]);
+  }, [dataRoot, job.jobId, job.trainingMethod, refreshModels]);
 
   const isRunning = job.state === "running" || job.state === "pending";
   const isCompleted = job.state === "completed";
