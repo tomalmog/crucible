@@ -7,6 +7,7 @@ logic, mapping CLI arguments to ModelRegistry operations.
 from __future__ import annotations
 
 import argparse
+import subprocess
 
 from core.errors import ForgeModelRegistryError
 from store.dataset_sdk import ForgeClient
@@ -32,6 +33,7 @@ def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     _add_tag_subcommand(model_subs)
     _add_diff_subcommand(model_subs)
     _add_rollback_subcommand(model_subs)
+    _add_delete_subcommand(model_subs)
 
 
 def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
@@ -55,6 +57,8 @@ def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
         return _run_diff(client, args)
     if action == "rollback":
         return _run_rollback(client, args)
+    if action == "delete":
+        return _run_delete(client, args)
     return 2
 
 
@@ -250,3 +254,122 @@ def _run_rollback(client: ForgeClient, args: argparse.Namespace) -> int:
     version = registry.rollback_to_version(args.name, args.version_id)
     print(f"Rolled back to version {version.version_id}")
     return 0
+
+
+def _add_delete_subcommand(
+    model_subs: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Register the delete sub-subcommand."""
+    del_parser = model_subs.add_parser(
+        "delete",
+        help="Delete a model or a single version",
+    )
+    del_parser.add_argument(
+        "--name", required=True, help="Model name to delete",
+    )
+    del_parser.add_argument(
+        "--version-id", default=None,
+        help="Delete only this version (omit to delete entire model)",
+    )
+    del_parser.add_argument(
+        "--delete-local", action="store_true",
+        help="Also delete local model files on disk",
+    )
+    del_parser.add_argument(
+        "--include-remote", action="store_true",
+        help="Also delete remote model files via SSH",
+    )
+    del_parser.add_argument(
+        "--keep-registry", action="store_true",
+        help="Keep registry entries (only delete files)",
+    )
+    del_parser.add_argument(
+        "--yes", action="store_true",
+        help="Skip interactive confirmation",
+    )
+
+
+def _run_delete(client: ForgeClient, args: argparse.Namespace) -> int:
+    """Execute the model delete subcommand."""
+    registry = client.model_registry()
+
+    if args.version_id:
+        try:
+            version = registry.get_version(args.version_id)
+        except ForgeModelRegistryError as exc:
+            print(f"Error: {exc}")
+            return 1
+        versions = [version]
+    else:
+        versions = list(registry.list_versions_for_model(args.name))
+        if not versions:
+            print(f"No versions found for model '{args.name}'.")
+            return 1
+
+    scope = f"version {args.version_id}" if args.version_id else f"model '{args.name}' ({len(versions)} version(s))"
+    parts: list[str] = []
+    if not args.keep_registry:
+        parts.append("registry")
+    if args.delete_local:
+        parts.append("local files")
+    if args.include_remote:
+        parts.append("remote files")
+    print(f"Will delete {scope} ({', '.join(parts)}):")
+    for v in versions:
+        path_info = v.model_path or "(no local path)"
+        local_tag = " [will delete]" if args.delete_local and v.model_path else ""
+        print(f"  {v.version_id}  {path_info}{local_tag}")
+    if args.include_remote:
+        for v in versions:
+            if v.remote_path:
+                print(f"  [remote] {v.remote_host}:{v.remote_path}")
+
+    if not args.yes:
+        answer = input("Delete? [y/N] ").strip().lower()
+        if answer != "y":
+            print("Aborted.")
+            return 0
+
+    if not args.keep_registry:
+        if args.version_id:
+            result = registry.delete_version(
+                args.name, args.version_id, delete_local=args.delete_local,
+            )
+        else:
+            result = registry.delete_model(args.name, delete_local=args.delete_local)
+        print(f"Removed {result.versions_removed} version(s).")
+        if result.local_paths_deleted:
+            for p in result.local_paths_deleted:
+                print(f"  Deleted: {p}")
+        if result.local_paths_skipped:
+            for p in result.local_paths_skipped:
+                print(f"  Skipped: {p}")
+        for err in result.errors:
+            print(f"  Warning: {err}")
+
+    if args.include_remote:
+        _delete_remote_paths(versions)
+
+    return 0
+
+
+def _delete_remote_paths(versions: list[object]) -> None:
+    """Delete remote model files via SSH for eligible versions."""
+    from core.model_registry_types import ModelVersion
+
+    for v in versions:
+        if not isinstance(v, ModelVersion):
+            continue
+        if not v.remote_host or not v.remote_path:
+            continue
+        if "/forge-jobs/rj-" not in v.remote_path:
+            print(f"  Skipped remote (not a forge job path): {v.remote_path}")
+            continue
+        try:
+            subprocess.run(
+                ["ssh", v.remote_host, "rm", "-rf", v.remote_path],
+                check=True, timeout=30,
+            )
+            print(f"  Deleted remote: {v.remote_host}:{v.remote_path}")
+        except Exception as exc:
+            print(f"  Failed remote delete {v.remote_host}:{v.remote_path}: {exc}")

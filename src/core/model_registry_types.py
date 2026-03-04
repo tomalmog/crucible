@@ -51,6 +51,23 @@ class ModelTag:
 
 
 @dataclass(frozen=True)
+class DeleteResult:
+    """Result of a model or version deletion operation.
+
+    Attributes:
+        versions_removed: Number of version records removed.
+        local_paths_deleted: Paths successfully deleted from disk.
+        local_paths_skipped: Paths skipped (outside safe zone).
+        errors: Any errors encountered during deletion.
+    """
+
+    versions_removed: int
+    local_paths_deleted: tuple[str, ...]
+    local_paths_skipped: tuple[str, ...]
+    errors: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ModelGroup:
     """Summary of a named model with its version history.
 

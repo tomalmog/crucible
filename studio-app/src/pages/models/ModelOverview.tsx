@@ -42,7 +42,7 @@ function resolveField(config: Record<string, unknown>, keys: string[]): unknown 
 }
 
 export function ModelOverview({ version }: ModelOverviewProps) {
-  const { dataRoot } = useForge();
+  const { dataRoot, refreshModels } = useForge();
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<string[]>([]);
@@ -84,6 +84,7 @@ export function ModelOverview({ version }: ModelOverviewProps) {
             if (pollRef.current) clearInterval(pollRef.current);
             if (status.status === "completed") {
               setPullDone(true);
+              refreshModels().catch(console.error);
             } else {
               setPullError(status.stderr || "Pull failed");
             }
@@ -99,7 +100,7 @@ export function ModelOverview({ version }: ModelOverviewProps) {
       setPulling(false);
       setPullError(`Failed to start pull: ${err}`);
     }
-  }, [dataRoot, version.runId, version.modelName]);
+  }, [dataRoot, version.runId, version.modelName, refreshModels]);
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };

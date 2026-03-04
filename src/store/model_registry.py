@@ -6,14 +6,18 @@ model versions, tags, and rollback under .forge/models/.
 
 from __future__ import annotations
 
+import logging
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from core.errors import ForgeModelRegistryError
-from core.model_registry_types import ModelTag, ModelVersion
+from core.model_registry_types import DeleteResult, ModelTag, ModelVersion
 from store.model_diff import diff_model_versions
 from store.model_registry_io import (
+    delete_model_group_file,
+    delete_model_version_file,
     load_model_group,
     load_model_tag,
     load_model_version,
@@ -290,6 +294,117 @@ class ModelRegistry:
         save_model_version(self._models_root, updated)
         return updated
 
+    def delete_model(
+        self,
+        model_name: str,
+        delete_local: bool = False,
+    ) -> DeleteResult:
+        """Delete all versions of a model and the group itself.
+
+        Args:
+            model_name: Name of the model group to delete.
+            delete_local: Whether to delete local model files.
+
+        Returns:
+            Summary of what was deleted.
+        """
+        versions = self.list_versions_for_model(model_name)
+        deleted: list[str] = []
+        skipped: list[str] = []
+        errors: list[str] = []
+
+        for v in versions:
+            if delete_local and v.model_path:
+                ok, reason = _safe_delete_local_path(
+                    self._data_root, v.model_path,
+                )
+                if ok:
+                    deleted.append(v.model_path)
+                else:
+                    skipped.append(v.model_path)
+                    if reason:
+                        errors.append(reason)
+            try:
+                delete_model_version_file(self._models_root, v.version_id)
+            except Exception as exc:
+                errors.append(f"Failed to remove version file {v.version_id}: {exc}")
+
+        try:
+            delete_model_group_file(self._models_root, model_name)
+        except Exception as exc:
+            errors.append(f"Failed to remove group file {model_name}: {exc}")
+
+        _remove_name_from_index(self._models_root, model_name)
+
+        return DeleteResult(
+            versions_removed=len(versions),
+            local_paths_deleted=tuple(deleted),
+            local_paths_skipped=tuple(skipped),
+            errors=tuple(errors),
+        )
+
+    def delete_version(
+        self,
+        model_name: str,
+        version_id: str,
+        delete_local: bool = False,
+    ) -> DeleteResult:
+        """Delete a single version from a model group.
+
+        Args:
+            model_name: Name of the model group.
+            version_id: Version to delete.
+            delete_local: Whether to delete local model files.
+
+        Returns:
+            Summary of what was deleted.
+        """
+        version = self.get_version(version_id)
+        deleted: list[str] = []
+        skipped: list[str] = []
+        errors: list[str] = []
+
+        if delete_local and version.model_path:
+            ok, reason = _safe_delete_local_path(
+                self._data_root, version.model_path,
+            )
+            if ok:
+                deleted.append(version.model_path)
+            else:
+                skipped.append(version.model_path)
+                if reason:
+                    errors.append(reason)
+
+        try:
+            delete_model_version_file(self._models_root, version_id)
+        except Exception as exc:
+            errors.append(f"Failed to remove version file {version_id}: {exc}")
+
+        group = load_model_group(self._models_root, model_name)
+        version_ids = [
+            vid for vid in group.get("version_ids", []) if vid != version_id
+        ]
+        if not version_ids:
+            try:
+                delete_model_group_file(self._models_root, model_name)
+            except Exception as exc:
+                errors.append(f"Failed to remove group file: {exc}")
+            _remove_name_from_index(self._models_root, model_name)
+        else:
+            active = group.get("active_version_id")
+            if active == version_id:
+                active = version_ids[-1]
+            group["version_ids"] = version_ids
+            group["active_version_id"] = active
+            save_model_group(self._models_root, model_name, group)
+
+        return DeleteResult(
+            versions_removed=1,
+            local_paths_deleted=tuple(deleted),
+            local_paths_skipped=tuple(skipped),
+            errors=tuple(errors),
+        )
+
     def get_active_version_id(self) -> str | None:
         """Return the currently active version ID of the first model, or None.
 
@@ -344,5 +459,67 @@ def _append_version_to_group(
     model_names = list(index.get("model_names", []))
     if model_name not in model_names:
         model_names.append(model_name)
+        index["model_names"] = model_names
+        save_registry_index(models_root, index)
+
+
+_logger = logging.getLogger(__name__)
+
+_SAFE_SUBDIRS = ("pulled-models", "runs")
+
+
+def _safe_delete_local_path(
+    data_root: Path,
+    model_path: str,
+) -> tuple[bool, str]:
+    """Delete a local model path only if it lives under a safe subdirectory.
+
+    Args:
+        data_root: The .forge root directory.
+        model_path: Path to the model artifact.
+
+    Returns:
+        Tuple of (deleted, reason). reason is empty on success.
+    """
+    try:
+        resolved = Path(model_path).resolve()
+    except (OSError, ValueError) as exc:
+        return False, f"Cannot resolve path {model_path}: {exc}"
+
+    safe = False
+    for subdir in _SAFE_SUBDIRS:
+        safe_root = (data_root / subdir).resolve()
+        try:
+            resolved.relative_to(safe_root)
+            safe = True
+            break
+        except ValueError:
+            continue
+
+    if not safe:
+        msg = f"Skipped {model_path}: not under {'/'.join(_SAFE_SUBDIRS)}"
+        _logger.warning(msg)
+        return False, msg
+
+    if not resolved.exists():
+        return False, f"Path does not exist: {model_path}"
+
+    try:
+        if resolved.is_dir():
+            shutil.rmtree(resolved)
+        else:
+            resolved.unlink()
+    except OSError as exc:
+        return False, f"Failed to delete {model_path}: {exc}"
+
+    return True, ""
+
+
+def _remove_name_from_index(models_root: Path, model_name: str) -> None:
+    """Remove a model name from the global registry index."""
+    index = load_registry_index(models_root)
+    model_names = list(index.get("model_names", []))
+    if model_name in model_names:
+        model_names.remove(model_name)
         index["model_names"] = model_names
         save_registry_index(models_root, index)

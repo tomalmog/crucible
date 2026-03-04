@@ -209,6 +209,30 @@ def load_registry_index(models_root: Path) -> dict[str, object]:
     return dict(raw)
 
 
+def delete_model_version_file(models_root: Path, version_id: str) -> None:
+    """Remove a model version JSON file from disk.
+
+    Args:
+        models_root: Root path for model registry storage.
+        version_id: Identifier of the version to delete.
+    """
+    target = models_root / "versions" / f"{version_id}.json"
+    if target.exists():
+        target.unlink()
+
+
+def delete_model_group_file(models_root: Path, model_name: str) -> None:
+    """Remove a model group JSON file from disk.
+
+    Args:
+        models_root: Root path for model registry storage.
+        model_name: Name of the model group to delete.
+    """
+    target = models_root / "groups" / f"{_safe_filename(model_name)}.json"
+    if target.exists():
+        target.unlink()
+
+
 def migrate_flat_to_grouped(models_root: Path) -> None:
     """One-time migration from flat version list to per-model groups.
 
