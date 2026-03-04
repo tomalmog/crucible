@@ -61,6 +61,15 @@ def read_model_state_dict(
             f"Initial weights not found at {resolved_path}. "
             "Provide a valid --initial-weights-path or omit it to train from scratch."
         )
+    # If path is a directory, look for model.pt inside it
+    if resolved_path.is_dir():
+        model_file = resolved_path / "model.pt"
+        if model_file.exists():
+            resolved_path = model_file
+        else:
+            raise ForgeServeError(
+                f"Path {resolved_path} is a directory but does not contain model.pt."
+            )
     if detect_model_format(str(resolved_path)) == "onnx":
         return _read_onnx_model_state_dict(torch_module, resolved_path, device)
     checkpoint_payload = _read_torch_checkpoint(torch_module, resolved_path, device)

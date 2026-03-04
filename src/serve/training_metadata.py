@@ -155,7 +155,10 @@ def _validate_vocabulary(
 
 def _artifact_dir(model_path: str) -> Path:
     """Resolve output directory containing model and metadata artifacts."""
-    return Path(model_path).expanduser().resolve().parent
+    resolved = Path(model_path).expanduser().resolve()
+    if resolved.is_dir():
+        return resolved
+    return resolved.parent
 
 
 def _read_json_payload(payload_path: Path) -> object:
