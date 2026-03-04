@@ -161,6 +161,21 @@ fn parse_model_version(
             .unwrap_or("")
             .to_string(),
         is_active,
+        location_type: obj
+            .get("location_type")
+            .and_then(Value::as_str)
+            .unwrap_or("local")
+            .to_string(),
+        remote_host: obj
+            .get("remote_host")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        remote_path: obj
+            .get("remote_path")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
     })
 }
 

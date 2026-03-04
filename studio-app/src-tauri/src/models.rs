@@ -144,6 +144,9 @@ pub struct ModelVersionSummary {
     pub parent_version_id: Option<String>,
     pub created_at: String,
     pub is_active: bool,
+    pub location_type: String,
+    pub remote_host: String,
+    pub remote_path: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -267,6 +267,9 @@ def _version_to_dict(version: ModelVersion) -> dict[str, object]:
         "tags": list(version.tags),
         "created_at": version.created_at,
         "parent_version_id": version.parent_version_id,
+        "location_type": version.location_type,
+        "remote_host": version.remote_host,
+        "remote_path": version.remote_path,
     }
 
 
@@ -280,4 +283,7 @@ def _dict_to_version(raw: dict[str, object]) -> ModelVersion:
         tags=tuple(raw.get("tags", ())),  # type: ignore[arg-type]
         created_at=str(raw.get("created_at", "")),
         parent_version_id=raw.get("parent_version_id") if raw.get("parent_version_id") is not None else None,  # type: ignore[arg-type]
+        location_type=str(raw.get("location_type", "local")),
+        remote_host=str(raw.get("remote_host", "")),
+        remote_path=str(raw.get("remote_path", "")),
     )

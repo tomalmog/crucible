@@ -13,4 +13,7 @@ export interface ModelVersion {
   parentVersionId: string | null;
   createdAt: string;
   isActive: boolean;
+  locationType: string;
+  remoteHost: string;
+  remotePath: string;
 }

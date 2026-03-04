@@ -30,6 +30,9 @@ class ModelVersion:
     tags: tuple[str, ...] = ()
     created_at: str = ""
     parent_version_id: str | None = None
+    location_type: str = "local"
+    remote_host: str = ""
+    remote_path: str = ""
 
 
 @dataclass(frozen=True)

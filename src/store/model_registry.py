@@ -234,6 +234,62 @@ class ModelRegistry:
         """
         return rollback_active_version(self, model_name, version_id)
 
+    def register_remote_model(
+        self,
+        model_name: str,
+        remote_host: str,
+        remote_path: str,
+        run_id: str | None = None,
+    ) -> ModelVersion:
+        """Register a model that lives on a remote cluster.
+
+        Args:
+            model_name: Name of the model to register under.
+            remote_host: Hostname of the remote cluster.
+            remote_path: Path to the model on the remote.
+            run_id: Optional training run or job ID.
+
+        Returns:
+            Newly created ModelVersion record.
+        """
+        version_id = _generate_version_id()
+        created_at = _now_iso()
+        version = ModelVersion(
+            version_id=version_id,
+            model_name=model_name,
+            model_path="",
+            run_id=run_id,
+            created_at=created_at,
+            location_type="remote",
+            remote_host=remote_host,
+            remote_path=remote_path,
+        )
+        save_model_version(self._models_root, version)
+        _append_version_to_group(self._models_root, model_name, version_id)
+        return version
+
+    def mark_model_pulled(
+        self,
+        version_id: str,
+        local_path: str,
+    ) -> ModelVersion:
+        """Mark a remote model as pulled to local storage.
+
+        Args:
+            version_id: Version to update.
+            local_path: Local filesystem path to the pulled model.
+
+        Returns:
+            Updated ModelVersion record.
+        """
+        from dataclasses import replace
+        version = self.get_version(version_id)
+        updated = replace(
+            version, model_path=local_path, location_type="both",
+        )
+        save_model_version(self._models_root, updated)
+        return updated
+
     def get_active_version_id(self) -> str | None:
         """Return the currently active version ID of the first model, or None.
 
