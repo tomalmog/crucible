@@ -38,6 +38,7 @@ pub struct RemoteJobSummary {
     pub model_name: String,
     pub is_sweep: bool,
     pub sweep_array_size: u64,
+    pub submit_phase: String,
 }
 
 #[tauri::command]
@@ -174,6 +175,38 @@ pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String
         .map_err(|e| format!("Failed to delete {}: {e}", job_path.display()))
 }
 
+#[tauri::command]
+pub fn cancel_remote_job(data_root: String, job_id: String) -> Result<RemoteJobSummary, String> {
+    let job_path = resolve_data_root_path(&data_root)
+        .join("remote-jobs")
+        .join(format!("{job_id}.json"));
+    if !job_path.exists() {
+        return Err(format!("Remote job '{job_id}' not found"));
+    }
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "cancel", "--job-id", &job_id])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(format!("Cancel failed: {stderr}"));
+    }
+    let data = read_json_file(&job_path)?;
+    parse_remote_job(&data)
+}
+
 fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
     let obj = data
         .as_object()
@@ -217,6 +250,7 @@ fn parse_remote_job(data: &Value) -> Result<RemoteJobSummary, String> {
             .get("sweep_array_size")
             .and_then(Value::as_u64)
             .unwrap_or(0),
+        submit_phase: str_field(obj, "submit_phase"),
     })
 }
 

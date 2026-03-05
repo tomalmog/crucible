@@ -22,6 +22,7 @@ import {
   Terminal,
   RefreshCw,
   Download,
+  XCircle,
 } from "lucide-react";
 import { JobResultDetail } from "./JobResultDetail";
 
@@ -47,6 +48,8 @@ function formatElapsed(seconds: number): string {
 function statusBadgeClass(status: string): string {
   switch (status) {
     case "running":
+    case "submitting":
+    case "pending":
       return "badge badge-accent";
     case "completed":
       return "badge badge-success";
@@ -60,7 +63,7 @@ function statusBadgeClass(status: string): string {
 export function JobsPage() {
   const { jobs, kill, rename, remove } = useJobs();
   const { dataRoot, refreshModels } = useForge();
-  const { jobs: remoteJobs, refresh: refreshRemote, removeJob: removeRemoteJob } = useRemoteJobs(dataRoot);
+  const { jobs: remoteJobs, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
@@ -159,7 +162,12 @@ export function JobsPage() {
             />
           ))}
           {filteredRemote.map((rj) => (
-            <RemoteJobRow key={rj.jobId} job={rj} onDelete={() => removeRemoteJob(rj.jobId)} />
+            <RemoteJobRow
+              key={rj.jobId}
+              job={rj}
+              onDelete={() => removeRemoteJob(rj.jobId)}
+              onCancel={() => cancelRemoteJob(rj.jobId).catch(console.error)}
+            />
           ))}
         </div>
       )}
@@ -348,7 +356,7 @@ function JobRow({
   );
 }
 
-function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () => void }) {
+function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void }) {
   const { dataRoot, refreshModels } = useForge();
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepArraySize} trials)` : "";
   const [showLogs, setShowLogs] = useState(false);
@@ -445,17 +453,21 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
     }
   }, [dataRoot, job.jobId, job.trainingMethod, refreshModels]);
 
-  const isRunning = job.state === "running" || job.state === "pending";
+  const isSubmitting = job.state === "submitting";
+  const isRunning = job.state === "running" || job.state === "pending" || isSubmitting;
   const isCompleted = job.state === "completed";
   const hasLocalModel = !!job.modelPathLocal;
+  const failedDuringSubmit = job.state === "failed" && !job.slurmJobId;
 
   return (
     <div className="run-row section-divider">
       <div className="run-row-header">
         <div className="flex-row">
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleLogs}>
-            {showLogs ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
+          {!failedDuringSubmit && (
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleLogs}>
+              {showLogs ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          )}
           <span className="run-row-id">{job.modelName || job.jobId}</span>
           {job.modelName && (
             <span className="run-row-meta" style={{ opacity: 0.6 }}>{job.jobId}</span>
@@ -469,14 +481,18 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
           )}
         </div>
         <div className="flex-row">
-          <span className="run-row-meta">Slurm {job.slurmJobId}</span>
-          <button
-            className="btn btn-sm"
-            onClick={(e) => { e.stopPropagation(); toggleLogs(); }}
-            title="View logs"
-          >
-            <Terminal size={12} /> Logs
-          </button>
+          {!isSubmitting && job.slurmJobId && (
+            <span className="run-row-meta">Slurm {job.slurmJobId}</span>
+          )}
+          {!isSubmitting && !failedDuringSubmit && (
+            <button
+              className="btn btn-sm"
+              onClick={(e) => { e.stopPropagation(); toggleLogs(); }}
+              title="View logs"
+            >
+              <Terminal size={12} /> Logs
+            </button>
+          )}
           {isCompleted && !hasLocalModel && !pulling && !pullDone && (
             <button
               className="btn btn-sm"
@@ -484,6 +500,15 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
               title="Download model to local machine"
             >
               <Download size={12} /> Pull Model
+            </button>
+          )}
+          {job.state === "pending" && (
+            <button
+              className="btn btn-sm"
+              onClick={(e) => { e.stopPropagation(); onCancel(); }}
+              title="Cancel job"
+            >
+              <XCircle size={12} /> Cancel
             </button>
           )}
           {showLogs && (
@@ -509,6 +534,21 @@ function RemoteJobRow({ job, onDelete }: { job: RemoteJobRecord; onDelete: () =>
       <div className="run-row-path">
         {job.trainingMethod}{sweepTag}
       </div>
+      {isSubmitting && job.submitPhase && (
+        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+          {job.submitPhase}
+        </div>
+      )}
+      {job.state === "pending" && (
+        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+          Queued in Slurm — waiting for resources...
+        </div>
+      )}
+      {failedDuringSubmit && job.submitPhase && (
+        <div className="error-alert-prominent" style={{ margin: "var(--space-xs) var(--space-md)" }}>
+          {job.submitPhase}
+        </div>
+      )}
       {job.submittedAt && (
         <div className="run-row-path">Submitted: {job.submittedAt}</div>
       )}

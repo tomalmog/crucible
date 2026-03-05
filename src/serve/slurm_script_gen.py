@@ -49,6 +49,7 @@ def generate_single_node_script(
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
+    lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
     lines.append(
@@ -100,6 +101,7 @@ def generate_multi_node_script(
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
+    lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
     lines.append("")
@@ -166,6 +168,7 @@ def generate_sweep_script(
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
+    lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
     lines.append(
@@ -174,6 +177,19 @@ def generate_sweep_script(
     )
 
     return "\n".join(lines) + "\n"
+
+
+def _cuda_env_lines() -> list[str]:
+    """Diagnose GPU availability and try to load CUDA if needed."""
+    return [
+        "# Ensure CUDA is available",
+        "if ! nvidia-smi > /dev/null 2>&1; then",
+        "    module load cuda 2>/dev/null || module load cuda/12.1 2>/dev/null || true",
+        "fi",
+        'echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"',
+        "nvidia-smi || true",
+        "",
+    ]
 
 
 def _gpu_gres_line(resources: SlurmResourceConfig) -> str:

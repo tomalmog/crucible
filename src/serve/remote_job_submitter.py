@@ -29,7 +29,24 @@ from serve.slurm_script_gen import (
 )
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
-from store.remote_job_store import generate_job_id, now_iso, save_remote_job
+from store.remote_job_store import (
+    generate_job_id,
+    now_iso,
+    save_remote_job,
+    update_remote_job_state,
+)
+
+
+def _update_phase(
+    data_root: Path,
+    job_id: str,
+    phase: str,
+) -> None:
+    """Update the submit_phase field on a job record and print for CLI."""
+    print(f"FORGE_SUBMIT_PHASE: {phase}", flush=True)
+    update_remote_job_state(
+        data_root, job_id, "submitting", submit_phase=phase,
+    )
 
 
 def submit_remote_job(
@@ -72,36 +89,55 @@ def submit_remote_job(
         "result_output": "result.json",
     }
 
-    with SshSession(cluster) as session:
-        session.mkdir_p(workdir)
-        ensure_remote_env(session)
-        _upload_bundle(session, tarball, workdir)
-        _handle_data_strategy(
-            session, data_strategy, dataset_path, method_args, workdir,
-            training_method, data_root,
-        )
-        # Upload config AFTER data strategy so rewritten paths are included
-        _upload_config(session, config_payload, workdir)
-        script = _generate_script(
-            cluster, resources, job_id, training_method,
-        )
-        _upload_script(session, script, workdir)
-        slurm_job_id = _submit_sbatch(session, workdir)
-
+    # Write early JSON so the UI picks it up immediately
+    ts = now_iso()
     record = RemoteJobRecord(
         job_id=job_id,
-        slurm_job_id=slurm_job_id,
+        slurm_job_id="",
         cluster_name=cluster_name,
         training_method=training_method,
-        state="running",
-        submitted_at=now_iso(),
-        updated_at=now_iso(),
+        state="submitting",
+        submitted_at=ts,
+        updated_at=ts,
         remote_output_dir=workdir,
-        remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
         model_name=model_name,
+        submit_phase="Preparing submission...",
     )
     save_remote_job(data_root, record)
-    return record
+
+    try:
+        _update_phase(data_root, job_id, "Connecting to cluster...")
+        with SshSession(cluster) as session:
+            session.mkdir_p(workdir)
+            _update_phase(data_root, job_id, "Provisioning environment...")
+            ensure_remote_env(session)
+            _update_phase(data_root, job_id, "Uploading training bundle...")
+            _upload_bundle(session, tarball, workdir)
+            _update_phase(data_root, job_id, "Uploading data...")
+            _handle_data_strategy(
+                session, data_strategy, dataset_path, method_args,
+                workdir, training_method, data_root,
+            )
+            _upload_config(session, config_payload, workdir)
+            script = _generate_script(
+                cluster, resources, job_id, training_method,
+            )
+            _upload_script(session, script, workdir)
+            _update_phase(data_root, job_id, "Submitting to Slurm...")
+            slurm_job_id = _submit_sbatch(session, workdir)
+    except Exception as exc:
+        update_remote_job_state(
+            data_root, job_id, "failed",
+            submit_phase=f"Failed: {exc}",
+        )
+        raise
+
+    return update_remote_job_state(
+        data_root, job_id, "running",
+        slurm_job_id=slurm_job_id,
+        remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
+        submit_phase="",
+    )
 
 
 def submit_remote_sweep(
@@ -136,57 +172,74 @@ def submit_remote_sweep(
         cache_dir=data_root / "cache" / "agent-bundles",
     )
 
-    with SshSession(cluster) as session:
-        session.mkdir_p(workdir)
-        session.mkdir_p(f"{workdir}/trials")
-        ensure_remote_env(session)
-        _upload_bundle(session, tarball, workdir)
-
-        # Handle data strategy first so paths are rewritten
-        _handle_data_strategy(
-            session, data_strategy, dataset_path,
-            trial_configs[0] if trial_configs else {},
-            workdir, training_method, data_root,
-        )
-        # Apply rewritten data path to all trial configs
-        data_field = DATA_PATH_FIELDS.get(training_method)
-        if data_field and trial_configs:
-            rewritten = trial_configs[0].get(data_field)
-            if rewritten:
-                for tc in trial_configs[1:]:
-                    tc[data_field] = rewritten
-
-        for i, trial_args in enumerate(trial_configs):
-            config_payload = {
-                "method": training_method,
-                "method_args": trial_args,
-                "result_output": f"result_trial_{i}.json",
-            }
-            _upload_config(
-                session, config_payload, workdir,
-                filename=f"trials/trial_{i}.json",
-            )
-
-        script = generate_sweep_script(
-            cluster, resources, job_id, training_method, array_size,
-        )
-        _upload_script(session, script, workdir)
-        slurm_job_id = _submit_sbatch(session, workdir)
-
+    # Write early JSON so the UI picks it up immediately
+    ts = now_iso()
     record = RemoteJobRecord(
         job_id=job_id,
-        slurm_job_id=slurm_job_id,
+        slurm_job_id="",
         cluster_name=cluster_name,
         training_method=training_method,
-        state="running",
-        submitted_at=now_iso(),
-        updated_at=now_iso(),
+        state="submitting",
+        submitted_at=ts,
+        updated_at=ts,
         remote_output_dir=workdir,
         is_sweep=True,
         sweep_array_size=array_size,
+        submit_phase="Preparing submission...",
     )
     save_remote_job(data_root, record)
-    return record
+
+    try:
+        _update_phase(data_root, job_id, "Connecting to cluster...")
+        with SshSession(cluster) as session:
+            session.mkdir_p(workdir)
+            session.mkdir_p(f"{workdir}/trials")
+            _update_phase(data_root, job_id, "Provisioning environment...")
+            ensure_remote_env(session)
+            _update_phase(data_root, job_id, "Uploading training bundle...")
+            _upload_bundle(session, tarball, workdir)
+            _update_phase(data_root, job_id, "Uploading data...")
+            _handle_data_strategy(
+                session, data_strategy, dataset_path,
+                trial_configs[0] if trial_configs else {},
+                workdir, training_method, data_root,
+            )
+            data_field = DATA_PATH_FIELDS.get(training_method)
+            if data_field and trial_configs:
+                rewritten = trial_configs[0].get(data_field)
+                if rewritten:
+                    for tc in trial_configs[1:]:
+                        tc[data_field] = rewritten
+
+            for i, trial_args in enumerate(trial_configs):
+                config_payload = {
+                    "method": training_method,
+                    "method_args": trial_args,
+                    "result_output": f"result_trial_{i}.json",
+                }
+                _upload_config(
+                    session, config_payload, workdir,
+                    filename=f"trials/trial_{i}.json",
+                )
+
+            script = generate_sweep_script(
+                cluster, resources, job_id, training_method, array_size,
+            )
+            _upload_script(session, script, workdir)
+            _update_phase(data_root, job_id, "Submitting to Slurm...")
+            slurm_job_id = _submit_sbatch(session, workdir)
+    except Exception as exc:
+        update_remote_job_state(
+            data_root, job_id, "failed",
+            submit_phase=f"Failed: {exc}",
+        )
+        raise
+
+    return update_remote_job_state(
+        data_root, job_id, "running",
+        slurm_job_id=slurm_job_id,
+        submit_phase="",
+    )
 
 
 def cancel_remote_job(
@@ -468,6 +521,36 @@ def _generate_script(
 _RECORD_BASED_METHODS = frozenset({"train", "distill", "domain-adapt"})
 
 
+def _upload_raw_dataset(
+    session: SshSession,
+    ds_dir: Path,
+    dataset_name: str,
+    workdir: str,
+    method_args: dict[str, object],
+) -> None:
+    """Upload raw dataset files and set raw_data_path for remote ingest.
+
+    Used when the dataset directory has no catalog (not yet ingested).
+    Uploads the raw files and sets ``raw_data_path`` so the remote
+    agent will auto-ingest them before training.
+    """
+    with tempfile.NamedTemporaryFile(
+        suffix=".tar.gz", delete=False,
+    ) as f:
+        tmp_tar = Path(f.name)
+    with tarfile.open(tmp_tar, "w:gz") as tar:
+        tar.add(str(ds_dir), arcname=dataset_name)
+    session.mkdir_p(f"{workdir}/data")
+    session.upload(tmp_tar, f"{workdir}/data/dataset.tar.gz")
+    session.execute(
+        f"cd {workdir}/data && tar xzf dataset.tar.gz"
+        " && rm dataset.tar.gz",
+    )
+    tmp_tar.unlink(missing_ok=True)
+    remote_data = f"{workdir}/data/{dataset_name}"
+    method_args["raw_data_path"] = remote_data
+
+
 def _upload_dataset_catalog(
     session: SshSession,
     data_root: Path,
@@ -574,7 +657,16 @@ def _handle_data_strategy(
     """
     ds_name = str(method_args.get("dataset_name", ""))
     if ds_name and training_method in _RECORD_BASED_METHODS and data_root:
-        _upload_dataset_catalog(session, data_root, ds_name, workdir)
+        ds_dir = data_root / DATASETS_DIR_NAME / ds_name
+        catalog_path = ds_dir / CATALOG_FILE_NAME
+        if catalog_path.exists():
+            _upload_dataset_catalog(session, data_root, ds_name, workdir)
+        elif ds_dir.is_dir():
+            _upload_raw_dataset(
+                session, ds_dir, ds_name, workdir, method_args,
+            )
+        else:
+            raise ForgeRemoteError(f"Dataset '{ds_name}' not found.")
         return
 
     if strategy == "scp" and dataset_path:

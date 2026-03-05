@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 _ENV_NAME = "forge"
 _PIP_PACKAGES = ("pyyaml", "matplotlib", "tokenizers")
-_TORCH_INSTALL = "torch --index-url https://download.pytorch.org/whl/cu121"
 
 # Shell snippet that sources conda's init script from common locations.
 # We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
@@ -45,8 +44,8 @@ def ensure_remote_env(session: SshSession) -> None:
     """Ensure the ``forge`` conda env exists on the remote cluster.
 
     Checks ``conda env list`` for a ``forge`` entry and creates it
-    if missing.  This is idempotent — subsequent calls return
-    immediately once the env is present.
+    if missing.  When the env exists, verifies that torch can see
+    CUDA and reinstalls if needed.
 
     Args:
         session: Active SSH session to the cluster.
@@ -55,11 +54,44 @@ def ensure_remote_env(session: SshSession) -> None:
         ForgeRemoteError: If conda is unavailable or env creation fails.
     """
     if _env_exists(session):
+        _ensure_torch_cuda(session)
         return
 
     print("FORGE_ENV_SETUP: forge conda env not found — creating...", flush=True)
     _create_env(session)
     print("FORGE_ENV_SETUP: forge conda env ready.", flush=True)
+
+
+def _ensure_torch_cuda(session: SshSession) -> None:
+    """Check that torch can see CUDA; reinstall if not."""
+    stdout, _, code = session.execute(
+        _conda_cmd(
+            f"conda run -n {_ENV_NAME} python -c "
+            "\"import torch; print(torch.cuda.is_available())\""
+        ),
+        timeout=30,
+    )
+    if code == 0 and "True" in stdout:
+        return
+
+    print(
+        "FORGE_ENV_SETUP: torch cannot see CUDA — reinstalling...",
+        flush=True,
+    )
+    cuda_tag = _detect_cuda_tag(session)
+    torch_install = (
+        f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
+    )
+    _, stderr, code = session.execute(
+        _conda_cmd(
+            f"conda run -n {_ENV_NAME} pip install --force-reinstall"
+            f" {torch_install}",
+        ),
+        timeout=600,
+    )
+    if code != 0:
+        raise ForgeRemoteError(f"torch reinstall failed: {stderr.strip()}")
+    print("FORGE_ENV_SETUP: torch reinstalled with CUDA support.", flush=True)
 
 
 def _env_exists(session: SshSession) -> bool:
@@ -80,6 +112,38 @@ def _env_exists(session: SshSession) -> bool:
     return False
 
 
+def _detect_cuda_tag(session: SshSession) -> str:
+    """Detect the cluster's CUDA version and return a pip index tag."""
+    stdout, _, code = session.execute(
+        "nvidia-smi --query-gpu=driver_version "
+        "--format=csv,noheader 2>/dev/null | head -1",
+        timeout=15,
+    )
+    if code != 0 or not stdout.strip():
+        return "cu124"  # safe default
+
+    # Parse CUDA version from nvidia-smi header instead
+    stdout2, _, _ = session.execute(
+        "nvidia-smi 2>/dev/null | head -3", timeout=15,
+    )
+    # Look for "CUDA Version: XX.Y"
+    for line in stdout2.splitlines():
+        if "CUDA Version" in line:
+            import re
+            match = re.search(r"CUDA Version:\s*(\d+)\.(\d+)", line)
+            if match:
+                major, minor = int(match.group(1)), int(match.group(2))
+                # Map to available PyTorch CUDA builds
+                if major >= 13:
+                    return "cu126"
+                if major == 12 and minor >= 4:
+                    return "cu124"
+                if major == 12:
+                    return "cu121"
+                return "cu118"
+    return "cu124"
+
+
 def _create_env(session: SshSession) -> None:
     """Create the ``forge`` conda env and install dependencies."""
     _, stderr, code = session.execute(
@@ -89,9 +153,16 @@ def _create_env(session: SshSession) -> None:
     if code != 0:
         raise ForgeRemoteError(f"conda create failed: {stderr.strip()}")
 
-    # Install CUDA-enabled torch first (separate index URL).
+    # Detect CUDA version and install matching torch build.
+    cuda_tag = _detect_cuda_tag(session)
+    torch_install = (
+        f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
+    )
+    print(f"FORGE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
     _, stderr, code = session.execute(
-        _conda_cmd(f"conda run -n {_ENV_NAME} pip install {_TORCH_INSTALL}"),
+        _conda_cmd(
+            f"conda run -n {_ENV_NAME} pip install {torch_install}",
+        ),
         timeout=600,
     )
     if code != 0:

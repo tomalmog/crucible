@@ -54,6 +54,7 @@ def _record_to_dict(record: RemoteJobRecord) -> dict[str, object]:
         "model_name": record.model_name,
         "is_sweep": record.is_sweep,
         "sweep_array_size": record.sweep_array_size,
+        "submit_phase": record.submit_phase,
     }
 
 
@@ -79,6 +80,7 @@ def _dict_to_record(raw: dict[str, object]) -> RemoteJobRecord:
         model_name=str(raw.get("model_name", "")),
         is_sweep=bool(raw.get("is_sweep", False)),
         sweep_array_size=int(raw.get("sweep_array_size", 0)),  # type: ignore[arg-type]
+        submit_phase=str(raw.get("submit_phase", "")),
     )
 
 

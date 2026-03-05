@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { deleteRemoteJob, listRemoteJobs } from "../api/remoteApi";
+import { cancelRemoteJob, deleteRemoteJob, listRemoteJobs } from "../api/remoteApi";
 import type { RemoteJobRecord } from "../types/remote";
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 2000;
 
 export function useRemoteJobs(dataRoot: string) {
   const [jobs, setJobs] = useState<RemoteJobRecord[]>([]);
@@ -26,5 +26,11 @@ export function useRemoteJobs(dataRoot: string) {
     refresh();
   }, [dataRoot, refresh]);
 
-  return { jobs, refresh, removeJob };
+  const cancelJob = useCallback(async (jobId: string) => {
+    if (!dataRoot) return;
+    await cancelRemoteJob(dataRoot, jobId);
+    refresh();
+  }, [dataRoot, refresh]);
+
+  return { jobs, refresh, removeJob, cancelJob };
 }

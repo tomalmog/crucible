@@ -1496,6 +1496,11 @@ label {
     animation: spin 1.2s linear infinite;
 }
 
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 .panel-flush {
     padding: 0;
     overflow: hidden;

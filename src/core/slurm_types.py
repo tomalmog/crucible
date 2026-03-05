@@ -119,6 +119,7 @@ class RemoteJobRecord:
     model_name: str = ""
     is_sweep: bool = False
     sweep_array_size: int = 0
+    submit_phase: str = ""
 
 
 @dataclass(frozen=True)

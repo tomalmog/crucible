@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
@@ -57,6 +58,7 @@ interface TrainingWizardProps {
 export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
   const { refreshModels } = useForge();
+  const navigate = useNavigate();
   const command = useForgeCommand();
   const registerCommand = useForgeCommand();
   const [step, setStep] = useState<Step>("config");
@@ -66,7 +68,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const [startError, setStartError] = useState<string | null>(null);
   const [remoteEnabled, setRemoteEnabled] = useState(false);
   const [clusterConfig, setClusterConfig] = useState<ClusterSubmitConfig>(DEFAULT_CLUSTER_CONFIG);
-  const [remoteSubmitted, setRemoteSubmitted] = useState(false);
   const [remoteSubmitting, setRemoteSubmitting] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
@@ -109,7 +110,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   async function submitToCluster() {
     if (!canStart) return;
     setRemoteSubmitting(true);
-    setRemoteSubmitted(false);
     setStartError(null);
     try {
       const methodArgsObj = buildRemoteMethodArgs(shared, extra);
@@ -122,7 +122,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
       const effectiveName = registerModel && modelName.trim() ? modelName.trim() : undefined;
       const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);
       await startForgeCommand(dataRoot, args);
-      setRemoteSubmitted(true);
+      navigate("/jobs");
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -208,12 +208,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           {!canStart && (
             <div className="error-alert">
               Missing required fields: {missing.join(", ")}
-            </div>
-          )}
-          {remoteSubmitted && (
-            <div className="flex-row" style={{ color: "var(--color-success)" }}>
-              <Check size={14} />
-              <span>Submitted! Track on Jobs page.</span>
             </div>
           )}
           {startError && (

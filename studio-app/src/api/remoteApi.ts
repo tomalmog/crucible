@@ -24,3 +24,7 @@ export async function syncRemoteJobStatus(dataRoot: string, jobId: string): Prom
 export async function deleteRemoteJob(dataRoot: string, jobId: string): Promise<void> {
   return invoke<void>("delete_remote_job", { dataRoot, jobId });
 }
+
+export async function cancelRemoteJob(dataRoot: string, jobId: string): Promise<RemoteJobRecord> {
+  return invoke<RemoteJobRecord>("cancel_remote_job", { dataRoot, jobId });
+}

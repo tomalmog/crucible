@@ -34,6 +34,7 @@ export interface RemoteJobRecord {
   modelName: string;
   isSweep: boolean;
   sweepArraySize: number;
+  submitPhase: string;
 }
 
 export interface ClusterValidationResult {

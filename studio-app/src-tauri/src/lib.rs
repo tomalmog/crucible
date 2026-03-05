@@ -38,7 +38,8 @@ pub fn run() {
             commands::remote_queries::get_remote_job,
             commands::remote_queries::get_remote_job_logs,
             commands::remote_queries::sync_remote_job_status,
-            commands::remote_queries::delete_remote_job
+            commands::remote_queries::delete_remote_job,
+            commands::remote_queries::cancel_remote_job
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
