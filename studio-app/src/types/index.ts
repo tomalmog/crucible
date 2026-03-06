@@ -1,3 +1,8 @@
+export interface DatasetEntry {
+  name: string;
+  sizeBytes: number;
+}
+
 export interface VersionSummary {
   version_id: string;
   record_count: number;

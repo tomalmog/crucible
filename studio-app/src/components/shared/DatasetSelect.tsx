@@ -12,9 +12,9 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
   const [open, setOpen] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const filtered = datasets.filter((name) =>
-    name.toLowerCase().includes(value.toLowerCase()),
-  );
+  const filtered = datasets
+    .map((d) => d.name)
+    .filter((name) => name.toLowerCase().includes(value.toLowerCase()));
 
   function handleFocus() {
     clearTimeout(blurTimeout.current);

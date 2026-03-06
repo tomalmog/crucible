@@ -3,6 +3,7 @@ import {
   CommandTaskStart,
   CommandTaskStatus,
   DatasetDashboard,
+  DatasetEntry,
   LineageGraphSummary,
   RecordSample,
   TrainingRunSummary,
@@ -28,8 +29,8 @@ export async function deleteDataset(dataRoot: string, datasetName: string): Prom
   return invoke<void>("delete_dataset", { dataRoot, datasetName });
 }
 
-export async function listDatasets(dataRoot: string): Promise<string[]> {
-  return invoke<string[]>("list_datasets", { dataRoot });
+export async function listDatasets(dataRoot: string): Promise<DatasetEntry[]> {
+  return invoke<DatasetEntry[]>("list_datasets", { dataRoot });
 }
 
 export async function listVersions(

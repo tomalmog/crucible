@@ -2,20 +2,33 @@
 
 use crate::commands::runtime_queries::resolve_data_root_path;
 use crate::models::{DatasetDashboard, RecordSample, SourceCount, TrainingHistory, VersionDiff, VersionSummary};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatasetEntry {
+    pub name: String,
+    pub size_bytes: u64,
+}
+
 #[tauri::command]
-pub fn list_datasets(data_root: String) -> Result<Vec<String>, String> {
+pub fn list_datasets(data_root: String) -> Result<Vec<DatasetEntry>, String> {
     let datasets_dir = resolve_data_root_path(&data_root).join("datasets");
     if !datasets_dir.exists() {
         return Ok(vec![]);
     }
     let mut names = read_child_dirs(&datasets_dir)?;
     names.sort();
-    Ok(names)
+    let mut entries = Vec::with_capacity(names.len());
+    for name in names {
+        let size = latest_records_size(&datasets_dir, &name);
+        entries.push(DatasetEntry { name, size_bytes: size });
+    }
+    Ok(entries)
 }
 
 #[tauri::command]
@@ -236,6 +249,21 @@ fn parse_version_summary(raw: &Value) -> Result<VersionSummary, String> {
         created_at: string_field(object, "created_at")?,
         parent_version: parent,
     })
+}
+
+fn latest_records_size(datasets_dir: &Path, name: &str) -> u64 {
+    let catalog_path = datasets_dir.join(name).join("catalog.json");
+    let version_id = fs::read_to_string(&catalog_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("latest_version")?.as_str().map(str::to_string));
+    match version_id {
+        Some(vid) => {
+            let records = datasets_dir.join(name).join("versions").join(&vid).join("records.jsonl");
+            fs::metadata(&records).map(|m| m.len()).unwrap_or(0)
+        }
+        None => 0,
+    }
 }
 
 fn read_child_dirs(parent: &Path) -> Result<Vec<String>, String> {

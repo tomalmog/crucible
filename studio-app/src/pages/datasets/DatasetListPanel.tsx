@@ -83,7 +83,6 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
     if (clusters.length === 1) {
       doPush(ds, clusters[0].name);
     } else {
-      // Toggle cluster picker for this dataset
       setPushTarget(pushTarget === ds ? null : ds);
     }
   }
@@ -130,6 +129,20 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
     setConfirmingDelete(null);
   }
 
+  // Build unified row data for both tabs
+  const localRows: RowItem[] = datasets.map((d) => ({
+    name: d.name, sizeBytes: d.sizeBytes,
+  }));
+  const remoteRows: RowItem[] = remoteDatasets.map((d) => ({
+    name: d.name, sizeBytes: d.sizeBytes,
+  }));
+
+  const isLocal = listTab === "local";
+  const rows = isLocal ? localRows : remoteRows;
+  const emptyMsg = isLocal
+    ? "No datasets found. Use the Ingest tab to add data."
+    : "No datasets on this cluster.";
+
   return (
     <div className="panel overflow-auto">
       <h3 className="panel-title">Datasets</h3>
@@ -149,205 +162,151 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
         </button>
       </div>
 
-      {listTab === "local" && <LocalList
-        datasets={datasets}
-        selectedDataset={selectedDataset}
-        confirmingDelete={confirmingDelete}
-        pushing={pushing}
-        pushTarget={pushTarget}
-        pushResult={pushResult}
-        clusters={clusters}
-        onSelect={(ds) => {
-          if (onSelect) onSelect(ds);
-          else setSelectedDataset(ds);
-          setConfirmingDelete(null);
-          setPushTarget(null);
-        }}
-        onDelete={(ds) => handleDeleteLocal(ds).catch(console.error)}
-        onPushClick={handlePushClick}
-        onPushConfirm={(ds, cluster) => doPush(ds, cluster).catch(console.error)}
-      />}
+      {!isLocal && clusters.length === 0 && (
+        <p className="text-tertiary">No clusters registered. Add one in Settings.</p>
+      )}
 
-      {listTab === "remote" && <RemoteList
-        clusters={clusters}
-        selectedCluster={selectedCluster}
-        remoteDatasets={remoteDatasets}
-        loading={loading}
-        pulling={pulling}
-        confirmingDelete={confirmingDelete}
-        onClusterChange={setSelectedCluster}
-        onPull={(ds) => handlePull(ds).catch(console.error)}
-        onDelete={(ds) => handleDeleteRemote(ds).catch(console.error)}
-      />}
-    </div>
-  );
-}
+      {!isLocal && clusters.length > 0 && (
+        <select
+          className="input"
+          value={selectedCluster}
+          onChange={(e) => setSelectedCluster(e.target.value)}
+          style={{ marginBottom: 8, width: "100%" }}
+        >
+          {clusters.map((c) => (
+            <option key={c.name} value={c.name}>{c.name}</option>
+          ))}
+        </select>
+      )}
 
-/* ---- Local dataset list ---- */
-
-function LocalList({ datasets, selectedDataset, confirmingDelete, pushing, pushTarget, pushResult, clusters, onSelect, onDelete, onPushClick, onPushConfirm }: {
-  datasets: string[];
-  selectedDataset: string | null;
-  confirmingDelete: string | null;
-  pushing: string | null;
-  pushTarget: string | null;
-  pushResult: { ds: string; cluster: string } | null;
-  clusters: ClusterConfig[];
-  onSelect: (ds: string) => void;
-  onDelete: (ds: string) => void;
-  onPushClick: (ds: string) => void;
-  onPushConfirm: (ds: string, cluster: string) => void;
-}) {
-  if (datasets.length === 0) {
-    return <p className="text-tertiary">No datasets found. Use the Ingest tab to add data.</p>;
-  }
-  return (
-    <div>
-      {datasets.map((ds) => (
-        <div key={ds}>
-          <div className="flex-row" style={{ alignItems: "center" }}>
-            <button
-              className={`nav-item ${ds === selectedDataset ? "active" : ""}`}
-              style={{ flex: 1, minWidth: 0 }}
-              onClick={() => onSelect(ds)}
-            >
-              {ds}
-            </button>
-            <div style={{ display: "flex", gap: 2, flexShrink: 0, marginLeft: "auto" }}>
-              {clusters.length > 0 && (
-                <button
-                  className="btn btn-ghost btn-sm btn-icon"
-                  onClick={() => onPushClick(ds)}
-                  title="Push to cluster"
-                  disabled={pushing === ds}
-                >
-                  {pushing === ds
-                    ? <Loader2 size={12} className="spin" />
-                    : <Upload size={12} />}
-                </button>
-              )}
-              {confirmingDelete === ds ? (
-                <button
-                  className="btn btn-sm"
-                  style={{ color: "var(--color-error)" }}
-                  onClick={() => onDelete(ds)}
-                >
-                  Delete?
-                </button>
-              ) : (
-                <button
-                  className="btn btn-ghost btn-sm btn-icon"
-                  onClick={() => onDelete(ds)}
-                  title="Delete dataset"
-                >
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </div>
-          </div>
-          {pushTarget === ds && clusters.length > 1 && (
-            <div style={{ padding: "4px 8px 8px", display: "flex", gap: 4, alignItems: "center" }}>
-              <span className="text-xs text-tertiary">Push to:</span>
-              {clusters.map((c) => (
-                <button
-                  key={c.name}
-                  className="btn btn-sm"
-                  onClick={() => onPushConfirm(ds, c.name)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {pushResult?.ds === ds && (
-            <div style={{ padding: "2px 8px 4px" }}>
-              <span className="text-xs" style={{ color: "var(--color-success)" }}>
-                Pushed to {pushResult.cluster}
-              </span>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---- Remote dataset list ---- */
-
-function RemoteList({ clusters, selectedCluster, remoteDatasets, loading, pulling, confirmingDelete, onClusterChange, onPull, onDelete }: {
-  clusters: ClusterConfig[];
-  selectedCluster: string;
-  remoteDatasets: RemoteDatasetInfo[];
-  loading: boolean;
-  pulling: string | null;
-  confirmingDelete: string | null;
-  onClusterChange: (name: string) => void;
-  onPull: (ds: string) => void;
-  onDelete: (ds: string) => void;
-}) {
-  if (clusters.length === 0) {
-    return <p className="text-tertiary">No clusters registered. Add one in Settings.</p>;
-  }
-  return (
-    <div>
-      <select
-        className="input"
-        value={selectedCluster}
-        onChange={(e) => onClusterChange(e.target.value)}
-        style={{ marginBottom: 8, width: "100%" }}
-      >
-        {clusters.map((c) => (
-          <option key={c.name} value={c.name}>{c.name}</option>
-        ))}
-      </select>
-
-      {loading ? (
+      {!isLocal && loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
           <Loader2 size={20} className="spin" />
         </div>
-      ) : remoteDatasets.length === 0 ? (
-        <p className="text-tertiary">No datasets on this cluster.</p>
+      ) : rows.length === 0 ? (
+        <p className="text-tertiary">{emptyMsg}</p>
       ) : (
         <div>
-          {remoteDatasets.map((rd) => (
-            <div key={rd.name} className="flex-row" style={{ alignItems: "center", padding: "4px 8px", gap: 8 }}>
-              <span className="text-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{rd.name}</span>
-              <span className="text-xs text-tertiary" style={{ flexShrink: 0 }}>
-                {formatSize(rd.sizeBytes)}
-              </span>
-              <div style={{ display: "flex", gap: 2, flexShrink: 0, marginLeft: "auto" }}>
-                <button
-                  className="btn btn-ghost btn-sm btn-icon"
-                  onClick={() => onPull(rd.name)}
-                  title="Pull to local"
-                  disabled={pulling === rd.name}
-                >
-                  {pulling === rd.name
-                    ? <Loader2 size={12} className="spin" />
-                    : <Download size={12} />}
-                </button>
-                {confirmingDelete === rd.name ? (
-                  <button
-                    className="btn btn-sm"
-                    style={{ color: "var(--color-error)" }}
-                    onClick={() => onDelete(rd.name)}
-                  >
-                    Delete?
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-ghost btn-sm btn-icon"
-                    onClick={() => onDelete(rd.name)}
-                    title="Delete remote dataset"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
+          {rows.map((row) => (
+            <div key={row.name}>
+              <DatasetRow
+                name={row.name}
+                sizeBytes={row.sizeBytes}
+                selected={isLocal && row.name === selectedDataset}
+                confirmingDelete={confirmingDelete === row.name}
+                transferBusy={isLocal ? pushing === row.name : pulling === row.name}
+                transferIcon={isLocal ? "upload" : "download"}
+                showTransfer={isLocal ? clusters.length > 0 : true}
+                onSelect={isLocal ? () => {
+                  if (onSelect) onSelect(row.name);
+                  else setSelectedDataset(row.name);
+                  setConfirmingDelete(null);
+                  setPushTarget(null);
+                } : undefined}
+                onTransfer={() => isLocal
+                  ? handlePushClick(row.name)
+                  : handlePull(row.name).catch(console.error)}
+                onDelete={() => isLocal
+                  ? handleDeleteLocal(row.name).catch(console.error)
+                  : handleDeleteRemote(row.name).catch(console.error)}
+              />
+              {isLocal && pushTarget === row.name && clusters.length > 1 && (
+                <div style={{ padding: "4px 8px 8px", display: "flex", gap: 4, alignItems: "center" }}>
+                  <span className="text-xs text-tertiary">Push to:</span>
+                  {clusters.map((c) => (
+                    <button
+                      key={c.name}
+                      className="btn btn-sm"
+                      onClick={() => doPush(row.name, c.name).catch(console.error)}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {pushResult?.ds === row.name && (
+                <div style={{ padding: "2px 8px 4px" }}>
+                  <span className="text-xs" style={{ color: "var(--color-success)" }}>
+                    Pushed to {pushResult.cluster}
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---- Shared dataset row ---- */
+
+interface RowItem {
+  name: string;
+  sizeBytes: number;
+}
+
+function DatasetRow({ name, sizeBytes, selected, confirmingDelete, transferBusy, transferIcon, showTransfer, onSelect, onTransfer, onDelete }: {
+  name: string;
+  sizeBytes: number;
+  selected?: boolean;
+  confirmingDelete: boolean;
+  transferBusy: boolean;
+  transferIcon: "upload" | "download";
+  showTransfer: boolean;
+  onSelect?: () => void;
+  onTransfer: () => void;
+  onDelete: () => void;
+}) {
+  const TransferIcon = transferIcon === "upload" ? Upload : Download;
+  const transferTitle = transferIcon === "upload" ? "Push to cluster" : "Pull to local";
+
+  return (
+    <div
+      className={`flex-row${selected ? " active" : ""}`}
+      style={{ alignItems: "center", padding: "4px 8px", gap: 8, cursor: onSelect ? "pointer" : undefined }}
+      onClick={onSelect}
+    >
+      <span
+        className="text-sm"
+        style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {name}
+      </span>
+      <span className="text-xs text-tertiary" style={{ flexShrink: 0 }}>
+        {formatSize(sizeBytes)}
+      </span>
+      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+        {showTransfer && (
+          <button
+            className="btn btn-ghost btn-sm btn-icon"
+            onClick={(e) => { e.stopPropagation(); onTransfer(); }}
+            title={transferTitle}
+            disabled={transferBusy}
+          >
+            {transferBusy
+              ? <Loader2 size={12} className="spin" />
+              : <TransferIcon size={12} />}
+          </button>
+        )}
+        {confirmingDelete ? (
+          <button
+            className="btn btn-sm"
+            style={{ color: "var(--color-error)" }}
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          >
+            Delete?
+          </button>
+        ) : (
+          <button
+            className="btn btn-ghost btn-sm btn-icon"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete dataset"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

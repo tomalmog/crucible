@@ -10,6 +10,7 @@ import {
 } from "../api/studioApi";
 import {
   DatasetDashboard,
+  DatasetEntry,
   RecordSample,
   VersionSummary,
 } from "../types";
@@ -19,7 +20,7 @@ import { loadSessionState, saveSessionState } from "../session_state";
 interface ForgeContextValue {
   dataRoot: string;
   setDataRoot: (value: string) => void;
-  datasets: string[];
+  datasets: DatasetEntry[];
   selectedDataset: string | null;
   setSelectedDataset: (name: string | null) => void;
   versions: VersionSummary[];
@@ -51,7 +52,7 @@ const INITIAL = loadSessionState();
 
 export function ForgeProvider({ children }: { children: ReactNode }) {
   const [dataRoot, setDataRoot] = useState(INITIAL.data_root);
-  const [datasets, setDatasets] = useState<string[]>([]);
+  const [datasets, setDatasets] = useState<DatasetEntry[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string | null>(
     INITIAL.selected_dataset,
   );
@@ -124,8 +125,8 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       setSamples([]);
       return;
     }
-    if (!selectedDataset || !rows.includes(selectedDataset)) {
-      setSelectedDataset(rows[0]);
+    if (!selectedDataset || !rows.some((d) => d.name === selectedDataset)) {
+      setSelectedDataset(rows[0].name);
       setSelectedVersion(null);
     }
   }, [dataRoot, selectedDataset]);
