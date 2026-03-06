@@ -100,7 +100,6 @@ def _add_submit_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cluster", required=True, help="Cluster name")
     parser.add_argument("--method", required=True, help="Training method")
     parser.add_argument("--method-args", default="{}", help="JSON method arguments")
-    parser.add_argument("--dataset", default="", help="Dataset name")
     parser.add_argument("--partition", default="", help="Slurm partition")
     parser.add_argument("--nodes", type=int, default=1, help="Number of nodes")
     parser.add_argument("--gpus-per-node", type=int, default=1, help="GPUs per node")
@@ -108,7 +107,6 @@ def _add_submit_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cpus-per-task", type=int, default=4, help="CPUs per task")
     parser.add_argument("--memory", default="32G", help="Memory limit")
     parser.add_argument("--time-limit", default="12:00:00", help="Wall-clock limit")
-    parser.add_argument("--data-strategy", default="shared", choices=["scp", "shared", "s3"])
     parser.add_argument("--pull-model", action="store_true", help="Auto-pull model on completion")
     parser.add_argument("--model-name", default="", help="Name to register model under in registry")
 

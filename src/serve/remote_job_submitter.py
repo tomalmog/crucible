@@ -8,16 +8,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.errors import ForgeRemoteError
 from core.slurm_types import (
-    DataStrategy,
     RemoteJobRecord,
     SlurmResourceConfig,
 )
-from core.training_methods import DATA_PATH_FIELDS
 from serve.agent_bundler import build_agent_tarball
 from serve.remote_data_upload import (
     _generate_script,
-    _handle_data_strategy,
     _submit_sbatch,
     _upload_bundle,
     _upload_config,
@@ -53,8 +51,6 @@ def submit_remote_job(
     training_method: str,
     method_args: dict[str, object],
     resources: SlurmResourceConfig,
-    data_strategy: DataStrategy = "shared",
-    dataset_path: str = "",
     pull_model: bool = False,
     model_name: str = "",
 ) -> RemoteJobRecord:
@@ -66,8 +62,6 @@ def submit_remote_job(
         training_method: Training method to dispatch.
         method_args: Arguments passed to the training method.
         resources: Resource allocation for the job.
-        data_strategy: How to provide data to the remote.
-        dataset_path: Local dataset path (for scp strategy).
         pull_model: Whether to auto-pull model after completion.
         model_name: Name to register model under in registry.
 
@@ -112,11 +106,19 @@ def submit_remote_job(
             ensure_remote_env(session)
             _update_phase(data_root, job_id, "Uploading training bundle...")
             _upload_bundle(session, tarball, workdir)
-            _update_phase(data_root, job_id, "Uploading data...")
-            _handle_data_strategy(
-                session, data_strategy, dataset_path, method_args,
-                workdir, training_method, data_root,
-            )
+            # Verify dataset exists on cluster if specified
+            ds_name = str(method_args.get("dataset_name", ""))
+            if ds_name:
+                ds_path = f"{cluster.remote_workspace}/datasets/{ds_name}"
+                _, _, rc = session.execute(f"test -d {ds_path}", timeout=10)
+                if rc != 0:
+                    raise ForgeRemoteError(
+                        f"Dataset '{ds_name}' not found on cluster "
+                        f"'{cluster_name}'. Push it first with: forge remote "
+                        f"dataset-push --cluster {cluster_name} "
+                        f"--dataset {ds_name}"
+                    )
+                method_args["dataset_path"] = f"{ds_path}/records.jsonl"
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, training_method,
@@ -145,8 +147,6 @@ def submit_remote_sweep(
     training_method: str,
     trial_configs: list[dict[str, object]],
     resources: SlurmResourceConfig,
-    data_strategy: DataStrategy = "shared",
-    dataset_path: str = "",
 ) -> RemoteJobRecord:
     """Submit a sweep as a Slurm job array.
 
@@ -156,8 +156,6 @@ def submit_remote_sweep(
         training_method: Training method for each trial.
         trial_configs: List of per-trial method_args dicts.
         resources: Resource allocation per trial.
-        data_strategy: How to provide data to the remote.
-        dataset_path: Local dataset path (for scp strategy).
 
     Returns:
         The persisted RemoteJobRecord for the sweep.
@@ -197,18 +195,24 @@ def submit_remote_sweep(
             ensure_remote_env(session)
             _update_phase(data_root, job_id, "Uploading training bundle...")
             _upload_bundle(session, tarball, workdir)
-            _update_phase(data_root, job_id, "Uploading data...")
-            _handle_data_strategy(
-                session, data_strategy, dataset_path,
-                trial_configs[0] if trial_configs else {},
-                workdir, training_method, data_root,
+            # Verify dataset exists on cluster if specified
+            ds_name = str(
+                (trial_configs[0] if trial_configs else {}).get(
+                    "dataset_name", "",
+                ),
             )
-            data_field = DATA_PATH_FIELDS.get(training_method)
-            if data_field and trial_configs:
-                rewritten = trial_configs[0].get(data_field)
-                if rewritten:
-                    for tc in trial_configs[1:]:
-                        tc[data_field] = rewritten
+            if ds_name:
+                ds_path = f"{cluster.remote_workspace}/datasets/{ds_name}"
+                _, _, rc = session.execute(
+                    f"test -d {ds_path}", timeout=10,
+                )
+                if rc != 0:
+                    raise ForgeRemoteError(
+                        f"Dataset '{ds_name}' not found on cluster "
+                        f"'{cluster_name}'. Push it first."
+                    )
+                for tc in trial_configs:
+                    tc["dataset_path"] = f"{ds_path}/records.jsonl"
 
             for i, trial_args in enumerate(trial_configs):
                 config_payload = {

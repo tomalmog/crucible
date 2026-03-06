@@ -99,13 +99,9 @@ def _handle_remove_cluster(
 
 
 def _handle_submit(client: ForgeClient, args: argparse.Namespace) -> int:
-    from core.slurm_types import SlurmResourceConfig
     from serve.remote_job_submitter import submit_remote_job
 
     method_args = json.loads(args.method_args)
-    dataset_path, data_strategy = _resolve_dataset(
-        client, method_args, args.dataset, args.data_strategy,
-    )
     resources = _build_resources(args)
     record = submit_remote_job(
         data_root=client._config.data_root,
@@ -113,8 +109,6 @@ def _handle_submit(client: ForgeClient, args: argparse.Namespace) -> int:
         training_method=args.method,
         method_args=method_args,
         resources=resources,
-        data_strategy=data_strategy,
-        dataset_path=dataset_path,
         pull_model=args.pull_model,
         model_name=args.model_name,
     )
@@ -136,10 +130,6 @@ def _handle_submit_sweep(client: ForgeClient, args: argparse.Namespace) -> int:
         print("Error: sweep config has no trials.", file=sys.stderr)
         return 1
 
-    method_args = json.loads(args.method_args)
-    dataset_path, data_strategy = _resolve_dataset(
-        client, method_args, args.dataset, args.data_strategy,
-    )
     resources = _build_resources(args)
     record = submit_remote_sweep(
         data_root=client._config.data_root,
@@ -147,8 +137,6 @@ def _handle_submit_sweep(client: ForgeClient, args: argparse.Namespace) -> int:
         training_method=args.method,
         trial_configs=trial_configs,
         resources=resources,
-        data_strategy=data_strategy,
-        dataset_path=dataset_path,
     )
     print(
         f"Submitted sweep {record.job_id} "
@@ -284,36 +272,6 @@ def _handle_dataset_delete(client: ForgeClient, args: argparse.Namespace) -> int
         delete_remote_dataset(session, cluster, args.dataset)
     print(f"Deleted '{args.dataset}' from {args.cluster}")
     return 0
-
-
-def _resolve_dataset(
-    client: ForgeClient,
-    method_args: dict[str, object],
-    cli_dataset: str,
-    data_strategy: str,
-) -> tuple[str, str]:
-    """Resolve a dataset name to a local path, auto-switching to scp if needed.
-
-    Returns (dataset_path, data_strategy) with resolved values.
-    """
-    from pathlib import Path
-
-    dataset_path = cli_dataset
-    if not dataset_path:
-        ds_name = str(method_args.get("dataset_name", ""))
-        if ds_name:
-            resolved = client.resolve_dataset_source(ds_name)
-            if resolved:
-                dataset_path = resolved
-                print(f"Resolved dataset '{ds_name}' → {resolved}")
-
-    if dataset_path and data_strategy == "shared":
-        p = Path(dataset_path).expanduser().resolve()
-        if p.exists():
-            data_strategy = "scp"
-            print("Local dataset detected — switching to scp upload strategy")
-
-    return dataset_path, data_strategy
 
 
 def _build_resources(args: argparse.Namespace) -> "SlurmResourceConfig":
