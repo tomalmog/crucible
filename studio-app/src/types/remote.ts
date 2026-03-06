@@ -58,8 +58,6 @@ export interface ClusterValidationResult {
   errors: string[];
 }
 
-export type DataStrategy = "scp" | "shared" | "s3";
-
 export interface SlurmResourceConfig {
   partition: string;
   nodes: number;

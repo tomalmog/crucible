@@ -22,8 +22,6 @@ TERMINAL_JOB_STATES: frozenset[RemoteJobState] = frozenset({
     "completed", "failed", "cancelled",
 })
 
-DataStrategy = Literal["scp", "shared", "s3"]
-
 
 @dataclass(frozen=True)
 class ClusterConfig:
