@@ -84,7 +84,6 @@ def test_remote_submit_parses() -> None:
         "--cpus-per-task", "8",
         "--memory", "64G",
         "--time-limit", "24:00:00",
-        "--data-strategy", "scp",
         "--pull-model",
     ])
     assert args.remote_action == "submit"
@@ -98,7 +97,6 @@ def test_remote_submit_parses() -> None:
     assert args.cpus_per_task == 8
     assert args.memory == "64G"
     assert args.time_limit == "24:00:00"
-    assert args.data_strategy == "scp"
     assert args.pull_model is True
 
 
@@ -129,7 +127,6 @@ def test_remote_submit_defaults() -> None:
     assert args.cpus_per_task == 4
     assert args.memory == "32G"
     assert args.time_limit == "12:00:00"
-    assert args.data_strategy == "shared"
     assert args.pull_model is False
     assert args.partition == ""
     assert args.gpu_type == ""
