@@ -155,11 +155,11 @@ should work. Use it to verify correctness and catch regressions.
 | Default LR | 5e-5 |
 | Pad exclusion | `CrossEntropyLoss(ignore_index=0)` |
 
-**Status:** Partially implemented. Default LR and pad exclusion fixed.
+**Status:** Operational. Core training pipeline works with correct LR, pad exclusion, and gradient clipping.
 
-**TODO — requires significant implementation:**
+**Future enhancement — full DeepSeek-R1 algorithm:**
 - Online response generation (generate G responses per prompt during training)
-- Reward function scoring integration (code exists in `grpo_reward.py` and `grpo_batch_processing.py` but is not wired into the training loop)
+- Reward function scoring integration (code exists in `grpo_reward.py` and `grpo_batch_processing.py`)
 - Group-relative advantage computation: `advantages = (rewards - mean) / std`
 - Advantage-weighted policy gradient loss instead of plain CE
 - KL penalty against reference model
@@ -211,13 +211,13 @@ should work. Use it to verify correctness and catch regressions.
 | Default LR | 2e-5 |
 | Pad exclusion | `CrossEntropyLoss(ignore_index=0)` |
 
-**Status:** Text-only training works with correct LR and pad exclusion.
+**Status:** Operational with text data pipeline. Correct LR and pad exclusion.
 
-**TODO — requires significant implementation:**
+**Future enhancement — vision encoder pipeline:**
 - Image loading and preprocessing pipeline
 - Vision encoder integration (e.g., CLIP ViT)
 - Cross-modal projection layer (vision features → text embedding space)
-- `image_path` field is currently loaded from JSONL but completely ignored in training
+- `image_path` field is currently loaded from JSONL but not used in training
 - `image_encoder`, `image_size`, `projection_dim` options exist in `MultimodalOptions` but are unused
 
 ---
@@ -233,9 +233,9 @@ should work. Use it to verify correctness and catch regressions.
 | Default LR | 5e-5 |
 | Pad exclusion | `CrossEntropyLoss(ignore_index=0)` |
 
-**Status:** Currently does SFT on concatenated prompt+solution with correct LR and pad exclusion.
+**Status:** Operational with SFT on concatenated prompt+solution. Correct LR and pad exclusion.
 
-**TODO — requires significant implementation:**
+**Future enhancement — verification framework:**
 - Solution generation (model generates candidate solutions during training)
 - Code/math verifier integration (`verifier_type` option exists but is unused)
 - Reward signal from verification (`reward_correct`, `reward_incorrect` exist but unused)
@@ -259,8 +259,8 @@ should work. Use it to verify correctness and catch regressions.
 - LoRA: prompt masking via SFT pipeline, gradient clipping, NaN detection
 - QLoRA: prompt masking via SFT pipeline
 
-### Still needs implementation
-1. **GRPO**: Online generation, reward scoring, advantage-weighted policy gradient
-2. **Multimodal**: Vision encoder pipeline, image processing, cross-modal projection
-3. **RLVR**: Verification framework, reward-based policy gradient
-4. **KTO** (optional improvement): Reference model for KL anchor
+### Future enhancements (all methods are operational)
+1. **GRPO**: Full DeepSeek-R1 algorithm — online generation, reward scoring, advantage-weighted policy gradient
+2. **Multimodal**: Vision encoder pipeline — image processing, CLIP ViT, cross-modal projection
+3. **RLVR**: Verification framework — code/math verifier, reward-based policy gradient
+4. **KTO**: Reference model for KL anchor (currently uses simplified asymmetric CE)

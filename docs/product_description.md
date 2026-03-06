@@ -6,7 +6,7 @@
 
 ## One-Line Summary
 
-Forge is an open-source, end-to-end ML training platform that takes researchers from raw data to deployed model in a single tool — with 13 training algorithms, full experiment tracking, and a desktop GUI.
+Forge is an open-source, end-to-end ML training platform that takes researchers from raw data to deployed model in a single tool — with 13 training algorithms, experiment tracking, evaluation benchmarks, remote cluster support, and a desktop GUI.
 
 ---
 
@@ -41,7 +41,7 @@ Forge is a single platform that handles the entire ML training lifecycle:
 
 All methods include gradient clipping, NaN detection, mixed precision support (fp32/fp16/bfloat16), checkpoint save/resume, configurable optimizers and schedulers, and real-time progress streaming.
 
-**Experiment Tracking** — Every training run is automatically tracked with full metrics, hyperparameters, hardware profile, and cost analysis (GPU hours, electricity, cloud costs). Compare runs side by side, replay previous experiments exactly from reproducibility bundles, and run hyperparameter sweeps with grid or random search.
+**Experiment Tracking** — Every training run is automatically tracked with full metrics, hyperparameters, hardware profile, and cost analysis (GPU hours, electricity, cloud costs). Compare runs side by side, replay previous experiments exactly from reproducibility bundles, and run hyperparameter sweeps with grid or random search. Native integration with Weights & Biases and TensorBoard.
 
 **Model Management** — Version every model with lineage back to its training data. Tag versions, diff model architectures, merge weights using SLERP/TIES/DARE/averaging, and rollback to any previous version.
 
@@ -49,7 +49,11 @@ All methods include gradient clipping, NaN detection, mixed precision support (f
 
 **Deployment** — Package models with checksums and metadata, quantize to ONNX (dynamic or static), profile latency across batch sizes, and run automated readiness checklists before shipping.
 
-**HuggingFace Hub Integration** — Search, download, and push models and datasets directly from the CLI or desktop app.
+**Evaluation Benchmarks** — Run 7 standardized benchmarks (MMLU, HellaSwag, ARC, WinoGrande, GSM8K, TruthfulQA, HumanEval) with actual model inference. Measure improvement over base models after training.
+
+**HuggingFace Hub Integration** — Search, download, and push models and datasets directly from the CLI or desktop app. Downloaded models are auto-registered in the local model registry.
+
+**Remote Training** — Submit training jobs to Slurm clusters via SSH. Forge auto-provisions the remote environment with the correct PyTorch + CUDA build, uploads datasets, and generates sbatch scripts. Monitor jobs in real-time from the desktop app — jobs appear the instant you click submit with live phase updates through provisioning, upload, and submission. Cancel pending jobs, stream logs, and pull trained models back to your local machine.
 
 ---
 
@@ -69,7 +73,7 @@ forge deploy package --model-path ./outputs/model.pt --output-dir ./deploy
 
 ### Desktop App (Forge Studio)
 
-A native desktop application built with Tauri that provides a visual interface for the entire workflow. Researchers who prefer GUIs get a first-class experience: a training method picker, a configuration wizard that auto-saves drafts between sessions, live training progress with loss curves, dataset inspection with sample browsing, model comparison, and one-click deployment packaging.
+A native desktop application built with Tauri (12 pages) that provides a visual interface for the entire workflow. Researchers who prefer GUIs get a first-class experience: a training method picker for all 13 algorithms, a configuration wizard that auto-saves drafts between sessions, live training progress with loss curves, dataset inspection with sample browsing, A/B model comparison with DPO data export, one-click deployment packaging, and a Jobs page that tracks local and remote training jobs in real-time.
 
 The desktop app calls the same Python CLI under the hood — there is no feature gap between the two interfaces.
 
@@ -84,6 +88,7 @@ The desktop app calls the same Python CLI under the hood — there is no feature
 - **Reproducibility** — every run emits a reproducibility bundle containing the config hash, training parameters, and environment snapshot. `forge replay` recreates any previous run exactly.
 - **Extensibility** — custom model architectures (load a .py file), custom training loops, lifecycle hooks (run/epoch/batch/checkpoint callbacks), and custom loss functions
 - **Distributed training** via torchrun for multi-GPU DDP
+- **Remote Slurm clusters** — submit jobs via SSH with auto-provisioning, CUDA detection, and live monitoring
 - **Cloud burst** for training on AWS/GCP/Azure with cost estimation
 
 ---
@@ -101,16 +106,19 @@ The desktop app calls the same Python CLI under the hood — there is no feature
 ## What Makes Forge Different
 
 1. **One tool, not ten.** Data prep, training, tracking, evaluation, and deployment in a single CLI. No glue code between tools.
-2. **13 training algorithms in one interface.** Switch between SFT, DPO, LoRA, RLHF, distillation, and more by changing one flag. Same data format, same evaluation pipeline, same deployment flow.
-3. **Reproducibility by default.** Every run produces a replay bundle. Every dataset version is immutable. Every model has lineage back to its training data.
-4. **Desktop app included.** Not everyone wants to live in the terminal. Forge Studio provides a visual interface that covers the full workflow, with live progress streaming and auto-saved configuration.
-5. **Works on consumer hardware.** QLoRA support means researchers can fine-tune 7B+ parameter models on a single GPU. Mixed precision and gradient accumulation make efficient use of available memory.
+2. **13 training algorithms in one interface.** Switch between SFT, DPO, LoRA, RLHF, GRPO, distillation, and more by changing one flag. Same data format, same evaluation pipeline, same deployment flow.
+3. **Local to cluster in one click.** Train on your machine or submit to a Slurm cluster — same config, same monitoring, same model registry. Forge auto-provisions the remote environment and detects CUDA.
+4. **Reproducibility by default.** Every run produces a replay bundle. Every dataset version is immutable. Every model has lineage back to its training data.
+5. **Desktop app included.** Not everyone wants to live in the terminal. Forge Studio provides a visual interface that covers the full workflow, with live progress streaming and auto-saved configuration.
+6. **Works on consumer hardware.** QLoRA support means researchers can fine-tune 7B+ parameter models on a single GPU. Mixed precision and gradient accumulation make efficient use of available memory.
 
 ---
 
 ## Current Status
 
-- **10 training methods fully operational**, 3 in partial implementation (GRPO, Multimodal, RLVR)
-- **53 CLI commands** covering data, training, evaluation, deployment, hub integration, and model management
-- **Desktop app** with 13 pages covering the full workflow
+- **13 training algorithms** — all operational with correct loss functions, gradient clipping, and NaN detection
+- **47 CLI commands** covering data, training, evaluation, deployment, hub integration, model management, and remote cluster operations
+- **Desktop app** with 12 pages covering the full workflow including real-time remote job monitoring
+- **7 evaluation benchmarks** with actual model inference
+- **Remote Slurm training** with auto-provisioning, CUDA detection, and instant job visibility
 - Open source, actively developed

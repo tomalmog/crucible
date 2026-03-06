@@ -1,61 +1,82 @@
-# Forge Studio (Phase 2)
+# Forge Studio
 
-Desktop UI for Forge, built with Tauri + React.
+Desktop UI for Forge, built with Tauri 2 + React 19 + TypeScript.
 
-## What It Does Today
+## What It Does
 
-- Browse datasets and versions under a chosen Forge `data_root`.
-- View dataset dashboard metrics (record count, quality, language/source distributions).
-- Inspect record samples from a selected dataset version.
-- Compare two versions (added/removed/shared records).
-- Build a visual pipeline by dragging nodes:
-  - `ingest`
-  - `filter`
-  - `train`
-  - `export-training`
-  - `custom` (raw Forge CLI args)
-- Run pipeline steps from the UI through whitelisted Forge commands.
-- Execute ingest/filter/train/export in background worker tasks so the UI stays responsive.
-- Track pipeline and step-level progress with elapsed time and ETA.
-- Auto-save Studio session state (selected dataset, pipeline nodes, console output, history path).
-- Load and visualize training history (`history.json`) with step-level and epoch-level loss curves.
+Forge Studio is a native desktop application that provides a visual interface for the entire Forge ML training workflow. It calls the Python CLI under the hood — every CLI feature is accessible from the UI.
+
+### Pages (12)
+
+- **Training** — Pick from 13 training methods, configure with an auto-saved wizard, run locally with live progress and loss curves, or submit to a remote Slurm cluster
+- **Datasets** — Ingest data, filter by language/quality, browse versions, inspect samples, compare version diffs
+- **Models** — Grouped model registry with version history, diffing, tagging, rollback, deletion, and merge
+- **Chat** — Load a trained model and chat with configurable sampling (temperature, top-k, top-p), streaming responses
+- **Compare Chat** — A/B model comparison: same prompt to two models side-by-side, rate responses, export as DPO preference data
+- **Hub** — Search HuggingFace models/datasets with filters (task, library, sort), view file listings and metadata, download with progress, push trained models
+- **Jobs** — Unified job queue for local and remote jobs. Remote jobs appear instantly on submit with live phase updates (connecting → provisioning → uploading → submitting). View logs, cancel pending Slurm jobs, track failures with inline error display.
+- **Clusters** — Register, validate, and manage Slurm cluster SSH connections
+- **Experiments** — Training run history, multi-run comparison, cost analysis
+- **Safety** — Toxicity evaluation and pre-deployment safety gates
+- **Deploy** — Model packaging, ONNX quantization, latency profiling, readiness checklist
+- **Settings** — Data root configuration, hardware profile, dark/light theme toggle
+- **Docs** — Built-in training method documentation
+
+### Architecture
+
+- **Frontend:** React 19 with react-router v7 (hash routing), TypeScript strict mode, plain CSS with design tokens
+- **Backend:** Tauri 2 (Rust) — shuttles JSON between TypeScript and disk, runs Python CLI as subprocess
+- **State:** React Context (ForgeContext for app state, CommandContext for command execution) + custom hooks
+- **Styling:** CSS custom properties in `src/theme/` (variables.css, components.css, layout.css, reset.css). Dark/light themes. No Tailwind or CSS-in-JS.
+- **Icons:** lucide-react
+
+### Key Frontend Patterns
+
+- `useForgeCommand` hook wraps all CLI invocations with progress tracking and error handling
+- `useRemoteJobs` hook polls remote job JSON files every 2 seconds for live status
+- Training config drafts auto-save to localStorage and merge with defaults on load
+- `DatasetSelect` component shared across all 13 training forms
+- `CommandFormPanel` provides consistent form layout with validation
 
 ## Quick Start
 
-1. Install project dependencies:
 ```bash
+# Install Python dependencies
 python3 -m pip install -e '.[serve]'
+
+# Install frontend dependencies
 npm --prefix studio-app install
-```
-2. Launch the desktop app:
-```bash
+
+# Launch the app
 cd studio-app
 npm run tauri dev
 ```
 
-## One-Command Smoke Test
-
-From repo root:
+## Build
 
 ```bash
-scripts/run_phase2_studio_smoke_test.sh
+cd studio-app
+npm run tauri build
 ```
 
-This script:
+## Project Structure
 
-- Ingests fixture data.
-- Creates a filtered version.
-- Runs a short PyTorch training pass.
-- Exports training shards.
-- Builds Studio (`tauri build --debug --no-bundle`).
-- Prints values for `data_root`, `dataset`, and `history_path` to paste into the UI.
-
-## Using `first_test_full`
-
-If you already have data in `.forge-firsttest-phase1-full`:
-
-1. Set `data_root` in the sidebar to `.forge-firsttest-phase1-full` and click refresh.
-2. Select dataset `first_test_full`.
-3. Open the pipeline panel and add/edit nodes.
-4. Run a `train` node with an output directory like `.forge-firsttest-train-runs/first_test_full`.
-5. Paste the generated `history.json` path into the training curves panel to plot metrics.
+```
+studio-app/
+├── src/
+│   ├── api/              # Tauri invoke wrappers + CLI arg builders
+│   ├── components/       # Reusable UI (shared/, sidebar/)
+│   ├── context/          # React Context providers
+│   ├── hooks/            # Custom hooks (one per file)
+│   ├── pages/            # Page components organized by domain
+│   ├── theme/            # CSS design system
+│   ├── types/            # Shared TypeScript type definitions
+│   ├── App.tsx           # Root component
+│   ├── router.tsx        # Route definitions
+│   └── main.tsx          # Entry point
+└── src-tauri/
+    └── src/
+        ├── commands/     # Rust Tauri command handlers
+        ├── models.rs     # Rust data models
+        └── lib.rs        # Command registration
+```

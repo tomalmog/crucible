@@ -189,19 +189,50 @@ forge hub download-dataset tatsu-lab/alpaca
 forge hub push --model-path ./model.pt --repo-id my-org/my-model
 ```
 
+## Remote Training (Slurm Clusters)
+
+Train on remote GPU clusters via SSH + Slurm. Forge handles environment provisioning, data upload, job submission, and result syncing — all from the CLI or desktop app.
+
+```bash
+# Register a cluster
+forge remote register-cluster --name my-cluster --host cluster.example.com --user alice
+
+# Validate SSH and Slurm access
+forge remote validate-cluster --name my-cluster
+
+# Submit a training job
+forge remote submit --cluster my-cluster --method lora-train --dataset my-dataset --model-path meta-llama/Llama-2-7b
+
+# Submit a hyperparameter sweep
+forge remote submit-sweep --cluster my-cluster --method sft --dataset my-dataset --sweep-config sweep.yaml
+
+# Monitor and manage
+forge remote list
+forge remote status --job-id rj-abc123
+forge remote logs --job-id rj-abc123 --follow
+forge remote cancel --job-id rj-abc123
+
+# Pull trained model back to local registry
+forge remote pull-model --job-id rj-abc123
+```
+
+Remote jobs auto-provision a conda environment with the correct PyTorch + CUDA build for the cluster's GPU hardware. Datasets are uploaded automatically — ingested catalogs are transferred directly, raw datasets are tarred and ingested on the cluster. The Studio Jobs page shows live submission progress from the moment you click submit.
+
 ## Studio Desktop App
 
 Forge includes a desktop application built with Tauri, React, and TypeScript. It provides a visual interface for every CLI feature:
 
-- **Training** — Method picker, configuration wizard with auto-saved drafts, live progress streaming, training curve visualization
+- **Training** — Method picker for all 13 algorithms, configuration wizard with auto-saved drafts, live progress streaming, training curve visualization, local or remote execution
 - **Datasets** — Ingest, filter, version browser, sample inspector, annotation interface, synthetic data generation
-- **Models** — Version registry, diffing, merging, tagging, rollback
+- **Models** — Grouped version registry, diffing, merging, tagging, rollback, deletion
 - **Chat** — Single-model inference and A/B model comparison with DPO export
 - **Experiments** — Run tracking, multi-run comparison, cost analysis, LLM judge evaluation
 - **Safety** — Toxicity scoring and deployment gating
 - **Deploy** — Packaging, quantization, latency profiling, readiness checklist
-- **Hub** — Search models/datasets with filters (task, library, sort), click into detail views with file listings and sizes before downloading, push to HuggingFace
-- **Jobs** — Job queue monitoring with live progress, rename, kill
+- **Hub** — Search models/datasets with filters (task, library, sort), detail views with file listings and sizes, download, push to HuggingFace
+- **Jobs** — Real-time job monitoring for local and remote jobs. Remote jobs appear instantly on submit with live phase updates (connecting, provisioning, uploading, submitting). Pending Slurm jobs show queue status. Cancel, view logs, and track failures with inline error display.
+- **Clusters** — Register, validate, and manage Slurm cluster connections
+- **Docs** — Built-in training method documentation and reference
 
 To run the desktop app:
 
@@ -243,6 +274,8 @@ forge cloud submit --config cloud-config.yaml
 forge cloud status --job-id job-123
 forge cloud sync --job-id job-123 --output-dir ./results
 ```
+
+See also [Remote Training](#remote-training-slurm-clusters) for Slurm cluster support, which is the primary way to train on remote hardware.
 
 ## Output Artifacts
 

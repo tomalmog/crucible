@@ -53,7 +53,7 @@ forge/
 ├── src/                        # Python — CLI, SDK, core library
 │   ├── core/                   #   Shared types, errors, constants, config
 │   ├── cli/                    #   CLI commands (one file per command)
-│   ├── serve/                  #   Training runners, losses, strategies, evaluation
+│   ├── serve/                  #   Training runners, losses, strategies, evaluation, remote job submission
 │   ├── store/                  #   Dataset SDK, model registry, persistence
 │   ├── ingest/                 #   Data ingestion pipeline
 │   ├── transforms/             #   Dedup, quality scoring, language detection
@@ -366,5 +366,5 @@ def test_<what>_<condition>_<expected>():
 
 ---
 
-*Last updated: February 2026*
+*Last updated: March 2026*
 *This document is enforced, not aspirational. If the code doesn't meet these standards, it doesn't ship.*
