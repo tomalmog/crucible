@@ -225,6 +225,67 @@ def _handle_pull_model(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_dataset_push(client: ForgeClient, args: argparse.Namespace) -> int:
+    from serve.remote_dataset_ops import push_dataset
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    with SshSession(cluster) as session:
+        info = push_dataset(session, cluster, args.dataset, client._config.data_root)
+    print(f"Pushed '{info.name}' ({info.record_count} records) to {args.cluster}")
+    return 0
+
+
+def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
+    import json as json_mod
+    from serve.remote_dataset_ops import list_remote_datasets
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    with SshSession(cluster) as session:
+        datasets = list_remote_datasets(session, cluster)
+    if not datasets:
+        print("No datasets on cluster.")
+    else:
+        for ds in datasets:
+            print(f"  {ds.name}  {ds.record_count} records  synced {ds.synced_at}")
+    # Machine-readable output for Tauri
+    print("FORGE_JSON:" + json_mod.dumps([
+        {"name": d.name, "record_count": d.record_count,
+         "version_id": d.version_id, "synced_at": d.synced_at}
+        for d in datasets
+    ]))
+    return 0
+
+
+def _handle_dataset_pull(client: ForgeClient, args: argparse.Namespace) -> int:
+    from serve.remote_dataset_ops import pull_remote_dataset
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    with SshSession(cluster) as session:
+        local_path = pull_remote_dataset(
+            session, cluster, args.dataset, client._config.data_root,
+        )
+    print(f"Pulled '{args.dataset}' to {local_path}")
+    return 0
+
+
+def _handle_dataset_delete(client: ForgeClient, args: argparse.Namespace) -> int:
+    from serve.remote_dataset_ops import delete_remote_dataset
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    with SshSession(cluster) as session:
+        delete_remote_dataset(session, cluster, args.dataset)
+    print(f"Deleted '{args.dataset}' from {args.cluster}")
+    return 0
+
+
 def _resolve_dataset(
     client: ForgeClient,
     method_args: dict[str, object],

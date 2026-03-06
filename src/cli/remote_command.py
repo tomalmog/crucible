@@ -75,6 +75,25 @@ def add_remote_command(
     pm.add_argument("--job-id", required=True, help="Remote job ID")
     pm.add_argument("--model-name", default=None, help="Name to register model under (auto-generated if omitted)")
 
+    # dataset-push
+    dp = sub.add_parser("dataset-push", help="Push a dataset to a remote cluster")
+    dp.add_argument("--cluster", required=True, help="Cluster name")
+    dp.add_argument("--dataset", required=True, help="Dataset name")
+
+    # dataset-list
+    dl = sub.add_parser("dataset-list", help="List datasets on a remote cluster")
+    dl.add_argument("--cluster", required=True, help="Cluster name")
+
+    # dataset-pull
+    dpl = sub.add_parser("dataset-pull", help="Pull a dataset from a remote cluster")
+    dpl.add_argument("--cluster", required=True, help="Cluster name")
+    dpl.add_argument("--dataset", required=True, help="Dataset name")
+
+    # dataset-delete
+    dd = sub.add_parser("dataset-delete", help="Delete a dataset on a remote cluster")
+    dd.add_argument("--cluster", required=True, help="Cluster name")
+    dd.add_argument("--dataset", required=True, help="Dataset name")
+
 
 def _add_submit_args(parser: argparse.ArgumentParser) -> None:
     """Add common submission arguments to a parser."""
@@ -98,6 +117,10 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Dispatch to the appropriate remote sub-subcommand handler."""
     from cli.remote_command_handlers import (
         _handle_cancel,
+        _handle_dataset_delete,
+        _handle_dataset_list,
+        _handle_dataset_pull,
+        _handle_dataset_push,
         _handle_list_clusters,
         _handle_list_jobs,
         _handle_logs,
@@ -122,6 +145,10 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
         "logs": _handle_logs,
         "cancel": _handle_cancel,
         "pull-model": _handle_pull_model,
+        "dataset-push": _handle_dataset_push,
+        "dataset-list": _handle_dataset_list,
+        "dataset-pull": _handle_dataset_pull,
+        "dataset-delete": _handle_dataset_delete,
     }
     handler = handlers.get(args.remote_action)
     if handler is None:
