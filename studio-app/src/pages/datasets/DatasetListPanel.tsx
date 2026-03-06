@@ -29,6 +29,7 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
   const [pulling, setPulling] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [pushTarget, setPushTarget] = useState<string | null>(null);
+  const [pushResult, setPushResult] = useState<{ ds: string; cluster: string } | null>(null);
 
   useEffect(() => {
     listClusters(dataRoot).then((c) => {
@@ -78,9 +79,12 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
 
   async function doPush(ds: string, cluster: string) {
     setPushTarget(null);
+    setPushResult(null);
     setPushing(ds);
     try {
       await pushDatasetToCluster(dataRoot, cluster, ds);
+      setPushResult({ ds, cluster });
+      setTimeout(() => setPushResult(null), 4000);
     } catch (e) {
       console.error(e);
     } finally {
@@ -140,6 +144,7 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
         confirmingDelete={confirmingDelete}
         pushing={pushing}
         pushTarget={pushTarget}
+        pushResult={pushResult}
         clusters={clusters}
         onSelect={(ds) => {
           if (onSelect) onSelect(ds);
@@ -169,12 +174,13 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
 
 /* ---- Local dataset list ---- */
 
-function LocalList({ datasets, selectedDataset, confirmingDelete, pushing, pushTarget, clusters, onSelect, onDelete, onPushClick, onPushConfirm }: {
+function LocalList({ datasets, selectedDataset, confirmingDelete, pushing, pushTarget, pushResult, clusters, onSelect, onDelete, onPushClick, onPushConfirm }: {
   datasets: string[];
   selectedDataset: string | null;
   confirmingDelete: string | null;
   pushing: string | null;
   pushTarget: string | null;
+  pushResult: { ds: string; cluster: string } | null;
   clusters: ClusterConfig[];
   onSelect: (ds: string) => void;
   onDelete: (ds: string) => void;
@@ -240,6 +246,13 @@ function LocalList({ datasets, selectedDataset, confirmingDelete, pushing, pushT
                   {c.name}
                 </button>
               ))}
+            </div>
+          )}
+          {pushResult?.ds === ds && (
+            <div style={{ padding: "2px 8px 4px" }}>
+              <span className="text-xs" style={{ color: "var(--color-success)" }}>
+                Pushed to {pushResult.cluster}
+              </span>
             </div>
           )}
         </div>
