@@ -18,10 +18,13 @@ from store.dataset_sdk import ForgeClient
 
 
 def _load_eval_texts(eval_data_path: str) -> list[str]:
-    """Load evaluation texts from a JSON file.
+    """Load evaluation texts from a JSON or JSONL file.
+
+    Supports both JSON arrays (``[...}``) and JSONL (one JSON value per line).
+    For JSONL objects, extracts the ``"text"`` field if present.
 
     Args:
-        eval_data_path: Path to JSON file with text samples.
+        eval_data_path: Path to JSON or JSONL file with text samples.
 
     Returns:
         List of text strings.
@@ -33,12 +36,35 @@ def _load_eval_texts(eval_data_path: str) -> list[str]:
     if not path.exists():
         raise ForgeSafetyError(f"Eval data not found: {eval_data_path}")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
         raise ForgeSafetyError(f"Failed to load eval data: {exc}") from exc
-    if not isinstance(data, list):
-        raise ForgeSafetyError("Eval data must be a JSON array of strings.")
-    return [str(item) for item in data]
+    # Try JSON array first
+    try:
+        data = json.loads(content)
+        if isinstance(data, list):
+            return [str(item) for item in data]
+    except json.JSONDecodeError:
+        pass
+    # Fall back to JSONL (one JSON value per line)
+    texts: list[str] = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ForgeSafetyError(f"Failed to parse JSONL line: {exc}") from exc
+        if isinstance(item, str):
+            texts.append(item)
+        elif isinstance(item, dict) and "text" in item:
+            texts.append(str(item["text"]))
+        else:
+            texts.append(str(item))
+    if not texts:
+        raise ForgeSafetyError("Eval data file is empty or contains no text samples.")
+    return texts
 
 
 def run_safety_eval_command(

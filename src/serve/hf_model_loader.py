@@ -14,12 +14,15 @@ from core.errors import ForgeDependencyError, ForgeServeError
 
 
 def is_huggingface_model_id(model_path: str) -> bool:
-    """Check if the path looks like a HuggingFace model ID rather than a file.
+    """Check if the path looks like a HuggingFace model ID or local HF directory.
 
     Returns True for model IDs like 'gpt2', 'meta-llama/Llama-2-7b'.
-    Returns False for file paths like '/path/to/model.pt' or existing directories.
+    Returns True for local directories containing config.json (downloaded HF models).
+    Returns False for file paths like '/path/to/model.pt'.
     """
     path = Path(model_path)
+    if path.is_dir():
+        return (path / "config.json").exists()
     if path.exists():
         return False
     if path.suffix in (".pt", ".bin", ".safetensors", ".onnx"):
@@ -48,15 +51,43 @@ def load_huggingface_model(
         ForgeServeError: If model loading fails.
     """
     try:
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoConfig, AutoModelForCausalLM
     except ImportError as error:
         raise ForgeDependencyError(
             "Loading HuggingFace models requires transformers. "
             "Install with: pip install transformers"
         ) from error
 
+    # Check if model uses quantization that requires CUDA (FP8, etc.)
+    # and force CPU if we're on a non-CUDA device.
+    load_kwargs: dict[str, Any] = {
+        "device_map": "auto",
+        "dtype": "auto",
+    }
     try:
-        model = AutoModelForCausalLM.from_pretrained(model_id)
+        config = AutoConfig.from_pretrained(model_id)
+        quant_config = getattr(config, "quantization_config", None)
+        if quant_config:
+            quant_type = ""
+            if isinstance(quant_config, dict):
+                quant_type = quant_config.get("quant_method", "")
+            else:
+                quant_type = getattr(quant_config, "quant_method", "")
+            _MPS_INCOMPATIBLE_QUANT = {"compressed-tensors", "fp8", "fbgemm_fp8"}
+            if quant_type in _MPS_INCOMPATIBLE_QUANT:
+                import torch
+                if not torch.cuda.is_available():
+                    load_kwargs["device_map"] = "cpu"
+    except Exception:
+        pass
+
+    try:
+        model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+    except ImportError as error:
+        raise ForgeDependencyError(
+            f"Model '{model_id}' requires an extra dependency: {error}. "
+            "Install it and try again."
+        ) from error
     except Exception as error:
         raise ForgeServeError(
             f"Failed to load HuggingFace model '{model_id}': {error}. "
@@ -66,7 +97,8 @@ def load_huggingface_model(
     if weights_path:
         _load_custom_weights(model, weights_path)
 
-    if device is not None:
+    # device_map="auto" handles placement; only move if no device_map
+    if device is not None and not getattr(model, "hf_device_map", None):
         model = model.to(device)
 
     return model

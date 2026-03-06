@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
+from core.chat_types import ChatResult
 from serve.ab_chat import (
     AbComparison,
     export_preferences_as_dpo,
@@ -12,9 +14,14 @@ from serve.ab_chat import (
 )
 
 
+def _mock_run_chat(records, options):
+    return ChatResult(response_text=f"Response from {options.model_path}")
+
+
 def test_generate_ab_responses() -> None:
     """Generate responses returns comparison."""
-    result = generate_ab_responses("hello", "model_a.pt", "model_b.pt")
+    with patch("serve.ab_chat.run_chat", side_effect=_mock_run_chat):
+        result = generate_ab_responses("hello", "model_a.pt", "model_b.pt")
     assert result.prompt == "hello"
     assert result.response_a
     assert result.response_b

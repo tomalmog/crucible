@@ -61,19 +61,43 @@ def read_model_state_dict(
             f"Initial weights not found at {resolved_path}. "
             "Provide a valid --initial-weights-path or omit it to train from scratch."
         )
-    # If path is a directory, look for model.pt inside it
+    # If path is a directory, find the model weights file inside it
     if resolved_path.is_dir():
-        model_file = resolved_path / "model.pt"
-        if model_file.exists():
-            resolved_path = model_file
-        else:
+        if (resolved_path / "config.json").exists():
             raise ForgeServeError(
-                f"Path {resolved_path} is a directory but does not contain model.pt."
+                f"Path {resolved_path} is a HuggingFace model directory. "
+                "Use a HuggingFace model ID or --base-model-path instead of --initial-weights-path."
             )
+        resolved_path = _find_weights_file_in_dir(resolved_path)
     if detect_model_format(str(resolved_path)) == "onnx":
         return _read_onnx_model_state_dict(torch_module, resolved_path, device)
     checkpoint_payload = _read_torch_checkpoint(torch_module, resolved_path, device)
     return _extract_model_state(checkpoint_payload, resolved_path)
+
+
+def _find_weights_file_in_dir(directory: Path) -> Path:
+    """Find a model weights file inside a directory.
+
+    Checks for common weight file names in priority order.
+
+    Raises:
+        ForgeServeError: If no recognized weights file is found.
+    """
+    candidates = [
+        "model.pt",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "model.pth",
+        "model.bin",
+    ]
+    for name in candidates:
+        path = directory / name
+        if path.exists():
+            return path
+    raise ForgeServeError(
+        f"Path {directory} is a directory but contains no recognized model weights. "
+        f"Expected one of: {', '.join(candidates)}"
+    )
 
 
 def _read_torch_checkpoint(torch_module: Any, weights_path: Path, device: Any) -> object:

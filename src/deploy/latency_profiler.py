@@ -41,6 +41,11 @@ def profile_model_latency(
     """
     if not os.path.isfile(model_path):
         raise ForgeDeployError(f"Model file not found: {model_path}")
+    if not model_path.endswith(".onnx"):
+        raise ForgeDeployError(
+            f"Latency profiling requires an ONNX model, got '{model_path}'. "
+            "Export your PyTorch model to ONNX first with: forge deploy package --format onnx"
+        )
 
     session = _load_onnx_session(model_path)
     profiles: list[LatencyProfile] = []

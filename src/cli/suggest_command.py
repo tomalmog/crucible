@@ -12,6 +12,19 @@ from serve.smart_config import suggest_training_config
 from store.dataset_sdk import ForgeClient
 
 
+def _parse_model_size(value: str) -> float:
+    """Parse model size string into billions of parameters.
+
+    Accepts: 7, 0.125, 125M, 1.5B, 7b, 350m
+    """
+    v = value.strip().lower()
+    if v.endswith("b"):
+        return float(v[:-1])
+    if v.endswith("m"):
+        return float(v[:-1]) / 1000
+    return float(v)
+
+
 def run_suggest_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Handle suggest command invocation."""
     if args.list_gpus:
@@ -42,7 +55,7 @@ def run_suggest_command(client: ForgeClient, args: argparse.Namespace) -> int:
 def add_suggest_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register suggest subcommand."""
     parser = subparsers.add_parser("suggest", help="Get hardware-aware training config suggestions")
-    parser.add_argument("--model-size", type=float, default=7.0, help="Model size in billions of parameters")
+    parser.add_argument("--model-size", type=_parse_model_size, default=7.0, help="Model size in billions of parameters (e.g. 7, 0.125, 125M, 1.5B)")
     parser.add_argument("--method", default="sft", help="Training method (sft, dpo-train, etc.)")
     parser.add_argument("--gpu", default="rtx4090", help="GPU model name")
     parser.add_argument("--dataset-size", type=int, default=10000, help="Number of training examples")

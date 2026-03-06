@@ -76,8 +76,8 @@ def suggest_training_config(
     estimated_hours = (total_steps * time_per_step) / 3600
     mem_estimate = estimate_training_memory(
         hidden_dim=int((model_size_billions * 1e9 / 12) ** 0.5) if model_size_billions > 0 else 256,
-        num_layers=int(model_size_billions * 4) if model_size_billions > 0 else 2,
-        attention_heads=max(1, int(model_size_billions * 4)),
+        num_layers=max(2, int(model_size_billions * 4)) if model_size_billions > 0 else 2,
+        attention_heads=max(1, int(model_size_billions * 4)) if model_size_billions >= 1 else max(1, int(model_size_billions * 32)),
         batch_size=batch_size, max_token_length=512,
         optimizer_type="adamw", precision_mode=precision,
         available_vram_gb=vram_gb,

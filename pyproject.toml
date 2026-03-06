@@ -9,18 +9,19 @@ description = "Forge phase-one MVP for ML training data pipelines"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "pytest==8.3.5",
   "pyyaml==6.0.2",
 ]
 
 [project.optional-dependencies]
+dev = ["pytest==8.3.5"]
 s3 = ["boto3==1.37.0"]
 logging = ["structlog==25.1.0"]
-lance = ["lance==1.2.1", "pyarrow==19.0.0"]
+lance = ["pylance==0.23.2", "pyarrow==19.0.0"]
 serve = ["torch==2.6.0", "matplotlib==3.10.0"]
 onnx = ["onnx==1.17.0", "onnxruntime==1.20.1", "numpy==2.2.2"]
 tokenizers = ["tokenizers==0.22.2"]
 remote = ["paramiko==3.5.0"]
+eval = ["datasets>=3.0.0"]
 
 [project.scripts]
 forge = "cli.main:main"
@@ -62,5 +63,6 @@ module = [
   "tokenizers",
   "paramiko",
   "paramiko.*",
+  "datasets",
 ]
 ignore_missing_imports = true

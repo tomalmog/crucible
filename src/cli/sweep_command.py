@@ -42,7 +42,7 @@ def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--params",
         default=None,
-        help="Inline JSON parameter definitions (alternative to --config-file)",
+        help='Inline JSON sweep parameters. Format: \'{"parameters": [{"name": "learning_rate", "values": [0.001, 0.01]}]}\'',
     )
     parser.add_argument(
         "--strategy",

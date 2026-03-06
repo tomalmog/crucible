@@ -29,6 +29,11 @@ def validate_quantization_config(config: QuantizationConfig) -> None:
         raise ForgeDeployError(
             f"Model file not found: {config.model_path}"
         )
+    if not config.model_path.endswith(".onnx"):
+        raise ForgeDeployError(
+            f"Quantization requires an ONNX model, got '{config.model_path}'. "
+            "Export your PyTorch model to ONNX first with: forge deploy package --format onnx"
+        )
     if config.quantization_type not in _VALID_QUANTIZATION_TYPES:
         raise ForgeDeployError(
             f"Invalid quantization type '{config.quantization_type}'. "

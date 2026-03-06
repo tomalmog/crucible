@@ -74,6 +74,12 @@ def _build_hf_runtime_context(options: ChatOptions) -> ChatRuntimeContext:
     model = load_huggingface_model(options.model_path, options.weights_path, device)
     model.eval()
 
+    # Detect actual device the model landed on (device_map may override)
+    device_map = getattr(model, "hf_device_map", None)
+    if device_map:
+        first_device = next(iter(device_map.values()))
+        device = torch_module.device(first_device)
+
     # Load tokenizer
     hf_tokenizer = load_huggingface_tokenizer(options.model_path)
     tokenizer = _HfTokenizerAdapter(hf_tokenizer)

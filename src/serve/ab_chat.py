@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+
+from core.chat_types import ChatOptions, ChatResult
+from serve.chat_runner import run_chat
 
 
 @dataclass(frozen=True)
@@ -49,16 +51,20 @@ def generate_ab_responses(
     model_a_path: str,
     model_b_path: str,
 ) -> AbComparison:
-    """Generate responses from two models for the same prompt.
-
-    This is a placeholder that returns template responses.
-    A full implementation would load and run both models.
-    """
+    """Generate responses from two models for the same prompt."""
+    result_a = _run_single_chat(prompt, model_a_path)
+    result_b = _run_single_chat(prompt, model_b_path)
     return AbComparison(
         prompt=prompt,
-        response_a=f"[Model A response to: {prompt}]",
-        response_b=f"[Model B response to: {prompt}]",
+        response_a=result_a.response_text,
+        response_b=result_b.response_text,
     )
+
+
+def _run_single_chat(prompt: str, model_path: str) -> ChatResult:
+    """Run chat inference for a single model."""
+    options = ChatOptions(model_path=model_path, prompt=prompt)
+    return run_chat(records=None, options=options)
 
 
 def export_preferences_as_dpo(
