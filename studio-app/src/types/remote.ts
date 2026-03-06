@@ -10,6 +10,13 @@ export interface ClusterConfig {
   validatedAt: string;
 }
 
+export interface RemoteDatasetInfo {
+  name: string;
+  recordCount: number;
+  versionId: string;
+  syncedAt: string;
+}
+
 export type RemoteJobState =
   | "pending"
   | "submitting"

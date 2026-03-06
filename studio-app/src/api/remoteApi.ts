@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ClusterConfig, RemoteJobRecord } from "../types/remote";
+import type { ClusterConfig, RemoteDatasetInfo, RemoteJobRecord } from "../types/remote";
 
 export async function listClusters(dataRoot: string): Promise<ClusterConfig[]> {
   return invoke<ClusterConfig[]>("list_clusters", { dataRoot });
@@ -27,4 +27,20 @@ export async function deleteRemoteJob(dataRoot: string, jobId: string): Promise<
 
 export async function cancelRemoteJob(dataRoot: string, jobId: string): Promise<RemoteJobRecord> {
   return invoke<RemoteJobRecord>("cancel_remote_job", { dataRoot, jobId });
+}
+
+export async function listRemoteDatasets(dataRoot: string, cluster: string): Promise<RemoteDatasetInfo[]> {
+  return invoke<RemoteDatasetInfo[]>("list_remote_datasets", { dataRoot, cluster });
+}
+
+export async function pushDatasetToCluster(dataRoot: string, cluster: string, dataset: string): Promise<void> {
+  return invoke<void>("push_dataset_to_cluster", { dataRoot, cluster, dataset });
+}
+
+export async function pullDatasetFromCluster(dataRoot: string, cluster: string, dataset: string): Promise<void> {
+  return invoke<void>("pull_dataset_from_cluster", { dataRoot, cluster, dataset });
+}
+
+export async function deleteRemoteDataset(dataRoot: string, cluster: string, dataset: string): Promise<void> {
+  return invoke<void>("delete_remote_dataset_cmd", { dataRoot, cluster, dataset });
 }
