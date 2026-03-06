@@ -44,9 +44,9 @@ pub struct RemoteJobSummary {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RemoteDatasetSummary {
     pub name: String,
-    #[serde(alias = "record_count")]
-    #[serde(rename(serialize = "recordCount"))]
-    pub record_count: u64,
+    #[serde(alias = "size_bytes")]
+    #[serde(rename(serialize = "sizeBytes"))]
+    pub size_bytes: u64,
     #[serde(alias = "version_id")]
     #[serde(rename(serialize = "versionId"))]
     pub version_id: String,

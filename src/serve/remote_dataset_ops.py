@@ -17,7 +17,6 @@ from typing import Any
 from core.constants import (
     CATALOG_FILE_NAME,
     DATASETS_DIR_NAME,
-    MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
     VERSIONS_DIR_NAME,
 )
@@ -32,7 +31,7 @@ class RemoteDatasetInfo:
     """Metadata for a dataset synced to a remote cluster."""
 
     name: str
-    record_count: int
+    size_bytes: int
     version_id: str
     synced_at: str
 
@@ -52,33 +51,16 @@ def _read_latest_version_id(catalog: dict[str, Any]) -> str:
     return latest
 
 
-def _count_records(version_dir: Path, records_path: Path) -> int:
-    """Get record count from manifest.json or count lines."""
-    manifest_path = version_dir / MANIFEST_FILE_NAME
-    if manifest_path.exists():
-        try:
-            manifest = json.loads(
-                manifest_path.read_text(encoding="utf-8"),
-            )
-            count = manifest.get("record_count")
-            if isinstance(count, int) and count >= 0:
-                return count
-        except (json.JSONDecodeError, KeyError):
-            pass
-    # Fall back to counting lines in records file
-    with records_path.open("r", encoding="utf-8") as fh:
-        return sum(1 for _ in fh)
-
 
 def _build_metadata(
     name: str,
-    record_count: int,
+    size_bytes: int,
     version_id: str,
 ) -> dict[str, Any]:
     """Build metadata dict for the remote dataset."""
     return {
         "name": name,
-        "record_count": record_count,
+        "size_bytes": size_bytes,
         "version_id": version_id,
         "synced_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -111,8 +93,8 @@ def push_dataset(
             f"Records file not found: {records_path}"
         )
 
-    record_count = _count_records(version_dir, records_path)
-    metadata = _build_metadata(dataset_name, record_count, version_id)
+    size_bytes = records_path.stat().st_size
+    metadata = _build_metadata(dataset_name, size_bytes, version_id)
 
     remote_dir = f"{_remote_datasets_dir(cluster)}/{dataset_name}"
     session.mkdir_p(remote_dir)
@@ -121,7 +103,7 @@ def push_dataset(
 
     return RemoteDatasetInfo(
         name=dataset_name,
-        record_count=record_count,
+        size_bytes=size_bytes,
         version_id=version_id,
         synced_at=metadata["synced_at"],
     )
@@ -188,14 +170,30 @@ def _read_remote_metadata(
         return None
     try:
         data = json.loads(stdout)
+        # Prefer size_bytes from metadata; fall back to du on remote
+        size_bytes = data.get("size_bytes")
+        if size_bytes is None:
+            size_bytes = _get_remote_dir_size(
+                session, f"{datasets_dir}/{name}",
+            )
         return RemoteDatasetInfo(
             name=str(data["name"]),
-            record_count=int(data["record_count"]),
+            size_bytes=int(size_bytes),
             version_id=str(data["version_id"]),
             synced_at=str(data["synced_at"]),
         )
     except (json.JSONDecodeError, KeyError, ValueError):
         return None
+
+
+def _get_remote_dir_size(session: SshSession, remote_dir: str) -> int:
+    """Get total size in bytes of a remote directory via du."""
+    stdout, _, code = session.execute(
+        f"du -sb {remote_dir} 2>/dev/null | cut -f1",
+    )
+    if code == 0 and stdout.strip().isdigit():
+        return int(stdout.strip())
+    return 0
 
 
 def delete_remote_dataset(

@@ -221,7 +221,7 @@ def _handle_dataset_push(client: ForgeClient, args: argparse.Namespace) -> int:
     cluster = load_cluster(client._config.data_root, args.cluster)
     with SshSession(cluster) as session:
         info = push_dataset(session, cluster, args.dataset, client._config.data_root)
-    print(f"Pushed '{info.name}' ({info.record_count} records) to {args.cluster}")
+    print(f"Pushed '{info.name}' ({_format_bytes(info.size_bytes)}) to {args.cluster}")
     return 0
 
 
@@ -238,10 +238,10 @@ def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
         print("No datasets on cluster.")
     else:
         for ds in datasets:
-            print(f"  {ds.name}  {ds.record_count} records  synced {ds.synced_at}")
+            print(f"  {ds.name}  {_format_bytes(ds.size_bytes)}  synced {ds.synced_at}")
     # Machine-readable output for Tauri
     print("FORGE_JSON:" + json_mod.dumps([
-        {"name": d.name, "record_count": d.record_count,
+        {"name": d.name, "size_bytes": d.size_bytes,
          "version_id": d.version_id, "synced_at": d.synced_at}
         for d in datasets
     ]))
@@ -287,6 +287,15 @@ def _build_resources(args: argparse.Namespace) -> "SlurmResourceConfig":
         memory=args.memory,
         time_limit=args.time_limit,
     )
+
+
+def _format_bytes(size: int) -> str:
+    """Format byte count as human-readable string."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.1f} {unit}" if unit != "B" else f"{size} B"
+        size /= 1024
+    return f"{size:.1f} TB"
 
 
 def _print_validation(result: object) -> None:

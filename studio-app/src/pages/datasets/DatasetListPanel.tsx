@@ -11,6 +11,17 @@ import {
 } from "../../api/remoteApi";
 import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes;
+  for (const unit of units) {
+    size /= 1024;
+    if (size < 1024) return `${size.toFixed(1)} ${unit}`;
+  }
+  return `${size.toFixed(1)} PB`;
+}
+
 interface DatasetListPanelProps {
   onSelect?: (dataset: string) => void;
 }
@@ -299,13 +310,11 @@ function RemoteList({ clusters, selectedCluster, remoteDatasets, loading, pullin
       ) : (
         <div>
           {remoteDatasets.map((rd) => (
-            <div key={rd.name} className="flex-row" style={{ alignItems: "center" }}>
-              <div style={{ flex: 1, minWidth: 0, padding: "4px 8px" }}>
-                <span className="text-sm">{rd.name}</span>
-                <span className="text-xs text-tertiary" style={{ marginLeft: 8 }}>
-                  {rd.recordCount} records
-                </span>
-              </div>
+            <div key={rd.name} className="flex-row" style={{ alignItems: "center", padding: "4px 8px", gap: 8 }}>
+              <span className="text-sm" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{rd.name}</span>
+              <span className="text-xs text-tertiary" style={{ flexShrink: 0 }}>
+                {formatSize(rd.sizeBytes)}
+              </span>
               <div style={{ display: "flex", gap: 2, flexShrink: 0, marginLeft: "auto" }}>
                 <button
                   className="btn btn-ghost btn-sm btn-icon"

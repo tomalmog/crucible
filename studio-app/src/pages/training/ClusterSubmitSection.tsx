@@ -119,7 +119,7 @@ export function ClusterSubmitSection({
               </option>
               {remoteDatasets.map((d) => (
                 <option key={d.name} value={d.name}>
-                  {d.name} ({d.recordCount} records)
+                  {d.name}
                 </option>
               ))}
             </select>
