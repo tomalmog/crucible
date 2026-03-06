@@ -1,7 +1,7 @@
 //! Read-only queries for remote clusters and Slurm jobs.
 
 use crate::commands::runtime_queries::resolve_data_root_path;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
@@ -39,6 +39,15 @@ pub struct RemoteJobSummary {
     pub is_sweep: bool,
     pub sweep_array_size: u64,
     pub submit_phase: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteDatasetSummary {
+    pub name: String,
+    pub record_count: u64,
+    pub version_id: String,
+    pub synced_at: String,
 }
 
 #[tauri::command]
@@ -205,6 +214,132 @@ pub fn cancel_remote_job(data_root: String, job_id: String) -> Result<RemoteJobS
     }
     let data = read_json_file(&job_path)?;
     parse_remote_job(&data)
+}
+
+#[tauri::command]
+pub fn list_remote_datasets(
+    data_root: String,
+    cluster: String,
+) -> Result<Vec<RemoteDatasetSummary>, String> {
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "dataset-list", "--cluster", &cluster])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(format!("dataset-list failed: {stderr}"));
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        if let Some(json_str) = line.strip_prefix("FORGE_JSON:") {
+            let items: Vec<RemoteDatasetSummary> = serde_json::from_str(json_str)
+                .map_err(|e| format!("Failed to parse dataset list JSON: {e}"))?;
+            return Ok(items);
+        }
+    }
+    Err("No FORGE_JSON line found in dataset-list output".to_string())
+}
+
+#[tauri::command]
+pub fn push_dataset_to_cluster(
+    data_root: String,
+    cluster: String,
+    dataset: String,
+) -> Result<(), String> {
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "dataset-push", "--cluster", &cluster, "--dataset", &dataset])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(format!("dataset-push failed: {stderr}"))
+    }
+}
+
+#[tauri::command]
+pub fn pull_dataset_from_cluster(
+    data_root: String,
+    cluster: String,
+    dataset: String,
+) -> Result<(), String> {
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "dataset-pull", "--cluster", &cluster, "--dataset", &dataset])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(format!("dataset-pull failed: {stderr}"))
+    }
+}
+
+#[tauri::command]
+pub fn delete_remote_dataset_cmd(
+    data_root: String,
+    cluster: String,
+    dataset: String,
+) -> Result<(), String> {
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let venv_binary = workspace_root.join(".venv/bin/forge");
+    let forge_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        std::path::PathBuf::from("forge")
+    };
+    let output = std::process::Command::new(&forge_bin)
+        .current_dir(&workspace_root)
+        .env("PYTHONUNBUFFERED", "1")
+        .arg("--data-root")
+        .arg(&data_root)
+        .args(["remote", "dataset-delete", "--cluster", &cluster, "--dataset", &dataset])
+        .output()
+        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(format!("dataset-delete failed: {stderr}"))
+    }
 }
 
 fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
