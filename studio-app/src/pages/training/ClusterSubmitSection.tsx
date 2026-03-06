@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
-import { listClusters } from "../../api/remoteApi";
+import { listClusters, listRemoteDatasets } from "../../api/remoteApi";
 import { useForge } from "../../context/ForgeContext";
-import type { ClusterConfig } from "../../types/remote";
+import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
 
 export interface ClusterSubmitConfig {
   cluster: string;
@@ -14,7 +14,7 @@ export interface ClusterSubmitConfig {
   cpusPerTask: string;
   memory: string;
   timeLimit: string;
-  dataStrategy: "scp" | "shared" | "s3";
+  remoteDataset: string;
   pullModel: boolean;
   extraMethodArgs: string;
 }
@@ -28,7 +28,7 @@ export const DEFAULT_CLUSTER_CONFIG: ClusterSubmitConfig = {
   cpusPerTask: "4",
   memory: "32G",
   timeLimit: "12:00:00",
-  dataStrategy: "shared",
+  remoteDataset: "",
   pullModel: false,
   extraMethodArgs: "{}",
 };
@@ -48,6 +48,8 @@ export function ClusterSubmitSection({
 }: ClusterSubmitSectionProps) {
   const { dataRoot } = useForge();
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+  const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);
+  const [loadingDatasets, setLoadingDatasets] = useState(false);
 
   const loadClusters = useCallback(() => {
     if (!dataRoot) return;
@@ -57,6 +59,18 @@ export function ClusterSubmitSection({
   useEffect(() => {
     if (enabled) loadClusters();
   }, [enabled, loadClusters]);
+
+  useEffect(() => {
+    if (!dataRoot || !clusterConfig.cluster) {
+      setRemoteDatasets([]);
+      return;
+    }
+    setLoadingDatasets(true);
+    listRemoteDatasets(dataRoot, clusterConfig.cluster)
+      .then(setRemoteDatasets)
+      .catch(() => setRemoteDatasets([]))
+      .finally(() => setLoadingDatasets(false));
+  }, [dataRoot, clusterConfig.cluster]);
 
   const selectedCluster = clusters.find((c) => c.name === clusterConfig.cluster);
 
@@ -88,6 +102,24 @@ export function ClusterSubmitSection({
               {clusters.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name} ({c.user}@{c.host})
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="Dataset (on cluster)">
+            <select
+              className="input"
+              value={clusterConfig.remoteDataset}
+              onChange={(e) => set("remoteDataset", e.currentTarget.value)}
+              disabled={!clusterConfig.cluster || loadingDatasets}
+            >
+              <option value="">
+                {loadingDatasets ? "Loading datasets..." : "Select a dataset..."}
+              </option>
+              {remoteDatasets.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name} ({d.recordCount} records)
                 </option>
               ))}
             </select>
@@ -171,18 +203,6 @@ export function ClusterSubmitSection({
               />
             </FormField>
           </div>
-
-          <FormField label="Data Strategy">
-            <select
-              className="input"
-              value={clusterConfig.dataStrategy}
-              onChange={(e) => set("dataStrategy", e.currentTarget.value as "scp" | "shared" | "s3")}
-            >
-              <option value="shared">Shared (NFS/Lustre)</option>
-              <option value="scp">SCP Upload</option>
-              <option value="s3">S3 Streaming</option>
-            </select>
-          </FormField>
 
           <FormField label="Auto-Pull Model">
             <label className="flex-row">

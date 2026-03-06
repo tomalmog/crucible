@@ -118,6 +118,9 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
         extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
+      if (clusterConfig.remoteDataset) {
+        merged.dataset_name = clusterConfig.remoteDataset;
+      }
       const methodArgsJson = JSON.stringify(merged);
       const effectiveName = registerModel && modelName.trim() ? modelName.trim() : undefined;
       const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);

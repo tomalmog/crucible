@@ -294,7 +294,6 @@ export function buildRemoteSubmitArgs(
     "--cluster", config.cluster,
     "--method", method,
     "--method-args", methodArgsJson,
-    "--data-strategy", config.dataStrategy,
     "--nodes", config.nodes,
     "--gpus-per-node", config.gpusPerNode,
     "--cpus-per-task", config.cpusPerTask,
