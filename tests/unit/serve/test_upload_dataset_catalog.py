@@ -153,7 +153,7 @@ def test_upload_dataset_catalog_creates_valid_remote_structure(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """Uploaded catalog + version allows a ForgeClient to load records."""
-    from serve.remote_job_submitter import _upload_dataset_catalog
+    from serve.remote_data_upload import _upload_dataset_catalog
 
     # --- Set up local dataset ---
     records = _make_records(10)
@@ -182,7 +182,7 @@ def test_upload_dataset_catalog_records_round_trip(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """ForgeClient can load records from the uploaded remote structure."""
-    from serve.remote_job_submitter import _upload_dataset_catalog
+    from serve.remote_data_upload import _upload_dataset_catalog
     from store.dataset_sdk import ForgeClient
 
     records = _make_records(7)
@@ -214,7 +214,7 @@ def test_upload_dataset_catalog_skips_lance(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """Lance directory is NOT uploaded (remote only needs JSONL)."""
-    from serve.remote_job_submitter import _upload_dataset_catalog
+    from serve.remote_data_upload import _upload_dataset_catalog
 
     records = _make_records(3)
     version_id = _create_local_dataset(local_forge, "ds", records)
@@ -244,7 +244,7 @@ def test_upload_dataset_catalog_missing_catalog_raises(
 ) -> None:
     """Raises ForgeRemoteError when catalog.json does not exist."""
     from core.errors import ForgeStoreError
-    from serve.remote_job_submitter import _upload_dataset_catalog
+    from serve.remote_data_upload import _upload_dataset_catalog
 
     session = FakeSshSession(remote_root)
     with pytest.raises(ForgeStoreError, match="catalog not found"):
@@ -256,7 +256,7 @@ def test_upload_dataset_catalog_empty_latest_raises(
 ) -> None:
     """Raises ForgeRemoteError when latest_version is empty."""
     from core.errors import ForgeRemoteError
-    from serve.remote_job_submitter import _upload_dataset_catalog
+    from serve.remote_data_upload import _upload_dataset_catalog
 
     ds_dir = local_forge / DATASETS_DIR_NAME / "bad"
     ds_dir.mkdir(parents=True)
@@ -273,7 +273,7 @@ def test_handle_data_strategy_dispatches_for_record_methods(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """_handle_data_strategy calls _upload_dataset_catalog for train method."""
-    from serve.remote_job_submitter import _handle_data_strategy
+    from serve.remote_data_upload import _handle_data_strategy
 
     records = _make_records(4)
     _create_local_dataset(local_forge, "strat-ds", records)
@@ -296,7 +296,7 @@ def test_handle_data_strategy_skips_non_record_methods(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """_handle_data_strategy does NOT upload catalog for SFT (non-record method)."""
-    from serve.remote_job_submitter import _handle_data_strategy
+    from serve.remote_data_upload import _handle_data_strategy
 
     records = _make_records(2)
     _create_local_dataset(local_forge, "sft-ds", records)
@@ -319,7 +319,7 @@ def test_handle_data_strategy_falls_through_without_dataset_name(
     local_forge: Path, remote_root: Path,
 ) -> None:
     """Without dataset_name, falls through to existing scp/shared logic."""
-    from serve.remote_job_submitter import _handle_data_strategy
+    from serve.remote_data_upload import _handle_data_strategy
 
     workdir = "/workspace/job-no-ds"
     session = FakeSshSession(remote_root)

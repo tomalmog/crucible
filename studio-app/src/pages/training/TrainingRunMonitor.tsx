@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
 import { CommandProgress } from "../../components/shared/CommandProgress";
+import { formatDuration } from "../../components/shared/formatDuration";
 
 interface TrainingRunMonitorProps {
   command: {
@@ -48,15 +49,6 @@ export function parseTrainingProgress(stdout: string): TrainingProgress | null {
     }
   }
   return null;
-}
-
-function formatEta(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  if (m < 60) return `${m}m ${s}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
 }
 
 export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
@@ -143,7 +135,7 @@ export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
                 </span>
               )}
               {progress.etaSeconds != null && (
-                <span>ETA: {formatEta(progress.etaSeconds)}</span>
+                <span>ETA: {formatDuration(progress.etaSeconds)}</span>
               )}
             </div>
           </div>

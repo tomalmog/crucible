@@ -47,12 +47,8 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
             });
         }
         Ok(summaries)
-    } else if index.get("version_ids").and_then(Value::as_array).is_some() {
+    } else if let Some(version_ids) = index.get("version_ids").and_then(Value::as_array) {
         // Old flat format — present as a single "default" group
-        let version_ids = index
-            .get("version_ids")
-            .and_then(Value::as_array)
-            .unwrap();
         let active_version_id = index
             .get("active_version_id")
             .and_then(Value::as_str)

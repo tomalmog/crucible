@@ -482,8 +482,7 @@ label {
 
 /* ─── Diff Controls ─── */
 
-.diff-controls,
-.history-controls {
+.diff-controls {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
     gap: 8px;
@@ -892,25 +891,6 @@ label {
     width: 12px;
     height: 12px;
     stroke-width: 1.5;
-}
-
-.hub-card-tags {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 5px;
-    overflow: hidden;
-}
-
-.hub-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 7px;
-    border-radius: var(--radius-sm);
-    font-size: 0.625rem;
-    font-family: var(--font-mono);
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-light);
 }
 
 .hub-card-bottom {
@@ -1347,10 +1327,6 @@ label {
 
 .gap-top-sm {
     margin-top: 6px;
-}
-
-.text-xxs {
-    font-size: 0.6875rem;
 }
 
 .error-alert {

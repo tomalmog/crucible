@@ -112,7 +112,7 @@ def test_auto_register_model_has_correct_remote_path(tmp_path: Path) -> None:
 
 def test_pull_remote_model_uses_stored_name(tmp_path: Path) -> None:
     """pull_remote_model should use record.model_name when no explicit name given."""
-    from serve.remote_job_submitter import pull_remote_model
+    from serve.remote_model_puller import pull_remote_model
     from store.remote_job_store import save_remote_job
     from unittest.mock import MagicMock, patch
     import json
@@ -158,7 +158,7 @@ def test_pull_remote_model_uses_stored_name(tmp_path: Path) -> None:
 
     mock_session.download.side_effect = fake_download
 
-    with patch("serve.remote_job_submitter.SshSession", return_value=mock_session):
+    with patch("serve.remote_model_puller.SshSession", return_value=mock_session):
         result = pull_remote_model(tmp_path, record.job_id)
 
     # The model should be registered under "User-Named-Model"
