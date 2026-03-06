@@ -15,15 +15,10 @@ export function DatasetDashboard() {
     value: count,
   }));
 
-  const sourceRows = dashboard.source_counts.map((s) => ({
-    label: s.source,
-    value: s.count,
-  }));
-
   return (
     <div className="stack-lg">
       <div className="stats-grid">
-        <MetricCard label="Version" value={dashboard.version_id.slice(0, 16)} />
+        <MetricCard label="Dataset" value={dashboard.dataset_name} />
         <MetricCard label="Records" value={String(dashboard.record_count)} />
         <MetricCard label="Avg Quality" value={dashboard.average_quality.toFixed(3)} />
         <MetricCard label="Quality Range" value={`${dashboard.min_quality.toFixed(3)} - ${dashboard.max_quality.toFixed(3)}`} />
@@ -34,12 +29,6 @@ export function DatasetDashboard() {
           <div className="panel">
             <h4 className="panel-title">Language Mix</h4>
             <BarChart rows={languageRows} maxValue={dashboard.record_count} />
-          </div>
-        )}
-        {sourceRows.length > 0 && (
-          <div className="panel">
-            <h4 className="panel-title">Top Sources</h4>
-            <BarChart rows={sourceRows} />
           </div>
         )}
       </div>

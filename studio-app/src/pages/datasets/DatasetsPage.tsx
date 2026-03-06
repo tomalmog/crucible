@@ -2,21 +2,19 @@ import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { DatasetListPanel } from "./DatasetListPanel";
 import { DatasetDashboard } from "./DatasetDashboard";
-import { VersionDiffPanel } from "./VersionDiffPanel";
 import { SampleInspector } from "./SampleInspector";
 import { IngestForm } from "./IngestForm";
 import { FilterForm } from "./FilterForm";
 import { useForge } from "../../context/ForgeContext";
 
-type Tab = "overview" | "diff" | "samples" | "ingest" | "filter";
+type Tab = "overview" | "samples" | "ingest" | "filter";
 
 export function DatasetsPage() {
   const [tab, setTab] = useState<Tab>("overview");
-  const { selectedDataset, setSelectedDataset, setSelectedVersion, refreshDatasets } = useForge();
+  const { selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
 
   function handleSelectDataset(ds: string) {
     setSelectedDataset(ds);
-    setSelectedVersion(null);
     setTab("overview");
   }
 
@@ -32,7 +30,7 @@ export function DatasetsPage() {
         <DatasetListPanel onSelect={handleSelectDataset} />
         <div>
           <div className="tab-list">
-            {(["overview", "diff", "samples", "ingest", "filter"] as Tab[]).map((t) => (
+            {(["overview", "samples", "ingest", "filter"] as Tab[]).map((t) => (
               <button
                 key={t}
                 className={`tab-item ${tab === t ? "active" : ""}`}
@@ -44,7 +42,6 @@ export function DatasetsPage() {
           </div>
 
           {tab === "overview" && <DatasetDashboard />}
-          {tab === "diff" && <VersionDiffPanel />}
           {tab === "samples" && <SampleInspector />}
           {tab === "ingest" && <IngestForm />}
           {tab === "filter" && selectedDataset && <FilterForm />}

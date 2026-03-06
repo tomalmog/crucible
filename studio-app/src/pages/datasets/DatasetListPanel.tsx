@@ -8,8 +8,7 @@ interface DatasetListPanelProps {
 }
 
 export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
-  const { dataRoot, datasets, selectedDataset, setSelectedDataset, versions,
-    selectedVersion, setSelectedVersion, refreshDatasets } = useForge();
+  const { dataRoot, datasets, selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   async function handleDelete(ds: string) {
@@ -36,7 +35,7 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
               <button
                 className={`nav-item ${ds === selectedDataset ? "active" : ""}`}
                 style={{ flex: 1 }}
-                onClick={() => { if (onSelect) { onSelect(ds); } else { setSelectedDataset(ds); } setSelectedVersion(null); setConfirmingDelete(null); }}
+                onClick={() => { if (onSelect) { onSelect(ds); } else { setSelectedDataset(ds); } setConfirmingDelete(null); }}
               >
                 {ds}
               </button>
@@ -63,33 +62,6 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
         </div>
       )}
 
-      {versions.length > 0 && (
-        <>
-          <h4 className="gap-top-lg">Versions</h4>
-          <button
-            className={`nav-item ${selectedVersion === null ? "active" : ""}`}
-            onClick={() => setSelectedVersion(null)}
-          >
-            Latest
-          </button>
-          <div>
-            {versions.map((v) => (
-              <button
-                key={v.version_id}
-                className={`nav-item ${v.version_id === selectedVersion ? "active" : ""}`}
-                onClick={() => setSelectedVersion(v.version_id)}
-              >
-                <span className="text-mono text-sm">
-                  {v.version_id.slice(0, 16)}...
-                </span>
-                <span className="text-xs text-tertiary">
-                  {v.record_count} rows
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
