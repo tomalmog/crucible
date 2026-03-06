@@ -46,6 +46,9 @@ def generate_single_node_script(
     lines.append(f"#SBATCH --output={workdir}/slurm-%j.out")
     for key, value in resources.extra_sbatch:
         lines.append(f"#SBATCH --{key}={value}")
+    excl = _exclude_line(cluster)
+    if excl:
+        lines.append(excl)
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
@@ -98,6 +101,9 @@ def generate_multi_node_script(
     lines.append(f"#SBATCH --output={workdir}/slurm-%j.out")
     for key, value in resources.extra_sbatch:
         lines.append(f"#SBATCH --{key}={value}")
+    excl = _exclude_line(cluster)
+    if excl:
+        lines.append(excl)
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
@@ -165,6 +171,9 @@ def generate_sweep_script(
     lines.append(f"#SBATCH --output={workdir}/slurm-%A_%a.out")
     for key, value in resources.extra_sbatch:
         lines.append(f"#SBATCH --{key}={value}")
+    excl = _exclude_line(cluster)
+    if excl:
+        lines.append(excl)
     lines.append("")
 
     lines.extend(_module_load_lines(cluster))
@@ -180,16 +189,59 @@ def generate_sweep_script(
 
 
 def _cuda_env_lines() -> list[str]:
-    """Diagnose GPU availability and try to load CUDA if needed."""
+    """Set up CUDA environment and run a pre-flight GPU check."""
     return [
         "# Ensure CUDA is available",
         "if ! nvidia-smi > /dev/null 2>&1; then",
         "    module load cuda 2>/dev/null || module load cuda/12.1 2>/dev/null || true",
         "fi",
-        'echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"',
-        "nvidia-smi || true",
+        "",
+        "export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True",
+        "",
+        'echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"',
+        "nvidia-smi",
+        "",
+        "# Pre-flight: verify CUDA driver responds before starting training.",
+        "# cuInit returning non-zero means this node has a broken GPU driver.",
+        _cuda_preflight_script(),
         "",
     ]
+
+
+def _cuda_preflight_script() -> str:
+    """Return a bash snippet that verifies the CUDA driver works."""
+    # Write the check as a heredoc to avoid shell quoting issues.
+    return (
+        "python3 << 'CUDA_CHECK' || exit 1\n"
+        "import ctypes, sys\n"
+        "try:\n"
+        "    cuda = ctypes.CDLL('libcuda.so.1')\n"
+        "    r = ctypes.c_int()\n"
+        "    err = cuda.cuInit(0)\n"
+        "    if err != 0:\n"
+        "        print('FORGE_AGENT_ERROR: CUDA driver error (cuInit=' + str(err) + '). '\n"
+        "              'This node has a broken GPU driver. '\n"
+        "              'Resubmit the job to try a different node.', file=sys.stderr)\n"
+        "        sys.exit(1)\n"
+        "    cuda.cuDeviceGetCount(ctypes.byref(r))\n"
+        "    if r.value == 0:\n"
+        "        print('FORGE_AGENT_ERROR: No CUDA devices found.', file=sys.stderr)\n"
+        "        sys.exit(1)\n"
+        "    name = ctypes.create_string_buffer(256)\n"
+        "    cuda.cuDeviceGetName(name, 256, 0)\n"
+        "    print('CUDA pre-flight OK: ' + str(r.value) + ' device(s), ' + name.value.decode())\n"
+        "except Exception as e:\n"
+        "    print('FORGE_AGENT_ERROR: CUDA pre-flight failed: ' + str(e), file=sys.stderr)\n"
+        "    sys.exit(1)\n"
+        "CUDA_CHECK"
+    )
+
+
+def _exclude_line(cluster: ClusterConfig) -> str | None:
+    """Return an --exclude SBATCH directive if the cluster has excluded nodes."""
+    if cluster.exclude_nodes:
+        return f"#SBATCH --exclude={cluster.exclude_nodes}"
+    return None
 
 
 def _gpu_gres_line(resources: SlurmResourceConfig) -> str:

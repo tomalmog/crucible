@@ -38,6 +38,7 @@ def _cluster_to_dict(cluster: ClusterConfig) -> dict[str, object]:
         "module_loads": list(cluster.module_loads),
         "python_path": cluster.python_path,
         "remote_workspace": cluster.remote_workspace,
+        "exclude_nodes": cluster.exclude_nodes,
         "validated_at": cluster.validated_at,
     }
 
@@ -56,6 +57,7 @@ def _dict_to_cluster(raw: dict[str, object]) -> ClusterConfig:
         module_loads=tuple(raw.get("module_loads", ())),  # type: ignore[arg-type]
         python_path=str(raw.get("python_path", "python3")),
         remote_workspace=str(raw.get("remote_workspace", "/tmp/forge-jobs")),
+        exclude_nodes=str(raw.get("exclude_nodes", "")),
         validated_at=str(raw.get("validated_at", "")),
     )
 

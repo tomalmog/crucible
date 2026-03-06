@@ -41,6 +41,7 @@ class ClusterConfig:
         module_loads: Shell commands to load required modules.
         python_path: Path to python interpreter on the remote.
         remote_workspace: Base directory for job files on the remote.
+        exclude_nodes: Comma-separated node names to exclude from scheduling.
         validated_at: ISO-8601 timestamp of last successful validation.
     """
 
@@ -55,6 +56,7 @@ class ClusterConfig:
     module_loads: tuple[str, ...] = ()
     python_path: str = "python3"
     remote_workspace: str = "/tmp/forge-jobs"
+    exclude_nodes: str = ""
     validated_at: str = ""
 
 

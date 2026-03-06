@@ -44,8 +44,9 @@ def ensure_remote_env(session: SshSession) -> None:
     """Ensure the ``forge`` conda env exists on the remote cluster.
 
     Checks ``conda env list`` for a ``forge`` entry and creates it
-    if missing.  When the env exists, verifies that torch can see
-    CUDA and reinstalls if needed.
+    if missing.  CUDA verification is NOT done here because this
+    runs on the login node which typically has no GPU.  The actual
+    CUDA check happens at training time via device_selection.py.
 
     Args:
         session: Active SSH session to the cluster.
@@ -54,7 +55,7 @@ def ensure_remote_env(session: SshSession) -> None:
         ForgeRemoteError: If conda is unavailable or env creation fails.
     """
     if _env_exists(session):
-        _ensure_torch_cuda(session)
+        _ensure_torch_installed(session)
         return
 
     print("FORGE_ENV_SETUP: forge conda env not found — creating...", flush=True)
@@ -62,20 +63,20 @@ def ensure_remote_env(session: SshSession) -> None:
     print("FORGE_ENV_SETUP: forge conda env ready.", flush=True)
 
 
-def _ensure_torch_cuda(session: SshSession) -> None:
-    """Check that torch can see CUDA; reinstall if not."""
+def _ensure_torch_installed(session: SshSession) -> None:
+    """Check that torch is importable in the forge env."""
+    check_script = "import torch; print('torch=' + torch.__version__)"
     stdout, _, code = session.execute(
         _conda_cmd(
-            f"conda run -n {_ENV_NAME} python -c "
-            "\"import torch; print(torch.cuda.is_available())\""
+            f'conda run -n {_ENV_NAME} python -c "{check_script}"'
         ),
         timeout=30,
     )
-    if code == 0 and "True" in stdout:
+    if code == 0 and "torch=" in stdout:
         return
 
     print(
-        "FORGE_ENV_SETUP: torch cannot see CUDA — reinstalling...",
+        "FORGE_ENV_SETUP: torch not found in forge env — installing...",
         flush=True,
     )
     cuda_tag = _detect_cuda_tag(session)
@@ -84,14 +85,13 @@ def _ensure_torch_cuda(session: SshSession) -> None:
     )
     _, stderr, code = session.execute(
         _conda_cmd(
-            f"conda run -n {_ENV_NAME} pip install --force-reinstall"
-            f" {torch_install}",
+            f"conda run -n {_ENV_NAME} pip install {torch_install}",
         ),
         timeout=600,
     )
     if code != 0:
-        raise ForgeRemoteError(f"torch reinstall failed: {stderr.strip()}")
-    print("FORGE_ENV_SETUP: torch reinstalled with CUDA support.", flush=True)
+        raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
+    print("FORGE_ENV_SETUP: torch installed.", flush=True)
 
 
 def _env_exists(session: SshSession) -> bool:
@@ -113,28 +113,42 @@ def _env_exists(session: SshSession) -> bool:
 
 
 def _detect_cuda_tag(session: SshSession) -> str:
-    """Detect the cluster's CUDA version and return a pip index tag."""
-    stdout, _, code = session.execute(
-        "nvidia-smi --query-gpu=driver_version "
-        "--format=csv,noheader 2>/dev/null | head -1",
-        timeout=15,
-    )
-    if code != 0 or not stdout.strip():
-        return "cu124"  # safe default
+    """Detect the cluster's CUDA version and return a pip index tag.
 
-    # Parse CUDA version from nvidia-smi header instead
-    stdout2, _, _ = session.execute(
+    Tries nvidia-smi on the login node first; if unavailable (common
+    on HPC clusters where GPUs are only on compute nodes), queries a
+    compute node via ``srun``.
+    """
+    import re
+
+    cuda_output = ""
+
+    # Try login node first
+    stdout, _, code = session.execute(
         "nvidia-smi 2>/dev/null | head -3", timeout=15,
     )
-    # Look for "CUDA Version: XX.Y"
-    for line in stdout2.splitlines():
+    if code == 0 and "CUDA Version" in stdout:
+        cuda_output = stdout
+    else:
+        # Login node has no GPU — try querying a compute node
+        stdout2, _, code2 = session.execute(
+            "srun --gres=gpu:1 --time=00:01:00 --quiet "
+            "nvidia-smi 2>/dev/null | head -3",
+            timeout=90,
+        )
+        if code2 == 0 and "CUDA Version" in stdout2:
+            cuda_output = stdout2
+
+    for line in cuda_output.splitlines():
         if "CUDA Version" in line:
-            import re
             match = re.search(r"CUDA Version:\s*(\d+)\.(\d+)", line)
             if match:
                 major, minor = int(match.group(1)), int(match.group(2))
-                # Map to available PyTorch CUDA builds
                 if major >= 13:
+                    return "cu126"
+                if major == 12 and minor >= 8:
+                    return "cu126"
+                if major == 12 and minor >= 6:
                     return "cu126"
                 if major == 12 and minor >= 4:
                     return "cu124"
