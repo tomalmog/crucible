@@ -72,11 +72,15 @@ export function HubModelSearch() {
     if (filterLibrary) args.push("--library", filterLibrary);
     const apiSort = LOCAL_SORTS.has(filterSort) ? "downloads" : filterSort;
     if (apiSort !== "downloads") args.push("--sort", apiSort);
-    const status = await searchCmd.run(dataRoot, args);
-    if (status.status === "completed" && status.stdout) {
-      setResults(JSON.parse(status.stdout));
-      setDownloadStates({});
-      setPage(0);
+    try {
+      const status = await searchCmd.run(dataRoot, args);
+      if (status.status === "completed" && status.stdout) {
+        setResults(JSON.parse(status.stdout));
+        setDownloadStates({});
+        setPage(0);
+      }
+    } catch {
+      // Command invoke failed (e.g. Tauri not available) — leave results empty
     }
   }
 

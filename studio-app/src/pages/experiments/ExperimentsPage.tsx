@@ -23,16 +23,21 @@ export function ExperimentsPage() {
   async function loadRuns() {
     if (!dataRoot) return;
     setLoading(true);
-    const status = await command.run(dataRoot, ["experiment", "list"]);
-    if (status.status === "completed" && command.output) {
-      const lines = command.output.split("\n").filter((l) => l.startsWith("  "));
-      const parsed = lines.map((l) => {
-        const parts = l.trim().split(/\s+/);
-        return { run_id: parts[0], loss: parts[1]?.replace("loss=", "") ?? "-" };
-      });
-      setRuns(parsed);
+    try {
+      const status = await command.run(dataRoot, ["experiment", "list"]);
+      if (status.status === "completed" && command.output) {
+        const lines = command.output.split("\n").filter((l) => l.startsWith("  "));
+        const parsed = lines.map((l) => {
+          const parts = l.trim().split(/\s+/);
+          return { run_id: parts[0], loss: parts[1]?.replace("loss=", "") ?? "-" };
+        });
+        setRuns(parsed);
+      }
+    } catch {
+      // Command invoke failed (e.g. Tauri not available) — leave runs empty
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
