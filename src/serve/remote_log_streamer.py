@@ -83,12 +83,14 @@ def fetch_remote_logs(
     with SshSession(cluster) as session:
         _, _, code = session.execute(f"test -f {log_path}", timeout=10)
         if code != 0:
+            sacct_info = _query_sacct_details(session, record.slurm_job_id)
             return (
                 f"[Log file not found: {log_path}]\n"
                 "The file may be on a compute node's local /tmp "
                 "which is not accessible from the login node.\n"
                 "Consider setting your cluster's Remote Workspace "
                 "to a shared filesystem path (e.g. /home/you/forge-jobs)."
+                + (f"\n\n--- Slurm Job Info (sacct) ---\n{sacct_info}" if sacct_info else "")
             )
         return session.tail_last(log_path, lines=tail_lines)
 
@@ -108,15 +110,24 @@ def check_remote_job_state(
     """
     record = load_remote_job(data_root, job_id)
     if record.state in TERMINAL_JOB_STATES:
-        # Ensure model is registered even if state already terminal
-        if (
-            record.state == "completed"
-            and record.model_path_remote
-            and not _is_model_registered(data_root, record)
-        ):
-            _auto_register_remote_model(
-                data_root, record, record.model_path_remote,
-            )
+        if record.state == "completed":
+            # Retry model discovery if model_path_remote was missed
+            if not record.model_path_remote:
+                cluster = load_cluster(data_root, record.cluster_name)
+                with SshSession(cluster) as session:
+                    model_path = _discover_remote_model(session, record)
+                    if model_path:
+                        update_remote_job_state(
+                            data_root, record.job_id, "completed",
+                            model_path_remote=model_path,
+                        )
+                        _auto_register_remote_model(
+                            data_root, record, model_path, session,
+                        )
+            elif not _is_model_registered(data_root, record):
+                _auto_register_remote_model(
+                    data_root, record, record.model_path_remote,
+                )
         return record.state
 
     cluster = load_cluster(data_root, record.cluster_name)
@@ -162,28 +173,52 @@ def _sync_final_state(
     in the local model registry with location_type='remote'.
     """
     stdout, _, code = session.execute(
-        f"sacct -j {record.slurm_job_id} --noheader -o State -P | head -1",
+        f"sacct -j {record.slurm_job_id} --noheader "
+        "-o State,ExitCode,Reason%50 -P | head -1",
         timeout=15,
     )
     if code != 0:
         return record.state
 
-    slurm_state = stdout.strip().splitlines()[0].strip() if stdout.strip() else ""
+    parts = stdout.strip().splitlines()[0].split("|") if stdout.strip() else []
+    slurm_state = parts[0].strip() if parts else ""
+    slurm_exit = parts[1].strip() if len(parts) > 1 else ""
+    slurm_reason = parts[2].strip() if len(parts) > 2 else ""
     forge_state = _slurm_state_to_forge(slurm_state)
 
     if forge_state != record.state:
         extra_fields: dict[str, str] = {}
-        # On completion, discover model path and auto-register
+        # Check result.json — agent may have failed even if Slurm says COMPLETED
+        if forge_state == "completed":
+            result_error = _extract_result_error(session, record)
+            if result_error:
+                forge_state = "failed"
+                extra_fields["submit_phase"] = f"Failed: {result_error}"
+        # On completion, discover model path and auto-register.
+        # Retry a few times — result.json may not be visible yet
+        # due to NFS propagation delay from compute to login node.
         if forge_state == "completed" and not record.model_path_remote:
-            model_path = _discover_remote_model(session, record)
+            import time
+            model_path = ""
+            for _attempt in range(8):
+                model_path = _discover_remote_model(session, record)
+                if model_path:
+                    break
+                time.sleep(2)
             if model_path:
                 extra_fields["model_path_remote"] = model_path
                 _auto_register_remote_model(
                     data_root, record, model_path, session,
                 )
-        # On failure, extract error from Slurm log tail
+        # On failure, extract error from Slurm log tail or sacct
         if forge_state == "failed":
             error_summary = _extract_log_error(session, record)
+            if not error_summary and slurm_reason and slurm_reason != "None":
+                error_summary = (
+                    f"Slurm {slurm_state} (exit {slurm_exit}): {slurm_reason}"
+                )
+            elif not error_summary and slurm_exit:
+                error_summary = f"Slurm {slurm_state} (exit {slurm_exit})"
             if error_summary:
                 extra_fields["submit_phase"] = f"Failed: {error_summary}"
         update_remote_job_state(
@@ -200,25 +235,96 @@ def _sync_final_state(
     return forge_state
 
 
+def _query_sacct_details(session: SshSession, slurm_job_id: str) -> str:
+    """Query sacct for detailed job information."""
+    stdout, _, code = session.execute(
+        f"sacct -j {slurm_job_id} --format=JobID,State,ExitCode,MaxRSS,"
+        "Elapsed,NodeList,Reason%50 --noheader -P",
+        timeout=15,
+    )
+    if code != 0 or not stdout.strip():
+        return ""
+    return stdout.strip()
+
+
 def _extract_log_error(session: SshSession, record: RemoteJobRecord) -> str:
-    """Try to extract an error message from the tail of the Slurm log."""
+    """Try to extract an error message from the remote job.
+
+    Checks result.json first (written by the agent on Python exceptions),
+    then falls back to scanning the Slurm log tail, then sacct.
+    """
+    # Check result.json first — agent writes it even on failure
+    result_error = _extract_result_error(session, record)
+    if result_error:
+        return result_error
+
     log_path = (
         record.remote_log_path
         or f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
     )
     try:
-        tail = session.tail_last(log_path, lines=30).strip()
+        tail = session.tail_last(log_path, lines=50).strip()
     except Exception:
+        tail = ""
+    if tail:
+        lines = tail.splitlines()
+        error_patterns = (
+            "FORGE_AGENT_ERROR:", "Error:", "error:", "Exception:",
+            "FAILED", "Traceback", "Killed", "signal",
+        )
+        for line in reversed(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if any(p in stripped for p in error_patterns):
+                return stripped[:300]
+        # No recognisable error — return last non-empty line that isn't
+        # diagnostic output (nvidia-smi, CUDA pre-flight, table borders)
+        skip_patterns = (
+            "CUDA pre-flight OK", "CUDA_VISIBLE_DEVICES=", "+-", "|",
+            "FORGE:", "Python ", "No running processes",
+            "FORGE_AGENT:", "Mem:", "Swap:", "total",
+        )
+        for line in reversed(lines):
+            stripped = line.strip()
+            if stripped and not any(stripped.startswith(p) for p in skip_patterns):
+                return stripped[:300]
+
+    # No log or no error found — query sacct for job state/exit code
+    sacct_info = _query_sacct_details(session, record.slurm_job_id)
+    if sacct_info:
+        # Parse sacct output to build a human-readable error
+        for line in sacct_info.splitlines():
+            parts = line.split("|")
+            if len(parts) >= 3 and parts[0].strip() == record.slurm_job_id:
+                state = parts[1].strip()
+                exit_code = parts[2].strip()
+                node = parts[5].strip() if len(parts) > 5 else ""
+                reason = parts[6].strip() if len(parts) > 6 else ""
+                msg = f"Slurm {state} (exit {exit_code})"
+                if node:
+                    msg += f" on {node}"
+                if reason and reason != "None":
+                    msg += f": {reason}"
+                return msg[:300]
+    return ""
+
+
+def _extract_result_error(session: SshSession, record: RemoteJobRecord) -> str:
+    """Read the error field from result.json if it exists."""
+    import json
+
+    result_path = f"{record.remote_output_dir}/result.json"
+    stdout, _, code = session.execute(f"cat '{result_path}'", timeout=15)
+    if code != 0:
         return ""
-    if not tail:
+    try:
+        result = json.loads(stdout.strip())
+    except (json.JSONDecodeError, ValueError):
         return ""
-    lines = tail.splitlines()
-    error_patterns = ("Error:", "error:", "FAILED", "Traceback")
-    for line in reversed(lines):
-        if any(p in line for p in error_patterns):
-            return line.strip()[:300]
-    # No recognisable pattern — return the last non-empty line
-    return next((l.strip()[:300] for l in reversed(lines) if l.strip()), "")
+    if result.get("status") == "failed":
+        return str(result.get("error", ""))[:300]
+    return ""
 
 
 def _discover_remote_model(

@@ -35,7 +35,18 @@ def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
     if subcmd == "model-info":
         return _run_model_info(args.repo_id, getattr(args, "json", False))
     if subcmd == "download-model":
-        return _run_download_model(client, args.repo_id, args.target_dir, args.revision)
+        return _run_download_model(
+            client, args.repo_id, args.target_dir, args.revision,
+            register=getattr(args, "register", False),
+            model_name=getattr(args, "model_name", "") or "",
+        )
+    if subcmd == "download-model-remote":
+        return _run_download_model_remote(
+            client, args.repo_id, args.cluster,
+            getattr(args, "model_name", "") or "",
+            getattr(args, "revision", None),
+            register=getattr(args, "register", False),
+        )
     if subcmd == "search-datasets":
         return _run_search_datasets(
             args.query, args.limit, getattr(args, "json", False),
@@ -93,16 +104,41 @@ def _run_model_info(repo_id: str, json_output: bool = False) -> int:
 
 def _run_download_model(
     client: ForgeClient, repo_id: str, target_dir: str, revision: str | None,
+    *, register: bool = False, model_name: str = "",
 ) -> int:
-    """Download a model from HuggingFace Hub and register it."""
+    """Download a model from HuggingFace Hub."""
     path = download_model(repo_id, target_dir, revision)
     print(f"model_path={path}")
-    try:
-        registry = client.model_registry()
-        version = registry.register_model(repo_id, path)
-        print(f"version_id={version.version_id}")
-    except Exception as exc:
-        print(f"warning: auto-registration failed: {exc}", file=sys.stderr)
+    if register:
+        try:
+            registry = client.model_registry()
+            version = registry.register_model(model_name or repo_id, path)
+            print(f"version_id={version.version_id}")
+        except Exception as exc:
+            print(f"warning: registration failed: {exc}", file=sys.stderr)
+    return 0
+
+
+def _run_download_model_remote(
+    client: ForgeClient,
+    repo_id: str,
+    cluster: str,
+    model_name: str,
+    revision: str | None,
+    *,
+    register: bool = False,
+) -> int:
+    """Download a model to a remote cluster."""
+    from serve.remote_hub_download import download_model_to_cluster
+
+    download_model_to_cluster(
+        data_root=client._config.data_root,
+        repo_id=repo_id,
+        cluster_name=cluster,
+        model_name=model_name,
+        revision=revision,
+        register=register,
+    )
     return 0
 
 
@@ -180,6 +216,15 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     dm.add_argument("repo_id", help="Model repository ID")
     dm.add_argument("--target-dir", default="./models", help="Download target directory")
     dm.add_argument("--revision", help="Model revision/branch")
+    dm.add_argument("--register", action="store_true", help="Register in model registry")
+    dm.add_argument("--model-name", default="", help="Registry name (defaults to repo_id)")
+
+    dmr = sub.add_parser("download-model-remote", help="Download a model to a remote cluster")
+    dmr.add_argument("repo_id", help="Model repository ID")
+    dmr.add_argument("--cluster", required=True, help="Cluster name")
+    dmr.add_argument("--revision", help="Model revision/branch")
+    dmr.add_argument("--register", action="store_true", help="Register in model registry")
+    dmr.add_argument("--model-name", default="", help="Registry name (defaults to repo_id)")
 
     sd = sub.add_parser("search-datasets", help="Search Hub datasets")
     sd.add_argument("query", nargs="?", default="", help="Search query")

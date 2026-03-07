@@ -6,6 +6,8 @@ export interface ModelGroup {
   hasLocal: boolean;
   hasRemote: boolean;
   activeModelPath: string;
+  activeRemoteHost: string;
+  activeRemotePath: string;
 }
 
 export interface ModelVersion {

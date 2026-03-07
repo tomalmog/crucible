@@ -7,10 +7,16 @@ interface ModelSelectProps {
   placeholder?: string;
 }
 
+interface ModelOption {
+  label: string;
+  value: string;
+  section: "local" | "remote";
+}
+
 /**
  * Searchable dropdown for selecting a registered model.
- * Shows model names in the dropdown; sets the active version's model path as value.
- * Uses the same CSS classes as DatasetSelect for consistent styling.
+ * Shows local and remote models in grouped sections.
+ * Local models pass activeModelPath; remote models pass activeRemotePath.
  */
 export function ModelSelect({ value, onChange, placeholder = "select a registered model" }: ModelSelectProps) {
   const { modelGroups } = useForge();
@@ -18,23 +24,40 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
   const [search, setSearch] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Build path→name reverse lookup for displaying the selected model's name
   const pathToName = useMemo(() => {
     const map = new Map<string, string>();
     for (const g of modelGroups) {
       if (g.activeModelPath) map.set(g.activeModelPath, g.modelName);
+      if (g.activeRemotePath) {
+        const host = g.activeRemoteHost.split(".")[0];
+        map.set(g.activeRemotePath, `${g.modelName} (${host})`);
+      }
     }
     return map;
   }, [modelGroups]);
 
-  // Display the model name if the value matches a known path, otherwise show raw value
   const displayValue = value ? (pathToName.get(value) ?? value) : "";
 
-  // Filter model groups by search text (match against model name)
   const query = open ? search : "";
-  const filtered = modelGroups
-    .filter((g) => g.activeModelPath)
-    .filter((g) => g.modelName.toLowerCase().includes(query.toLowerCase()));
+  const options = useMemo(() => {
+    const result: ModelOption[] = [];
+    const lowerQuery = query.toLowerCase();
+    for (const g of modelGroups) {
+      if (!g.modelName.toLowerCase().includes(lowerQuery)) continue;
+      if (g.hasLocal && g.activeModelPath) {
+        result.push({ label: g.modelName, value: g.activeModelPath, section: "local" });
+      }
+      if (g.hasRemote && g.activeRemotePath) {
+        const host = g.activeRemoteHost.split(".")[0];
+        result.push({ label: `${g.modelName} (${host})`, value: g.activeRemotePath, section: "remote" });
+      }
+    }
+    return result;
+  }, [modelGroups, query]);
+
+  const localOptions = options.filter((o) => o.section === "local");
+  const remoteOptions = options.filter((o) => o.section === "remote");
+  const hasResults = localOptions.length > 0 || remoteOptions.length > 0;
 
   function handleFocus(): void {
     clearTimeout(blurTimeout.current);
@@ -51,6 +74,21 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
     setOpen(false);
   }
 
+  function renderOptions(items: ModelOption[]) {
+    return items.map((o) => (
+      <li key={o.value}>
+        <button
+          type="button"
+          className="dataset-select-option"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => pick(o.value)}
+        >
+          {o.label}
+        </button>
+      </li>
+    ));
+  }
+
   return (
     <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
       <input
@@ -58,20 +96,20 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
         onChange={(e) => setSearch(e.currentTarget.value)}
         placeholder={placeholder}
       />
-      {open && filtered.length > 0 && (
+      {open && hasResults && (
         <ul className="dataset-select-dropdown">
-          {filtered.map((g) => (
-            <li key={g.modelName}>
-              <button
-                type="button"
-                className="dataset-select-option"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pick(g.activeModelPath)}
-              >
-                {g.modelName}
-              </button>
-            </li>
-          ))}
+          {localOptions.length > 0 && (
+            <>
+              <li className="dataset-select-header">Local</li>
+              {renderOptions(localOptions)}
+            </>
+          )}
+          {remoteOptions.length > 0 && (
+            <>
+              <li className="dataset-select-header">Remote</li>
+              {renderOptions(remoteOptions)}
+            </>
+          )}
         </ul>
       )}
     </div>

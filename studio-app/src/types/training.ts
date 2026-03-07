@@ -132,6 +132,28 @@ export const REQUIRED_METHOD_FIELDS: Record<TrainingMethod, string[]> = {
   "rlvr-train": ["--dataset", "--base-model"],
 };
 
+/** Primary model CLI flag per training method. Used to determine training location.
+ *  Methods not listed here use manual location toggle. */
+export const PRIMARY_MODEL_KEY: Partial<Record<TrainingMethod, string>> = {
+  sft: "--base-model",
+  "lora-train": "--base-model-path",
+  "qlora-train": "--base-model-path",
+  "domain-adapt": "--base-model-path",
+  "multimodal-train": "--base-model",
+  "dpo-train": "--base-model",
+  "kto-train": "--base-model",
+  "orpo-train": "--base-model",
+  "grpo-train": "--base-model",
+  "rlvr-train": "--base-model",
+};
+
+/** Methods that support auto-location detection from model selection.
+ *  Excludes: "train" (no model), "rlhf-train" (two models), "distill" (two models). */
+export const AUTO_LOCATION_METHODS: ReadonlySet<TrainingMethod> = new Set([
+  "sft", "lora-train", "qlora-train", "domain-adapt", "multimodal-train",
+  "dpo-train", "kto-train", "orpo-train", "grpo-train", "rlvr-train",
+]);
+
 export interface TrainingConfigDraft {
   shared: SharedTrainingConfig;
   extra: Record<string, string>;

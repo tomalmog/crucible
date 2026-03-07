@@ -18,15 +18,18 @@ from core.errors import ForgeRemoteError
 if TYPE_CHECKING:
     from serve.ssh_connection import SshSession
 
-_ENV_NAME = "forge"
-_PIP_PACKAGES = ("pyyaml", "numpy<2", "matplotlib", "tokenizers")
+ENV_NAME = "forge"
+_PIP_PACKAGES = (
+    "pyyaml", "numpy<2", "matplotlib", "tokenizers",
+    "transformers", "accelerate", "safetensors",
+)
 
 # Shell snippet that sources conda's init script from common locations.
 # We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
 # when conda is not on PATH the subshell produces empty output and
 # ``eval ""`` exits 0, so the fallback never runs.  Instead we always
 # scan for conda.sh in well-known paths.
-_CONDA_INIT = (
+CONDA_INIT = (
     "for p in "
     "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
     "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
@@ -35,9 +38,9 @@ _CONDA_INIT = (
 )
 
 
-def _conda_cmd(command: str) -> str:
+def conda_cmd(command: str) -> str:
     """Wrap *command* so conda is initialised in the shell first."""
-    return f"{_CONDA_INIT} && {command}"
+    return f"{CONDA_INIT} && {command}"
 
 
 def ensure_remote_env(session: SshSession) -> None:
@@ -95,8 +98,8 @@ def _ensure_torch_installed(session: SshSession) -> None:
     """Check that torch is importable in the forge env."""
     check_script = "import torch; print('torch=' + torch.__version__)"
     stdout, _, code = session.execute(
-        _conda_cmd(
-            f'conda run -n {_ENV_NAME} python -c "{check_script}"'
+        conda_cmd(
+            f'conda run -n {ENV_NAME} python -c "{check_script}"'
         ),
         timeout=30,
     )
@@ -112,8 +115,8 @@ def _ensure_torch_installed(session: SshSession) -> None:
         f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
     )
     _, stderr, code = session.execute(
-        _conda_cmd(
-            f"conda run -n {_ENV_NAME} pip install {torch_install}",
+        conda_cmd(
+            f"conda run -n {ENV_NAME} pip install {torch_install}",
         ),
         timeout=600,
     )
@@ -125,7 +128,7 @@ def _ensure_torch_installed(session: SshSession) -> None:
 def _remove_env(session: SshSession) -> None:
     """Remove the ``forge`` conda env.  Ignores errors if already gone."""
     session.execute(
-        _conda_cmd(f"conda remove -n {_ENV_NAME} --all -y"),
+        conda_cmd(f"conda remove -n {ENV_NAME} --all -y"),
         timeout=120,
     )
 
@@ -133,7 +136,7 @@ def _remove_env(session: SshSession) -> None:
 def _env_exists(session: SshSession) -> bool:
     """Return True if the ``forge`` conda env already exists."""
     stdout, _, code = session.execute(
-        _conda_cmd("conda env list"), timeout=30,
+        conda_cmd("conda env list"), timeout=30,
     )
     if code != 0:
         raise ForgeRemoteError(
@@ -143,7 +146,7 @@ def _env_exists(session: SshSession) -> bool:
     for line in stdout.splitlines():
         # Each line: "envname  /path/to/env" or "* /path"
         parts = line.split()
-        if parts and parts[0] == _ENV_NAME:
+        if parts and parts[0] == ENV_NAME:
             return True
     return False
 
@@ -197,7 +200,7 @@ def _detect_cuda_tag(session: SshSession) -> str:
 def _create_env(session: SshSession) -> None:
     """Create the ``forge`` conda env and install dependencies."""
     _, stderr, code = session.execute(
-        _conda_cmd(f"conda create -n {_ENV_NAME} python=3.11 -y"),
+        conda_cmd(f"conda create -n {ENV_NAME} python=3.11 -y"),
         timeout=300,
     )
     if code != 0:
@@ -210,8 +213,8 @@ def _create_env(session: SshSession) -> None:
     )
     print(f"FORGE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
     _, stderr, code = session.execute(
-        _conda_cmd(
-            f"conda run -n {_ENV_NAME} pip install {torch_install}",
+        conda_cmd(
+            f"conda run -n {ENV_NAME} pip install {torch_install}",
         ),
         timeout=600,
     )
@@ -220,7 +223,7 @@ def _create_env(session: SshSession) -> None:
 
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
-        _conda_cmd(f"conda run -n {_ENV_NAME} pip install {pip_list}"),
+        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
         timeout=600,
     )
     if code != 0:

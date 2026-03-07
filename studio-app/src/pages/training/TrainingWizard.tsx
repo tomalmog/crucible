@@ -4,6 +4,7 @@ import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
+import { useTrainingLocation } from "../../hooks/useTrainingLocation";
 import { buildTrainingArgs, buildRemoteMethodArgs, buildRemoteSubmitArgs } from "../../api/commandArgs";
 import { startForgeCommand } from "../../api/studioApi";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
@@ -23,6 +24,7 @@ import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSection";
 import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
+import { TrainingClusterContext } from "../../context/TrainingClusterContext";
 import { FormField } from "../../components/shared/FormField";
 import { ArrowLeft, ChevronRight, RotateCcw, Check } from "lucide-react";
 
@@ -71,6 +73,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const [remoteSubmitting, setRemoteSubmitting] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
+  const { clusterMode } = useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
 
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
@@ -118,9 +121,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
         extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
-      if (clusterConfig.remoteDataset) {
-        merged.dataset_name = clusterConfig.remoteDataset;
-      }
       const methodArgsJson = JSON.stringify(merged);
       const effectiveName = registerModel && modelName.trim() ? modelName.trim() : undefined;
       const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);
@@ -166,6 +166,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
       </div>
 
       {step === "config" && (
+        <TrainingClusterContext.Provider value={remoteEnabled ? clusterConfig.cluster : ""}>
         <div className="panel stack-lg">
           {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
           {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
@@ -202,6 +203,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           )}
 
           <ClusterSubmitSection
+            mode={clusterMode}
             enabled={remoteEnabled}
             onToggle={setRemoteEnabled}
             clusterConfig={clusterConfig}
@@ -243,6 +245,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
             </button>
           </div>
         </div>
+        </TrainingClusterContext.Provider>
       )}
 
       {step === "running" && (

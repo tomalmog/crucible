@@ -1,9 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { ArrowDownToLine, Heart, Download, Check, Loader, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, Heart, Download, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { PathInput } from "../../components/shared/PathInput";
 import { FormField } from "../../components/shared/FormField";
+import { DownloadModal } from "../../components/shared/DownloadModal";
 import { formatBytes, formatCount, repoAuthor, formatDate } from "./hubUtils";
 import { HubModelDetail } from "./HubModelDetail";
 
@@ -18,7 +19,6 @@ interface ModelResult {
   total_size: number;
 }
 
-type DownloadStatus = "idle" | "downloading" | "done" | "error";
 const PER_PAGE = 12;
 
 const TASK_OPTIONS = [
@@ -43,13 +43,12 @@ const LOCAL_SORTS = new Set(["size-desc", "size-asc"]);
 export function HubModelSearch() {
   const { dataRoot, refreshModels } = useForge();
   const searchCmd = useForgeCommand();
-  const downloadCmd = useForgeCommand();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ModelResult[]>([]);
   const [page, setPage] = useState(0);
   const [targetDir, setTargetDir] = useState("./models");
-  const [downloadStates, setDownloadStates] = useState<Record<string, DownloadStatus>>({});
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [downloadRepo, setDownloadRepo] = useState<ModelResult | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filterTask, setFilterTask] = useState("");
   const [filterLibrary, setFilterLibrary] = useState("");
@@ -76,7 +75,6 @@ export function HubModelSearch() {
       const status = await searchCmd.run(dataRoot, args);
       if (status.status === "completed" && status.stdout) {
         setResults(JSON.parse(status.stdout));
-        setDownloadStates({});
         setPage(0);
       }
     } catch {
@@ -90,25 +88,6 @@ export function HubModelSearch() {
       runSearch("llama").catch(console.error);
     }
   }, [dataRoot]);
-
-  async function downloadModel(repoId: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!dataRoot) return;
-    setDownloadStates((s) => ({ ...s, [repoId]: "downloading" }));
-    try {
-      const status = await downloadCmd.run(dataRoot, [
-        "hub", "download-model", repoId, "--target-dir", targetDir,
-      ]);
-      const success = status.status === "completed";
-      setDownloadStates((s) => ({
-        ...s,
-        [repoId]: success ? "done" : "error",
-      }));
-      if (success) refreshModels().catch(console.error);
-    } catch {
-      setDownloadStates((s) => ({ ...s, [repoId]: "error" }));
-    }
-  }
 
   if (selectedRepo) {
     return (
@@ -205,7 +184,6 @@ export function HubModelSearch() {
         <>
           <div className="hub-grid">
             {pageResults.map((r) => {
-              const dlState = downloadStates[r.repo_id] ?? "idle";
               const author = repoAuthor(r.repo_id, r.author);
               return (
                 <div className="hub-card" key={r.repo_id} onClick={() => setSelectedRepo(r.repo_id)}>
@@ -238,14 +216,10 @@ export function HubModelSearch() {
                       <span className="hub-card-hint">View details</span>
                     </div>
                     <button
-                      className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : ""}`}
-                      onClick={(e) => downloadModel(r.repo_id, e).catch(console.error)}
-                      disabled={dlState === "downloading"}
+                      className="btn btn-sm"
+                      onClick={(e) => { e.stopPropagation(); setDownloadRepo(r); }}
                     >
-                      {dlState === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
-                      {dlState === "done" && <><Check size={12} /> Downloaded</>}
-                      {dlState === "error" && <><Download size={12} /> Retry</>}
-                      {dlState === "idle" && <><Download size={12} /> Download</>}
+                      <Download size={12} /> Download
                     </button>
                   </div>
                 </div>
@@ -271,6 +245,16 @@ export function HubModelSearch() {
 
       {!searchCmd.isRunning && !searchCmd.error && results.length === 0 && didLoad.current && (
         <p className="text-tertiary text-xs">No models found.</p>
+      )}
+
+      {downloadRepo && (
+        <DownloadModal
+          repoId={downloadRepo.repo_id}
+          targetDir={targetDir}
+          size={downloadRepo.total_size}
+          onComplete={() => refreshModels().catch(console.error)}
+          onClose={() => setDownloadRepo(null)}
+        />
       )}
     </div>
   );

@@ -66,6 +66,18 @@ def _build_metadata(
     }
 
 
+def _find_source_file(catalog: dict[str, Any], version_id: str) -> Path | None:
+    """Find the original source data file from the dataset's manifest."""
+    for v in catalog.get("versions", []):
+        if v.get("version_id") == version_id:
+            uri = v.get("source_uri")
+            if uri and not uri.startswith("s3://"):
+                p = Path(uri).expanduser().resolve()
+                if p.is_file():
+                    return p
+    return None
+
+
 def push_dataset(
     session: SshSession,
     cluster: ClusterConfig,
@@ -76,6 +88,8 @@ def push_dataset(
 
     Reads the local catalog, tars the latest version's records
     with a metadata sidecar, uploads, and extracts on remote.
+    Also uploads the original source data file (for SFT/LoRA/DPO
+    training methods that need prompt/response format).
     """
     catalog_path = (
         data_root / DATASETS_DIR_NAME / dataset_name / CATALOG_FILE_NAME
@@ -93,13 +107,17 @@ def push_dataset(
             f"Records file not found: {records_path}"
         )
 
+    source_path = _find_source_file(catalog, version_id)
+
     size_bytes = records_path.stat().st_size
     metadata = _build_metadata(dataset_name, size_bytes, version_id)
+    if source_path:
+        metadata["has_source"] = True
 
     remote_dir = f"{_remote_datasets_dir(cluster)}/{dataset_name}"
     session.mkdir_p(remote_dir)
 
-    _upload_tar(session, remote_dir, records_path, metadata)
+    _upload_tar(session, remote_dir, records_path, metadata, source_path)
 
     return RemoteDatasetInfo(
         name=dataset_name,
@@ -109,11 +127,15 @@ def push_dataset(
     )
 
 
+SOURCE_DATA_FILE_NAME = "source.jsonl"
+
+
 def _upload_tar(
     session: SshSession,
     remote_dir: str,
     records_path: Path,
     metadata: dict[str, Any],
+    source_path: Path | None = None,
 ) -> None:
     """Create tar, upload, extract on remote, then clean up."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -125,6 +147,8 @@ def _upload_tar(
         with tarfile.open(tar_path, "w:gz") as tar:
             tar.add(str(records_path), arcname=RECORDS_FILE_NAME)
             tar.add(str(meta_path), arcname="metadata.json")
+            if source_path:
+                tar.add(str(source_path), arcname=SOURCE_DATA_FILE_NAME)
 
         remote_tar = f"{remote_dir}/dataset.tar.gz"
         session.upload(tar_path, remote_tar)

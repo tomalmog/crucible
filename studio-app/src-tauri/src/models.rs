@@ -135,6 +135,8 @@ pub struct ModelGroupSummary {
     pub has_local: bool,
     pub has_remote: bool,
     pub active_model_path: String,
+    pub active_remote_host: String,
+    pub active_remote_path: String,
 }
 
 #[derive(Debug, Serialize)]

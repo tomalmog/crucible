@@ -13,7 +13,9 @@ from core.slurm_types import (
     RemoteJobRecord,
     SlurmResourceConfig,
 )
+from core.training_methods import DATA_PATH_FIELDS
 from serve.agent_bundler import build_agent_tarball
+from serve.remote_dataset_ops import SOURCE_DATA_FILE_NAME
 from serve.remote_data_upload import (
     _generate_script,
     _submit_sbatch,
@@ -119,8 +121,21 @@ def submit_remote_job(
                         f"--dataset {ds_name}"
                     )
                 records_file = f"{ds_path}/records.jsonl"
+                source_file = f"{ds_path}/{SOURCE_DATA_FILE_NAME}"
                 method_args["raw_data_path"] = records_file
                 method_args["dataset_path"] = records_file
+                # Data-path methods (SFT, LoRA, DPO, etc.) need the
+                # original source file (prompt/response format), not
+                # the forge ingest records.
+                data_field = DATA_PATH_FIELDS.get(training_method)
+                if data_field:
+                    _, _, src_rc = session.execute(
+                        f"test -f {source_file}", timeout=10,
+                    )
+                    if src_rc == 0:
+                        method_args[data_field] = source_file
+                    else:
+                        method_args[data_field] = records_file
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, training_method,
@@ -214,9 +229,20 @@ def submit_remote_sweep(
                         f"'{cluster_name}'. Push it first."
                     )
                 records_file = f"{ds_path}/records.jsonl"
+                source_file = f"{ds_path}/{SOURCE_DATA_FILE_NAME}"
+                data_field = DATA_PATH_FIELDS.get(training_method)
+                # Check if source file exists for data-path methods
+                use_source = False
+                if data_field:
+                    _, _, src_rc = session.execute(
+                        f"test -f {source_file}", timeout=10,
+                    )
+                    use_source = src_rc == 0
                 for tc in trial_configs:
                     tc["raw_data_path"] = records_file
                     tc["dataset_path"] = records_file
+                    if data_field:
+                        tc[data_field] = source_file if use_source else records_file
 
             for i, trial_args in enumerate(trial_configs):
                 config_payload = {

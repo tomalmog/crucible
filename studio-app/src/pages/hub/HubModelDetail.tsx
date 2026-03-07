@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Download, Check, Loader } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
+import { DownloadModal } from "../../components/shared/DownloadModal";
 import { HubModelDetail as ModelDetail } from "./hubTypes";
 import { formatBytes, formatCount, formatDate } from "./hubUtils";
-
-type DownloadStatus = "idle" | "downloading" | "done" | "error";
 
 interface Props {
   repoId: string;
@@ -16,9 +15,8 @@ interface Props {
 export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
   const { dataRoot, refreshModels } = useForge();
   const infoCmd = useForgeCommand();
-  const downloadCmd = useForgeCommand();
   const [detail, setDetail] = useState<ModelDetail | null>(null);
-  const [dlState, setDlState] = useState<DownloadStatus>("idle");
+  const [showDownload, setShowDownload] = useState(false);
 
   useEffect(() => {
     if (!dataRoot) return;
@@ -27,17 +25,6 @@ export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
     }).catch(console.error);
   }, [dataRoot, repoId]);
 
-  async function handleDownload() {
-    if (!dataRoot) return;
-    setDlState("downloading");
-    try {
-      const s = await downloadCmd.run(dataRoot, ["hub", "download-model", repoId, "--target-dir", targetDir]);
-      const success = s.status === "completed";
-      setDlState(success ? "done" : "error");
-      if (success) refreshModels().catch(console.error);
-    } catch { setDlState("error"); }
-  }
-
   return (
     <div className="hub-detail">
       <div className="hub-detail-topbar">
@@ -45,15 +32,8 @@ export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
           <ArrowLeft size={14} /> Back to results
         </button>
         {detail && (
-          <button
-            className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : "btn-primary"}`}
-            onClick={handleDownload}
-            disabled={dlState === "downloading"}
-          >
-            {dlState === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
-            {dlState === "done" && <><Check size={12} /> Downloaded</>}
-            {dlState === "error" && <><Download size={12} /> Retry</>}
-            {dlState === "idle" && <><Download size={12} /> Download ({formatBytes(detail.total_size)})</>}
+          <button className="btn btn-sm" onClick={() => setShowDownload(true)}>
+            <Download size={12} /> Download ({formatBytes(detail.total_size)})
           </button>
         )}
       </div>
@@ -137,6 +117,16 @@ export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {showDownload && detail && (
+        <DownloadModal
+          repoId={repoId}
+          targetDir={targetDir}
+          size={detail.total_size}
+          onComplete={() => refreshModels().catch(console.error)}
+          onClose={() => setShowDownload(false)}
+        />
       )}
     </div>
   );

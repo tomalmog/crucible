@@ -61,8 +61,16 @@ export function JobsPage() {
   useEffect(() => {
     if (!dataRoot) return;
     const syncRunning = () => {
+      const now = Date.now();
       const running = remoteJobsRef.current.filter(
-        (j) => (j.state === "running" || j.state === "pending") && !syncedRef.current.has(j.jobId),
+        (j) =>
+          ((j.state === "running" || j.state === "pending") ||
+           // Keep syncing recently-completed jobs without a model path
+           // so model discovery retries on NFS propagation delay.
+           // Stop after 2 minutes to avoid infinite polling.
+           (j.state === "completed" && !j.modelPathRemote &&
+            now - new Date(j.updatedAt).getTime() < 120_000)) &&
+          !syncedRef.current.has(j.jobId),
       );
       for (const rj of running) {
         syncedRef.current.add(rj.jobId);

@@ -50,14 +50,20 @@ def generate_single_node_script(
     if excl:
         lines.append(excl)
     lines.append("")
+    lines.append("# Merge stderr into stdout so all output is in the log")
+    lines.append("exec 2>&1")
+    lines.append("")
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
+    lines.extend(_memory_diagnostic_lines())
+    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
     lines.append(
         f"{cluster.python_path} forge_agent_entry.py --config {config_filename}"
     )
+    lines.extend(_post_agent_diagnostic_lines())
 
     return "\n".join(lines) + "\n"
 
@@ -105,11 +111,16 @@ def generate_multi_node_script(
     if excl:
         lines.append(excl)
     lines.append("")
+    lines.append("# Merge stderr into stdout so all output is in the log")
+    lines.append("exec 2>&1")
+    lines.append("")
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
+    lines.extend(_memory_diagnostic_lines())
+    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
     lines.append("")
 
     # Multi-node environment variables
@@ -175,15 +186,21 @@ def generate_sweep_script(
     if excl:
         lines.append(excl)
     lines.append("")
+    lines.append("# Merge stderr into stdout so all output is in the log")
+    lines.append("exec 2>&1")
+    lines.append("")
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
     lines.append("tar xzf forge-agent.tar.gz")
+    lines.extend(_memory_diagnostic_lines())
+    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
     lines.append(
         f"{cluster.python_path} forge_agent_entry.py "
         "--config trials/trial_${SLURM_ARRAY_TASK_ID}.json"
     )
+    lines.extend(_post_agent_diagnostic_lines())
 
     return "\n".join(lines) + "\n"
 
@@ -196,6 +213,7 @@ def _cuda_env_lines() -> list[str]:
         "    module load cuda 2>/dev/null || module load cuda/12.1 2>/dev/null || true",
         "fi",
         "",
+        "export PYTHONUNBUFFERED=1",
         "export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True",
         "",
         'echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"',
@@ -206,6 +224,7 @@ def _cuda_env_lines() -> list[str]:
         _cuda_preflight_script(),
         "",
     ]
+
 
 
 def _cuda_preflight_script() -> str:
@@ -235,6 +254,31 @@ def _cuda_preflight_script() -> str:
         "    sys.exit(1)\n"
         "CUDA_CHECK"
     )
+
+
+def _memory_diagnostic_lines() -> list[str]:
+    """Show available memory before starting the agent."""
+    return [
+        "echo 'FORGE: Memory available:'",
+        "free -m 2>/dev/null | head -3 || true",
+        "",
+    ]
+
+
+def _post_agent_diagnostic_lines() -> list[str]:
+    """Check exit code and diagnose OOM kills after agent exits."""
+    return [
+        "rc=$?",
+        'if [ $rc -eq 0 ]; then echo "FORGE: Agent finished successfully"',
+        "elif [ $rc -eq 137 ] || [ $rc -eq 9 ]; then",
+        '    echo "FORGE_AGENT_ERROR: Process killed (exit $rc) — likely OOM killed by Slurm cgroup"',
+        '    echo "FORGE: Checking dmesg for OOM events..."',
+        "    dmesg -T 2>/dev/null | tail -20 | grep -i 'killed\\|oom\\|memory' || true",
+        '    echo "FORGE: Consider increasing --mem in cluster resource settings"',
+        'else echo "FORGE: Agent failed with exit code $rc"; fi',
+        "exit $rc",
+        "",
+    ]
 
 
 def _exclude_line(cluster: ClusterConfig) -> str | None:

@@ -41,9 +41,8 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
             let created_at = first_version_created_at(&models_dir, &group);
             let (has_local, has_remote) =
                 scan_version_locations(&models_dir, version_id_arr);
-            let active_model_path = resolve_active_model_path(
-                &models_dir, &active_version_id, version_id_arr,
-            );
+            let (active_model_path, active_remote_host, active_remote_path) =
+                resolve_active_version_paths(&models_dir, &active_version_id, version_id_arr);
             summaries.push(ModelGroupSummary {
                 model_name: name.to_string(),
                 version_count: version_count as u64,
@@ -52,6 +51,8 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
                 has_local,
                 has_remote,
                 active_model_path,
+                active_remote_host,
+                active_remote_path,
             });
         }
         Ok(summaries)
@@ -68,9 +69,8 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
         };
         let (has_local, has_remote) =
             scan_version_locations(&models_dir, Some(version_ids));
-        let active_model_path = resolve_active_model_path(
-            &models_dir, &active_version_id, Some(version_ids),
-        );
+        let (active_model_path, active_remote_host, active_remote_path) =
+            resolve_active_version_paths(&models_dir, &active_version_id, Some(version_ids));
         Ok(vec![ModelGroupSummary {
             model_name: "default".to_string(),
             version_count: version_ids.len() as u64,
@@ -79,6 +79,8 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
             has_local,
             has_remote,
             active_model_path,
+            active_remote_host,
+            active_remote_path,
         }])
     } else {
         Ok(vec![])
@@ -209,23 +211,38 @@ pub fn get_model_architecture(model_path: String) -> Result<Value, String> {
     Ok(Value::Null)
 }
 
-/// Resolve the model_path of the active version (or first version) for a group.
-fn resolve_active_model_path(
+/// Resolve local model_path and remote host+path from the active (or first) version.
+fn resolve_active_version_paths(
     models_dir: &Path, active_id: &Option<String>, version_ids: Option<&Vec<Value>>,
-) -> String {
-    // Try active version first, then fall back to first version with a path
+) -> (String, String, String) {
     let candidates: Vec<&str> = active_id.as_deref().into_iter()
         .chain(version_ids.into_iter().flatten().filter_map(Value::as_str))
         .collect();
     let versions_dir = models_dir.join("versions");
-    for vid in candidates {
+    let (mut model_path, mut remote_host, mut remote_path) =
+        (String::new(), String::new(), String::new());
+    for vid in &candidates {
         let path = versions_dir.join(format!("{vid}.json"));
         if let Ok(data) = read_json_file(&path) {
-            let mp = data.get("model_path").and_then(Value::as_str).unwrap_or("");
-            if !mp.is_empty() { return mp.to_string(); }
+            if model_path.is_empty() {
+                let mp = data.get("model_path").and_then(Value::as_str).unwrap_or("");
+                if !mp.is_empty() { model_path = mp.to_string(); }
+            }
+            if remote_host.is_empty() {
+                let loc = data.get("location_type").and_then(Value::as_str).unwrap_or("local");
+                if loc == "remote" || loc == "both" {
+                    let h = data.get("remote_host").and_then(Value::as_str).unwrap_or("");
+                    let rp = data.get("remote_path").and_then(Value::as_str).unwrap_or("");
+                    if !h.is_empty() && !rp.is_empty() {
+                        remote_host = h.to_string();
+                        remote_path = rp.to_string();
+                    }
+                }
+            }
         }
+        if !model_path.is_empty() && !remote_host.is_empty() { break; }
     }
-    String::new()
+    (model_path, remote_host, remote_path)
 }
 
 /// Scan version JSON files to determine if a group has local and/or remote versions.

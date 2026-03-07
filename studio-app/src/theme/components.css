@@ -1434,9 +1434,9 @@ label {
 }
 
 .pull-progress {
-    padding: var(--space-sm) 0;
+    padding: 8px 0;
     display: grid;
-    gap: var(--space-xs);
+    gap: 4px;
 }
 
 .pull-steps {
@@ -1444,7 +1444,7 @@ label {
     gap: 2px;
     font-size: 0.75rem;
     color: var(--text-secondary);
-    padding: var(--space-xs) 0;
+    padding: 4px 0;
 }
 
 .pull-step {
@@ -1454,13 +1454,13 @@ label {
 
 .pull-step::before {
     content: "→ ";
-    color: var(--clr-accent);
+    color: var(--accent);
 }
 
 .pull-success {
     font-size: 0.8rem;
-    color: var(--clr-success);
-    padding: var(--space-xs) 0;
+    color: var(--success);
+    padding: 4px 0;
 }
 
 @keyframes spin {
@@ -1538,4 +1538,160 @@ label {
 
 .dataset-select-option:hover {
     background: var(--bg-hover);
+}
+
+.dataset-select-header {
+    padding: 4px 10px 2px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+
+.dataset-select-header:not(:first-child) {
+    border-top: 1px solid var(--border-light);
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+/* --- Download Modal --- */
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.download-modal {
+    width: 420px;
+    max-width: 90vw;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.download-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.download-modal-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.download-modal-repo {
+    margin-top: 2px;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+
+.download-modal-size {
+    margin-left: 6px;
+    opacity: 0.7;
+}
+
+.download-modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+}
+
+.download-modal-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.download-modal-tab:hover { color: var(--text); }
+
+.download-modal-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.download-modal-body {
+    padding: 20px;
+}
+
+.download-modal-section {
+    display: grid;
+    gap: 12px;
+}
+
+.download-modal-section label span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.download-modal-checkbox {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.download-modal-checkbox input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.download-modal-checkbox span {
+    margin-bottom: 0 !important;
+}
+
+.download-modal-status {
+    margin: 0 20px 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--accent);
+    background: var(--accent-muted);
+}
+
+.download-modal-status.error {
+    color: var(--error);
+    background: var(--error-muted);
+}
+
+.download-modal-status.success {
+    color: var(--success);
+    background: var(--success-muted);
+}
+
+.download-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
 }
