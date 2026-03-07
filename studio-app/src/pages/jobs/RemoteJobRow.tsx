@@ -31,7 +31,7 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
     setLoading(true);
     try {
       const content = await getRemoteJobLogs(dataRoot, job.jobId);
-      setLogs(content || "No logs available yet.");
+      setLogs(content?.trim() || "No logs available yet.");
     } catch (err) {
       setLogs(`Error fetching logs: ${err}`);
     } finally {
@@ -117,18 +117,25 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
   const isSubmitting = job.state === "submitting";
   const isRunning = job.state === "running" || job.state === "pending" || isSubmitting;
   const isCompleted = job.state === "completed";
+  const isFailed = job.state === "failed";
   const hasLocalModel = !!job.modelPathLocal;
-  const failedDuringSubmit = job.state === "failed" && !job.slurmJobId;
+  const failedOnCluster = isFailed && !!job.slurmJobId;
+
+  // Auto-expand and fetch logs for jobs that failed on the cluster
+  useEffect(() => {
+    if (failedOnCluster && !showLogs && !logs) {
+      setShowLogs(true);
+      fetchLogs();
+    }
+  }, [failedOnCluster]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="run-row section-divider">
       <div className="run-row-header">
         <div className="flex-row">
-          {!failedDuringSubmit && (
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleLogs}>
-              {showLogs ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          )}
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleLogs}>
+            {showLogs ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
           <span className="run-row-id">{job.modelName || job.jobId}</span>
           {job.modelName && (
             <span className="run-row-meta" style={{ opacity: 0.6 }}>{job.jobId}</span>
@@ -145,7 +152,7 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
           {!isSubmitting && job.slurmJobId && (
             <span className="run-row-meta">Slurm {job.slurmJobId}</span>
           )}
-          {!isSubmitting && !failedDuringSubmit && (
+          {!isSubmitting && (
             <button
               className="btn btn-sm"
               onClick={(e) => { e.stopPropagation(); toggleLogs(); }}
@@ -205,7 +212,7 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
           Queued in Slurm — waiting for resources...
         </div>
       )}
-      {failedDuringSubmit && job.submitPhase && (
+      {isFailed && job.submitPhase && (
         <div className="error-alert-prominent" style={{ margin: "var(--space-xs) var(--space-md)" }}>
           {job.submitPhase}
         </div>

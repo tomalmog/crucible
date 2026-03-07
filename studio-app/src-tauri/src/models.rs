@@ -132,6 +132,9 @@ pub struct ModelGroupSummary {
     pub version_count: u64,
     pub active_version_id: Option<String>,
     pub created_at: String,
+    pub has_local: bool,
+    pub has_remote: bool,
+    pub active_model_path: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -1,8 +1,4 @@
-"""Real-time log streaming for remote Slurm jobs.
-
-Provides streaming and static log retrieval over SSH with reconnect
-support and Slurm job state checking.
-"""
+"""Remote Slurm job log streaming and state synchronisation."""
 
 from __future__ import annotations
 
@@ -76,23 +72,24 @@ def fetch_remote_logs(
     job_id: str,
     tail_lines: int = 100,
 ) -> str:
-    """Fetch the last N lines of logs from a remote job.
-
-    Args:
-        data_root: Root .forge directory.
-        job_id: Local job identifier.
-        tail_lines: Number of trailing lines to retrieve.
-
-    Returns:
-        Log content as a string.
-    """
+    """Fetch the last N lines of logs from a remote job."""
     record = load_remote_job(data_root, job_id)
     cluster = load_cluster(data_root, record.cluster_name)
-    log_path = record.remote_log_path
-    if not log_path:
-        log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    log_path = (
+        record.remote_log_path
+        or f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    )
 
     with SshSession(cluster) as session:
+        _, _, code = session.execute(f"test -f {log_path}", timeout=10)
+        if code != 0:
+            return (
+                f"[Log file not found: {log_path}]\n"
+                "The file may be on a compute node's local /tmp "
+                "which is not accessible from the login node.\n"
+                "Consider setting your cluster's Remote Workspace "
+                "to a shared filesystem path (e.g. /home/you/forge-jobs)."
+            )
         return session.tail_last(log_path, lines=tail_lines)
 
 
@@ -184,6 +181,11 @@ def _sync_final_state(
                 _auto_register_remote_model(
                     data_root, record, model_path, session,
                 )
+        # On failure, extract error from Slurm log tail
+        if forge_state == "failed":
+            error_summary = _extract_log_error(session, record)
+            if error_summary:
+                extra_fields["submit_phase"] = f"Failed: {error_summary}"
         update_remote_job_state(
             data_root, record.job_id, forge_state, **extra_fields,
         )
@@ -198,6 +200,27 @@ def _sync_final_state(
     return forge_state
 
 
+def _extract_log_error(session: SshSession, record: RemoteJobRecord) -> str:
+    """Try to extract an error message from the tail of the Slurm log."""
+    log_path = (
+        record.remote_log_path
+        or f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    )
+    try:
+        tail = session.tail_last(log_path, lines=30).strip()
+    except Exception:
+        return ""
+    if not tail:
+        return ""
+    lines = tail.splitlines()
+    error_patterns = ("Error:", "error:", "FAILED", "Traceback")
+    for line in reversed(lines):
+        if any(p in line for p in error_patterns):
+            return line.strip()[:300]
+    # No recognisable pattern — return the last non-empty line
+    return next((l.strip()[:300] for l in reversed(lines) if l.strip()), "")
+
+
 def _discover_remote_model(
     session: SshSession,
     record: RemoteJobRecord,
@@ -206,11 +229,11 @@ def _discover_remote_model(
     import json
 
     result_path = f"{record.remote_output_dir}/result.json"
-    stdout, _, code = session.execute(f"cat {result_path}", timeout=15)
+    stdout, _, code = session.execute(f"cat '{result_path}'", timeout=15)
     if code != 0:
         return ""
     try:
-        result = json.loads(stdout)
+        result = json.loads(stdout.strip())
     except (json.JSONDecodeError, ValueError):
         return ""
     return str(result.get("model_path", ""))

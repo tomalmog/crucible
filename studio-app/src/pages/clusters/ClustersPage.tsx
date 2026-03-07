@@ -39,11 +39,15 @@ export function ClustersPage() {
       .catch(() => {});
   }
 
-  function handleValidate(name: string) {
-    startForgeCommand(dataRoot, ["remote", "validate-cluster", "--cluster", name])
-      .then(({ task_id }) => waitForTask(task_id))
-      .then(() => refresh())
-      .catch(() => {});
+  async function handleValidate(name: string) {
+    const { task_id } = await startForgeCommand(dataRoot, ["remote", "validate-cluster", "--cluster", name]);
+    await waitForTask(task_id);
+    refresh();
+  }
+
+  async function handleResetEnv(name: string) {
+    const { task_id } = await startForgeCommand(dataRoot, ["remote", "reset-env", "--cluster", name]);
+    await waitForTask(task_id);
   }
 
   if (view === "register") {
@@ -83,6 +87,7 @@ export function ClustersPage() {
               cluster={c}
               onRemove={() => handleRemove(c.name)}
               onValidate={() => handleValidate(c.name)}
+              onResetEnv={() => handleResetEnv(c.name)}
             />
           ))}
         </div>

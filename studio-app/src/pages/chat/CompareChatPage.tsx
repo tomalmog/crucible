@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { FormField } from "../../components/shared/FormField";
+import { ModelSelect } from "../../components/shared/ModelSelect";
 
 interface Comparison {
   prompt: string;
@@ -47,11 +48,11 @@ export function CompareChatPage() {
       </div>
       <div className="panel stack-md">
         <div className="grid-2">
-          <FormField label="Model A Path">
-            <input value={modelA} onChange={(e) => setModelA(e.currentTarget.value)} placeholder="/path/to/model_a.pt" />
+          <FormField label="Model A">
+            <ModelSelect value={modelA} onChange={setModelA} />
           </FormField>
-          <FormField label="Model B Path">
-            <input value={modelB} onChange={(e) => setModelB(e.currentTarget.value)} placeholder="/path/to/model_b.pt" />
+          <FormField label="Model B">
+            <ModelSelect value={modelB} onChange={setModelB} />
           </FormField>
         </div>
       </div>

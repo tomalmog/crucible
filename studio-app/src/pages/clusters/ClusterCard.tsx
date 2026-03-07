@@ -1,14 +1,48 @@
-import { CheckCircle, XCircle, Trash2, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, XCircle, Trash2, RefreshCw, RotateCcw, Loader } from "lucide-react";
 import type { ClusterConfig } from "../../types/remote";
 
 interface ClusterCardProps {
   cluster: ClusterConfig;
   onRemove: () => void;
-  onValidate: () => void;
+  onValidate: () => Promise<void>;
+  onResetEnv: () => Promise<void>;
 }
 
-export function ClusterCard({ cluster, onRemove, onValidate }: ClusterCardProps) {
+export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv }: ClusterCardProps) {
   const isValidated = !!cluster.validatedAt;
+  const [validating, setValidating] = useState(false);
+  const [validateResult, setValidateResult] = useState<"success" | "error" | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<"success" | "error" | null>(null);
+
+  async function handleValidate() {
+    setValidating(true);
+    setValidateResult(null);
+    try {
+      await onValidate();
+      setValidateResult("success");
+    } catch {
+      setValidateResult("error");
+    } finally {
+      setValidating(false);
+      setTimeout(() => setValidateResult(null), 4000);
+    }
+  }
+
+  async function handleResetEnv() {
+    setResetting(true);
+    setResetResult(null);
+    try {
+      await onResetEnv();
+      setResetResult("success");
+    } catch {
+      setResetResult("error");
+    } finally {
+      setResetting(false);
+      setTimeout(() => setResetResult(null), 4000);
+    }
+  }
 
   return (
     <div className="panel">
@@ -26,8 +60,13 @@ export function ClusterCard({ cluster, onRemove, onValidate }: ClusterCardProps)
           )}
         </div>
         <div className="flex-row">
-          <button className="btn btn-sm" onClick={onValidate} title="Validate cluster">
-            <RefreshCw size={12} /> Validate
+          <button className="btn btn-sm" onClick={handleValidate} disabled={validating} title="Validate cluster">
+            {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
+            {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
+          </button>
+          <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting} title="Remove and rebuild forge conda env on next job">
+            {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
+            {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onRemove} title="Remove cluster">
             <Trash2 size={12} />

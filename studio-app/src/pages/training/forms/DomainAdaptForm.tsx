@@ -1,5 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 import { PathInput } from "../../../components/shared/PathInput";
 
 interface DomainAdaptFormProps {
@@ -19,8 +20,8 @@ export function DomainAdaptForm({ extra, setExtra }: DomainAdaptFormProps) {
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
-        <FormField label="Base Model Path" required>
-          <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Base Model" required>
+          <ModelSelect value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} />
         </FormField>
         <FormField label="Reference Data Path">
           <PathInput value={extra["--reference-data-path"] ?? ""} onChange={(v) => update("--reference-data-path", v)} placeholder="optional — for drift detection" filters={[{ name: "JSONL", extensions: ["jsonl"] }]} />

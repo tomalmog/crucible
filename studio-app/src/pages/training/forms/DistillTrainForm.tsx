@@ -1,5 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 import { PathInput } from "../../../components/shared/PathInput";
 
 interface DistillTrainFormProps {
@@ -19,11 +20,11 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
-        <FormField label="Teacher Model Path" required>
-          <PathInput value={extra["--teacher-model-path"] ?? ""} onChange={(v) => update("--teacher-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Teacher Model" required>
+          <ModelSelect value={extra["--teacher-model-path"] ?? ""} onChange={(v) => update("--teacher-model-path", v)} />
         </FormField>
-        <FormField label="Student Model Path">
-          <PathInput value={extra["--student-model-path"] ?? ""} onChange={(v) => update("--student-model-path", v)} placeholder="optional — HF model ID or path, trains new student if empty" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Student Model">
+          <ModelSelect value={extra["--student-model-path"] ?? ""} onChange={(v) => update("--student-model-path", v)} placeholder="optional — trains new student if empty" />
         </FormField>
         <FormField label="Temperature">
           <input value={extra["--temperature"] ?? "2.0"} onChange={(e) => update("--temperature", e.currentTarget.value)} />

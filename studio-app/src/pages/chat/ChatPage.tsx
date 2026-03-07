@@ -5,6 +5,7 @@ import { getForgeCommandStatus, startForgeCommand } from "../../api/studioApi";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
+import { ModelSelect } from "../../components/shared/ModelSelect";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -24,7 +25,7 @@ export function ChatPage() {
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
-  const [modelPath, setModelPath] = useState("gpt2");
+  const [modelPath, setModelPath] = useState("");
   const [versionId] = useState("");
   const [maxNewTokens, setMaxNewTokens] = useState("120");
   const [temperature, setTemperature] = useState("0.7");
@@ -115,7 +116,7 @@ export function ChatPage() {
         <FormSection title="Model Configuration" defaultOpen>
           <div className="chat-config-grid">
             <FormField label="Model">
-              <input value={modelPath} onChange={(e) => setModelPath(e.currentTarget.value)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" />
+              <ModelSelect value={modelPath} onChange={setModelPath} />
             </FormField>
             <FormField label="Dataset (optional)">
               <DatasetSelect value={datasetName} onChange={(v) => setDatasetName(v)} placeholder="optional" />

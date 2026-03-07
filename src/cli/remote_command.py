@@ -44,6 +44,10 @@ def add_remote_command(
     rc = sub.add_parser("remove-cluster", help="Remove a cluster registration")
     rc.add_argument("--cluster", required=True, help="Cluster name")
 
+    # reset-env
+    re_ = sub.add_parser("reset-env", help="Remove forge conda env on a cluster")
+    re_.add_argument("--cluster", required=True, help="Cluster name")
+
     # submit
     sm = sub.add_parser("submit", help="Submit a remote training job")
     _add_submit_args(sm)
@@ -115,20 +119,23 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
     """Dispatch to the appropriate remote sub-subcommand handler."""
     from cli.remote_command_handlers import (
         _handle_cancel,
-        _handle_dataset_delete,
-        _handle_dataset_list,
-        _handle_dataset_pull,
-        _handle_dataset_push,
         _handle_list_clusters,
         _handle_list_jobs,
         _handle_logs,
         _handle_pull_model,
         _handle_register_cluster,
         _handle_remove_cluster,
+        _handle_reset_env,
         _handle_status,
         _handle_submit,
         _handle_submit_sweep,
         _handle_validate_cluster,
+    )
+    from cli.remote_dataset_handlers import (
+        _handle_dataset_delete,
+        _handle_dataset_list,
+        _handle_dataset_pull,
+        _handle_dataset_push,
     )
 
     handlers: dict[str, object] = {
@@ -136,6 +143,7 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
         "list-clusters": _handle_list_clusters,
         "validate-cluster": _handle_validate_cluster,
         "remove-cluster": _handle_remove_cluster,
+        "reset-env": _handle_reset_env,
         "submit": _handle_submit,
         "submit-sweep": _handle_submit_sweep,
         "list": _handle_list_jobs,

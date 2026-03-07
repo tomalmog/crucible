@@ -3,6 +3,9 @@ export interface ModelGroup {
   versionCount: number;
   activeVersionId: string | null;
   createdAt: string;
+  hasLocal: boolean;
+  hasRemote: boolean;
+  activeModelPath: string;
 }
 
 export interface ModelVersion {

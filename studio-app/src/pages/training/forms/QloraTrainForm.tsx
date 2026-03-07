@@ -1,6 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
-import { PathInput } from "../../../components/shared/PathInput";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 
 interface QloraTrainFormProps {
   extra: Record<string, string>;
@@ -20,7 +20,7 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
-          <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+          <ModelSelect value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} />
         </FormField>
         <FormField label="Quantization Bits">
           <select value={extra["--quantization-bits"] ?? "4"} onChange={(e) => update("--quantization-bits", e.currentTarget.value)}>

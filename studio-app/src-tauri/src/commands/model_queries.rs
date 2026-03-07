@@ -29,21 +29,29 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
             } else {
                 Value::Object(serde_json::Map::new())
             };
-            let version_ids = group
+            let version_id_arr = group
                 .get("version_ids")
-                .and_then(Value::as_array)
-                .map_or(0, |a| a.len());
+                .and_then(Value::as_array);
+            let version_count = version_id_arr.map_or(0, |a| a.len());
             let active_version_id = group
                 .get("active_version_id")
                 .and_then(Value::as_str)
                 .map(str::to_string);
             // Use first version's created_at as group created_at
             let created_at = first_version_created_at(&models_dir, &group);
+            let (has_local, has_remote) =
+                scan_version_locations(&models_dir, version_id_arr);
+            let active_model_path = resolve_active_model_path(
+                &models_dir, &active_version_id, version_id_arr,
+            );
             summaries.push(ModelGroupSummary {
                 model_name: name.to_string(),
-                version_count: version_ids as u64,
+                version_count: version_count as u64,
                 active_version_id,
                 created_at,
+                has_local,
+                has_remote,
+                active_model_path,
             });
         }
         Ok(summaries)
@@ -58,11 +66,19 @@ pub fn list_model_groups(data_root: String) -> Result<Vec<ModelGroupSummary>, St
         } else {
             String::new()
         };
+        let (has_local, has_remote) =
+            scan_version_locations(&models_dir, Some(version_ids));
+        let active_model_path = resolve_active_model_path(
+            &models_dir, &active_version_id, Some(version_ids),
+        );
         Ok(vec![ModelGroupSummary {
             model_name: "default".to_string(),
             version_count: version_ids.len() as u64,
             active_version_id,
             created_at,
+            has_local,
+            has_remote,
+            active_model_path,
         }])
     } else {
         Ok(vec![])
@@ -191,6 +207,42 @@ pub fn get_model_architecture(model_path: String) -> Result<Value, String> {
         }
     }
     Ok(Value::Null)
+}
+
+/// Resolve the model_path of the active version (or first version) for a group.
+fn resolve_active_model_path(
+    models_dir: &Path, active_id: &Option<String>, version_ids: Option<&Vec<Value>>,
+) -> String {
+    // Try active version first, then fall back to first version with a path
+    let candidates: Vec<&str> = active_id.as_deref().into_iter()
+        .chain(version_ids.into_iter().flatten().filter_map(Value::as_str))
+        .collect();
+    let versions_dir = models_dir.join("versions");
+    for vid in candidates {
+        let path = versions_dir.join(format!("{vid}.json"));
+        if let Ok(data) = read_json_file(&path) {
+            let mp = data.get("model_path").and_then(Value::as_str).unwrap_or("");
+            if !mp.is_empty() { return mp.to_string(); }
+        }
+    }
+    String::new()
+}
+
+/// Scan version JSON files to determine if a group has local and/or remote versions.
+fn scan_version_locations(models_dir: &Path, version_ids: Option<&Vec<Value>>) -> (bool, bool) {
+    let (mut has_local, mut has_remote) = (false, false);
+    let versions_dir = models_dir.join("versions");
+    for vid in version_ids.into_iter().flatten().filter_map(Value::as_str) {
+        if let Ok(data) = read_json_file(&versions_dir.join(format!("{vid}.json"))) {
+            match data.get("location_type").and_then(Value::as_str).unwrap_or("local") {
+                "remote" => has_remote = true,
+                "both" => { has_local = true; has_remote = true; }
+                _ => has_local = true,
+            }
+        }
+        if has_local && has_remote { break; }
+    }
+    (has_local, has_remote)
 }
 
 fn first_version_created_at(models_dir: &Path, group: &Value) -> String {

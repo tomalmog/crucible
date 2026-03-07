@@ -1,6 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
-import { PathInput } from "../../../components/shared/PathInput";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 
 interface MultimodalTrainFormProps {
   extra: Record<string, string>;
@@ -20,10 +20,7 @@ export function MultimodalTrainForm({ extra, setExtra }: MultimodalTrainFormProp
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
-          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
-        </FormField>
-        <FormField label="Initial Weights">
-          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+          <ModelSelect value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} />
         </FormField>
         <FormField label="Image Encoder">
           <input value={extra["--image-encoder"] ?? "clip-vit-base"} onChange={(e) => update("--image-encoder", e.currentTarget.value)} />

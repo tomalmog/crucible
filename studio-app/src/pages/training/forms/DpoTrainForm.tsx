@@ -1,5 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 import { PathInput } from "../../../components/shared/PathInput";
 
 interface DpoTrainFormProps {
@@ -12,7 +13,7 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
-  const hasHfModel = (extra["--base-model"] ?? "").trim().length > 0;
+  const hasModel = (extra["--base-model"] ?? "").trim().length > 0;
 
   return (
     <div className="stack-sm">
@@ -22,7 +23,7 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
-          <PathInput value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} placeholder="HuggingFace model ID (e.g. gpt2, meta-llama/Llama-2-7b)" />
+          <ModelSelect value={extra["--base-model"] ?? ""} onChange={(v) => update("--base-model", v)} />
         </FormField>
         <FormField label="Initial Weights">
           <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
@@ -33,11 +34,11 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
         <FormField label="Label Smoothing">
           <input value={extra["--label-smoothing"] ?? "0.0"} onChange={(e) => update("--label-smoothing", e.currentTarget.value)} />
         </FormField>
-        <FormField label="Reference Model Path">
-          <PathInput value={extra["--reference-model-path"] ?? ""} onChange={(v) => update("--reference-model-path", v)} placeholder="optional — defaults to policy model" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Reference Model">
+          <ModelSelect value={extra["--reference-model-path"] ?? ""} onChange={(v) => update("--reference-model-path", v)} placeholder="optional — defaults to policy model" />
         </FormField>
-        <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
-          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
+        <FormField label="Tokenizer Path" hint={hasModel ? "auto-loaded from model" : undefined}>
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasModel ? "auto-loaded from model" : "auto-detect"} disabled={hasModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
       </div>
     </div>

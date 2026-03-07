@@ -4,6 +4,7 @@ import { useForge } from "../../context/ForgeContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
+import { ModelSelect } from "../../components/shared/ModelSelect";
 import { PathInput } from "../../components/shared/PathInput";
 import { MetricSelect } from "../../components/shared/MetricSelect";
 import { SweepResultsView } from "./SweepResultsView";
@@ -38,6 +39,14 @@ function flagToLabel(flag: string): string {
     .replace(/^--/, "")
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Check if a flag represents a model selection field. */
+function isModelField(flag: string): boolean {
+  return flag === "--base-model" || flag === "--base-model-path"
+    || flag === "--policy-model-path" || flag === "--teacher-model-path"
+    || flag === "--student-model-path" || flag === "--reward-model-path"
+    || flag === "--reference-model-path";
 }
 
 /** Check if a flag represents a file/folder path field. */
@@ -210,7 +219,12 @@ export function SweepConfigForm() {
         <div className="grid-2">
           {requiredMethodFields.map((flag) => (
             <FormField key={flag} label={flagToLabel(flag)} required>
-              {isPathField(flag) ? (
+              {isModelField(flag) ? (
+                <ModelSelect
+                  value={methodArgs[flag] ?? ""}
+                  onChange={(v) => updateMethodArg(flag, v)}
+                />
+              ) : isPathField(flag) ? (
                 <PathInput
                   value={methodArgs[flag] ?? ""}
                   onChange={(v) => updateMethodArg(flag, v)}

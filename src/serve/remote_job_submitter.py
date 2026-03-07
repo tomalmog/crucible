@@ -118,7 +118,9 @@ def submit_remote_job(
                         f"dataset-push --cluster {cluster_name} "
                         f"--dataset {ds_name}"
                     )
-                method_args["dataset_path"] = f"{ds_path}/records.jsonl"
+                records_file = f"{ds_path}/records.jsonl"
+                method_args["raw_data_path"] = records_file
+                method_args["dataset_path"] = records_file
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, training_method,
@@ -211,8 +213,10 @@ def submit_remote_sweep(
                         f"Dataset '{ds_name}' not found on cluster "
                         f"'{cluster_name}'. Push it first."
                     )
+                records_file = f"{ds_path}/records.jsonl"
                 for tc in trial_configs:
-                    tc["dataset_path"] = f"{ds_path}/records.jsonl"
+                    tc["raw_data_path"] = records_file
+                    tc["dataset_path"] = records_file
 
             for i, trial_args in enumerate(trial_configs):
                 config_payload = {

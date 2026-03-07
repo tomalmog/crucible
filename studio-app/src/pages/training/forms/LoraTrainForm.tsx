@@ -1,5 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 import { PathInput } from "../../../components/shared/PathInput";
 
 interface LoraTrainFormProps {
@@ -12,8 +13,7 @@ export function LoraTrainForm({ extra, setExtra }: LoraTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
-  const baseModel = (extra["--base-model-path"] ?? "").trim();
-  const hasHfModel = baseModel.length > 0 && !baseModel.endsWith(".pt") && !baseModel.endsWith(".bin") && !baseModel.startsWith("/") && !baseModel.startsWith(".");
+  const hasModel = (extra["--base-model-path"] ?? "").trim().length > 0;
 
   return (
     <div className="stack-sm">
@@ -23,10 +23,10 @@ export function LoraTrainForm({ extra, setExtra }: LoraTrainFormProps) {
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
         <FormField label="Base Model" required>
-          <PathInput value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+          <ModelSelect value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} />
         </FormField>
-        <FormField label="Tokenizer Path" hint={hasHfModel ? "auto-loaded from base model" : undefined}>
-          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasHfModel ? "auto-loaded from base model" : "auto-detect from model"} disabled={hasHfModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
+        <FormField label="Tokenizer Path" hint={hasModel ? "auto-loaded from model" : undefined}>
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasModel ? "auto-loaded from model" : "auto-detect from model"} disabled={hasModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
         <FormField label="LoRA Rank">
           <input type="number" value={extra["--lora-rank"] ?? "8"} onChange={(e) => update("--lora-rank", e.currentTarget.value)} />

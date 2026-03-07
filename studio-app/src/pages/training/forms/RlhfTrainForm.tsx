@@ -1,5 +1,6 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
+import { ModelSelect } from "../../../components/shared/ModelSelect";
 import { PathInput } from "../../../components/shared/PathInput";
 
 interface RlhfTrainFormProps {
@@ -19,11 +20,11 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
         </FormField>
-        <FormField label="Policy Model Path" required>
-          <PathInput value={extra["--policy-model-path"] ?? ""} onChange={(v) => update("--policy-model-path", v)} placeholder="gpt2, meta-llama/Llama-2-7b, or /path/to/model.pt" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Policy Model" required>
+          <ModelSelect value={extra["--policy-model-path"] ?? ""} onChange={(v) => update("--policy-model-path", v)} />
         </FormField>
-        <FormField label="Reward Model Path">
-          <PathInput value={extra["--reward-model-path"] ?? ""} onChange={(v) => update("--reward-model-path", v)} placeholder="optional — or train from preference data" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        <FormField label="Reward Model">
+          <ModelSelect value={extra["--reward-model-path"] ?? ""} onChange={(v) => update("--reward-model-path", v)} placeholder="optional — or train from preference data" />
         </FormField>
         <FormField label="Train Reward Model">
           <select value={extra["--train-reward-model"] ?? ""} onChange={(e) => update("--train-reward-model", e.currentTarget.value)}>

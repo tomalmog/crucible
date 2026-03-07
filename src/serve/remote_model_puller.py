@@ -7,7 +7,7 @@ remote clusters into the local model registry.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from core.errors import ForgeRemoteError
 from core.slurm_types import RemoteJobRecord
@@ -75,40 +75,38 @@ def pull_remote_model(
 
     record = load_remote_job(data_root, job_id)
 
-    # Step 1: Discover model path if not set
+    # Step 1: Always read result.json fresh to get the model path
     progress("Connecting to cluster...")
-    if not record.model_path_remote:
-        cluster = load_cluster(data_root, record.cluster_name)
-        with SshSession(cluster) as session:
-            result_path = f"{record.remote_output_dir}/result.json"
-            stdout, _, code = session.execute(
-                f"cat {result_path}", timeout=15,
-            )
-            if code != 0:
-                raise ForgeRemoteError("No model found for this job.")
-            result = json.loads(stdout)
-            model_path = result.get("model_path", "")
-            if not model_path:
-                raise ForgeRemoteError("Job result has no model_path.")
-            record = update_remote_job_state(
-                data_root, job_id, record.state,
-                model_path_remote=model_path,
-            )
-
-    remote_model = record.model_path_remote
-    progress(f"Remote model: {remote_model}")
-
-    # Step 2: Check remote size
     cluster = load_cluster(data_root, record.cluster_name)
     local_dir = data_root / "pulled-models" / job_id
     local_dir.mkdir(parents=True, exist_ok=True)
 
     with SshSession(cluster) as session:
-        # Tar the model's parent directory to get all artifacts
-        # (model.pt, training_config.json, tokenizer_vocab.json, etc.)
-        model_dir = f"$(dirname {remote_model})"
+        remote_model = record.model_path_remote
+        if not remote_model:
+            remote_model = _read_model_path(session, record)
+            record = update_remote_job_state(
+                data_root, job_id, record.state,
+                model_path_remote=remote_model,
+            )
+        progress(f"Remote model: {remote_model}")
+
+        # Compute dirname in Python (avoids shell expansion issues)
+        model_dir = str(PurePosixPath(remote_model).parent)
+
+        # Verify the model directory exists on the remote
+        _, _, rc = session.execute(
+            f"test -d '{model_dir}'", timeout=10,
+        )
+        if rc != 0:
+            raise ForgeRemoteError(
+                f"Model directory not found on cluster: {model_dir}\n"
+                f"(model_path from result.json: {remote_model})"
+            )
+
+        # Step 2: Check remote size
         stdout, _, _ = session.execute(
-            f"du -sh {model_dir} 2>/dev/null || echo 'unknown'",
+            f"du -sh '{model_dir}' 2>/dev/null || echo 'unknown'",
             timeout=30,
         )
         size_str = stdout.strip().split("\t")[0] if stdout.strip() else "unknown"
@@ -119,17 +117,19 @@ def pull_remote_model(
         tar_name = "model_download.tar.gz"
         remote_tar = f"{record.remote_output_dir}/{tar_name}"
         stdout, stderr, code = session.execute(
-            f"tar czf {remote_tar} "
+            f"tar czf '{remote_tar}' "
             f"--exclude='checkpoints' "
-            f"-C {model_dir} .",
+            f"-C '{model_dir}' .",
             timeout=600,
         )
         if code != 0:
-            raise ForgeRemoteError(f"Remote tar failed: {stderr.strip()}")
+            raise ForgeRemoteError(
+                f"Remote tar failed (dir={model_dir}): {stderr.strip()}"
+            )
 
         # Get compressed size
         stdout, _, _ = session.execute(
-            f"du -sh {remote_tar} 2>/dev/null || echo 'unknown'",
+            f"du -sh '{remote_tar}' 2>/dev/null || echo 'unknown'",
             timeout=15,
         )
         compressed = stdout.strip().split("\t")[0] if stdout.strip() else "?"
@@ -141,7 +141,7 @@ def pull_remote_model(
         progress(f"Downloaded to {local_tar}")
 
         # Clean up remote tar
-        session.execute(f"rm -f {remote_tar}", timeout=15)
+        session.execute(f"rm -f '{remote_tar}'", timeout=15)
 
     # Step 5: Extract locally
     progress("Extracting model locally...")
@@ -202,6 +202,36 @@ def pull_remote_model(
         model_path_local=model_local_path,
         local_version_id=version_id,
     )
+
+
+def _read_model_path(
+    session: SshSession,
+    record: RemoteJobRecord,
+) -> str:
+    """Read result.json from the remote and extract the model path."""
+    result_path = f"{record.remote_output_dir}/result.json"
+    stdout, _, code = session.execute(f"cat '{result_path}'", timeout=15)
+    if code != 0:
+        raise ForgeRemoteError(
+            f"No result.json found at {result_path}. "
+            "Training may not have completed."
+        )
+    try:
+        result = json.loads(stdout.strip())
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ForgeRemoteError(
+            f"Could not parse result.json: {exc}\n"
+            f"Raw content (first 500 chars): {stdout[:500]}"
+        ) from exc
+    model_path = result.get("model_path", "")
+    if not model_path:
+        error_msg = result.get("error", "unknown error")
+        raise ForgeRemoteError(
+            f"Job result has no model_path. "
+            f"Training status: {result.get('status', '?')}, "
+            f"error: {error_msg}"
+        )
+    return str(model_path)
 
 
 def _find_version_by_run_id(

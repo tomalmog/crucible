@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from serve.ssh_connection import SshSession
 
 _ENV_NAME = "forge"
-_PIP_PACKAGES = ("pyyaml", "matplotlib", "tokenizers")
+_PIP_PACKAGES = ("pyyaml", "numpy<2", "matplotlib", "tokenizers")
 
 # Shell snippet that sources conda's init script from common locations.
 # We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
@@ -44,23 +44,51 @@ def ensure_remote_env(session: SshSession) -> None:
     """Ensure the ``forge`` conda env exists on the remote cluster.
 
     Checks ``conda env list`` for a ``forge`` entry and creates it
-    if missing.  CUDA verification is NOT done here because this
-    runs on the login node which typically has no GPU.  The actual
-    CUDA check happens at training time via device_selection.py.
+    if missing.  If the existing env is broken (torch missing or
+    install failures), removes it and rebuilds automatically.
 
     Args:
         session: Active SSH session to the cluster.
 
     Raises:
-        ForgeRemoteError: If conda is unavailable or env creation fails.
+        ForgeRemoteError: If conda is unavailable or env creation
+            fails after one automatic retry.
     """
     if _env_exists(session):
-        _ensure_torch_installed(session)
-        return
+        try:
+            _ensure_torch_installed(session)
+            return
+        except ForgeRemoteError:
+            print(
+                "FORGE_ENV_SETUP: forge env is broken — rebuilding...",
+                flush=True,
+            )
+            _remove_env(session)
 
-    print("FORGE_ENV_SETUP: forge conda env not found — creating...", flush=True)
-    _create_env(session)
+    print("FORGE_ENV_SETUP: creating forge conda env...", flush=True)
+    try:
+        _create_env(session)
+    except ForgeRemoteError:
+        # First attempt failed (e.g. stale partial env) — retry once
+        print(
+            "FORGE_ENV_SETUP: creation failed — cleaning up and retrying...",
+            flush=True,
+        )
+        _remove_env(session)
+        _create_env(session)
     print("FORGE_ENV_SETUP: forge conda env ready.", flush=True)
+
+
+def reset_remote_env(session: SshSession) -> None:
+    """Remove the ``forge`` conda env so it is rebuilt on next job.
+
+    Safe to call even if the env does not exist.
+    """
+    if _env_exists(session):
+        _remove_env(session)
+        print("FORGE_ENV_SETUP: forge env removed.", flush=True)
+    else:
+        print("FORGE_ENV_SETUP: no forge env found — nothing to remove.", flush=True)
 
 
 def _ensure_torch_installed(session: SshSession) -> None:
@@ -92,6 +120,14 @@ def _ensure_torch_installed(session: SshSession) -> None:
     if code != 0:
         raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
     print("FORGE_ENV_SETUP: torch installed.", flush=True)
+
+
+def _remove_env(session: SshSession) -> None:
+    """Remove the ``forge`` conda env.  Ignores errors if already gone."""
+    session.execute(
+        _conda_cmd(f"conda remove -n {_ENV_NAME} --all -y"),
+        timeout=120,
+    )
 
 
 def _env_exists(session: SshSession) -> bool:
@@ -182,7 +218,7 @@ def _create_env(session: SshSession) -> None:
     if code != 0:
         raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
 
-    pip_list = " ".join(_PIP_PACKAGES)
+    pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
         _conda_cmd(f"conda run -n {_ENV_NAME} pip install {pip_list}"),
         timeout=600,
