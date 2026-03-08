@@ -26,18 +26,18 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
   const logEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (bypassCache?: boolean) => {
     if (!dataRoot) return;
     setLoading(true);
     try {
-      const content = await getRemoteJobLogs(dataRoot, job.jobId);
+      const content = await getRemoteJobLogs(dataRoot, job.jobId, job.state, bypassCache);
       setLogs(content?.trim() || "No logs available yet.");
     } catch (err) {
       setLogs(`Error fetching logs: ${err}`);
     } finally {
       setLoading(false);
     }
-  }, [dataRoot, job.jobId]);
+  }, [dataRoot, job.jobId, job.state]);
 
   const toggleLogs = useCallback(() => {
     const next = !showLogs;
@@ -60,9 +60,10 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
     };
   }, [showLogs, job.state, fetchLogs]);
 
-  // Auto-scroll logs
+  // Auto-scroll log container to bottom (without moving the page)
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = logEndRef.current?.parentElement;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [logs]);
 
   const [pullProgress, setPullProgress] = useState<string[]>([]);
@@ -182,7 +183,7 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
           {showLogs && (
             <button
               className="btn btn-ghost btn-sm"
-              onClick={(e) => { e.stopPropagation(); fetchLogs(); }}
+              onClick={(e) => { e.stopPropagation(); fetchLogs(true); }}
               title="Refresh logs"
             >
               <RefreshCw size={12} />
