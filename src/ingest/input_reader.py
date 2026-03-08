@@ -15,6 +15,7 @@ from core.constants import SUPPORTED_TEXT_EXTENSIONS
 from core.errors import ForgeDependencyError, ForgeIngestError
 from core.s3_uri import S3Location, parse_s3_uri
 from core.types import SourceTextRecord
+from ingest.parquet_reader import read_parquet_records
 
 
 def read_source_records(source_uri: str, config: ForgeConfig) -> list[SourceTextRecord]:
@@ -70,13 +71,16 @@ def _read_file_records(file_path: Path) -> list[SourceTextRecord]:
     """Read text records from a single file.
 
     Args:
-        file_path: Path to text or JSONL file.
+        file_path: Path to text, JSONL, or parquet file.
 
     Returns:
         List of parsed source records.
     """
-    if file_path.suffix.lower() == ".jsonl":
+    suffix = file_path.suffix.lower()
+    if suffix == ".jsonl":
         return _read_jsonl_records(file_path)
+    if suffix == ".parquet":
+        return read_parquet_records(file_path)
     text = file_path.read_text(encoding="utf-8")
     return [SourceTextRecord(source_uri=str(file_path), text=text)]
 

@@ -14,14 +14,12 @@ export function ModelsPage() {
   const { dataRoot, modelVersions, selectedModel, selectedModelName, refreshModels } = useForge();
   const [tab, setTab] = useState<Tab>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   async function handleRefresh() {
     setIsRefreshing(true);
-    try {
-      await refreshModels();
-    } finally {
-      setIsRefreshing(false);
-    }
+    setRefreshKey((k) => k + 1);
+    await refreshModels();
   }
 
   return (
@@ -33,7 +31,7 @@ export function ModelsPage() {
       </PageHeader>
 
       <div className="two-column">
-        <ModelListPanel />
+        <ModelListPanel refreshKey={refreshKey} onRefreshingChange={setIsRefreshing} />
         <div>
           <div className="tab-list">
             {(["overview", "diff", "actions", "merge"] as Tab[]).map((t) => (

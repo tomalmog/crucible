@@ -1,9 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { ArrowDownToLine, Download, Check, Loader, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, Download, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
 import { PathInput } from "../../components/shared/PathInput";
 import { FormField } from "../../components/shared/FormField";
+import { DownloadModal } from "../../components/shared/DownloadModal";
 import { formatBytes, formatCount, repoAuthor, formatDate, sizeTag } from "./hubUtils";
 import { HubDatasetDetail } from "./HubDatasetDetail";
 
@@ -16,7 +17,6 @@ interface DatasetResult {
   total_size: number;
 }
 
-type DownloadStatus = "idle" | "downloading" | "done" | "error";
 const PER_PAGE = 12;
 
 const TASK_OPTIONS = [
@@ -37,13 +37,12 @@ const LOCAL_SORTS = new Set(["size-desc", "size-asc"]);
 export function HubDatasetSearch() {
   const { dataRoot, refreshDatasets } = useForge();
   const searchCmd = useForgeCommand();
-  const downloadCmd = useForgeCommand();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DatasetResult[]>([]);
   const [page, setPage] = useState(0);
   const [targetDir, setTargetDir] = useState("./datasets");
-  const [downloadStates, setDownloadStates] = useState<Record<string, DownloadStatus>>({});
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [downloadRepo, setDownloadRepo] = useState<DatasetResult | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filterTask, setFilterTask] = useState("");
   const [filterSort, setFilterSort] = useState("downloads");
@@ -68,7 +67,6 @@ export function HubDatasetSearch() {
       const status = await searchCmd.run(dataRoot, args);
       if (status.status === "completed" && status.stdout) {
         setResults(JSON.parse(status.stdout));
-        setDownloadStates({});
         setPage(0);
       }
     } catch {
@@ -82,25 +80,6 @@ export function HubDatasetSearch() {
       runSearch("instruction").catch(console.error);
     }
   }, [dataRoot]);
-
-  async function downloadDataset(repoId: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!dataRoot) return;
-    setDownloadStates((s) => ({ ...s, [repoId]: "downloading" }));
-    try {
-      const status = await downloadCmd.run(dataRoot, [
-        "hub", "download-dataset", repoId, "--target-dir", targetDir,
-      ]);
-      const success = status.status === "completed";
-      setDownloadStates((s) => ({
-        ...s,
-        [repoId]: success ? "done" : "error",
-      }));
-      if (success) refreshDatasets().catch(console.error);
-    } catch {
-      setDownloadStates((s) => ({ ...s, [repoId]: "error" }));
-    }
-  }
 
   if (selectedRepo) {
     return (
@@ -188,7 +167,6 @@ export function HubDatasetSearch() {
         <>
           <div className="hub-grid">
             {pageResults.map((r) => {
-              const dlState = downloadStates[r.repo_id] ?? "idle";
               const author = repoAuthor(r.repo_id, r.author);
               const size = sizeTag(r.tags);
               return (
@@ -218,14 +196,10 @@ export function HubDatasetSearch() {
                       <span className="hub-card-hint">View details</span>
                     </div>
                     <button
-                      className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : ""}`}
-                      onClick={(e) => downloadDataset(r.repo_id, e).catch(console.error)}
-                      disabled={dlState === "downloading"}
+                      className="btn btn-sm"
+                      onClick={(e) => { e.stopPropagation(); setDownloadRepo(r); }}
                     >
-                      {dlState === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
-                      {dlState === "done" && <><Check size={12} /> Downloaded</>}
-                      {dlState === "error" && <><Download size={12} /> Retry</>}
-                      {dlState === "idle" && <><Download size={12} /> Download</>}
+                      <Download size={12} /> Download
                     </button>
                   </div>
                 </div>
@@ -251,6 +225,17 @@ export function HubDatasetSearch() {
 
       {!searchCmd.isRunning && !searchCmd.error && results.length === 0 && didLoad.current && (
         <p className="text-tertiary text-xs">No datasets found.</p>
+      )}
+
+      {downloadRepo && (
+        <DownloadModal
+          repoId={downloadRepo.repo_id}
+          targetDir={targetDir}
+          size={downloadRepo.total_size}
+          kind="dataset"
+          onComplete={() => refreshDatasets().catch(console.error)}
+          onClose={() => setDownloadRepo(null)}
+        />
       )}
     </div>
   );

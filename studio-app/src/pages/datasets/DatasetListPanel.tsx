@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Trash2, Upload, Download, Loader2 } from "lucide-react";
 import { useForge } from "../../context/ForgeContext";
 import { deleteDataset } from "../../api/studioApi";
@@ -24,11 +24,13 @@ function formatSize(bytes: number): string {
 
 interface DatasetListPanelProps {
   onSelect?: (dataset: string) => void;
+  refreshKey?: number;
+  onRefreshingChange?: (busy: boolean) => void;
 }
 
 type ListTab = "local" | "remote";
 
-export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
+export function DatasetListPanel({ onSelect, refreshKey, onRefreshingChange }: DatasetListPanelProps) {
   const { dataRoot, datasets, selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
 
   const [listTab, setListTab] = useState<ListTab>("local");
@@ -49,24 +51,32 @@ export function DatasetListPanel({ onSelect }: DatasetListPanelProps) {
     }).catch(console.error);
   }, [dataRoot]);
 
-  const fetchRemoteDatasets = useCallback(async () => {
+  const fetchRemoteDatasets = useCallback(async (bypassCache?: boolean) => {
     if (!selectedCluster) return;
     setLoading(true);
+    onRefreshingChange?.(true);
     try {
-      const ds = await listRemoteDatasets(dataRoot, selectedCluster);
+      const ds = await listRemoteDatasets(dataRoot, selectedCluster, bypassCache);
       setRemoteDatasets(ds);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+      onRefreshingChange?.(false);
     }
-  }, [dataRoot, selectedCluster]);
+  }, [dataRoot, selectedCluster, onRefreshingChange]);
 
+  // Track whether refreshKey changed (user clicked Refresh) to bypass cache
+  const prevRefreshKey = useRef(refreshKey);
   useEffect(() => {
+    const userTriggered = refreshKey !== prevRefreshKey.current;
+    prevRefreshKey.current = refreshKey;
     if (listTab === "remote" && selectedCluster) {
-      fetchRemoteDatasets().catch(console.error);
+      fetchRemoteDatasets(userTriggered).catch(console.error);
+    } else {
+      onRefreshingChange?.(false);
     }
-  }, [listTab, selectedCluster, fetchRemoteDatasets]);
+  }, [listTab, selectedCluster, refreshKey, fetchRemoteDatasets]);
 
   async function handleDeleteLocal(ds: string) {
     if (confirmingDelete !== ds) {

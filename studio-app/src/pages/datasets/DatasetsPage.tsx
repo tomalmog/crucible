@@ -11,6 +11,8 @@ type Tab = "overview" | "samples" | "ingest" | "filter";
 
 export function DatasetsPage() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
 
   function handleSelectDataset(ds: string) {
@@ -18,16 +20,26 @@ export function DatasetsPage() {
     setTab("overview");
   }
 
+  async function handleRefresh(): Promise<void> {
+    setIsRefreshing(true);
+    setRefreshKey((k) => k + 1);
+    await refreshDatasets();
+  }
+
   return (
     <>
       <PageHeader title="Datasets">
-        <button className="btn" onClick={() => refreshDatasets().catch(console.error)}>
-          Refresh
+        <button className="btn" onClick={() => handleRefresh().catch(console.error)} disabled={isRefreshing}>
+          {isRefreshing ? "Refreshing..." : "Refresh"}
         </button>
       </PageHeader>
 
       <div className="two-column">
-        <DatasetListPanel onSelect={handleSelectDataset} />
+        <DatasetListPanel
+          onSelect={handleSelectDataset}
+          refreshKey={refreshKey}
+          onRefreshingChange={setIsRefreshing}
+        />
         <div>
           <div className="tab-list">
             {(["overview", "samples", "ingest", "filter"] as Tab[]).map((t) => (

@@ -1,8 +1,8 @@
-"""Download HuggingFace models to remote clusters via SSH.
+"""Download HuggingFace models and datasets to remote clusters via SSH.
 
 Connects to a registered cluster, ensures ``huggingface_hub`` is
 available in the forge conda env, runs ``snapshot_download`` on
-the remote, and registers the model in the local registry.
+the remote, and optionally registers the model in the local registry.
 """
 
 from __future__ import annotations
@@ -74,6 +74,75 @@ def download_model_to_cluster(
     return remote_path
 
 
+def download_dataset_to_cluster(
+    data_root: Path,
+    repo_id: str,
+    cluster_name: str,
+    revision: str | None = None,
+) -> str:
+    """Download a HuggingFace dataset to a remote cluster via SSH.
+
+    Args:
+        data_root: Root .forge directory.
+        repo_id: HuggingFace dataset repo ID.
+        cluster_name: Name of the registered cluster.
+        revision: Optional dataset revision/branch.
+
+    Returns:
+        The remote path where the dataset was downloaded.
+
+    Raises:
+        ForgeRemoteError: If connection, install, or download fails.
+    """
+    cluster = load_cluster(data_root, cluster_name)
+
+    with SshSession(cluster) as session:
+        _progress("Connecting to cluster...")
+
+        ensure_remote_env(session)
+        _ensure_hf_hub_installed(session)
+
+        remote_path = _build_remote_dataset_path(
+            cluster.remote_workspace, repo_id,
+        )
+        session.mkdir_p(remote_path)
+
+        _progress(f"Downloading {repo_id}...")
+        _run_snapshot_download(
+            session, repo_id, remote_path, revision,
+            repo_type="dataset",
+        )
+        # Write metadata.json so list_remote_datasets discovers it
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", repo_id)
+        _write_remote_dataset_metadata(session, remote_path, safe_name)
+        _progress(f"Download complete: {remote_path}")
+
+    return remote_path
+
+
+def _write_remote_dataset_metadata(
+    session: SshSession, remote_path: str, dataset_name: str,
+) -> None:
+    """Write a metadata.json sidecar so list_remote_datasets discovers it."""
+    import json
+    from datetime import datetime, timezone
+
+    size_bytes = 0
+    stdout, _, code = session.execute(
+        f"du -sb {remote_path} 2>/dev/null | cut -f1",
+    )
+    if code == 0 and stdout.strip().isdigit():
+        size_bytes = int(stdout.strip())
+
+    metadata = json.dumps({
+        "name": dataset_name,
+        "size_bytes": size_bytes,
+        "synced_at": datetime.now(timezone.utc).isoformat(),
+    })
+    meta_path = f"{remote_path}/metadata.json"
+    session.execute(f"cat > {meta_path} << 'FORGE_EOF'\n{metadata}\nFORGE_EOF")
+
+
 def _progress(msg: str) -> None:
     """Print a progress line for UI consumption."""
     print(f"DOWNLOAD_REMOTE: {msg}", flush=True)
@@ -106,18 +175,26 @@ def _build_remote_model_path(remote_workspace: str, repo_id: str) -> str:
     return f"{remote_workspace}/models/{safe_name}"
 
 
+def _build_remote_dataset_path(remote_workspace: str, repo_id: str) -> str:
+    """Build the target directory for the dataset on the remote."""
+    safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", repo_id)
+    return f"{remote_workspace}/datasets/{safe_name}"
+
+
 def _run_snapshot_download(
     session: SshSession,
     repo_id: str,
     target_dir: str,
     revision: str | None,
+    repo_type: str = "model",
 ) -> None:
     """Execute ``huggingface_hub.snapshot_download`` on the remote."""
     rev_arg = f', revision="{revision}"' if revision else ""
+    type_arg = f', repo_type="{repo_type}"' if repo_type != "model" else ""
     script = (
         "from huggingface_hub import snapshot_download; "
         f'p = snapshot_download("{repo_id}", '
-        f'local_dir="{target_dir}"{rev_arg}); '
+        f'local_dir="{target_dir}"{rev_arg}{type_arg}); '
         f'print("downloaded_to=" + str(p))'
     )
     stdout, stderr, code = session.execute(

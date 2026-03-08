@@ -8,23 +8,25 @@ import { formatBytes } from "../../pages/hub/hubUtils";
 
 type DownloadStatus = "idle" | "downloading" | "done" | "error";
 type Destination = "local" | "remote";
+type DownloadKind = "model" | "dataset";
 
 interface DownloadModalProps {
   repoId: string;
   targetDir: string;
   size?: number;
+  kind?: DownloadKind;
   onComplete: () => void;
   onClose: () => void;
 }
 
-export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: DownloadModalProps) {
+export function DownloadModal({ repoId, targetDir, size, kind = "model", onComplete, onClose }: DownloadModalProps) {
   const { dataRoot } = useForge();
   const cmd = useForgeCommand();
   const [dest, setDest] = useState<Destination>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [cluster, setCluster] = useState("");
   const [register, setRegister] = useState(false);
-  const [modelName, setModelName] = useState("");
+  const [registryName, setRegistryName] = useState("");
   const [dlStatus, setDlStatus] = useState<DownloadStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
 
@@ -51,16 +53,17 @@ export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: 
     setDlStatus("downloading");
     setStatusMsg(dest === "local" ? "Downloading..." : "Connecting to cluster...");
     try {
-      const registerArgs = register
-        ? ["--register", ...(modelName ? ["--model-name", modelName] : [])]
+      const nameFlag = kind === "model" ? "--model-name" : "--dataset-name";
+      // Remote dataset registration is automatic (metadata.json written on cluster)
+      const canRegister = dest === "local" || kind === "model";
+      const registerArgs = canRegister && register
+        ? ["--register", ...(registryName ? [nameFlag, registryName] : [])]
         : [];
+      const localCmd = kind === "model" ? "download-model" : "download-dataset";
+      const remoteCmd = kind === "model" ? "download-model-remote" : "download-dataset-remote";
       const args = dest === "local"
-        ? ["hub", "download-model", repoId, "--target-dir", targetDir, ...registerArgs]
-        : [
-            "hub", "download-model-remote", repoId,
-            "--cluster", cluster,
-            ...registerArgs,
-          ];
+        ? ["hub", localCmd, repoId, "--target-dir", targetDir, ...registerArgs]
+        : ["hub", remoteCmd, repoId, "--cluster", cluster, ...registerArgs];
 
       const status = await cmd.run(dataRoot, args);
 
@@ -80,7 +83,7 @@ export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: 
       setDlStatus("error");
       setStatusMsg("Download failed");
     }
-  }, [dataRoot, dest, repoId, targetDir, cluster, register, modelName, cmd, onComplete]);
+  }, [dataRoot, dest, repoId, targetDir, cluster, register, registryName, kind, cmd, onComplete]);
 
   const sizeLabel = size ? formatBytes(size) : "";
   const canClose = dlStatus !== "downloading";
@@ -90,7 +93,7 @@ export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: 
       <div className="download-modal" onClick={(e) => e.stopPropagation()}>
         <div className="download-modal-header">
           <div>
-            <h3 className="download-modal-title">Download Model</h3>
+            <h3 className="download-modal-title">Download {kind === "model" ? "Model" : "Dataset"}</h3>
             <div className="download-modal-repo">
               {repoId}
               {sizeLabel && <span className="download-modal-size">{sizeLabel}</span>}
@@ -127,14 +130,14 @@ export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: 
               </label>
               <label className="download-modal-checkbox">
                 <input type="checkbox" checked={register} onChange={(e) => setRegister(e.target.checked)} />
-                <span>Register in model registry</span>
+                <span>Register in {kind} registry</span>
               </label>
               {register && (
                 <label>
-                  <span>Model Name</span>
+                  <span>{kind === "model" ? "Model" : "Dataset"} Name</span>
                   <input
-                    value={modelName}
-                    onChange={(e) => setModelName(e.currentTarget.value)}
+                    value={registryName}
+                    onChange={(e) => setRegistryName(e.currentTarget.value)}
                     placeholder={repoId}
                   />
                 </label>
@@ -158,20 +161,22 @@ export function DownloadModal({ repoId, targetDir, size, onComplete, onClose }: 
                       ))}
                     </select>
                   </label>
-                  <label className="download-modal-checkbox">
-                    <input type="checkbox" checked={register} onChange={(e) => setRegister(e.target.checked)} />
-                    <span>Register in model registry</span>
-                  </label>
-                  {register && (
-                    <label>
-                      <span>Model Name</span>
-                      <input
-                        value={modelName}
-                        onChange={(e) => setModelName(e.currentTarget.value)}
-                        placeholder={repoId}
-                      />
+                  {kind === "model" && <>
+                    <label className="download-modal-checkbox">
+                      <input type="checkbox" checked={register} onChange={(e) => setRegister(e.target.checked)} />
+                      <span>Register in model registry</span>
                     </label>
-                  )}
+                    {register && (
+                      <label>
+                        <span>Model Name</span>
+                        <input
+                          value={registryName}
+                          onChange={(e) => setRegistryName(e.currentTarget.value)}
+                          placeholder={repoId}
+                        />
+                      </label>
+                    )}
+                  </>}
                 </>
               )}
             </div>

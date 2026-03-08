@@ -57,7 +57,15 @@ def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
     if subcmd == "dataset-info":
         return _run_dataset_info(args.repo_id, getattr(args, "json", False))
     if subcmd == "download-dataset":
-        return _run_download_dataset(args.repo_id, args.target_dir, args.revision)
+        return _run_download_dataset(
+            client, args.repo_id, args.target_dir, args.revision,
+            register=getattr(args, "register", False),
+            dataset_name=getattr(args, "dataset_name", "") or "",
+        )
+    if subcmd == "download-dataset-remote":
+        return _run_download_dataset_remote(
+            client, args.repo_id, args.cluster, getattr(args, "revision", None),
+        )
     if subcmd == "push":
         return _run_push(args.model_path, args.repo_id, args.message, args.private)
     print(f"Unknown hub subcommand: {subcmd}")
@@ -120,24 +128,15 @@ def _run_download_model(
 
 
 def _run_download_model_remote(
-    client: ForgeClient,
-    repo_id: str,
-    cluster: str,
-    model_name: str,
-    revision: str | None,
-    *,
-    register: bool = False,
+    client: ForgeClient, repo_id: str, cluster: str,
+    model_name: str, revision: str | None, *, register: bool = False,
 ) -> int:
     """Download a model to a remote cluster."""
     from serve.remote_hub_download import download_model_to_cluster
-
     download_model_to_cluster(
-        data_root=client._config.data_root,
-        repo_id=repo_id,
-        cluster_name=cluster,
-        model_name=model_name,
-        revision=revision,
-        register=register,
+        data_root=client._config.data_root, repo_id=repo_id,
+        cluster_name=cluster, model_name=model_name,
+        revision=revision, register=register,
     )
     return 0
 
@@ -180,11 +179,44 @@ def _run_dataset_info(repo_id: str, json_output: bool = False) -> int:
     return 0
 
 
-def _run_download_dataset(repo_id: str, target_dir: str, revision: str | None) -> int:
+def _run_download_dataset(
+    client: ForgeClient, repo_id: str, target_dir: str, revision: str | None,
+    *, register: bool = False, dataset_name: str = "",
+) -> int:
     """Download a dataset from HuggingFace Hub."""
     path = download_dataset(repo_id, target_dir, revision)
     print(f"dataset_path={path}")
+    if register:
+        _register_downloaded_dataset(client, path, dataset_name or repo_id)
     return 0
+
+
+def _run_download_dataset_remote(
+    client: ForgeClient, repo_id: str, cluster: str, revision: str | None,
+) -> int:
+    """Download a dataset to a remote cluster.
+
+    Registration is automatic — download_dataset_to_cluster writes
+    metadata.json so list_remote_datasets discovers the dataset.
+    """
+    from serve.remote_hub_download import download_dataset_to_cluster
+    download_dataset_to_cluster(
+        data_root=client._config.data_root, repo_id=repo_id,
+        cluster_name=cluster, revision=revision,
+    )
+    return 0
+
+
+def _register_downloaded_dataset(
+    client: ForgeClient, source_path: str, dataset_name: str,
+) -> None:
+    """Ingest a downloaded dataset into the Forge dataset registry."""
+    from core.types import IngestOptions
+    try:
+        name = client.ingest(IngestOptions(dataset_name=dataset_name, source_uri=source_path))
+        print(f"dataset_registered={name}")
+    except Exception as exc:
+        print(f"warning: dataset registration failed: {exc}", file=sys.stderr)
 
 
 def _run_push(model_path: str, repo_id: str, message: str, private: bool) -> int:
@@ -192,6 +224,13 @@ def _run_push(model_path: str, repo_id: str, message: str, private: bool) -> int
     url = push_model(model_path, repo_id, message, private)
     print(f"url={url}")
     return 0
+
+
+def _add_register_args(parser: argparse.ArgumentParser, kind: str) -> None:
+    """Add --register and --<kind>-name flags to a download subparser."""
+    registry = "model registry" if kind == "model" else "dataset registry"
+    parser.add_argument("--register", action="store_true", help=f"Register in {registry}")
+    parser.add_argument(f"--{kind}-name", default="", help="Registry name (defaults to repo_id)")
 
 
 def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -216,15 +255,13 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     dm.add_argument("repo_id", help="Model repository ID")
     dm.add_argument("--target-dir", default="./models", help="Download target directory")
     dm.add_argument("--revision", help="Model revision/branch")
-    dm.add_argument("--register", action="store_true", help="Register in model registry")
-    dm.add_argument("--model-name", default="", help="Registry name (defaults to repo_id)")
+    _add_register_args(dm, "model")
 
     dmr = sub.add_parser("download-model-remote", help="Download a model to a remote cluster")
     dmr.add_argument("repo_id", help="Model repository ID")
     dmr.add_argument("--cluster", required=True, help="Cluster name")
     dmr.add_argument("--revision", help="Model revision/branch")
-    dmr.add_argument("--register", action="store_true", help="Register in model registry")
-    dmr.add_argument("--model-name", default="", help="Registry name (defaults to repo_id)")
+    _add_register_args(dmr, "model")
 
     sd = sub.add_parser("search-datasets", help="Search Hub datasets")
     sd.add_argument("query", nargs="?", default="", help="Search query")
@@ -242,6 +279,12 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     dd.add_argument("repo_id", help="Dataset repository ID")
     dd.add_argument("--target-dir", default="./datasets", help="Download target directory")
     dd.add_argument("--revision", help="Dataset revision/branch")
+    _add_register_args(dd, "dataset")
+
+    ddr = sub.add_parser("download-dataset-remote", help="Download a dataset to a remote cluster")
+    ddr.add_argument("repo_id", help="Dataset repository ID")
+    ddr.add_argument("--cluster", required=True, help="Cluster name")
+    ddr.add_argument("--revision", help="Dataset revision/branch")
 
     push = sub.add_parser("push", help="Push model to Hub")
     push.add_argument("model_path", help="Local model path")

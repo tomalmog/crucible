@@ -9,7 +9,12 @@ import type { ModelGroup, ModelVersion } from "../../types/models";
 type DeleteScope = "registry" | "local" | "remote" | "both";
 type ListTab = "local" | "remote";
 
-export function ModelListPanel() {
+interface ModelListPanelProps {
+  refreshKey?: number;
+  onRefreshingChange?: (busy: boolean) => void;
+}
+
+export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPanelProps) {
   const {
     dataRoot,
     modelGroups,
@@ -29,15 +34,19 @@ export function ModelListPanel() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleteScope, setDeleteScope] = useState<DeleteScope>("local");
 
-  // Load clusters on mount
+  // Load clusters on mount and when refresh is triggered
   useEffect(() => {
+    setIsLoadingClusters(true);
     listClusters(dataRoot).then((c) => {
       setClusters(c);
-      if (c.length > 0) setSelectedCluster(c[0].name);
+      if (c.length > 0 && !selectedCluster) setSelectedCluster(c[0].name);
     })
     .catch(console.error)
-    .finally(() => setIsLoadingClusters(false));
-  }, [dataRoot]);
+    .finally(() => {
+      setIsLoadingClusters(false);
+      onRefreshingChange?.(false);
+    });
+  }, [dataRoot, refreshKey]);
 
   function cancelDelete(): void {
     setPendingDelete(null);

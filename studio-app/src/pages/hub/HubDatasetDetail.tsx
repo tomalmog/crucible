@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Download, Check, Loader, ChevronDown } from "lucide-react";
+import { ArrowLeft, Download, ChevronDown } from "lucide-react";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { useForge } from "../../context/ForgeContext";
+import { DownloadModal } from "../../components/shared/DownloadModal";
 import { HubDatasetDetail as DatasetDetail, HubFileEntry } from "./hubTypes";
 import { formatBytes, formatCount, formatDate } from "./hubUtils";
-
-type DownloadStatus = "idle" | "downloading" | "done" | "error";
 
 interface Props {
   repoId: string;
@@ -50,28 +49,17 @@ function FileList({ files, visibleCount, onShowMore }: {
 export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
   const { dataRoot, refreshDatasets } = useForge();
   const infoCmd = useForgeCommand();
-  const downloadCmd = useForgeCommand();
   const [detail, setDetail] = useState<DatasetDetail | null>(null);
-  const [dlState, setDlState] = useState<DownloadStatus>("idle");
+  const [showDownload, setShowDownload] = useState(false);
   const [fileCount, setFileCount] = useState(PAGE_SIZE);
 
+  // Fetch dataset metadata when the detail view mounts
   useEffect(() => {
     if (!dataRoot) return;
     infoCmd.run(dataRoot, ["hub", "dataset-info", repoId, "--json"]).then((s) => {
       if (s.status === "completed" && s.stdout) setDetail(JSON.parse(s.stdout));
     }).catch(console.error);
   }, [dataRoot, repoId]);
-
-  async function handleDownload() {
-    if (!dataRoot) return;
-    setDlState("downloading");
-    try {
-      const s = await downloadCmd.run(dataRoot, ["hub", "download-dataset", repoId, "--target-dir", targetDir]);
-      const success = s.status === "completed";
-      setDlState(success ? "done" : "error");
-      if (success) refreshDatasets().catch(console.error);
-    } catch { setDlState("error"); }
-  }
 
   return (
     <div className="hub-detail">
@@ -80,15 +68,8 @@ export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
           <ArrowLeft size={14} /> Back to results
         </button>
         {detail && (
-          <button
-            className={`btn btn-sm ${dlState === "done" ? "btn-success" : dlState === "error" ? "btn-error" : "btn-primary"}`}
-            onClick={handleDownload}
-            disabled={dlState === "downloading"}
-          >
-            {dlState === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
-            {dlState === "done" && <><Check size={12} /> Downloaded</>}
-            {dlState === "error" && <><Download size={12} /> Retry</>}
-            {dlState === "idle" && <><Download size={12} /> Download ({formatBytes(detail.total_size)})</>}
+          <button className="btn btn-sm btn-primary" onClick={() => setShowDownload(true)}>
+            <Download size={12} /> Download ({formatBytes(detail.total_size)})
           </button>
         )}
       </div>
@@ -152,6 +133,17 @@ export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
             onShowMore={() => setFileCount((c) => c + PAGE_SIZE)}
           />
         </div>
+      )}
+
+      {showDownload && detail && (
+        <DownloadModal
+          repoId={repoId}
+          targetDir={targetDir}
+          size={detail.total_size}
+          kind="dataset"
+          onComplete={() => refreshDatasets().catch(console.error)}
+          onClose={() => setShowDownload(false)}
+        />
       )}
     </div>
   );
