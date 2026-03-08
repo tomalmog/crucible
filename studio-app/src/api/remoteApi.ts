@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ClusterConfig, RemoteDatasetInfo, RemoteJobRecord } from "../types/remote";
-import { cached, cacheSet, invalidate } from "./remoteCache";
+import { cached, cacheSet, invalidate, sshLimited } from "./remoteCache";
 
 const TERMINAL_STATES = new Set(["completed", "failed", "cancelled"]);
 
@@ -25,7 +25,7 @@ export async function getRemoteJobLogs(
   const key = `jobLogs:${dataRoot}:${jobId}`;
   if (bypassCache) invalidate(key);
   const ttl = jobState && TERMINAL_STATES.has(jobState) ? Infinity : 10_000;
-  return cached(key, ttl, () => invoke<string>("get_remote_job_logs", { dataRoot, jobId }));
+  return cached(key, ttl, () => sshLimited(() => invoke<string>("get_remote_job_logs", { dataRoot, jobId })));
 }
 
 export async function syncRemoteJobStatus(
@@ -36,7 +36,7 @@ export async function syncRemoteJobStatus(
   const key = `jobStatus:${dataRoot}:${jobId}`;
   if (bypassCache) invalidate(key);
   const result = await cached(key, 30_000, () =>
-    invoke<RemoteJobRecord>("sync_remote_job_status", { dataRoot, jobId }),
+    sshLimited(() => invoke<RemoteJobRecord>("sync_remote_job_status", { dataRoot, jobId })),
   );
   // Upgrade to infinite TTL if the job reached a terminal state
   if (TERMINAL_STATES.has(result.state)) {
@@ -46,13 +46,13 @@ export async function syncRemoteJobStatus(
 }
 
 export async function deleteRemoteJob(dataRoot: string, jobId: string): Promise<void> {
-  const result = await invoke<void>("delete_remote_job", { dataRoot, jobId });
+  const result = await sshLimited(() => invoke<void>("delete_remote_job", { dataRoot, jobId }));
   invalidate(`jobStatus:${dataRoot}:${jobId}`, `jobLogs:${dataRoot}:${jobId}`);
   return result;
 }
 
 export async function cancelRemoteJob(dataRoot: string, jobId: string): Promise<RemoteJobRecord> {
-  const result = await invoke<RemoteJobRecord>("cancel_remote_job", { dataRoot, jobId });
+  const result = await sshLimited(() => invoke<RemoteJobRecord>("cancel_remote_job", { dataRoot, jobId }));
   invalidate(`jobStatus:${dataRoot}:${jobId}`, `jobLogs:${dataRoot}:${jobId}`);
   return result;
 }
@@ -65,24 +65,24 @@ export async function listRemoteDatasets(
   const key = `datasets:${dataRoot}:${cluster}`;
   if (bypassCache) invalidate(key);
   return cached(key, 5 * 60_000, () =>
-    invoke<RemoteDatasetInfo[]>("list_remote_datasets", { dataRoot, cluster }),
+    sshLimited(() => invoke<RemoteDatasetInfo[]>("list_remote_datasets", { dataRoot, cluster })),
   );
 }
 
 export async function pushDatasetToCluster(dataRoot: string, cluster: string, dataset: string): Promise<void> {
-  const result = await invoke<void>("push_dataset_to_cluster", { dataRoot, cluster, dataset });
+  const result = await sshLimited(() => invoke<void>("push_dataset_to_cluster", { dataRoot, cluster, dataset }));
   invalidate(`datasets:${dataRoot}:${cluster}`);
   return result;
 }
 
 export async function pullDatasetFromCluster(dataRoot: string, cluster: string, dataset: string): Promise<void> {
-  const result = await invoke<void>("pull_dataset_from_cluster", { dataRoot, cluster, dataset });
+  const result = await sshLimited(() => invoke<void>("pull_dataset_from_cluster", { dataRoot, cluster, dataset }));
   invalidate(`datasets:${dataRoot}:${cluster}`);
   return result;
 }
 
 export async function deleteRemoteDataset(dataRoot: string, cluster: string, dataset: string): Promise<void> {
-  const result = await invoke<void>("delete_remote_dataset_cmd", { dataRoot, cluster, dataset });
+  const result = await sshLimited(() => invoke<void>("delete_remote_dataset_cmd", { dataRoot, cluster, dataset }));
   invalidate(`datasets:${dataRoot}:${cluster}`);
   return result;
 }
