@@ -6,7 +6,6 @@ Handles uploading agent bundles, configs, and scripts to remote clusters.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 from core.errors import ForgeRemoteError
@@ -30,28 +29,12 @@ def _upload_config(
     filename: str = "training_config.json",
 ) -> None:
     """Write and upload a training config JSON file."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False,
-    ) as f:
-        json.dump(config, f, indent=2)
-        tmp_path = Path(f.name)
-    try:
-        session.upload(tmp_path, f"{workdir}/{filename}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    session.upload_text(json.dumps(config, indent=2), f"{workdir}/{filename}")
 
 
 def _upload_script(session: SshSession, script: str, workdir: str) -> None:
     """Write and upload an sbatch script."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".sh", delete=False,
-    ) as f:
-        f.write(script)
-        tmp_path = Path(f.name)
-    try:
-        session.upload(tmp_path, f"{workdir}/job.sh")
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    session.upload_text(script, f"{workdir}/job.sh")
 
 
 def _submit_sbatch(session: SshSession, workdir: str) -> str:

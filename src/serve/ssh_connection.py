@@ -159,6 +159,20 @@ class SshSession:
                 f"SFTP download failed: {error}"
             ) from error
 
+    def upload_text(self, content: str, remote_path: str) -> None:
+        """Write text content to a remote file via a temp file and SFTP."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".tmp", delete=False,
+        ) as f:
+            f.write(content)
+            tmp_path = Path(f.name)
+        try:
+            self.upload(tmp_path, remote_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
     def mkdir_p(self, remote_path: str) -> None:
         """Create a directory (and parents) on the remote host."""
         self.execute(f"mkdir -p {remote_path}")

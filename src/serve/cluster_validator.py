@@ -14,19 +14,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, ClusterValidationResult
+from serve.remote_env_setup import CONDA_ACTIVATE
 from serve.ssh_connection import SshSession
-
-# Source conda's init script and activate the forge env.  Must be
-# prepended to every command that needs the forge env because each
-# session.execute() starts a fresh non-interactive shell.
-_CONDA_ACTIVATE = (
-    "for p in "
-    "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
-    "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
-    'if [ -f "$p/etc/profile.d/conda.sh" ]; then '
-    '. "$p/etc/profile.d/conda.sh"; break; fi; done'
-    " && conda activate forge"
-)
 
 
 def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
@@ -57,7 +46,7 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
 def _env_prefix(cluster: ClusterConfig) -> str:
     """Build a shell prefix that loads modules and activates the forge env."""
     parts: list[str] = list(cluster.module_loads)
-    parts.append(_CONDA_ACTIVATE)
+    parts.append(CONDA_ACTIVATE)
     return " && ".join(parts)
 
 

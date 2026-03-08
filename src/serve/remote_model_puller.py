@@ -6,11 +6,11 @@ remote clusters into the local model registry.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path, PurePosixPath
 
 from core.errors import ForgeRemoteError
 from core.slurm_types import RemoteJobRecord
+from serve.remote_result_reader import read_remote_result
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
 
@@ -209,20 +209,13 @@ def _read_model_path(
     record: RemoteJobRecord,
 ) -> str:
     """Read result.json from the remote and extract the model path."""
-    result_path = f"{record.remote_output_dir}/result.json"
-    stdout, _, code = session.execute(f"cat '{result_path}'", timeout=15)
-    if code != 0:
+    result = read_remote_result(session, record)
+    if not result:
+        result_path = f"{record.remote_output_dir}/result.json"
         raise ForgeRemoteError(
             f"No result.json found at {result_path}. "
             "Training may not have completed."
         )
-    try:
-        result = json.loads(stdout.strip())
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise ForgeRemoteError(
-            f"Could not parse result.json: {exc}\n"
-            f"Raw content (first 500 chars): {stdout[:500]}"
-        ) from exc
     model_path = result.get("model_path", "")
     if not model_path:
         error_msg = result.get("error", "unknown error")

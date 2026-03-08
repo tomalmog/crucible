@@ -37,6 +37,8 @@ CONDA_INIT = (
     '. "$p/etc/profile.d/conda.sh"; break; fi; done'
 )
 
+CONDA_ACTIVATE = f"{CONDA_INIT} && conda activate {ENV_NAME}"
+
 
 def conda_cmd(command: str) -> str:
     """Wrap *command* so conda is initialised in the shell first."""

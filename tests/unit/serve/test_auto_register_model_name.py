@@ -47,15 +47,13 @@ def _make_record(
 
 def test_auto_register_uses_user_provided_name(tmp_path: Path) -> None:
     """When record.model_name is set, the model is registered under that name."""
-    from serve.remote_log_streamer import _auto_register_remote_model
-    from unittest.mock import MagicMock
+    from serve.remote_model_registry import auto_register_remote_model
 
     _setup_cluster(tmp_path)
     record = _make_record(model_name="My-Transformer")
 
-    session = MagicMock()
-    _auto_register_remote_model(
-        tmp_path, record, "/remote/path/model.pt", session,
+    auto_register_remote_model(
+        tmp_path, record, "/remote/path/model.pt",
     )
 
     registry = ModelRegistry(tmp_path)
@@ -67,15 +65,13 @@ def test_auto_register_uses_user_provided_name(tmp_path: Path) -> None:
 
 def test_auto_register_uses_fallback_when_no_name(tmp_path: Path) -> None:
     """When record.model_name is empty, falls back to auto-generated name."""
-    from serve.remote_log_streamer import _auto_register_remote_model
-    from unittest.mock import MagicMock
+    from serve.remote_model_registry import auto_register_remote_model
 
     _setup_cluster(tmp_path)
     record = _make_record(model_name="")
 
-    session = MagicMock()
-    _auto_register_remote_model(
-        tmp_path, record, "/remote/path/model.pt", session,
+    auto_register_remote_model(
+        tmp_path, record, "/remote/path/model.pt",
     )
 
     registry = ModelRegistry(tmp_path)
@@ -88,15 +84,13 @@ def test_auto_register_uses_fallback_when_no_name(tmp_path: Path) -> None:
 
 def test_auto_register_model_has_correct_remote_path(tmp_path: Path) -> None:
     """Registered model version points to the correct remote path and host."""
-    from serve.remote_log_streamer import _auto_register_remote_model
-    from unittest.mock import MagicMock
+    from serve.remote_model_registry import auto_register_remote_model
 
     _setup_cluster(tmp_path)
     record = _make_record(model_name="Cool-Model")
 
-    session = MagicMock()
-    _auto_register_remote_model(
-        tmp_path, record, "/remote/output/model.pt", session,
+    auto_register_remote_model(
+        tmp_path, record, "/remote/output/model.pt",
     )
 
     registry = ModelRegistry(tmp_path)
@@ -133,8 +127,8 @@ def test_pull_remote_model_uses_stored_name(tmp_path: Path) -> None:
     mock_session.__enter__ = MagicMock(return_value=mock_session)
     mock_session.__exit__ = MagicMock(return_value=False)
 
-    # du -sh returns a size
     mock_session.execute.side_effect = [
+        ("", "", 0),              # test -d (verify model dir exists)
         ("100M\t/dir", "", 0),   # du -sh (size check)
         ("", "", 0),              # tar czf (compress)
         ("50M\t/file", "", 0),   # du -sh (compressed size)

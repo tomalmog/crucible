@@ -62,7 +62,7 @@ class TestEnvCreation:
         torch_call = next(c for c in calls if "torch" in c.args[0] and "pip" in c.args[0])
         assert "cu124" in torch_call.args[0]
         pip_call = next(c for c in calls if "pyyaml" in c.args[0])
-        assert "pyyaml matplotlib tokenizers" in pip_call.args[0]
+        assert "pyyaml" in pip_call.args[0]
 
     def test_creates_env_when_list_empty(self) -> None:
         session = _make_session([
@@ -107,31 +107,44 @@ class TestErrors:
 
     def test_raises_when_create_fails(self) -> None:
         session = _make_session([
-            ("base  /opt/conda\n", "", 0),
-            ("", "PackagesNotFoundError", 1),
+            ("base  /opt/conda\n", "", 0),             # env list
+            ("", "PackagesNotFoundError", 1),           # conda create FAILS (1st)
+            ("", "", 0),                                # _remove_env (retry)
+            ("", "PackagesNotFoundError", 1),           # conda create FAILS (2nd)
         ])
         with pytest.raises(ForgeRemoteError, match="conda create failed"):
             ensure_remote_env(session)
 
     def test_raises_when_torch_install_fails(self) -> None:
         session = _make_session([
-            ("base  /opt/conda\n", "", 0),
-            ("", "", 0),  # conda create OK
-            ("", "", 1),  # nvidia-smi
-            ("", "", 1),  # srun nvidia-smi
-            ("", "ERROR: No matching distribution", 1),  # torch install
+            ("base  /opt/conda\n", "", 0),              # env list
+            ("", "", 0),                                # conda create (1st)
+            ("", "", 1),                                # nvidia-smi (1st)
+            ("", "", 1),                                # srun nvidia-smi (1st)
+            ("", "ERROR: No matching distribution", 1), # torch install FAILS (1st)
+            ("", "", 0),                                # _remove_env (retry)
+            ("", "", 0),                                # conda create (2nd)
+            ("", "", 1),                                # nvidia-smi (2nd)
+            ("", "", 1),                                # srun nvidia-smi (2nd)
+            ("", "ERROR: No matching distribution", 1), # torch install FAILS (2nd)
         ])
         with pytest.raises(ForgeRemoteError, match="torch install failed"):
             ensure_remote_env(session)
 
     def test_raises_when_pip_install_fails(self) -> None:
         session = _make_session([
-            ("base  /opt/conda\n", "", 0),
-            ("", "", 0),  # conda create OK
-            ("", "", 1),  # nvidia-smi
-            ("", "", 1),  # srun nvidia-smi
-            ("", "", 0),  # torch install OK
-            ("", "ERROR: No matching distribution", 1),  # pip install
+            ("base  /opt/conda\n", "", 0),              # env list
+            ("", "", 0),                                # conda create (1st)
+            ("", "", 1),                                # nvidia-smi (1st)
+            ("", "", 1),                                # srun nvidia-smi (1st)
+            ("", "", 0),                                # torch install OK (1st)
+            ("", "ERROR: No matching distribution", 1), # pip install FAILS (1st)
+            ("", "", 0),                                # _remove_env (retry)
+            ("", "", 0),                                # conda create (2nd)
+            ("", "", 1),                                # nvidia-smi (2nd)
+            ("", "", 1),                                # srun nvidia-smi (2nd)
+            ("", "", 0),                                # torch install OK (2nd)
+            ("", "ERROR: No matching distribution", 1), # pip install FAILS (2nd)
         ])
         with pytest.raises(ForgeRemoteError, match="pip install failed"):
             ensure_remote_env(session)

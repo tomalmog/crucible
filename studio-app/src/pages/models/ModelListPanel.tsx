@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { useForge } from "../../context/ForgeContext";
 import { useForgeCommand } from "../../hooks/useForgeCommand";
 import { listClusters } from "../../api/remoteApi";
@@ -25,6 +25,7 @@ export function ModelListPanel() {
   const [listTab, setListTab] = useState<ListTab>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
+  const [isLoadingClusters, setIsLoadingClusters] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleteScope, setDeleteScope] = useState<DeleteScope>("local");
 
@@ -33,7 +34,9 @@ export function ModelListPanel() {
     listClusters(dataRoot).then((c) => {
       setClusters(c);
       if (c.length > 0) setSelectedCluster(c[0].name);
-    }).catch(console.error);
+    })
+    .catch(console.error)
+    .finally(() => setIsLoadingClusters(false));
   }, [dataRoot]);
 
   function cancelDelete(): void {
@@ -97,7 +100,12 @@ export function ModelListPanel() {
         </button>
       </div>
 
-      {!isLocal && clusters.length === 0 && (
+      {!isLocal && isLoadingClusters && (
+        <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+          <Loader2 size={20} className="spin" />
+        </div>
+      )}
+      {!isLocal && !isLoadingClusters && clusters.length === 0 && (
         <p className="text-tertiary">No clusters registered.</p>
       )}
 

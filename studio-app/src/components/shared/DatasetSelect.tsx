@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useForge } from "../../context/ForgeContext";
 import { useTrainingCluster } from "../../context/TrainingClusterContext";
 import { listRemoteDatasets } from "../../api/remoteApi";
@@ -26,16 +27,20 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
   const cluster = useTrainingCluster();
   const [open, setOpen] = useState(false);
   const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);
+  const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Fetch remote datasets when a cluster is selected
   useEffect(() => {
     if (!dataRoot || !cluster) {
       setRemoteDatasets([]);
       return;
     }
+    setIsLoadingRemote(true);
     listRemoteDatasets(dataRoot, cluster)
       .then(setRemoteDatasets)
-      .catch(() => setRemoteDatasets([]));
+      .catch(() => setRemoteDatasets([]))
+      .finally(() => setIsLoadingRemote(false));
   }, [dataRoot, cluster]);
 
   const options = useMemo(() => {
@@ -96,26 +101,26 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder}
       />
-      {open && hasResults && (
+      {open && (hasResults || isLoadingRemote) && (
         <ul className="dataset-select-dropdown">
-          {showSections ? (
+          {localOptions.length > 0 && (
             <>
-              {localOptions.length > 0 && (
-                <>
-                  <li className="dataset-select-header">Local</li>
-                  {renderOptions(localOptions)}
-                </>
+              {(showSections || isLoadingRemote) && (
+                <li className="dataset-select-header">Local</li>
               )}
-              {remoteOptions.length > 0 && (
-                <>
-                  <li className="dataset-select-header">Remote</li>
-                  {renderOptions(remoteOptions)}
-                </>
-              )}
+              {renderOptions(localOptions)}
             </>
-          ) : (
-            renderOptions(localOptions)
           )}
+          {isLoadingRemote ? (
+            <li className="dataset-select-header" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              Remote <Loader2 size={12} className="spin" />
+            </li>
+          ) : remoteOptions.length > 0 ? (
+            <>
+              <li className="dataset-select-header">Remote</li>
+              {renderOptions(remoteOptions)}
+            </>
+          ) : null}
         </ul>
       )}
     </div>

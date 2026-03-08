@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
 import { listClusters } from "../../api/remoteApi";
@@ -52,12 +53,18 @@ export function ClusterSubmitSection({
 }: ClusterSubmitSectionProps) {
   const { dataRoot } = useForge();
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+  const [isLoadingClusters, setIsLoadingClusters] = useState(false);
 
   const loadClusters = useCallback(() => {
     if (!dataRoot) return;
-    listClusters(dataRoot).then(setClusters).catch(() => setClusters([]));
+    setIsLoadingClusters(true);
+    listClusters(dataRoot)
+      .then(setClusters)
+      .catch(() => setClusters([]))
+      .finally(() => setIsLoadingClusters(false));
   }, [dataRoot]);
 
+  // Load clusters when section becomes active
   useEffect(() => {
     if (mode === "auto" || enabled) loadClusters();
   }, [mode, enabled, loadClusters]);
@@ -93,18 +100,30 @@ export function ClusterSubmitSection({
       {showFields && (
         <div className="stack-md" style={{ marginTop: 8 }}>
             <FormField label="Cluster" required>
-              <select
-                className="input"
-                value={clusterConfig.cluster}
-                onChange={(e) => set("cluster", e.currentTarget.value)}
-              >
-                <option value="">Select a cluster...</option>
-                {clusters.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name} ({c.user}@{c.host})
+              <div style={{ position: "relative" }}>
+                <select
+                  className="input"
+                  value={clusterConfig.cluster}
+                  onChange={(e) => set("cluster", e.currentTarget.value)}
+                  disabled={isLoadingClusters}
+                >
+                  <option value="">
+                    {isLoadingClusters ? "Loading clusters..." : "Select a cluster..."}
                   </option>
-                ))}
-              </select>
+                  {clusters.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.user}@{c.host})
+                    </option>
+                  ))}
+                </select>
+                {isLoadingClusters && (
+                  <Loader2
+                    size={14}
+                    className="spin"
+                    style={{ position: "absolute", right: 28, top: "50%", transform: "translateY(-50%)" }}
+                  />
+                )}
+              </div>
             </FormField>
 
             <div className="form-row">

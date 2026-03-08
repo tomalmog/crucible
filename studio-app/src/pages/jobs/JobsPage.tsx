@@ -5,7 +5,7 @@ import { useRemoteJobs } from "../../hooks/useRemoteJobs";
 import { useForge } from "../../context/ForgeContext";
 import { CommandTaskStatus } from "../../types";
 import { syncRemoteJobStatus } from "../../api/remoteApi";
-import { Activity } from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
 import { JobResultDetail } from "./JobResultDetail";
 import { JobRow } from "./JobRow";
 import { RemoteJobRow } from "./RemoteJobRow";
@@ -47,7 +47,7 @@ export function extractForgeError(stderr: string): string | null {
 export function JobsPage() {
   const { jobs, kill, rename, remove } = useJobs();
   const { dataRoot, refreshModels } = useForge();
-  const { jobs: remoteJobs, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
+  const { jobs: remoteJobs, isLoading: isRemoteLoading, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
@@ -131,7 +131,7 @@ export function JobsPage() {
         ))}
       </div>
 
-      {filtered.length === 0 && filteredRemote.length === 0 ? (
+      {filtered.length === 0 && filteredRemote.length === 0 && !isRemoteLoading ? (
         <div className="empty-state">
           <div className="empty-state-icon">
             <Activity />
@@ -153,6 +153,11 @@ export function JobsPage() {
               onView={() => setViewingJob(job)}
             />
           ))}
+          {isRemoteLoading && filteredRemote.length === 0 && (
+            <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+              <Loader2 size={20} className="spin" />
+            </div>
+          )}
           {filteredRemote.map((rj) => (
             <RemoteJobRow
               key={rj.jobId}

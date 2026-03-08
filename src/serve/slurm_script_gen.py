@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, SlurmResourceConfig
+from serve.remote_env_setup import CONDA_INIT
 
 
 def generate_single_node_script(
@@ -18,18 +19,7 @@ def generate_single_node_script(
     training_method: str,
     config_filename: str = "training_config.json",
 ) -> str:
-    """Generate an sbatch script for a single-node training job.
-
-    Args:
-        cluster: Target cluster configuration.
-        resources: Resource allocation for the job.
-        job_id: Local job identifier for naming.
-        training_method: Training method label for the job name.
-        config_filename: Name of the training config JSON.
-
-    Returns:
-        Complete sbatch script as a string.
-    """
+    """Generate an sbatch script for a single-node training job."""
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -75,20 +65,7 @@ def generate_multi_node_script(
     training_method: str,
     config_filename: str = "training_config.json",
 ) -> str:
-    """Generate an sbatch script for multi-node distributed training.
-
-    Uses torchrun with NCCL for multi-node GPU communication.
-
-    Args:
-        cluster: Target cluster configuration.
-        resources: Resource allocation (nodes > 1).
-        job_id: Local job identifier.
-        training_method: Training method label.
-        config_filename: Name of the training config JSON.
-
-    Returns:
-        Complete sbatch script as a string.
-    """
+    """Generate an sbatch script for multi-node distributed training."""
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -205,6 +182,32 @@ def generate_sweep_script(
     return "\n".join(lines) + "\n"
 
 
+_CUDA_PREFLIGHT = (
+    "python3 << 'CUDA_CHECK' || exit 1\n"
+    "import ctypes, sys\n"
+    "try:\n"
+    "    cuda = ctypes.CDLL('libcuda.so.1')\n"
+    "    r = ctypes.c_int()\n"
+    "    err = cuda.cuInit(0)\n"
+    "    if err != 0:\n"
+    "        print('FORGE_AGENT_ERROR: CUDA driver error (cuInit=' + str(err) + '). '\n"
+    "              'This node has a broken GPU driver. '\n"
+    "              'Resubmit the job to try a different node.', file=sys.stderr)\n"
+    "        sys.exit(1)\n"
+    "    cuda.cuDeviceGetCount(ctypes.byref(r))\n"
+    "    if r.value == 0:\n"
+    "        print('FORGE_AGENT_ERROR: No CUDA devices found.', file=sys.stderr)\n"
+    "        sys.exit(1)\n"
+    "    name = ctypes.create_string_buffer(256)\n"
+    "    cuda.cuDeviceGetName(name, 256, 0)\n"
+    "    print('CUDA pre-flight OK: ' + str(r.value) + ' device(s), ' + name.value.decode())\n"
+    "except Exception as e:\n"
+    "    print('FORGE_AGENT_ERROR: CUDA pre-flight failed: ' + str(e), file=sys.stderr)\n"
+    "    sys.exit(1)\n"
+    "CUDA_CHECK"
+)
+
+
 def _cuda_env_lines() -> list[str]:
     """Set up CUDA environment and run a pre-flight GPU check."""
     return [
@@ -221,39 +224,9 @@ def _cuda_env_lines() -> list[str]:
         "",
         "# Pre-flight: verify CUDA driver responds before starting training.",
         "# cuInit returning non-zero means this node has a broken GPU driver.",
-        _cuda_preflight_script(),
+        _CUDA_PREFLIGHT,
         "",
     ]
-
-
-
-def _cuda_preflight_script() -> str:
-    """Return a bash snippet that verifies the CUDA driver works."""
-    # Write the check as a heredoc to avoid shell quoting issues.
-    return (
-        "python3 << 'CUDA_CHECK' || exit 1\n"
-        "import ctypes, sys\n"
-        "try:\n"
-        "    cuda = ctypes.CDLL('libcuda.so.1')\n"
-        "    r = ctypes.c_int()\n"
-        "    err = cuda.cuInit(0)\n"
-        "    if err != 0:\n"
-        "        print('FORGE_AGENT_ERROR: CUDA driver error (cuInit=' + str(err) + '). '\n"
-        "              'This node has a broken GPU driver. '\n"
-        "              'Resubmit the job to try a different node.', file=sys.stderr)\n"
-        "        sys.exit(1)\n"
-        "    cuda.cuDeviceGetCount(ctypes.byref(r))\n"
-        "    if r.value == 0:\n"
-        "        print('FORGE_AGENT_ERROR: No CUDA devices found.', file=sys.stderr)\n"
-        "        sys.exit(1)\n"
-        "    name = ctypes.create_string_buffer(256)\n"
-        "    cuda.cuDeviceGetName(name, 256, 0)\n"
-        "    print('CUDA pre-flight OK: ' + str(r.value) + ' device(s), ' + name.value.decode())\n"
-        "except Exception as e:\n"
-        "    print('FORGE_AGENT_ERROR: CUDA pre-flight failed: ' + str(e), file=sys.stderr)\n"
-        "    sys.exit(1)\n"
-        "CUDA_CHECK"
-    )
 
 
 def _memory_diagnostic_lines() -> list[str]:
@@ -302,16 +275,7 @@ def _module_load_lines(cluster: ClusterConfig) -> list[str]:
     lines: list[str] = []
     for cmd in cluster.module_loads:
         lines.append(cmd)
-    # conda is a shell function — source its init script before activating.
-    # Cannot use ``eval "$(conda shell.bash hook)"`` because when conda
-    # is not on PATH the eval silently succeeds (exit 0) with empty input.
-    lines.append(
-        "for p in "
-        "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
-        "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
-        'if [ -f "$p/etc/profile.d/conda.sh" ]; then '
-        '. "$p/etc/profile.d/conda.sh"; break; fi; done'
-    )
+    lines.append(CONDA_INIT)
     lines.append("conda activate forge")
     lines.append("")
     return lines

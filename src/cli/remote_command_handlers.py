@@ -177,7 +177,7 @@ def _handle_list_jobs(
 
 
 def _handle_status(client: ForgeClient, args: argparse.Namespace) -> int:
-    from serve.remote_log_streamer import check_remote_job_state
+    from serve.remote_job_state import check_remote_job_state
     from store.remote_job_store import load_remote_job
 
     state = check_remote_job_state(client._config.data_root, args.job_id)

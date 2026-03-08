@@ -122,11 +122,10 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
   const hasLocalModel = !!job.modelPathLocal;
   const failedOnCluster = isFailed && !!job.slurmJobId;
 
-  // Auto-expand and fetch logs for jobs that failed on the cluster
+  // Auto-expand (but don't fetch) logs for jobs that failed on the cluster
   useEffect(() => {
     if (failedOnCluster && !showLogs && !logs) {
       setShowLogs(true);
-      fetchLogs();
     }
   }, [failedOnCluster]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -6,7 +6,7 @@ import { startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
 import type { ClusterConfig } from "../../types/remote";
 import { ClusterCard } from "./ClusterCard";
 import { ClusterRegisterForm } from "./ClusterRegisterForm";
-import { Plus, Server } from "lucide-react";
+import { Loader2, Plus, Server } from "lucide-react";
 
 type View = "list" | "register";
 
@@ -14,12 +14,17 @@ export function ClustersPage() {
   const { dataRoot } = useForge();
   const [view, setView] = useState<View>("list");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(() => {
     if (!dataRoot) return;
-    listClusters(dataRoot).then(setClusters).catch(() => setClusters([]));
+    listClusters(dataRoot)
+      .then(setClusters)
+      .catch(() => setClusters([]))
+      .finally(() => setIsLoading(false));
   }, [dataRoot]);
 
+  // Fetch clusters on mount
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -71,7 +76,11 @@ export function ClustersPage() {
         </button>
       </PageHeader>
 
-      {clusters.length === 0 ? (
+      {isLoading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+          <Loader2 size={24} className="spin" />
+        </div>
+      ) : clusters.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">
             <Server />

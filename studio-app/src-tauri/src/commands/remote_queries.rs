@@ -1,10 +1,15 @@
 //! Read-only queries for remote clusters and Slurm jobs.
+//!
+//! Filesystem-only commands live here.  CLI subprocess commands that
+//! require SSH are in [`remote_cli_ops`].
 
 use crate::commands::runtime_queries::resolve_data_root_path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
+
+// ── Types ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,6 +57,8 @@ pub struct RemoteDatasetSummary {
     pub synced_at: String,
 }
 
+// ── Filesystem-only commands ───────────────────────────────────────────
+
 #[tauri::command]
 pub fn list_clusters(data_root: String) -> Result<Vec<ClusterSummary>, String> {
     let clusters_dir = resolve_data_root_path(&data_root).join("clusters");
@@ -65,7 +72,6 @@ pub fn list_clusters(data_root: String) -> Result<Vec<ClusterSummary>, String> {
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
-
     for entry in entries {
         let data = read_json_file(&entry.path())?;
         summaries.push(parse_cluster(&data)?);
@@ -108,73 +114,6 @@ pub fn get_remote_job(data_root: String, job_id: String) -> Result<RemoteJobSumm
 }
 
 #[tauri::command]
-pub fn get_remote_job_logs(data_root: String, job_id: String) -> Result<String, String> {
-    let job_path = resolve_data_root_path(&data_root)
-        .join("remote-jobs")
-        .join(format!("{job_id}.json"));
-    if !job_path.exists() {
-        return Err(format!("Remote job '{job_id}' not found"));
-    }
-    // Call the Python CLI to SSH and fetch logs from the remote cluster
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "logs", "--job-id", &job_id, "--tail", "200"])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        Ok(stdout)
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("Log fetch failed: {stderr}"))
-    }
-}
-
-#[tauri::command]
-pub fn sync_remote_job_status(data_root: String, job_id: String) -> Result<RemoteJobSummary, String> {
-    let job_path = resolve_data_root_path(&data_root)
-        .join("remote-jobs")
-        .join(format!("{job_id}.json"));
-    if !job_path.exists() {
-        return Err(format!("Remote job '{job_id}' not found"));
-    }
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "status", "--job-id", &job_id])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(format!("Status sync failed: {stderr}"));
-    }
-    // Re-read the updated JSON file
-    let data = read_json_file(&job_path)?;
-    parse_remote_job(&data)
-}
-
-#[tauri::command]
 pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String> {
     let job_path = resolve_data_root_path(&data_root)
         .join("remote-jobs")
@@ -186,165 +125,9 @@ pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String
         .map_err(|e| format!("Failed to delete {}: {e}", job_path.display()))
 }
 
-#[tauri::command]
-pub fn cancel_remote_job(data_root: String, job_id: String) -> Result<RemoteJobSummary, String> {
-    let job_path = resolve_data_root_path(&data_root)
-        .join("remote-jobs")
-        .join(format!("{job_id}.json"));
-    if !job_path.exists() {
-        return Err(format!("Remote job '{job_id}' not found"));
-    }
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "cancel", "--job-id", &job_id])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+// ── JSON parsing helpers (pub(crate) for remote_cli_ops) ───────────────
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(format!("Cancel failed: {stderr}"));
-    }
-    let data = read_json_file(&job_path)?;
-    parse_remote_job(&data)
-}
-
-#[tauri::command]
-pub fn list_remote_datasets(
-    data_root: String,
-    cluster: String,
-) -> Result<Vec<RemoteDatasetSummary>, String> {
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "dataset-list", "--cluster", &cluster])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(format!("dataset-list failed: {stderr}"));
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        if let Some(json_str) = line.strip_prefix("FORGE_JSON:") {
-            let items: Vec<RemoteDatasetSummary> = serde_json::from_str(json_str)
-                .map_err(|e| format!("Failed to parse dataset list JSON: {e}"))?;
-            return Ok(items);
-        }
-    }
-    Err("No FORGE_JSON line found in dataset-list output".to_string())
-}
-
-#[tauri::command]
-pub fn push_dataset_to_cluster(
-    data_root: String,
-    cluster: String,
-    dataset: String,
-) -> Result<(), String> {
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "dataset-push", "--cluster", &cluster, "--dataset", &dataset])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("dataset-push failed: {stderr}"))
-    }
-}
-
-#[tauri::command]
-pub fn pull_dataset_from_cluster(
-    data_root: String,
-    cluster: String,
-    dataset: String,
-) -> Result<(), String> {
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "dataset-pull", "--cluster", &cluster, "--dataset", &dataset])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("dataset-pull failed: {stderr}"))
-    }
-}
-
-#[tauri::command]
-pub fn delete_remote_dataset_cmd(
-    data_root: String,
-    cluster: String,
-    dataset: String,
-) -> Result<(), String> {
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("forge")
-    };
-    let output = std::process::Command::new(&forge_bin)
-        .current_dir(&workspace_root)
-        .env("PYTHONUNBUFFERED", "1")
-        .arg("--data-root")
-        .arg(&data_root)
-        .args(["remote", "dataset-delete", "--cluster", &cluster, "--dataset", &dataset])
-        .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("dataset-delete failed: {stderr}"))
-    }
-}
-
-fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
+pub(crate) fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
     let obj = data
         .as_object()
         .ok_or_else(|| "Cluster entry is not an object".to_string())?;
@@ -361,7 +144,7 @@ fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
     })
 }
 
-fn parse_remote_job(data: &Value) -> Result<RemoteJobSummary, String> {
+pub(crate) fn parse_remote_job(data: &Value) -> Result<RemoteJobSummary, String> {
     let obj = data
         .as_object()
         .ok_or_else(|| "Remote job entry is not an object".to_string())?;
@@ -391,7 +174,7 @@ fn parse_remote_job(data: &Value) -> Result<RemoteJobSummary, String> {
     })
 }
 
-fn read_json_file(path: &Path) -> Result<Value, String> {
+pub(crate) fn read_json_file(path: &Path) -> Result<Value, String> {
     let payload = fs::read_to_string(path)
         .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
     serde_json::from_str(&payload)
