@@ -33,7 +33,6 @@ class TrainingRuntimeContext:
     output_dir: Path
     device: Any
     run_id: str | None
-    dataset_version_id: str | None
     config_hash: str
     hooks: TrainingHooks
     run_registry: TrainingRunRegistry | None

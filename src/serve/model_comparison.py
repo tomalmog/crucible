@@ -67,7 +67,6 @@ def _extract_config_fields(record: TrainingRunRecord) -> dict[str, object]:
     """
     return {
         "dataset_name": record.dataset_name,
-        "dataset_version_id": record.dataset_version_id,
         "output_dir": record.output_dir,
         "parent_model_path": record.parent_model_path,
         "config_hash": record.config_hash,

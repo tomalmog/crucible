@@ -11,8 +11,6 @@ from typing import Literal
 
 DEFAULT_DATA_ROOT = Path(".forge")
 DATASETS_DIR_NAME = "datasets"
-VERSIONS_DIR_NAME = "versions"
-CATALOG_FILE_NAME = "catalog.json"
 MANIFEST_FILE_NAME = "manifest.json"
 RECORDS_FILE_NAME = "records.jsonl"
 LANCE_DIR_NAME = "data.lance"
@@ -27,7 +25,6 @@ INGEST_CHECKPOINT_DIR_NAME = "ingest_checkpoint"
 CHECKPOINT_STATE_FILE_NAME = "state.json"
 CHECKPOINT_SOURCE_RECORDS_FILE_NAME = "source_records.jsonl"
 CHECKPOINT_WORK_RECORDS_FILE_NAME = "work_records.jsonl"
-CHECKPOINT_UNCHANGED_RECORDS_FILE_NAME = "unchanged_records.jsonl"
 CHECKPOINT_DEDUP_RECORDS_FILE_NAME = "dedup_records.jsonl"
 CHECKPOINT_ENRICHED_RECORDS_FILE_NAME = "enriched_records.jsonl"
 DEFAULT_QUALITY_MODEL = "perplexity"

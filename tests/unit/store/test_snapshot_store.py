@@ -1,4 +1,4 @@
-"""Unit tests for snapshot store persistence."""
+"""Unit tests for dataset store persistence."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import pytest
 
 from core.config import ForgeConfig
 from core.errors import ForgeStoreError
-from core.types import DataRecord, MetadataFilter, RecordMetadata, SnapshotWriteRequest
-from store.snapshot_store import SnapshotStore
+from core.types import DataRecord, RecordMetadata, DatasetWriteRequest
+from store.snapshot_store import DatasetStore
 
 
 def _sample_record() -> DataRecord:
@@ -22,57 +22,39 @@ def _sample_record() -> DataRecord:
     return DataRecord(record_id="id-1", text="sample text", metadata=metadata)
 
 
-def test_create_snapshot_persists_manifest(tmp_path) -> None:
-    """Store should create an immutable version with metadata."""
+def test_save_dataset_persists_manifest(tmp_path) -> None:
+    """Store should create a dataset with manifest."""
     config = replace(ForgeConfig.from_env(), data_root=tmp_path)
-    store = SnapshotStore(config)
-    request = SnapshotWriteRequest(
+    store = DatasetStore(config)
+    request = DatasetWriteRequest(
         dataset_name="demo",
         records=(_sample_record(),),
-        recipe_steps=("step",),
     )
 
-    manifest = store.create_snapshot(request)
+    manifest = store.save_dataset(request)
 
     assert manifest.dataset_name == "demo"
 
 
 def test_load_records_returns_written_payload(tmp_path) -> None:
-    """Store should return records written into a snapshot."""
+    """Store should return records written into a dataset."""
     config = replace(ForgeConfig.from_env(), data_root=tmp_path)
-    store = SnapshotStore(config)
-    request = SnapshotWriteRequest(
+    store = DatasetStore(config)
+    request = DatasetWriteRequest(
         dataset_name="demo",
         records=(_sample_record(),),
-        recipe_steps=("step",),
     )
-    store.create_snapshot(request)
+    store.save_dataset(request)
 
     _, records = store.load_records("demo")
 
     assert records[0].text == "sample text"
 
 
-def test_filter_records_creates_child_version(tmp_path) -> None:
-    """Filter operation should create a derived snapshot version."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
-    store = SnapshotStore(config)
-    request = SnapshotWriteRequest(
-        dataset_name="demo",
-        records=(_sample_record(),),
-        recipe_steps=("step",),
-    )
-    parent_manifest = store.create_snapshot(request)
-
-    child_manifest = store.filter_records("demo", MetadataFilter(language="en"))
-
-    assert child_manifest.parent_version == parent_manifest.version_id
-
-
 def test_load_records_raises_for_unknown_dataset(tmp_path) -> None:
-    """Loading should fail when dataset catalog is missing."""
+    """Loading should fail when dataset manifest is missing."""
     config = replace(ForgeConfig.from_env(), data_root=tmp_path)
-    store = SnapshotStore(config)
+    store = DatasetStore(config)
 
     with pytest.raises(ForgeStoreError):
         store.load_records("missing")

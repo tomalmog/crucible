@@ -26,7 +26,6 @@ class TrainingArtifactContract:
 
     run_id: str
     dataset_name: str
-    dataset_version_id: str | None
     parent_model_path: str | None
     config_hash: str
     created_at: str
@@ -46,7 +45,6 @@ def save_training_artifact_contract(
     output_dir: Path,
     run_id: str,
     dataset_name: str,
-    dataset_version_id: str | None,
     parent_model_path: str | None,
     config_hash: str,
     result: TrainingRunResult,
@@ -59,7 +57,6 @@ def save_training_artifact_contract(
     payload = TrainingArtifactContract(
         run_id=run_id,
         dataset_name=dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=parent_model_path,
         config_hash=config_hash,
         created_at=datetime.now(timezone.utc).isoformat(),

@@ -50,7 +50,6 @@ class GrpoOptions:
     kl_coeff: float = DEFAULT_GRPO_KL_COEFF
     clip_range: float = DEFAULT_GRPO_CLIP_RANGE
     temperature: float = DEFAULT_GRPO_TEMPERATURE
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 5e-5
     batch_size: int = DEFAULT_BATCH_SIZE

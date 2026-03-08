@@ -37,7 +37,6 @@ pub fn list_training_runs(data_root: String) -> Result<Vec<TrainingRunSummary>, 
         rows.push(TrainingRunSummary {
             run_id: run_id.to_string(),
             dataset_name: required_string(object, "dataset_name")?,
-            dataset_version_id: required_string(object, "dataset_version_id")?,
             state: required_string(object, "state")?,
             updated_at: required_string(object, "updated_at")?,
             output_dir: required_string(object, "output_dir")?,
@@ -75,7 +74,6 @@ pub fn get_lineage_graph(data_root: String) -> Result<LineageGraphSummary, Strin
         runs.push(LineageRunNode {
             run_id: run_id.to_string(),
             dataset_name: required_string(run_payload, "dataset_name")?,
-            dataset_version_id: required_string(run_payload, "dataset_version_id")?,
             output_dir: required_string(run_payload, "output_dir")?,
             parent_model_path: optional_string(run_payload, "parent_model_path"),
             model_path: optional_string(run_payload, "model_path"),

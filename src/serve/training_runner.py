@@ -50,14 +50,12 @@ def run_training(
     options: TrainingOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full training workflow and persist run lifecycle metadata."""
     config_hash = compute_training_config_hash(options)
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path,
         config_hash=config_hash,
@@ -70,7 +68,6 @@ def run_training(
             options=options,
             random_seed=random_seed,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             run_registry=run_registry,
         )
@@ -89,7 +86,6 @@ def run_training(
             context=context,
             loop_result=loop_result,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             random_seed=random_seed,
         )
@@ -120,7 +116,6 @@ def _build_runtime_context(
     options: TrainingOptions,
     random_seed: int,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     run_registry: TrainingRunRegistry,
 ) -> TrainingRuntimeContext:
@@ -183,7 +178,6 @@ def _build_runtime_context(
         output_dir=output_dir,
         device=device,
         run_id=run_id,
-        dataset_version_id=dataset_version_id,
         config_hash=config_hash,
         hooks=hooks,
         run_registry=run_registry,
@@ -201,7 +195,6 @@ def _persist_training_outputs(
     context: TrainingRuntimeContext,
     loop_result: TrainingLoopResult,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -223,7 +216,6 @@ def _persist_training_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         config_hash=config_hash,
         random_seed=random_seed,
         training_options=asdict(context.options),
@@ -245,7 +237,6 @@ def _persist_training_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash,
         result=base_result,

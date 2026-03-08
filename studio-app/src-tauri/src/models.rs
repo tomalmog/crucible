@@ -4,17 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Serialize)]
-pub struct VersionSummary {
-    pub version_id: String,
-    pub record_count: u64,
-    pub created_at: String,
-    pub parent_version: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
 pub struct DatasetDashboard {
     pub dataset_name: String,
-    pub version_id: String,
     pub record_count: u64,
     pub average_quality: f64,
     pub min_quality: f64,
@@ -36,16 +27,6 @@ pub struct RecordSample {
     pub language: String,
     pub quality_score: f64,
     pub text: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct VersionDiff {
-    pub dataset_name: String,
-    pub base_version: String,
-    pub target_version: String,
-    pub added_records: u64,
-    pub removed_records: u64,
-    pub shared_records: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -96,7 +77,6 @@ pub struct TrainingHistory {
 pub struct TrainingRunSummary {
     pub run_id: String,
     pub dataset_name: String,
-    pub dataset_version_id: String,
     pub state: String,
     pub updated_at: String,
     pub output_dir: String,
@@ -108,7 +88,6 @@ pub struct TrainingRunSummary {
 pub struct LineageRunNode {
     pub run_id: String,
     pub dataset_name: String,
-    pub dataset_version_id: String,
     pub output_dir: String,
     pub parent_model_path: Option<String>,
     pub model_path: Option<String>,

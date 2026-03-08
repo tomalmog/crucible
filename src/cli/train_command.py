@@ -80,7 +80,6 @@ def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=args.dataset,
         output_dir=args.output_dir,
-        version_id=args.version_id,
         architecture_path=args.architecture_file,
         custom_loop_path=args.custom_loop_file,
         hooks_path=args.hooks_file,
@@ -127,11 +126,10 @@ def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
 def add_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register train subcommand."""
     parser = subparsers.add_parser(
-        "train", help="Train a PyTorch language model on a dataset version"
+        "train", help="Train a PyTorch language model on a dataset"
     )
     parser.add_argument("--dataset", required=True, help="Dataset name")
     parser.add_argument("--output-dir", required=True, help="Training artifact output directory")
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument("--architecture-file", help="Optional .py or .json model architecture file")
     parser.add_argument("--custom-loop-file", help="Optional .py custom training loop file")
     parser.add_argument(

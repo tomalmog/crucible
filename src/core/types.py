@@ -14,12 +14,11 @@ from datetime import datetime
 from typing import Mapping
 
 from core.ingest_types import (
+    DatasetWriteRequest as DatasetWriteRequest,
     IngestOptions as IngestOptions,
     MetadataFilter as MetadataFilter,
-    SnapshotWriteRequest as SnapshotWriteRequest,
     SourceTextRecord as SourceTextRecord,
     TrainingExportRequest as TrainingExportRequest,
-    VersionExportRequest as VersionExportRequest,
 )
 from core.training_types import (
     BatchLossMetric as BatchLossMetric,
@@ -69,23 +68,17 @@ class DataRecord:
 
 
 @dataclass(frozen=True)
-class SnapshotManifest:
-    """Immutable snapshot metadata for versioning.
+class DatasetManifest:
+    """Dataset metadata persisted alongside records.
 
     Attributes:
         dataset_name: Logical dataset identifier.
-        version_id: Immutable snapshot id.
         created_at: UTC creation timestamp.
-        parent_version: Previous version id when derived.
-        recipe_steps: Ordered transforms used to create snapshot.
-        record_count: Number of records in snapshot.
+        record_count: Number of records in dataset.
         source_uri: Original ingest source path, if available.
     """
 
     dataset_name: str
-    version_id: str
     created_at: datetime
-    parent_version: str | None
-    recipe_steps: tuple[str, ...]
     record_count: int
     source_uri: str | None = None

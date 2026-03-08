@@ -40,7 +40,7 @@ def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
     # Machine-readable output for Tauri
     print("FORGE_JSON:" + json_mod.dumps([
         {"name": d.name, "size_bytes": d.size_bytes,
-         "version_id": d.version_id, "synced_at": d.synced_at}
+         "synced_at": d.synced_at}
         for d in datasets
     ]))
     return 0

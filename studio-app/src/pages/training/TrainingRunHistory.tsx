@@ -33,7 +33,7 @@ export function TrainingRunHistory({ dataRoot }: TrainingRunHistoryProps) {
               </span>
             </div>
             <div className="run-row-meta">
-              <span>{run.dataset_name}:{run.dataset_version_id.slice(0, 10)}</span>
+              <span>{run.dataset_name}</span>
               <span>{run.updated_at}</span>
             </div>
             {run.model_path && (

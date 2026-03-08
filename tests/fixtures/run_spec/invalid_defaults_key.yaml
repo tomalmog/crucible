@@ -3,4 +3,5 @@ defaults:
   dataset: demo
   bad_field: nope
 steps:
-  - command: versions
+  - command: ingest
+    source: tests/fixtures/raw_valid/local_a.txt

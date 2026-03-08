@@ -52,7 +52,6 @@ def run_dpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         beta=args.beta,
         label_smoothing=args.label_smoothing,
         reference_model_path=args.reference_model_path,
-        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,

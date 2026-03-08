@@ -27,7 +27,6 @@ def run_ddp_training(
     options: TrainingOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run DDP-wrapped training for multi-GPU via torchrun."""
     torch_module = _import_torch()

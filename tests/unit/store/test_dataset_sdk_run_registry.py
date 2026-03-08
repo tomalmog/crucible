@@ -46,7 +46,6 @@ def test_client_run_registry_helpers_load_runs_and_lineage(tmp_path) -> None:
     registry = TrainingRunRegistry(tmp_path)
     run_record = registry.start_run(
         dataset_name="demo",
-        dataset_version_id="demo-v1",
         output_dir=str(tmp_path / "out"),
         parent_model_path=None,
         config_hash="abc123",

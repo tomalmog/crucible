@@ -39,7 +39,7 @@ def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         dataset_name=args.dataset, output_dir=args.output_dir,
         orpo_data_path=args.orpo_data_path,
         lambda_orpo=args.lambda_orpo, beta=args.beta,
-        version_id=None, epochs=args.epochs,
+        epochs=args.epochs,
         learning_rate=args.learning_rate, batch_size=args.batch_size,
         max_token_length=args.max_token_length, validation_split=args.validation_split,
         precision_mode=cast(PrecisionMode, args.precision_mode),

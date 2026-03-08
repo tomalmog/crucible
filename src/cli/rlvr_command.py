@@ -17,7 +17,7 @@ def run_rlvr_command(client: ForgeClient, args: argparse.Namespace) -> int:
         rlvr_data_path=args.rlvr_data_path, verifier_type=args.verifier_type,
         max_verification_attempts=args.max_attempts,
         reward_correct=args.reward_correct, reward_incorrect=args.reward_incorrect,
-        version_id=None, epochs=args.epochs,
+        epochs=args.epochs,
         learning_rate=args.learning_rate, batch_size=args.batch_size,
         max_token_length=args.max_token_length, validation_split=args.validation_split,
         precision_mode=cast(PrecisionMode, args.precision_mode),

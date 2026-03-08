@@ -80,7 +80,6 @@ class RlhfOptions:
     policy_model_path: str
     reward_config: RewardModelConfig = RewardModelConfig()
     ppo_config: PpoConfig = PpoConfig()
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 1e-5
     batch_size: int = DEFAULT_BATCH_SIZE

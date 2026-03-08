@@ -47,7 +47,6 @@ class DomainAdaptationOptions:
     reference_data_path: str | None = None
     drift_check_interval_epochs: int = 1
     max_perplexity_increase: float = 1.5
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE

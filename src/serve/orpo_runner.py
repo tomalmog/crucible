@@ -35,7 +35,6 @@ def run_orpo_training(
     options: OrpoOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full ORPO training workflow and persist run lifecycle metadata."""
     training_options = _orpo_options_to_training_options(options)
@@ -43,7 +42,6 @@ def run_orpo_training(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path,
         config_hash=config_hash,
@@ -53,7 +51,7 @@ def run_orpo_training(
         context = _build_orpo_runtime_context(
             records=records, options=options, training_options=training_options,
             random_seed=random_seed, run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id, config_hash=config_hash,
+            config_hash=config_hash,
             run_registry=run_registry,
         )
         run_registry.transition(run_record.run_id, "running")
@@ -61,7 +59,7 @@ def run_orpo_training(
         loop_result = run_training_loop(context)
         result = _persist_orpo_outputs(
             context=context, loop_result=loop_result, run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id, config_hash=config_hash,
+            config_hash=config_hash,
             random_seed=random_seed,
         )
         invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
@@ -87,7 +85,6 @@ def _build_orpo_runtime_context(
     training_options: TrainingOptions,
     random_seed: int,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     run_registry: TrainingRunRegistry,
 ) -> TrainingRuntimeContext:
@@ -136,7 +133,7 @@ def _build_orpo_runtime_context(
         train_batches=train_batches, validation_batches=val_batches,
         tokenizer=tokenizer, options=training_options,
         output_dir=output_dir, device=device,
-        run_id=run_id, dataset_version_id=dataset_version_id,
+        run_id=run_id,
         config_hash=config_hash, hooks=hooks, run_registry=run_registry,
     )
 
@@ -202,7 +199,6 @@ def _persist_orpo_outputs(
     context: TrainingRuntimeContext,
     loop_result: Any,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -229,7 +225,7 @@ def _persist_orpo_outputs(
     save_reproducibility_bundle(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id, config_hash=config_hash,
+        config_hash=config_hash,
         random_seed=random_seed, training_options=asdict(context.options),
     )
     base_result = TrainingRunResult(
@@ -243,7 +239,6 @@ def _persist_orpo_outputs(
     contract_path = save_training_artifact_contract(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
@@ -264,7 +259,7 @@ def _orpo_options_to_training_options(options: OrpoOptions) -> TrainingOptions:
     """Map OrpoOptions to TrainingOptions."""
     return TrainingOptions(
         dataset_name=options.dataset_name, output_dir=options.output_dir,
-        version_id=options.version_id, epochs=options.epochs,
+        epochs=options.epochs,
         learning_rate=options.learning_rate, batch_size=options.batch_size,
         max_token_length=options.max_token_length, validation_split=options.validation_split,
         precision_mode=options.precision_mode, optimizer_type=options.optimizer_type,

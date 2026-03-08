@@ -3,7 +3,6 @@ import {
   listDatasets,
   listModelGroups,
   listModelVersions,
-  listVersions,
   getDatasetDashboard,
   sampleRecords,
   getHardwareProfile,
@@ -12,7 +11,6 @@ import {
   DatasetDashboard,
   DatasetEntry,
   RecordSample,
-  VersionSummary,
 } from "../types";
 import type { ModelGroup, ModelVersion } from "../types/models";
 import { loadSessionState, saveSessionState } from "../session_state";
@@ -23,9 +21,6 @@ interface ForgeContextValue {
   datasets: DatasetEntry[];
   selectedDataset: string | null;
   setSelectedDataset: (name: string | null) => void;
-  versions: VersionSummary[];
-  selectedVersion: string | null;
-  setSelectedVersion: (id: string | null) => void;
   dashboard: DatasetDashboard | null;
   samples: RecordSample[];
   modelGroups: ModelGroup[];
@@ -55,10 +50,6 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
   const [datasets, setDatasets] = useState<DatasetEntry[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string | null>(
     INITIAL.selected_dataset,
-  );
-  const [versions, setVersions] = useState<VersionSummary[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(
-    INITIAL.selected_version,
   );
   const [dashboard, setDashboard] = useState<DatasetDashboard | null>(null);
   const [samples, setSamples] = useState<RecordSample[]>([]);
@@ -120,14 +111,12 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
     setDatasets(rows);
     if (rows.length === 0) {
       setSelectedDataset(null);
-      setVersions([]);
       setDashboard(null);
       setSamples([]);
       return;
     }
     if (!selectedDataset || !rows.some((d) => d.name === selectedDataset)) {
       setSelectedDataset(rows[0].name);
-      setSelectedVersion(null);
     }
   }, [dataRoot, selectedDataset]);
 
@@ -143,44 +132,34 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
     refreshHardwareProfile().catch(console.error);
   }, []);
 
-  // Reload versions, dashboard, and samples when dataset or version changes
+  // Reload dashboard and samples when dataset changes
   useEffect(() => {
     if (!selectedDataset) {
-      setVersions([]);
       setDashboard(null);
       setSamples([]);
       return;
     }
     let cancelled = false;
     (async () => {
-      const versionRows = await listVersions(dataRoot, selectedDataset);
-      if (cancelled) return;
-      setVersions(versionRows);
-      if (versionRows.length === 0) {
-        setDashboard(null);
-        setSamples([]);
-        return;
-      }
-      const dashboardRow = await getDatasetDashboard(dataRoot, selectedDataset, selectedVersion);
-      const sampleRows = await sampleRecords(dataRoot, selectedDataset, selectedVersion, 0, 12);
+      const dashboardRow = await getDatasetDashboard(dataRoot, selectedDataset);
+      const sampleRows = await sampleRecords(dataRoot, selectedDataset, 0, 12);
       if (cancelled) return;
       setDashboard(dashboardRow);
       setSamples(sampleRows);
     })().catch(console.error);
     return () => { cancelled = true; };
-  }, [dataRoot, selectedDataset, selectedVersion]);
+  }, [dataRoot, selectedDataset]);
 
   // Persist session state to localStorage when selection changes
   useEffect(() => {
     saveSessionState({
       data_root: dataRoot,
       selected_dataset: selectedDataset,
-      selected_version: selectedVersion,
       selected_model_name: selectedModelName,
       selected_model_version_id: selectedModel?.versionId ?? null,
       last_route: window.location.hash,
     });
-  }, [dataRoot, selectedDataset, selectedVersion, selectedModelName, selectedModel]);
+  }, [dataRoot, selectedDataset, selectedModelName, selectedModel]);
 
   return (
     <ForgeCtx.Provider
@@ -190,9 +169,6 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
         datasets,
         selectedDataset,
         setSelectedDataset,
-        versions,
-        selectedVersion,
-        setSelectedVersion,
         dashboard,
         samples,
         modelGroups,

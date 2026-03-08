@@ -61,7 +61,6 @@ class DpoOptions:
     beta: float = DEFAULT_DPO_BETA
     label_smoothing: float = DEFAULT_DPO_LABEL_SMOOTHING
     reference_model_path: str | None = None
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_DPO_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE

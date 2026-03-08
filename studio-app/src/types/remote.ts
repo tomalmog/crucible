@@ -13,7 +13,6 @@ export interface ClusterConfig {
 export interface RemoteDatasetInfo {
   name: string;
   sizeBytes: number;
-  versionId: string;
   syncedAt: string;
 }
 

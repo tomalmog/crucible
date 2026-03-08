@@ -12,7 +12,7 @@ from tests.fixture_paths import fixture_path
 def test_load_run_spec_valid_pipeline_parses_steps() -> None:
     """Valid run-spec should parse expected command order."""
     spec = load_run_spec(str(fixture_path("run_spec/valid_pipeline.yaml")))
-    assert tuple(step.command for step in spec.steps) == ("ingest", "filter")
+    assert tuple(step.command for step in spec.steps) == ("ingest",)
 
 
 def test_load_run_spec_invalid_command_raises_error() -> None:

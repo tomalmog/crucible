@@ -1,10 +1,10 @@
 //! Dataset query commands used by Studio panels.
 
 use crate::commands::runtime_queries::resolve_data_root_path;
-use crate::models::{DatasetDashboard, RecordSample, SourceCount, TrainingHistory, VersionDiff, VersionSummary};
+use crate::models::{DatasetDashboard, RecordSample, SourceCount, TrainingHistory};
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -25,36 +25,20 @@ pub fn list_datasets(data_root: String) -> Result<Vec<DatasetEntry>, String> {
     names.sort();
     let mut entries = Vec::with_capacity(names.len());
     for name in names {
-        let size = latest_records_size(&datasets_dir, &name);
+        let size = dataset_records_size(&datasets_dir, &name);
         entries.push(DatasetEntry { name, size_bytes: size });
     }
     Ok(entries)
 }
 
 #[tauri::command]
-pub fn list_versions(data_root: String, dataset_name: String) -> Result<Vec<VersionSummary>, String> {
-    let catalog = read_catalog(&dataset_root(&data_root, &dataset_name))?;
-    let versions = catalog
-        .get("versions")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "Catalog is missing versions array".to_string())?;
-    let mut summaries = Vec::with_capacity(versions.len());
-    for version in versions {
-        summaries.push(parse_version_summary(version)?);
-    }
-    Ok(summaries)
-}
-
-#[tauri::command]
 pub fn get_dataset_dashboard(
     data_root: String,
     dataset_name: String,
-    version_id: Option<String>,
 ) -> Result<DatasetDashboard, String> {
-    let selected_version = resolve_version(&data_root, &dataset_name, version_id)?;
-    let records = read_records(&data_root, &dataset_name, &selected_version)?;
+    let records = read_records(&data_root, &dataset_name)?;
     if records.is_empty() {
-        return Err("Dataset version has no records".to_string());
+        return Err("Dataset has no records".to_string());
     }
     let record_count = records.len() as u64;
     let mut language_counts: BTreeMap<String, u64> = BTreeMap::new();
@@ -89,7 +73,6 @@ pub fn get_dataset_dashboard(
     source_rows.truncate(12);
     Ok(DatasetDashboard {
         dataset_name,
-        version_id: selected_version,
         record_count,
         average_quality,
         min_quality,
@@ -103,12 +86,10 @@ pub fn get_dataset_dashboard(
 pub fn sample_records(
     data_root: String,
     dataset_name: String,
-    version_id: Option<String>,
     offset: usize,
     limit: usize,
 ) -> Result<Vec<RecordSample>, String> {
-    let selected_version = resolve_version(&data_root, &dataset_name, version_id)?;
-    let records = read_records(&data_root, &dataset_name, &selected_version)?;
+    let records = read_records(&data_root, &dataset_name)?;
     let safe_limit = limit.min(200);
     let mut samples: Vec<RecordSample> = Vec::new();
     for record in records.iter().skip(offset).take(safe_limit) {
@@ -128,28 +109,6 @@ pub fn sample_records(
         });
     }
     Ok(samples)
-}
-
-#[tauri::command]
-pub fn version_diff(
-    data_root: String,
-    dataset_name: String,
-    base_version: String,
-    target_version: String,
-) -> Result<VersionDiff, String> {
-    let base_ids = record_id_set(&data_root, &dataset_name, &base_version)?;
-    let target_ids = record_id_set(&data_root, &dataset_name, &target_version)?;
-    let shared_records = base_ids.intersection(&target_ids).count() as u64;
-    let removed_records = base_ids.difference(&target_ids).count() as u64;
-    let added_records = target_ids.difference(&base_ids).count() as u64;
-    Ok(VersionDiff {
-        dataset_name,
-        base_version,
-        target_version,
-        added_records,
-        removed_records,
-        shared_records,
-    })
 }
 
 #[tauri::command]
@@ -174,39 +133,12 @@ fn dataset_root(data_root: &str, dataset_name: &str) -> PathBuf {
     resolve_data_root_path(data_root).join("datasets").join(dataset_name)
 }
 
-fn records_path(data_root: &str, dataset_name: &str, version_id: &str) -> PathBuf {
-    dataset_root(data_root, dataset_name)
-        .join("versions")
-        .join(version_id)
-        .join("records.jsonl")
+fn records_path(data_root: &str, dataset_name: &str) -> PathBuf {
+    dataset_root(data_root, dataset_name).join("records.jsonl")
 }
 
-fn read_catalog(dataset_root: &Path) -> Result<Value, String> {
-    let catalog_path = dataset_root.join("catalog.json");
-    let payload = fs::read_to_string(&catalog_path)
-        .map_err(|error| format!("Failed to read catalog {}: {error}", catalog_path.display()))?;
-    serde_json::from_str::<Value>(&payload)
-        .map_err(|error| format!("Failed to parse catalog {}: {error}", catalog_path.display()))
-}
-
-fn resolve_version(
-    data_root: &str,
-    dataset_name: &str,
-    explicit_version: Option<String>,
-) -> Result<String, String> {
-    if let Some(version_id) = explicit_version {
-        return Ok(version_id);
-    }
-    let catalog = read_catalog(&dataset_root(data_root, dataset_name))?;
-    catalog
-        .get("latest_version")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .ok_or_else(|| "Catalog is missing latest_version".to_string())
-}
-
-fn read_records(data_root: &str, dataset_name: &str, version_id: &str) -> Result<Vec<Value>, String> {
-    let records_path = records_path(data_root, dataset_name, version_id);
+fn read_records(data_root: &str, dataset_name: &str) -> Result<Vec<Value>, String> {
+    let records_path = records_path(data_root, dataset_name);
     let payload = fs::read_to_string(&records_path)
         .map_err(|error| format!("Failed to read records {}: {error}", records_path.display()))?;
     let mut rows = Vec::new();
@@ -221,49 +153,9 @@ fn read_records(data_root: &str, dataset_name: &str, version_id: &str) -> Result
     Ok(rows)
 }
 
-fn record_id_set(data_root: &str, dataset_name: &str, version_id: &str) -> Result<HashSet<String>, String> {
-    let records = read_records(data_root, dataset_name, version_id)?;
-    let mut ids = HashSet::with_capacity(records.len());
-    for record in records {
-        let id = record
-            .get("record_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "Record is missing record_id".to_string())?;
-        ids.insert(id.to_string());
-    }
-    Ok(ids)
-}
-
-fn parse_version_summary(raw: &Value) -> Result<VersionSummary, String> {
-    let object = raw
-        .as_object()
-        .ok_or_else(|| "Version entry is not an object".to_string())?;
-    let parent = object.get("parent_version").and_then(Value::as_str).map(str::to_string);
-    let record_count = object
-        .get("record_count")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| "Version record_count is missing".to_string())?;
-    Ok(VersionSummary {
-        version_id: string_field(object, "version_id")?,
-        record_count,
-        created_at: string_field(object, "created_at")?,
-        parent_version: parent,
-    })
-}
-
-fn latest_records_size(datasets_dir: &Path, name: &str) -> u64 {
-    let catalog_path = datasets_dir.join(name).join("catalog.json");
-    let version_id = fs::read_to_string(&catalog_path)
-        .ok()
-        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .and_then(|v| v.get("latest_version")?.as_str().map(str::to_string));
-    match version_id {
-        Some(vid) => {
-            let records = datasets_dir.join(name).join("versions").join(&vid).join("records.jsonl");
-            fs::metadata(&records).map(|m| m.len()).unwrap_or(0)
-        }
-        None => 0,
-    }
+fn dataset_records_size(datasets_dir: &Path, name: &str) -> u64 {
+    let records = datasets_dir.join(name).join("records.jsonl");
+    fs::metadata(&records).map(|m| m.len()).unwrap_or(0)
 }
 
 fn read_child_dirs(parent: &Path) -> Result<Vec<String>, String> {

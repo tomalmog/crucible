@@ -17,7 +17,6 @@ class BenchmarkConfig:
         model_path: Path to trained model weights.
         dataset_name: Dataset to evaluate against.
         output_dir: Directory for benchmark report output.
-        version_id: Optional specific dataset version.
         max_token_length: Maximum token sequence length.
         batch_size: Batch size for evaluation passes.
         run_perplexity: Whether to compute perplexity metric.
@@ -27,7 +26,6 @@ class BenchmarkConfig:
     model_path: str
     dataset_name: str
     output_dir: str
-    version_id: str | None = None
     max_token_length: int = 512
     batch_size: int = 16
     run_perplexity: bool = True

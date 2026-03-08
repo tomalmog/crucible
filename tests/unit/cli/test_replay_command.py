@@ -39,7 +39,6 @@ def test_replay_command_invokes_train(monkeypatch, tmp_path) -> None:
     bundle_data = {
         "run_id": "run-replay",
         "dataset_name": "demo",
-        "dataset_version_id": "v1",
         "config_hash": "hash1",
         "random_seed": 42,
         "created_at": "2026-01-01T00:00:00+00:00",

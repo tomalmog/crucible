@@ -51,9 +51,6 @@ def add_distributed_train_command(subparsers: argparse._SubParsersAction[argpars
         "--batch-size", type=int, default=32, help="Batch size per GPU",
     )
     parser.add_argument(
-        "--version-id", help="Optional specific version id",
-    )
-    parser.add_argument(
         "--master-addr",
         default="127.0.0.1",
         help="Master address for distributed rendezvous",
@@ -89,7 +86,6 @@ def run_distributed_train_command(
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
-        version_id=args.version_id,
         master_addr=args.master_addr,
         master_port=args.master_port,
     )
@@ -131,7 +127,6 @@ def _build_torchrun_command(
     epochs: int,
     learning_rate: float,
     batch_size: int,
-    version_id: str | None,
     master_addr: str,
     master_port: str,
 ) -> list[str]:
@@ -159,6 +154,4 @@ def _build_torchrun_command(
         "--batch-size",
         str(batch_size),
     ]
-    if version_id is not None:
-        cmd.extend(["--version-id", version_id])
     return cmd

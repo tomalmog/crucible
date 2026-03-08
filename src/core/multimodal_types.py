@@ -33,7 +33,6 @@ class MultimodalOptions:
     image_encoder: str = "clip-vit-base"
     image_size: int = 224
     projection_dim: int = 512
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 2e-5
     batch_size: int = DEFAULT_BATCH_SIZE

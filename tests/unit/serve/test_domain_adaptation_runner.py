@@ -46,7 +46,6 @@ def test_domain_adaptation_raises_without_torch(monkeypatch, tmp_path) -> None:
         run_domain_adaptation(
             _build_records(), options,
             random_seed=1, data_root=tmp_path,
-            dataset_version_id="demo-v1",
         )
 
 
@@ -94,7 +93,6 @@ def test_domain_adaptation_completed_lifecycle(monkeypatch, tmp_path) -> None:
     result = run_domain_adaptation(
         records=_build_records(), options=options,
         random_seed=7, data_root=tmp_path,
-        dataset_version_id="demo-v1",
     )
     run_record = TrainingRunRegistry(tmp_path).load_run(result.run_id or "")
     assert run_record.state == "completed"
@@ -127,7 +125,6 @@ def test_domain_adaptation_failed_lifecycle(monkeypatch, tmp_path) -> None:
         run_domain_adaptation(
             records=_build_records(), options=options,
             random_seed=7, data_root=tmp_path,
-            dataset_version_id="demo-v1",
         )
     run_id = TrainingRunRegistry(tmp_path).list_runs()[0]
     run_record = TrainingRunRegistry(tmp_path).load_run(run_id)

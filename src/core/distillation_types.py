@@ -48,7 +48,6 @@ class DistillationOptions:
     student_model_path: str | None = None
     temperature: float = DEFAULT_DISTILLATION_TEMPERATURE
     alpha: float = DEFAULT_DISTILLATION_ALPHA
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE

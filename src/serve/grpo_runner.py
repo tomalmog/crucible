@@ -40,7 +40,6 @@ def run_grpo_training(
     options: GrpoOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full GRPO training workflow and persist run lifecycle metadata."""
     training_options = _grpo_options_to_training_options(options)
@@ -48,7 +47,6 @@ def run_grpo_training(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path,
         config_hash=config_hash,
@@ -61,7 +59,6 @@ def run_grpo_training(
             training_options=training_options,
             random_seed=random_seed,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             run_registry=run_registry,
         )
@@ -72,7 +69,6 @@ def run_grpo_training(
             context=context,
             loop_result=loop_result,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             random_seed=random_seed,
         )
@@ -100,7 +96,6 @@ def _build_grpo_runtime_context(
     training_options: TrainingOptions,
     random_seed: int,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     run_registry: TrainingRunRegistry,
 ) -> TrainingRuntimeContext:
@@ -161,7 +156,7 @@ def _build_grpo_runtime_context(
         train_batches=train_batches, validation_batches=val_batches,
         tokenizer=tokenizer, options=training_options,
         output_dir=output_dir, device=device,
-        run_id=run_id, dataset_version_id=dataset_version_id,
+        run_id=run_id,
         config_hash=config_hash, hooks=hooks, run_registry=run_registry,
     )
 
@@ -244,7 +239,6 @@ def _persist_grpo_outputs(
     context: TrainingRuntimeContext,
     loop_result: Any,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -275,7 +269,7 @@ def _persist_grpo_outputs(
     save_reproducibility_bundle(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id, config_hash=config_hash,
+        config_hash=config_hash,
         random_seed=random_seed, training_options=asdict(context.options),
     )
     base_result = TrainingRunResult(
@@ -289,7 +283,6 @@ def _persist_grpo_outputs(
     contract_path = save_training_artifact_contract(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
@@ -311,7 +304,6 @@ def _grpo_options_to_training_options(options: GrpoOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         epochs=options.epochs,
         learning_rate=options.learning_rate,
         batch_size=options.batch_size,

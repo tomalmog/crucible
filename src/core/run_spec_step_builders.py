@@ -100,7 +100,6 @@ def execute_sft_train_step(
         dataset_name=_resolve_dataset_name(context, step),
         output_dir=required_string(step.args, "output_dir"),
         sft_data_path=required_string(step.args, "sft_data_path"),
-        version_id=optional_string(step.args, "version_id"),
         mask_prompt_tokens=optional_bool(
             step.args, "mask_prompt_tokens", default_value=DEFAULT_SFT_MASK_PROMPT_TOKENS,
         ),
@@ -129,7 +128,6 @@ def execute_dpo_train_step(
             step.args, "label_smoothing", DEFAULT_DPO_LABEL_SMOOTHING,
         ),
         reference_model_path=optional_string(step.args, "reference_model_path"),
-        version_id=optional_string(step.args, "version_id"),
         initial_weights_path=optional_string(step.args, "initial_weights_path"),
         **common,
     )
@@ -160,7 +158,6 @@ def execute_rlhf_train_step(
         output_dir=required_string(step.args, "output_dir"),
         policy_model_path=required_string(step.args, "policy_model_path"),
         reward_config=reward_config, ppo_config=ppo_config,
-        version_id=optional_string(step.args, "version_id"),
         initial_weights_path=optional_string(step.args, "initial_weights_path"),
         **common,
     )
@@ -183,7 +180,6 @@ def execute_distill_step(
             step.args, "temperature", DEFAULT_DISTILLATION_TEMPERATURE,
         ),
         alpha=float_with_default(step.args, "alpha", DEFAULT_DISTILLATION_ALPHA),
-        version_id=optional_string(step.args, "version_id"),
         initial_weights_path=optional_string(step.args, "initial_weights_path"),
         **common,
     )
@@ -208,7 +204,6 @@ def execute_domain_adapt_step(
         max_perplexity_increase=float_with_default(
             step.args, "max_perplexity_increase", 1.5,
         ),
-        version_id=optional_string(step.args, "version_id"),
         **common,
     )
     return format_training_result(context.client.domain_adapt(options))

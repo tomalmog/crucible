@@ -1,4 +1,4 @@
 version: 1
 steps:
-  - command: filter
-    language: en
+  - command: train
+    output_dir: /tmp/out

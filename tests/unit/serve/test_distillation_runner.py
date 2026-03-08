@@ -50,7 +50,7 @@ def test_run_distillation_raises_without_torch(monkeypatch, tmp_path) -> None:
     with pytest.raises(ForgeDependencyError):
         run_distillation(
             _build_records(), options, random_seed=1,
-            data_root=tmp_path, dataset_version_id="demo-v1",
+            data_root=tmp_path,
         )
 
 
@@ -72,7 +72,7 @@ def test_run_distillation_returns_training_result(monkeypatch, tmp_path) -> None
     )
     result = run_distillation(
         records=_build_records(), options=options, random_seed=7,
-        data_root=tmp_path, dataset_version_id="demo-v1",
+        data_root=tmp_path,
     )
 
     assert isinstance(result, TrainingRunResult)
@@ -117,7 +117,7 @@ def test_run_distillation_teacher_is_frozen(monkeypatch, tmp_path) -> None:
     options = _build_options(tmp_path / "out")
     run_distillation(
         records=_build_records(), options=options, random_seed=1,
-        data_root=tmp_path, dataset_version_id="demo-v1",
+        data_root=tmp_path,
     )
     # The test passes if no error is raised (teacher freeze is tested at unit level)
     assert True
@@ -136,7 +136,7 @@ def test_run_distillation_persists_failed_lifecycle(monkeypatch, tmp_path) -> No
     with pytest.raises(RuntimeError):
         run_distillation(
             records=_build_records(), options=options, random_seed=7,
-            data_root=tmp_path, dataset_version_id="demo-v1",
+            data_root=tmp_path,
         )
     run_id = TrainingRunRegistry(tmp_path).list_runs()[0]
     run_record = TrainingRunRegistry(tmp_path).load_run(run_id)

@@ -79,7 +79,6 @@ def _training_options_to_step_args(options: TrainingOptions) -> dict[str, Any]:
     options_dict = asdict(options)
     args: dict[str, Any] = {}
     args["output_dir"] = options_dict["output_dir"]
-    _copy_if_set(args, options_dict, "version_id")
     _copy_if_set(args, options_dict, "architecture_path", key_alias="architecture_file")
     _copy_if_set(args, options_dict, "custom_loop_path", key_alias="custom_loop_file")
     _copy_if_set(args, options_dict, "hooks_path", key_alias="hooks_file")

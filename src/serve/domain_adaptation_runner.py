@@ -46,7 +46,6 @@ def run_domain_adaptation(
     options: DomainAdaptationOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run domain adaptation with drift monitoring.
 
@@ -58,7 +57,6 @@ def run_domain_adaptation(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.base_model_path,
         config_hash=config_hash,
@@ -67,14 +65,14 @@ def run_domain_adaptation(
     try:
         context = _build_adaptation_context(
             records, options, training_options, random_seed,
-            run_record.run_id, dataset_version_id, config_hash, run_registry,
+            run_record.run_id, config_hash, run_registry,
         )
         run_registry.transition(run_record.run_id, "running")
         invoke_hook("on_run_start", context.hooks.on_run_start, context)
         loop_result = run_training_loop(context)
         result = _persist_adaptation_outputs(
             context, loop_result, run_record.run_id,
-            dataset_version_id, config_hash, random_seed,
+            config_hash, random_seed,
         )
         invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
         run_registry.transition(
@@ -96,7 +94,6 @@ def _build_adaptation_context(
     training_options: TrainingOptions,
     random_seed: int,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     run_registry: TrainingRunRegistry,
 ) -> TrainingRuntimeContext:
@@ -155,7 +152,7 @@ def _build_adaptation_context(
         train_batches=train_batches, validation_batches=val_batches,
         tokenizer=tokenizer, options=training_options,
         output_dir=output_dir, device=device, run_id=run_id,
-        dataset_version_id=dataset_version_id, config_hash=config_hash,
+        config_hash=config_hash,
         hooks=hooks, run_registry=run_registry,
     )
 
@@ -200,7 +197,7 @@ def _load_reference_sequences(
 
 def _persist_adaptation_outputs(
     context: TrainingRuntimeContext, loop_result: TrainingLoopResult,
-    run_id: str, dataset_version_id: str, config_hash: str, random_seed: int,
+    run_id: str, config_hash: str, random_seed: int,
 ) -> TrainingRunResult:
     """Persist adapted model and training artifacts."""
     model_path = save_model_weights(context.output_dir, context.torch_module, context.model)
@@ -215,7 +212,7 @@ def _persist_adaptation_outputs(
     repro_path = save_reproducibility_bundle(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id, config_hash=config_hash,
+        config_hash=config_hash,
         random_seed=random_seed, training_options=asdict(context.options),
     )
     base = TrainingRunResult(
@@ -232,7 +229,6 @@ def _persist_adaptation_outputs(
     contract = save_training_artifact_contract(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash, result=base,
         tokenizer_path=str(tokenizer_path),
@@ -276,7 +272,7 @@ def _adaptation_to_training_options(options: DomainAdaptationOptions) -> Trainin
     """Map DomainAdaptationOptions to TrainingOptions."""
     return TrainingOptions(
         dataset_name=options.dataset_name, output_dir=options.output_dir,
-        version_id=options.version_id, initial_weights_path=options.base_model_path,
+        initial_weights_path=options.base_model_path,
         epochs=options.epochs, learning_rate=options.learning_rate,
         batch_size=options.batch_size, max_token_length=options.max_token_length,
         validation_split=options.validation_split, precision_mode=options.precision_mode,

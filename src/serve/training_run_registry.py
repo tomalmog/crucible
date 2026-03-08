@@ -42,7 +42,6 @@ class TrainingRunRegistry:
     def start_run(
         self,
         dataset_name: str,
-        dataset_version_id: str,
         output_dir: str,
         parent_model_path: str | None,
         config_hash: str,
@@ -53,7 +52,6 @@ class TrainingRunRegistry:
         record = TrainingRunRecord(
             run_id=run_id,
             dataset_name=dataset_name,
-            dataset_version_id=dataset_version_id,
             output_dir=output_dir,
             parent_model_path=parent_model_path,
             config_hash=config_hash,
@@ -85,7 +83,6 @@ class TrainingRunRegistry:
         next_record = TrainingRunRecord(
             run_id=record.run_id,
             dataset_name=record.dataset_name,
-            dataset_version_id=record.dataset_version_id,
             output_dir=record.output_dir,
             parent_model_path=record.parent_model_path,
             config_hash=record.config_hash,
@@ -152,7 +149,6 @@ class TrainingRunRegistry:
         runs_payload, edges_payload = self._read_lineage_graph()
         runs_payload[record.run_id] = {
             "dataset_name": record.dataset_name,
-            "dataset_version_id": record.dataset_version_id,
             "output_dir": record.output_dir,
             "parent_model_path": record.parent_model_path,
             "config_hash": record.config_hash,
@@ -161,7 +157,7 @@ class TrainingRunRegistry:
         }
         _append_unique_edge(
             edges_payload,
-            from_node=f"dataset:{record.dataset_name}:{record.dataset_version_id}",
+            from_node=f"dataset:{record.dataset_name}",
             to_node=f"run:{record.run_id}",
             edge_type="trained_on",
         )

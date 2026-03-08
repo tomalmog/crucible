@@ -47,7 +47,6 @@ def persist_sft_outputs(
     context: TrainingRuntimeContext,
     loop_result: TrainingLoopResult,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -63,7 +62,6 @@ def persist_sft_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         config_hash=config_hash,
         random_seed=random_seed,
         training_options=asdict(context.options),
@@ -85,7 +83,6 @@ def persist_sft_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash,
         result=base_result,

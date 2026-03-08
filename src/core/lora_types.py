@@ -87,7 +87,6 @@ class LoraTrainingOptions:
     lora_config: LoraConfig = LoraConfig()
     tokenizer_path: str | None = None
     resume_checkpoint_path: str | None = None
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE

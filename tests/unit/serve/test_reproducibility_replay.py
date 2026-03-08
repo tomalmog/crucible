@@ -19,7 +19,6 @@ def _valid_bundle_dict() -> dict[str, object]:
     return {
         "run_id": "run-abc",
         "dataset_name": "my_dataset",
-        "dataset_version_id": "v1",
         "config_hash": "abc123",
         "random_seed": 42,
         "created_at": "2026-01-01T00:00:00+00:00",

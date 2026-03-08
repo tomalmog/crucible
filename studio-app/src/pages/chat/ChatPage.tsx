@@ -26,7 +26,6 @@ export function ChatPage() {
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
   const [modelPath, setModelPath] = useState("");
-  const [versionId] = useState("");
   const [maxNewTokens, setMaxNewTokens] = useState("120");
   const [temperature, setTemperature] = useState("0.7");
   const [topK, setTopK] = useState("40");
@@ -84,7 +83,7 @@ export function ChatPage() {
 
     try {
       const prompt = buildPromptText(messages, userText);
-      const args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, versionId, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
+      const args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
       setMessages((c) => [...c, { role: "assistant", content: "" }]);
       const taskStart = await startForgeCommand(dataRoot, args);
       const taskStatus = await streamChatTask(taskStart.task_id, setMessages);
@@ -205,10 +204,10 @@ function buildPromptText(_messages: ChatMessage[], currentText: string): string 
   return currentText;
 }
 
-function buildChatArgs(dataset: string, tokenizer: string, model: string, prompt: string, version: string, maxTokens: string, temp: string, topK: string, maxLen: string, posEmb: string, weights: string): string[] {
+function buildChatArgs(dataset: string, tokenizer: string, model: string, prompt: string, maxTokens: string, temp: string, topK: string, maxLen: string, posEmb: string, weights: string): string[] {
   const args = ["chat", "--model-path", model.trim(), "--prompt", prompt];
   const optionals: [string, string][] = [
-    ["--dataset", dataset], ["--tokenizer-path", tokenizer], ["--version-id", version],
+    ["--dataset", dataset], ["--tokenizer-path", tokenizer],
     ["--max-new-tokens", maxTokens], ["--temperature", temp], ["--top-k", topK],
     ["--max-token-length", maxLen], ["--position-embedding-type", posEmb],
     ["--weights-path", weights],

@@ -60,7 +60,6 @@ def run_rlhf_command(client: ForgeClient, args: argparse.Namespace) -> int:
         policy_model_path=args.policy_model_path,
         reward_config=reward_config,
         ppo_config=ppo_config,
-        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,

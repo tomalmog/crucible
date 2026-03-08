@@ -7,7 +7,6 @@ entry points can execute one declarative pipeline path without drift.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, Protocol, cast
 
 from core.chat_types import ChatOptions, ChatResult
@@ -33,7 +32,6 @@ from core.run_spec_fields import (
     float_with_default,
     int_with_default,
     optional_bool,
-    optional_float,
     optional_int,
     optional_string,
     parse_position_embedding_type,
@@ -49,20 +47,15 @@ from core.run_spec_step_builders import (
     execute_sft_train_step,
 )
 from core.sft_types import SftOptions
-from core.types import IngestOptions, MetadataFilter, TrainingOptions, TrainingRunResult
+from core.types import IngestOptions, TrainingOptions, TrainingRunResult
 
 
 class RunSpecDatasetHandle(Protocol):
     """Dataset operations required by run-spec step execution."""
 
-    def filter(self, filter_spec: MetadataFilter) -> str: ...
-
-    def list_versions(self) -> list[object]: ...
-
     def export_training(
         self,
         output_dir: str,
-        version_id: str | None = None,
         shard_size: int = 1000,
         include_metadata: bool = False,
     ) -> str: ...
@@ -126,8 +119,6 @@ def execute_run_spec(client: RunSpecClient, spec: RunSpec) -> tuple[str, ...]:
 def _execute_step(context: RunSpecExecutionContext, step: RunSpecStep) -> tuple[str, ...]:
     if step.command == "ingest":
         return (_execute_ingest_step(context, step),)
-    if step.command == "filter":
-        return (_execute_filter_step(context, step),)
     if step.command == "train":
         return _execute_train_step(context, step)
     if step.command == "sft-train":
@@ -144,8 +135,6 @@ def _execute_step(context: RunSpecExecutionContext, step: RunSpecStep) -> tuple[
         return (_execute_export_training_step(context, step),)
     if step.command == "chat":
         return (_execute_chat_step(context, step),)
-    if step.command == "versions":
-        return _execute_versions_step(context, step)
     if step.command == "hardware-profile":
         return _execute_hardware_profile_step(context)
     raise ForgeRunSpecError(f"Unsupported run-spec command '{step.command}'.")
@@ -155,22 +144,10 @@ def _execute_ingest_step(context: RunSpecExecutionContext, step: RunSpecStep) ->
     options = IngestOptions(
         dataset_name=_resolve_dataset_name(context, step),
         source_uri=required_string(step.args, "source"),
-        output_uri=optional_string(step.args, "output_uri"),
         resume=optional_bool(step.args, "resume", default_value=False),
-        incremental=optional_bool(step.args, "incremental", default_value=False),
         quality_model=optional_string(step.args, "quality_model") or DEFAULT_QUALITY_MODEL,
     )
     return context.client.ingest(options)
-
-
-def _execute_filter_step(context: RunSpecExecutionContext, step: RunSpecStep) -> str:
-    dataset_name = _resolve_dataset_name(context, step)
-    filter_spec = MetadataFilter(
-        language=optional_string(step.args, "language"),
-        min_quality_score=optional_float(step.args, "min_quality"),
-        source_prefix=optional_string(step.args, "source_prefix"),
-    )
-    return cast(str, context.client.dataset(dataset_name).filter(filter_spec))
 
 
 def _execute_train_step(
@@ -205,7 +182,6 @@ def _execute_export_training_step(
         str,
         dataset.export_training(
             output_dir=required_string(step.args, "output_dir"),
-            version_id=optional_string(step.args, "version_id"),
             shard_size=int_with_default(step.args, "shard_size", 1000),
             include_metadata=optional_bool(step.args, "include_metadata", default_value=False),
         ),
@@ -217,7 +193,6 @@ def _execute_chat_step(context: RunSpecExecutionContext, step: RunSpecStep) -> s
         dataset_name=_resolve_dataset_name(context, step),
         model_path=required_string(step.args, "model_path"),
         prompt=required_string(step.args, "prompt"),
-        version_id=optional_string(step.args, "version_id"),
         architecture_path=optional_string(step.args, "architecture_file"),
         max_new_tokens=int_with_default(step.args, "max_new_tokens", DEFAULT_CHAT_MAX_NEW_TOKENS),
         max_token_length=int_with_default(step.args, "max_token_length", DEFAULT_MAX_TOKEN_LENGTH),
@@ -235,32 +210,6 @@ def _execute_chat_step(context: RunSpecExecutionContext, step: RunSpecStep) -> s
         vocabulary_size=optional_int(step.args, "vocabulary_size"),
     )
     return context.client.chat(options).response_text
-
-
-def _execute_versions_step(
-    context: RunSpecExecutionContext,
-    step: RunSpecStep,
-) -> tuple[str, ...]:
-    versions = context.client.dataset(_resolve_dataset_name(context, step)).list_versions()
-    return tuple(
-        _format_version_row(
-            version_id=str(getattr(manifest, "version_id", "")),
-            record_count=int(getattr(manifest, "record_count", 0)),
-            created_at=getattr(manifest, "created_at"),
-            parent_version=getattr(manifest, "parent_version", None),
-        )
-        for manifest in versions
-    )
-
-
-def _format_version_row(
-    version_id: str,
-    record_count: int,
-    created_at: object,
-    parent_version: str | None,
-) -> str:
-    timestamp = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
-    return f"{version_id}\t{record_count}\t{timestamp}\t{parent_version or '-'}"
 
 
 def _execute_hardware_profile_step(context: RunSpecExecutionContext) -> tuple[str, ...]:

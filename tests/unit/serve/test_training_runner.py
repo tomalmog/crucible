@@ -43,7 +43,6 @@ def test_run_training_raises_without_torch(monkeypatch, tmp_path) -> None:
             options,
             random_seed=1,
             data_root=tmp_path,
-            dataset_version_id="demo-v1",
         )
 
     assert True
@@ -88,7 +87,6 @@ def test_run_training_persists_completed_lifecycle_record(monkeypatch, tmp_path)
         options=options,
         random_seed=7,
         data_root=tmp_path,
-        dataset_version_id="demo-v1",
     )
     run_record = TrainingRunRegistry(tmp_path).load_run(result.run_id or "")
 
@@ -116,7 +114,6 @@ def test_run_training_persists_failed_lifecycle_record(monkeypatch, tmp_path) ->
             options=options,
             random_seed=7,
             data_root=tmp_path,
-            dataset_version_id="demo-v1",
         )
     run_id = TrainingRunRegistry(tmp_path).list_runs()[0]
     run_record = TrainingRunRegistry(tmp_path).load_run(run_id)

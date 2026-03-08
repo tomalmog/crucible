@@ -13,14 +13,13 @@ def test_start_run_persists_queued_record_and_lineage_edges(tmp_path) -> None:
     registry = TrainingRunRegistry(tmp_path)
     run_record = registry.start_run(
         dataset_name="demo",
-        dataset_version_id="demo-v1",
         output_dir=str(tmp_path / "out"),
         parent_model_path=None,
         config_hash="abc123",
     )
     lineage = registry.load_lineage_graph()
     dataset_edge = {
-        "from": "dataset:demo:demo-v1",
+        "from": "dataset:demo",
         "to": f"run:{run_record.run_id}",
         "type": "trained_on",
     }
@@ -37,7 +36,6 @@ def test_transition_rejects_invalid_state_changes(tmp_path) -> None:
     registry = TrainingRunRegistry(tmp_path)
     run_record = registry.start_run(
         dataset_name="demo",
-        dataset_version_id="demo-v1",
         output_dir=str(tmp_path / "out"),
         parent_model_path=None,
         config_hash="abc123",
@@ -56,7 +54,6 @@ def test_transition_completed_updates_artifact_and_model_lineage(tmp_path) -> No
     registry = TrainingRunRegistry(tmp_path)
     run_record = registry.start_run(
         dataset_name="demo",
-        dataset_version_id="demo-v1",
         output_dir=str(tmp_path / "out"),
         parent_model_path="/tmp/parent.pt",
         config_hash="abc123",

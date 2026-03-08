@@ -28,17 +28,17 @@ def forge_client(forge_config: ForgeConfig) -> ForgeClient:
 @pytest.fixture()
 def ingested_dataset(
     forge_client: ForgeClient, tmp_path: Path
-) -> tuple[ForgeClient, str, str]:
-    """Ingest two text files and return (client, dataset_name, version_id)."""
+) -> tuple[ForgeClient, str]:
+    """Ingest two text files and return (client, dataset_name)."""
     raw_dir = tmp_path / "raw_files"
     raw_dir.mkdir()
     (raw_dir / "a.txt").write_text("Hello world this is a sample document.")
     (raw_dir / "b.txt").write_text("Another document with enough text content.")
     dataset_name = "test-ds"
-    version_id = forge_client.ingest(
+    forge_client.ingest(
         IngestOptions(dataset_name=dataset_name, source_uri=str(raw_dir))
     )
-    return forge_client, dataset_name, version_id
+    return forge_client, dataset_name
 
 
 @pytest.fixture()
@@ -207,7 +207,7 @@ def trained_model_path(tmp_path: Path, training_records: list[DataRecord]) -> st
         validation_split=0.2,
     )
     result = run_training(
-        training_records, options, 42, tmp_path, "v1",
+        training_records, options, 42, tmp_path,
     )
     return result.model_path
 

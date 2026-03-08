@@ -67,7 +67,6 @@ class TrainingOptions:
 
     dataset_name: str
     output_dir: str
-    version_id: str | None = None
     architecture_path: str | None = None
     custom_loop_path: str | None = None
     hooks_path: str | None = None

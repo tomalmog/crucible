@@ -47,9 +47,6 @@ pub struct RemoteDatasetSummary {
     #[serde(alias = "size_bytes")]
     #[serde(rename(serialize = "sizeBytes"))]
     pub size_bytes: u64,
-    #[serde(alias = "version_id")]
-    #[serde(rename(serialize = "versionId"))]
-    pub version_id: String,
     #[serde(alias = "synced_at")]
     #[serde(rename(serialize = "syncedAt"))]
     pub synced_at: String,

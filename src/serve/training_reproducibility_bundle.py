@@ -20,7 +20,6 @@ def save_reproducibility_bundle(
     output_dir: Path,
     run_id: str,
     dataset_name: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
     training_options: Mapping[str, object],
@@ -30,7 +29,6 @@ def save_reproducibility_bundle(
     payload = {
         "run_id": run_id,
         "dataset_name": dataset_name,
-        "dataset_version_id": dataset_version_id,
         "config_hash": config_hash,
         "random_seed": random_seed,
         "created_at": datetime.now(timezone.utc).isoformat(),

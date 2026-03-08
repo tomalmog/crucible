@@ -78,7 +78,6 @@ def _to_explicit_training_options(options: ChatOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name or "",
         output_dir=".",
-        version_id=options.version_id,
         architecture_path=options.architecture_path,
         custom_loop_path=None,
         epochs=1,
@@ -128,7 +127,6 @@ def _to_persisted_training_options(
     return TrainingOptions(
         dataset_name=options.dataset_name or "",
         output_dir=".",
-        version_id=options.version_id,
         architecture_path=architecture_path,
         custom_loop_path=None,
         epochs=1,
@@ -169,7 +167,6 @@ def _to_inferred_training_options(
     return TrainingOptions(
         dataset_name=options.dataset_name or "",
         output_dir=".",
-        version_id=options.version_id,
         architecture_path=None,
         custom_loop_path=None,
         epochs=1,

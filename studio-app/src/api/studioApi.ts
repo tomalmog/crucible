@@ -8,8 +8,6 @@ import {
   RecordSample,
   TrainingRunSummary,
   TrainingHistory,
-  VersionDiff,
-  VersionSummary,
 } from "../types";
 import type { ModelGroup, ModelVersion } from "../types/models";
 
@@ -33,52 +31,27 @@ export async function listDatasets(dataRoot: string): Promise<DatasetEntry[]> {
   return invoke<DatasetEntry[]>("list_datasets", { dataRoot });
 }
 
-export async function listVersions(
-  dataRoot: string,
-  datasetName: string,
-): Promise<VersionSummary[]> {
-  return invoke<VersionSummary[]>("list_versions", { dataRoot, datasetName });
-}
-
 export async function getDatasetDashboard(
   dataRoot: string,
   datasetName: string,
-  versionId: string | null,
 ): Promise<DatasetDashboard> {
   return invoke<DatasetDashboard>("get_dataset_dashboard", {
     dataRoot,
     datasetName,
-    versionId,
   });
 }
 
 export async function sampleRecords(
   dataRoot: string,
   datasetName: string,
-  versionId: string | null,
   offset: number,
   limit: number,
 ): Promise<RecordSample[]> {
   return invoke<RecordSample[]>("sample_records", {
     dataRoot,
     datasetName,
-    versionId,
     offset,
     limit,
-  });
-}
-
-export async function versionDiff(
-  dataRoot: string,
-  datasetName: string,
-  baseVersion: string,
-  targetVersion: string,
-): Promise<VersionDiff> {
-  return invoke<VersionDiff>("version_diff", {
-    dataRoot,
-    datasetName,
-    baseVersion,
-    targetVersion,
   });
 }
 

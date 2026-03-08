@@ -122,7 +122,6 @@ def _build_test_context(
         output_dir=Path("/tmp/test"),
         device="cpu",
         run_id=None,
-        dataset_version_id=None,
         config_hash="test",
         hooks=TrainingHooks(),
         run_registry=None,

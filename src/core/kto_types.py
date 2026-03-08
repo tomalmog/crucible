@@ -63,7 +63,6 @@ class KtoOptions:
     desirable_weight: float = DEFAULT_KTO_DESIRABLE_WEIGHT
     undesirable_weight: float = DEFAULT_KTO_UNDESIRABLE_WEIGHT
     reference_model_path: str | None = None
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 5e-5
     batch_size: int = DEFAULT_BATCH_SIZE

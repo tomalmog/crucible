@@ -16,7 +16,7 @@ def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int
         dataset_name=args.dataset, output_dir=args.output_dir,
         multimodal_data_path=args.multimodal_data_path,
         image_encoder=args.image_encoder, image_size=args.image_size,
-        projection_dim=args.projection_dim, version_id=None,
+        projection_dim=args.projection_dim,
         epochs=args.epochs, learning_rate=args.learning_rate,
         batch_size=args.batch_size, max_token_length=args.max_token_length,
         validation_split=args.validation_split,

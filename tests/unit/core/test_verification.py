@@ -8,20 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.chat_types import ChatOptions, ChatResult
-from core.types import IngestOptions, MetadataFilter, TrainingOptions, TrainingRunResult
+from core.types import IngestOptions, TrainingOptions, TrainingRunResult
 from core.verification import (
     VerificationOptions,
     render_verification_report,
     run_verification,
 )
-
-
-@dataclass(frozen=True)
-class _FakeManifest:
-    version_id: str
-    record_count: int
-    created_at: datetime
-    parent_version: str | None
 
 
 @dataclass(frozen=True)
@@ -36,31 +28,15 @@ class _FakeDataset:
         self._client = client
         self._dataset_name = dataset_name
 
-    def filter(self, filter_spec: MetadataFilter) -> str:
-        _ = filter_spec
-        version_id = "dataset-v2"
-        self._client.dataset_versions.append(version_id)
-        return version_id
-
-    def list_versions(self) -> list[_FakeManifest]:
-        return [
-            _FakeManifest(
-                version_id=version,
-                record_count=10,
-                created_at=datetime.now(timezone.utc),
-                parent_version=None if index == 0 else self._client.dataset_versions[index - 1],
-            )
-            for index, version in enumerate(self._client.dataset_versions)
-        ]
+    def load_records(self) -> tuple[object, list[dict[str, str]]]:
+        return (None, [{"text": "record"}])
 
     def export_training(
         self,
         output_dir: str,
-        version_id: str | None = None,
         shard_size: int = 1000,
         include_metadata: bool = False,
     ) -> str:
-        _ = version_id
         _ = shard_size
         _ = include_metadata
         output_path = Path(output_dir).resolve()
@@ -73,7 +49,6 @@ class _FakeDataset:
 class _FakeClient:
     def __init__(self) -> None:
         self.data_root = Path.cwd()
-        self.dataset_versions: list[str] = []
         self.train_run_id = "run-verify-123"
         self.train_model_path = ""
         self.run_record = _FakeRunRecord(
@@ -88,9 +63,7 @@ class _FakeClient:
 
     def ingest(self, options: IngestOptions) -> str:
         _ = options
-        version_id = "dataset-v1"
-        self.dataset_versions = [version_id]
-        return version_id
+        return options.dataset_name
 
     def dataset(self, dataset_name: str) -> _FakeDataset:
         _ = dataset_name

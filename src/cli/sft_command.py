@@ -48,7 +48,6 @@ def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
         dataset_name=args.dataset,
         output_dir=args.output_dir,
         sft_data_path=args.sft_data_path,
-        version_id=None,
         mask_prompt_tokens=args.mask_prompt_tokens,
         packing_enabled=args.packing,
         epochs=args.epochs,

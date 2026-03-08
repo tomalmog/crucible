@@ -46,7 +46,6 @@ def run_lora_training(
     options: LoraTrainingOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run LoRA fine-tuning and persist adapter artifacts.
 
@@ -73,7 +72,6 @@ def run_lora_training(
     config_hash = compute_training_config_hash_from_lora(options)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(output_dir),
         parent_model_path=options.base_model_path,
         config_hash=config_hash,

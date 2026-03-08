@@ -19,13 +19,9 @@ from cli.cost_command import add_cost_command, run_cost_command
 from cli.curate_command import add_curate_command, run_curate_command
 from cli.data_commands import (
     add_export_training_command,
-    add_filter_command,
     add_ingest_command,
-    add_versions_command,
     run_export_training_command,
-    run_filter_command,
     run_ingest_command,
-    run_versions_command,
 )
 from cli.deploy_command import add_deploy_command, run_deploy_command
 from cli.distillation_command import add_distillation_command, run_distillation_command
@@ -83,7 +79,7 @@ from store.dataset_sdk import ForgeClient
 _CommandHandler = Callable[..., int]
 
 _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.ArgumentParser]], None], ...] = (
-    add_ingest_command, add_versions_command, add_filter_command,
+    add_ingest_command,
     add_export_training_command, add_run_spec_command, add_verify_command,
     add_hardware_profile_command, add_train_command, add_sft_command,
     add_dpo_command, add_distillation_command, add_domain_adapt_command,
@@ -107,8 +103,6 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
     """Build command name -> handler mapping."""
     return {
         "ingest": run_ingest_command,
-        "versions": run_versions_command,
-        "filter": run_filter_command,
         "export-training": run_export_training_command,
         "train": run_train_command,
         "sft": run_sft_command,

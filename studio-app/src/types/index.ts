@@ -3,13 +3,6 @@ export interface DatasetEntry {
   sizeBytes: number;
 }
 
-export interface VersionSummary {
-  version_id: string;
-  record_count: number;
-  created_at: string;
-  parent_version: string | null;
-}
-
 export interface SourceCount {
   source: string;
   count: number;
@@ -17,7 +10,6 @@ export interface SourceCount {
 
 export interface DatasetDashboard {
   dataset_name: string;
-  version_id: string;
   record_count: number;
   average_quality: number;
   min_quality: number;
@@ -32,15 +24,6 @@ export interface RecordSample {
   language: string;
   quality_score: number;
   text: string;
-}
-
-export interface VersionDiff {
-  dataset_name: string;
-  base_version: string;
-  target_version: string;
-  added_records: number;
-  removed_records: number;
-  shared_records: number;
 }
 
 export interface CommandTaskStart {
@@ -84,7 +67,6 @@ export interface TrainingHistory {
 export interface TrainingRunSummary {
   run_id: string;
   dataset_name: string;
-  dataset_version_id: string;
   state: string;
   updated_at: string;
   output_dir: string;
@@ -95,7 +77,6 @@ export interface TrainingRunSummary {
 export interface LineageRunNode {
   run_id: string;
   dataset_name: string;
-  dataset_version_id: string;
   output_dir: string;
   parent_model_path: string | null;
   model_path: string | null;

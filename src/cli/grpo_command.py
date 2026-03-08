@@ -50,7 +50,6 @@ def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
         kl_coeff=args.kl_coeff,
         clip_range=args.clip_range,
         temperature=args.temperature,
-        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,

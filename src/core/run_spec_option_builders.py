@@ -57,7 +57,6 @@ def build_training_options_for_run_spec(
     return TrainingOptions(
         dataset_name=dataset_name,
         output_dir=required_string(args, "output_dir"),
-        version_id=optional_string(args, "version_id"),
         architecture_path=optional_string(args, "architecture_file"),
         custom_loop_path=optional_string(args, "custom_loop_file"),
         hooks_path=optional_string(args, "hooks_file"),

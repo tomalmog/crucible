@@ -60,7 +60,7 @@ def _train_base_model(tmp_path: Path) -> str:
         output_dir=str(tmp_path / "base_model"),
         **_TINY,
     )
-    result = run_training(_records(), options, 42, tmp_path, "v1")
+    result = run_training(_records(), options, 42, tmp_path)
     return result.model_path
 
 
@@ -82,7 +82,7 @@ def test_grpo_real_training(tmp_path: Path, grpo_data_file: str) -> None:
         grpo_data_path=grpo_data_file,
         **_TINY,
     )
-    result = run_grpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_grpo_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -90,7 +90,7 @@ def test_grpo_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
     ingested_dataset: tuple, grpo_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
+    client, ds_name = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
         "grpo-train",
@@ -122,7 +122,7 @@ def test_grpo_produces_artifacts(
         grpo_data_path=grpo_data_file,
         **_TINY,
     )
-    result = run_grpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_grpo_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -136,7 +136,7 @@ def test_grpo_loss_finite(tmp_path: Path, grpo_data_file: str) -> None:
         grpo_data_path=grpo_data_file,
         **{**_TINY, "epochs": 2},
     )
-    result = run_grpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_grpo_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:
@@ -156,7 +156,7 @@ def test_qlora_real_training(
         base_model_path=base_path,
         **_TINY,
     )
-    result = run_qlora_training(_records(), options, 42, tmp_path, "v1")
+    result = run_qlora_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -209,7 +209,7 @@ def test_qlora_produces_artifacts(
         base_model_path=base_path,
         **_TINY,
     )
-    result = run_qlora_training(_records(), options, 42, tmp_path, "v1")
+    result = run_qlora_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -227,7 +227,7 @@ def test_qlora_loss_finite(
         base_model_path=base_path,
         **{**_TINY, "epochs": 2},
     )
-    result = run_qlora_training(_records(), options, 42, tmp_path, "v1")
+    result = run_qlora_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:
@@ -243,7 +243,7 @@ def test_kto_real_training(tmp_path: Path, kto_data_file: str) -> None:
         kto_data_path=kto_data_file,
         **_TINY,
     )
-    result = run_kto_training(_records(), options, 42, tmp_path, "v1")
+    result = run_kto_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -251,7 +251,7 @@ def test_kto_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
     ingested_dataset: tuple, kto_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
+    client, ds_name = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
         "kto-train",
@@ -284,7 +284,7 @@ def test_kto_produces_artifacts(
         kto_data_path=kto_data_file,
         **_TINY,
     )
-    result = run_kto_training(_records(), options, 42, tmp_path, "v1")
+    result = run_kto_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -298,7 +298,7 @@ def test_kto_loss_finite(tmp_path: Path, kto_data_file: str) -> None:
         kto_data_path=kto_data_file,
         **{**_TINY, "epochs": 2},
     )
-    result = run_kto_training(_records(), options, 42, tmp_path, "v1")
+    result = run_kto_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:
@@ -314,7 +314,7 @@ def test_orpo_real_training(tmp_path: Path, orpo_data_file: str) -> None:
         orpo_data_path=orpo_data_file,
         **_TINY,
     )
-    result = run_orpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_orpo_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -322,7 +322,7 @@ def test_orpo_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
     ingested_dataset: tuple, orpo_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
+    client, ds_name = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
         "orpo-train",
@@ -355,7 +355,7 @@ def test_orpo_produces_artifacts(
         orpo_data_path=orpo_data_file,
         **_TINY,
     )
-    result = run_orpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_orpo_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -369,7 +369,7 @@ def test_orpo_loss_finite(tmp_path: Path, orpo_data_file: str) -> None:
         orpo_data_path=orpo_data_file,
         **{**_TINY, "epochs": 2},
     )
-    result = run_orpo_training(_records(), options, 42, tmp_path, "v1")
+    result = run_orpo_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:
@@ -387,7 +387,7 @@ def test_multimodal_real_training(
         multimodal_data_path=multimodal_data_file,
         **_TINY,
     )
-    result = run_multimodal_training(_records(), options, 42, tmp_path, "v1")
+    result = run_multimodal_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -395,7 +395,7 @@ def test_multimodal_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
     ingested_dataset: tuple, multimodal_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
+    client, ds_name = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
         "multimodal-train",
@@ -428,7 +428,7 @@ def test_multimodal_produces_artifacts(
         multimodal_data_path=multimodal_data_file,
         **_TINY,
     )
-    result = run_multimodal_training(_records(), options, 42, tmp_path, "v1")
+    result = run_multimodal_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -444,7 +444,7 @@ def test_multimodal_loss_finite(
         multimodal_data_path=multimodal_data_file,
         **{**_TINY, "epochs": 2},
     )
-    result = run_multimodal_training(_records(), options, 42, tmp_path, "v1")
+    result = run_multimodal_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:
@@ -460,7 +460,7 @@ def test_rlvr_real_training(tmp_path: Path, rlvr_data_file: str) -> None:
         rlvr_data_path=rlvr_data_file,
         **_TINY,
     )
-    result = run_rlvr_training(_records(), options, 42, tmp_path, "v1")
+    result = run_rlvr_training(_records(), options, 42, tmp_path)
     _assert_result(result)
 
 
@@ -468,7 +468,7 @@ def test_rlvr_cli_dispatches(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
     ingested_dataset: tuple, rlvr_data_file: str,
 ) -> None:
-    client, ds_name, version_id = ingested_dataset
+    client, ds_name = ingested_dataset
     code = main([
         "--data-root", str(client._config.data_root),
         "rlvr-train",
@@ -501,7 +501,7 @@ def test_rlvr_produces_artifacts(
         rlvr_data_path=rlvr_data_file,
         **_TINY,
     )
-    result = run_rlvr_training(_records(), options, 42, tmp_path, "v1")
+    result = run_rlvr_training(_records(), options, 42, tmp_path)
     assert Path(result.model_path).exists()
     assert Path(result.history_path).exists()
     config_path = Path(result.model_path).parent / "training_config.json"
@@ -515,7 +515,7 @@ def test_rlvr_loss_finite(tmp_path: Path, rlvr_data_file: str) -> None:
         rlvr_data_path=rlvr_data_file,
         **{**_TINY, "epochs": 2},
     )
-    result = run_rlvr_training(_records(), options, 42, tmp_path, "v1")
+    result = run_rlvr_training(_records(), options, 42, tmp_path)
     assert result.epochs_completed == 2
     history = json.loads(Path(result.history_path).read_text())
     for entry in history["epochs"]:

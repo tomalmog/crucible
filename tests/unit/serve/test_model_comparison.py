@@ -14,7 +14,6 @@ from serve.training_run_types import TrainingRunRecord
 def _make_run_record(
     run_id: str = "run-001",
     dataset_name: str = "demo",
-    dataset_version_id: str = "v1",
     output_dir: str = "/tmp/out",
     config_hash: str = "abc123",
     state: str = "completed",
@@ -24,7 +23,6 @@ def _make_run_record(
     return TrainingRunRecord(
         run_id=run_id,
         dataset_name=dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=output_dir,
         parent_model_path=None,
         config_hash=config_hash,

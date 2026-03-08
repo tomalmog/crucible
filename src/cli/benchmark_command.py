@@ -29,14 +29,13 @@ def run_benchmark_command(
         model_path=args.model_path,
         dataset_name=args.dataset,
         output_dir=args.output_dir,
-        version_id=args.version_id,
         max_token_length=args.max_token_length,
         batch_size=args.batch_size,
         run_perplexity=not args.no_perplexity,
         run_latency=not args.no_latency,
     )
     dataset = client.dataset(config.dataset_name)
-    _, records = dataset.load_records(config.version_id)
+    _, records = dataset.load_records()
     result = run_benchmark(
         records=records,
         config=config,
@@ -67,10 +66,6 @@ def add_benchmark_command(subparsers: argparse._SubParsersAction[argparse.Argume
     parser.add_argument(
         "--output-dir", required=True,
         help="Directory for benchmark report output",
-    )
-    parser.add_argument(
-        "--version-id", default=None,
-        help="Optional specific dataset version id",
     )
     parser.add_argument(
         "--max-token-length", type=int, default=512,

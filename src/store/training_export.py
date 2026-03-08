@@ -1,6 +1,6 @@
-"""Training export helpers for snapshot records.
+"""Training export helpers for dataset records.
 
-This module converts snapshot records into sharded JSONL outputs.
+This module converts dataset records into sharded JSONL outputs.
 It writes a manifest for downstream training pipeline consumption.
 """
 
@@ -11,21 +11,21 @@ import json
 from pathlib import Path
 
 from core.errors import ForgeStoreError
-from core.types import DataRecord, SnapshotManifest, TrainingExportRequest
+from core.types import DataRecord, DatasetManifest, TrainingExportRequest
 from store.record_payload import data_record_to_payload
 
 
 def export_training_shards(
     request: TrainingExportRequest,
-    manifest: SnapshotManifest,
+    manifest: DatasetManifest,
     records: list[DataRecord],
 ) -> Path:
     """Export records into local training shards and manifest.
 
     Args:
         request: Training export request options.
-        manifest: Source snapshot manifest.
-        records: Snapshot records.
+        manifest: Source dataset manifest.
+        records: Dataset records.
 
     Returns:
         Path to generated export manifest file.
@@ -49,10 +49,10 @@ def _validate_shard_size(shard_size: int) -> None:
         )
 
 
-def _build_export_dir(output_dir: str, manifest: SnapshotManifest) -> Path:
+def _build_export_dir(output_dir: str, manifest: DatasetManifest) -> Path:
     """Build and create destination export directory."""
     base_dir = Path(output_dir).expanduser().resolve()
-    export_dir = base_dir / manifest.dataset_name / manifest.version_id
+    export_dir = base_dir / manifest.dataset_name
     export_dir.mkdir(parents=True, exist_ok=True)
     return export_dir
 
@@ -94,14 +94,13 @@ def _serialize_training_row(record: DataRecord, include_metadata: bool) -> str:
 
 def _write_export_manifest(
     export_dir: Path,
-    source_manifest: SnapshotManifest,
+    source_manifest: DatasetManifest,
     records: list[DataRecord],
     shard_paths: list[Path],
 ) -> Path:
     """Write training export manifest file."""
     manifest_payload = {
         "dataset_name": source_manifest.dataset_name,
-        "version_id": source_manifest.version_id,
         "record_count": len(records),
         "shard_count": len(shard_paths),
         "generated_at": datetime.now(timezone.utc).isoformat(),

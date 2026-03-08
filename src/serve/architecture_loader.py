@@ -101,7 +101,6 @@ def _load_model_from_json(
     training_options = TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         architecture_path=options.architecture_path,
         custom_loop_path=options.custom_loop_path,
         epochs=options.epochs,

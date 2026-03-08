@@ -22,17 +22,13 @@ class IngestOptions:
     Attributes:
         dataset_name: Dataset name to create/update.
         source_uri: Input file path, directory, or S3 URI.
-        output_uri: Optional output object-store URI for snapshot export.
         resume: Resume from the latest matching ingest checkpoint.
-        incremental: Update an existing dataset from changed/new source records.
         quality_model: Quality scoring model identifier.
     """
 
     dataset_name: str
     source_uri: str
-    output_uri: str | None = None
     resume: bool = False
-    incremental: bool = False
     quality_model: str = DEFAULT_QUALITY_MODEL
 
 
@@ -65,36 +61,18 @@ class MetadataFilter:
 
 
 @dataclass(frozen=True)
-class SnapshotWriteRequest:
-    """Request payload for snapshot persistence.
+class DatasetWriteRequest:
+    """Request payload for dataset persistence.
 
     Attributes:
         dataset_name: Logical dataset identifier.
         records: Final transformed records to persist.
-        recipe_steps: Ordered list of transform names.
-        parent_version: Optional parent version id.
+        source_uri: Original ingest source path.
     """
 
     dataset_name: str
     records: tuple[DataRecord, ...]
-    recipe_steps: tuple[str, ...]
-    parent_version: str | None = None
     source_uri: str | None = None
-
-
-@dataclass(frozen=True)
-class VersionExportRequest:
-    """Request payload for exporting a version.
-
-    Attributes:
-        dataset_name: Dataset identifier.
-        version_id: Version to export.
-        output_uri: Destination URI (currently s3:// only).
-    """
-
-    dataset_name: str
-    version_id: str
-    output_uri: str
 
 
 @dataclass(frozen=True)
@@ -103,7 +81,6 @@ class TrainingExportRequest:
 
     Attributes:
         dataset_name: Dataset identifier.
-        version_id: Optional version id; latest if omitted.
         output_dir: Local output directory for shard files.
         shard_size: Number of records per shard file.
         include_metadata: Whether to include metadata in each JSONL row.
@@ -111,6 +88,5 @@ class TrainingExportRequest:
 
     dataset_name: str
     output_dir: str
-    version_id: str | None = None
     shard_size: int = 1000
     include_metadata: bool = False

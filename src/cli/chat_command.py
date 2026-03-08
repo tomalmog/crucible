@@ -35,7 +35,6 @@ def run_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
         prompt=args.prompt,
         dataset_name=args.dataset,
         tokenizer_path=args.tokenizer_path,
-        version_id=args.version_id,
         architecture_path=args.architecture_file,
         weights_path=getattr(args, "weights_path", None),
         max_new_tokens=args.max_new_tokens,
@@ -87,7 +86,6 @@ def add_chat_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
         help="Optional path to custom weights (.pt, .safetensors) to load into the model architecture",
     )
     parser.add_argument("--prompt", required=True, help="Prompt text to complete")
-    parser.add_argument("--version-id", help="Optional specific dataset version id")
     parser.add_argument("--architecture-file", help="Optional .py or .json model architecture file")
     parser.add_argument(
         "--max-new-tokens",

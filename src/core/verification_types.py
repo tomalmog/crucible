@@ -68,5 +68,4 @@ class VerificationRuntime:
     hooks_output_dir: Path
     hooks_marker_path: Path
     train_result: TrainingRunResult | None = None
-    filtered_version_id: str | None = None
     chat_preview: str | None = None

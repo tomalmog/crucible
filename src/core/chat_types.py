@@ -33,7 +33,6 @@ class ChatOptions:
     prompt: str
     dataset_name: str | None = None
     tokenizer_path: str | None = None
-    version_id: str | None = None
     architecture_path: str | None = None
     weights_path: str | None = None
     max_new_tokens: int = DEFAULT_CHAT_MAX_NEW_TOKENS

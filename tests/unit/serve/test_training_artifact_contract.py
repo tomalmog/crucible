@@ -28,7 +28,6 @@ def test_save_and_load_training_artifact_contract_round_trip(tmp_path: Path) -> 
         output_dir=tmp_path,
         run_id="run-123",
         dataset_name="demo",
-        dataset_version_id="demo-v1",
         parent_model_path=None,
         config_hash="abc123",
         result=result,

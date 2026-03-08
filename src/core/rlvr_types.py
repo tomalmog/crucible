@@ -37,7 +37,6 @@ class RlvrOptions:
     max_verification_attempts: int = 3
     reward_correct: float = 1.0
     reward_incorrect: float = -0.5
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 5e-5
     batch_size: int = DEFAULT_BATCH_SIZE

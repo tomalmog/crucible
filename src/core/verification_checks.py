@@ -8,7 +8,7 @@ from typing import Callable
 
 from core.chat_types import ChatOptions
 from core.errors import ForgeVerificationError
-from core.types import IngestOptions, MetadataFilter, TrainingOptions, TrainingRunResult
+from core.types import IngestOptions, TrainingOptions, TrainingRunResult
 from core.verification_types import VerificationMode, VerificationRuntime
 from store.dataset_sdk import ForgeClient
 
@@ -38,7 +38,7 @@ def build_checks(mode: VerificationMode) -> tuple[CheckRow, ...]:
     """Build ordered check list for one verification mode."""
     checks: list[CheckRow] = [
         ("V001", "Hardware Profile", check_hardware_profile),
-        ("V002", "Ingest + Filter + Versions", check_ingest_filter_versions),
+        ("V002", "Ingest Dataset", check_ingest_dataset),
         ("V003", "Run-Spec Execution", check_run_spec),
         ("V004", "Training Artifacts", check_training_artifacts),
         ("V005", "Lifecycle + Lineage", check_lifecycle_lineage),
@@ -66,35 +66,25 @@ def check_hardware_profile(runtime: VerificationRuntime) -> str:
     )
 
 
-def check_ingest_filter_versions(runtime: VerificationRuntime) -> str:
-    """Verify ingest, filter, and versions flows."""
-    ingest_version = runtime.client.ingest(
+def check_ingest_dataset(runtime: VerificationRuntime) -> str:
+    """Verify ingest creates a dataset with records."""
+    dataset_name = runtime.client.ingest(
         IngestOptions(
             dataset_name=runtime.dataset_name,
             source_uri=str(runtime.source_path),
             quality_model="perplexity",
         )
     )
-    filtered_version = runtime.client.dataset(runtime.dataset_name).filter(
-        MetadataFilter(language="en", min_quality_score=0.0)
-    )
-    version_count = len(runtime.client.dataset(runtime.dataset_name).list_versions())
-    if version_count < 2:
-        raise ForgeVerificationError(
-            f"Expected at least 2 versions after ingest+filter, got {version_count}."
-        )
-    runtime.filtered_version_id = filtered_version
-    return (
-        f"ingest_version={ingest_version} "
-        f"filtered_version={filtered_version} "
-        f"version_count={version_count}"
-    )
+    _, records = runtime.client.dataset(runtime.dataset_name).load_records()
+    if not records:
+        raise ForgeVerificationError("Ingest produced zero records.")
+    return f"dataset={dataset_name} records={len(records)}"
 
 
 def check_run_spec(runtime: VerificationRuntime) -> str:
     """Verify run-spec execution path."""
     output_lines = runtime.client.run_spec(str(runtime.run_spec_path))
-    if len(output_lines) < 4:
+    if len(output_lines) < 2:
         raise ForgeVerificationError("Run-spec execution returned insufficient output lines.")
     return f"output_lines={len(output_lines)}"
 
@@ -105,7 +95,6 @@ def check_training_artifacts(runtime: VerificationRuntime) -> str:
         TrainingOptions(
             dataset_name=runtime.dataset_name,
             output_dir=str(runtime.train_output_dir),
-            version_id=runtime.filtered_version_id,
             epochs=1,
             batch_size=2,
             max_token_length=64,
@@ -137,7 +126,6 @@ def check_export_training(runtime: VerificationRuntime) -> str:
     """Verify training export shard manifest creation."""
     manifest_path = runtime.client.dataset(runtime.dataset_name).export_training(
         output_dir=str(runtime.export_output_dir),
-        version_id=runtime.filtered_version_id,
         shard_size=50,
         include_metadata=True,
     )
@@ -154,7 +142,6 @@ def check_chat(runtime: VerificationRuntime) -> str:
     response = runtime.client.chat(
         ChatOptions(
             dataset_name=runtime.dataset_name,
-            version_id=runtime.filtered_version_id,
             model_path=runtime.train_result.model_path,
             prompt="hello",
             max_new_tokens=12,
@@ -177,7 +164,6 @@ def check_hooks_extension(runtime: VerificationRuntime) -> str:
         TrainingOptions(
             dataset_name=runtime.dataset_name,
             output_dir=str(runtime.hooks_output_dir),
-            version_id=runtime.filtered_version_id,
             epochs=1,
             batch_size=2,
             max_token_length=64,
@@ -214,10 +200,6 @@ def _write_runtime_run_spec(data_root: Path, source_path: Path) -> Path:
         "  - command: ingest\n"
         f"    source: {source_path.as_posix()}\n"
         "    quality_model: perplexity\n"
-        "  - command: filter\n"
-        "    language: en\n"
-        "    min_quality: 0.0\n"
-        "  - command: versions\n"
         "  - command: hardware-profile\n"
     )
     spec_path.write_text(yaml_body, encoding="utf-8")

@@ -53,7 +53,6 @@ def run_domain_adapt_command(
         reference_data_path=args.reference_data_path,
         drift_check_interval_epochs=args.drift_check_interval,
         max_perplexity_increase=args.max_perplexity_increase,
-        version_id=args.version_id,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -117,7 +116,6 @@ def add_domain_adapt_command(subparsers: argparse._SubParsersAction[argparse.Arg
         "--max-perplexity-increase", type=float, default=1.5,
         help="Max ratio of perplexity increase before early stop",
     )
-    parser.add_argument("--version-id", help="Optional specific version id")
     parser.add_argument(
         "--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS,
         help="Training epochs",

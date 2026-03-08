@@ -64,8 +64,6 @@ def test_distributed_train_custom_args() -> None:
         "0.0001",
         "--batch-size",
         "64",
-        "--version-id",
-        "v123",
         "--master-addr",
         "10.0.0.1",
         "--master-port",
@@ -76,7 +74,6 @@ def test_distributed_train_custom_args() -> None:
     assert args.epochs == 20
     assert args.learning_rate == 0.0001
     assert args.batch_size == 64
-    assert args.version_id == "v123"
     assert args.master_addr == "10.0.0.1"
     assert args.master_port == "30000"
 
@@ -104,7 +101,6 @@ def test_build_torchrun_command_basic() -> None:
         epochs=5,
         learning_rate=0.01,
         batch_size=16,
-        version_id=None,
         master_addr="127.0.0.1",
         master_port="29500",
     )
@@ -119,20 +115,3 @@ def test_build_torchrun_command_basic() -> None:
     assert "--version-id" not in cmd
 
 
-def test_build_torchrun_command_with_version_id() -> None:
-    """When version_id is provided it should appear in the command."""
-    cmd = _build_torchrun_command(
-        nproc=1,
-        entry_script="/path/entry.py",
-        dataset="ds",
-        output_dir="/tmp",
-        epochs=1,
-        learning_rate=0.001,
-        batch_size=32,
-        version_id="v42",
-        master_addr="127.0.0.1",
-        master_port="29500",
-    )
-
-    assert "--version-id" in cmd
-    assert "v42" in cmd

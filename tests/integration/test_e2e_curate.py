@@ -71,7 +71,7 @@ def test_cli_score(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """CLI curate score should exit 0 when run against an ingested dataset."""
-    client, dataset_name, _ = ingested_dataset
+    client, dataset_name = ingested_dataset
     data_root = str(client._config.data_root)
 
     exit_code = main(["--data-root", data_root, "curate", "score", "--dataset", dataset_name])
@@ -85,7 +85,7 @@ def test_cli_stats(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """CLI curate stats should exit 0 and print total_records."""
-    client, dataset_name, _ = ingested_dataset
+    client, dataset_name = ingested_dataset
     data_root = str(client._config.data_root)
 
     exit_code = main(["--data-root", data_root, "curate", "stats", "--dataset", dataset_name])

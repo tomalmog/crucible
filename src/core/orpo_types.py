@@ -60,7 +60,6 @@ class OrpoOptions:
     orpo_data_path: str = ""
     lambda_orpo: float = DEFAULT_ORPO_LAMBDA
     beta: float = DEFAULT_ORPO_BETA
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = 5e-5
     batch_size: int = DEFAULT_BATCH_SIZE

@@ -45,7 +45,6 @@ class TrainingRunRecord:
 
     run_id: str
     dataset_name: str
-    dataset_version_id: str
     output_dir: str
     parent_model_path: str | None
     config_hash: str
@@ -78,7 +77,6 @@ def run_record_from_payload(payload: dict[str, object], payload_path: Path) -> T
         return TrainingRunRecord(
             run_id=str(payload["run_id"]),
             dataset_name=str(payload["dataset_name"]),
-            dataset_version_id=str(payload["dataset_version_id"]),
             output_dir=str(payload["output_dir"]),
             parent_model_path=optional_string(payload.get("parent_model_path")),
             config_hash=str(payload["config_hash"]),

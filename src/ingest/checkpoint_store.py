@@ -15,8 +15,6 @@ from core.constants import (
     CHECKPOINT_ENRICHED_RECORDS_FILE_NAME,
     CHECKPOINT_SOURCE_RECORDS_FILE_NAME,
     CHECKPOINT_STATE_FILE_NAME,
-    CHECKPOINT_UNCHANGED_RECORDS_FILE_NAME,
-    CHECKPOINT_WORK_RECORDS_FILE_NAME,
     DATASETS_DIR_NAME,
     INGEST_CHECKPOINT_DIR_NAME,
 )
@@ -31,7 +29,6 @@ class IngestCheckpointState:
 
     run_signature: str
     stage: str
-    parent_version: str | None
 
 
 class IngestCheckpointStore:
@@ -73,7 +70,6 @@ class IngestCheckpointStore:
         state = IngestCheckpointState(
             run_signature=run_signature,
             stage="initialized",
-            parent_version=None,
         )
         self._write_state(state)
         return state
@@ -92,13 +88,11 @@ class IngestCheckpointStore:
         self,
         state: IngestCheckpointState,
         stage: str,
-        parent_version: str | None,
     ) -> IngestCheckpointState:
         """Persist an updated stage in checkpoint state."""
         updated_state = IngestCheckpointState(
             run_signature=state.run_signature,
             stage=stage,
-            parent_version=parent_version,
         )
         self._write_state(updated_state)
         return updated_state
@@ -110,22 +104,6 @@ class IngestCheckpointStore:
     def load_source_records(self) -> list[SourceTextRecord]:
         """Load source records stage output."""
         return _read_source_records(self._source_records_path())
-
-    def save_work_records(self, records: list[SourceTextRecord]) -> None:
-        """Persist incremental work records stage output."""
-        _write_source_records(self._work_records_path(), records)
-
-    def load_work_records(self) -> list[SourceTextRecord]:
-        """Load incremental work records stage output."""
-        return _read_source_records(self._work_records_path())
-
-    def save_unchanged_records(self, records: list[DataRecord]) -> None:
-        """Persist unchanged records for incremental merge."""
-        _write_data_records(self._unchanged_records_path(), records)
-
-    def load_unchanged_records(self) -> list[DataRecord]:
-        """Load unchanged records for incremental merge."""
-        return _read_data_records(self._unchanged_records_path())
 
     def save_dedup_records(self, records: list[SourceTextRecord]) -> None:
         """Persist deduplicated source records."""
@@ -153,9 +131,6 @@ class IngestCheckpointStore:
             return IngestCheckpointState(
                 run_signature=str(payload["run_signature"]),
                 stage=str(payload["stage"]),
-                parent_version=str(payload["parent_version"])
-                if payload["parent_version"]
-                else None,
             )
         except (json.JSONDecodeError, KeyError, TypeError) as error:
             raise ForgeIngestError(
@@ -173,12 +148,6 @@ class IngestCheckpointStore:
 
     def _source_records_path(self) -> Path:
         return self._checkpoint_dir / CHECKPOINT_SOURCE_RECORDS_FILE_NAME
-
-    def _work_records_path(self) -> Path:
-        return self._checkpoint_dir / CHECKPOINT_WORK_RECORDS_FILE_NAME
-
-    def _unchanged_records_path(self) -> Path:
-        return self._checkpoint_dir / CHECKPOINT_UNCHANGED_RECORDS_FILE_NAME
 
     def _dedup_records_path(self) -> Path:
         return self._checkpoint_dir / CHECKPOINT_DEDUP_RECORDS_FILE_NAME
@@ -257,8 +226,7 @@ def _stage_rank(stage: str) -> int:
     stage_order = {
         "initialized": 0,
         "source_loaded": 1,
-        "incremental_selected": 2,
-        "deduplicated": 3,
-        "enriched": 4,
+        "deduplicated": 2,
+        "enriched": 3,
     }
     return stage_order.get(stage, -1)

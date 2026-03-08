@@ -21,7 +21,6 @@ def test_benchmark_command_registers_in_parser() -> None:
     assert args.model_path == "/tmp/model.pt"
     assert args.dataset == "demo"
     assert args.output_dir == "/tmp/out"
-    assert args.version_id is None
     assert args.max_token_length == 512
     assert args.batch_size == 16
     assert args.no_perplexity is False
@@ -36,14 +35,12 @@ def test_benchmark_command_accepts_optional_args() -> None:
         "--model-path", "/tmp/model.pt",
         "--dataset", "demo",
         "--output-dir", "/tmp/out",
-        "--version-id", "v1",
         "--max-token-length", "256",
         "--batch-size", "32",
         "--no-perplexity",
         "--no-latency",
     ])
 
-    assert args.version_id == "v1"
     assert args.max_token_length == 256
     assert args.batch_size == 32
     assert args.no_perplexity is True

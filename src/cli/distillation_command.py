@@ -52,7 +52,6 @@ def run_distillation_command(client: ForgeClient, args: argparse.Namespace) -> i
         student_model_path=args.student_model_path,
         temperature=args.temperature,
         alpha=args.alpha,
-        version_id=args.version_id,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
@@ -114,7 +113,6 @@ def add_distillation_command(subparsers: argparse._SubParsersAction[argparse.Arg
         "--alpha", type=float, default=DEFAULT_DISTILLATION_ALPHA,
         help="Blend coefficient: alpha*KL + (1-alpha)*CE",
     )
-    parser.add_argument("--version-id", help="Optional specific version id")
     _add_shared_training_args(parser)
 
 

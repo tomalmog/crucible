@@ -47,7 +47,7 @@ def _train_model(tmp_path: Path, name: str) -> str:
         output_dir=str(tmp_path / name),
         **_TINY,
     )
-    result = run_training(_records(), options, 42, tmp_path, "v1")
+    result = run_training(_records(), options, 42, tmp_path)
     return result.model_path
 
 

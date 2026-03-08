@@ -15,15 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from core.constants import (
-    CATALOG_FILE_NAME,
     DATASETS_DIR_NAME,
+    MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
-    VERSIONS_DIR_NAME,
 )
 from core.errors import ForgeRemoteError
 from core.slurm_types import ClusterConfig
 from serve.ssh_connection import SshSession
-from store.catalog_io import read_catalog_file
+from store.catalog_io import read_manifest_file
 
 
 @dataclass(frozen=True)
@@ -32,7 +31,6 @@ class RemoteDatasetInfo:
 
     name: str
     size_bytes: int
-    version_id: str
     synced_at: str
 
 
@@ -41,40 +39,29 @@ def _remote_datasets_dir(cluster: ClusterConfig) -> str:
     return f"{cluster.remote_workspace}/{DATASETS_DIR_NAME}"
 
 
-def _read_latest_version_id(catalog: dict[str, Any]) -> str:
-    """Extract latest_version from a catalog dict."""
-    latest = catalog.get("latest_version")
-    if not latest or not isinstance(latest, str):
-        raise ForgeRemoteError(
-            "Dataset catalog has no latest_version entry."
-        )
-    return latest
-
-
-
 def _build_metadata(
     name: str,
     size_bytes: int,
-    version_id: str,
 ) -> dict[str, Any]:
     """Build metadata dict for the remote dataset."""
     return {
         "name": name,
         "size_bytes": size_bytes,
-        "version_id": version_id,
         "synced_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
-def _find_source_file(catalog: dict[str, Any], version_id: str) -> Path | None:
+def _find_source_file(dataset_dir: Path) -> Path | None:
     """Find the original source data file from the dataset's manifest."""
-    for v in catalog.get("versions", []):
-        if v.get("version_id") == version_id:
-            uri = v.get("source_uri")
-            if uri and not uri.startswith("s3://"):
-                p = Path(uri).expanduser().resolve()
-                if p.is_file():
-                    return p
+    manifest_path = dataset_dir / MANIFEST_FILE_NAME
+    if not manifest_path.exists():
+        return None
+    manifest = read_manifest_file(manifest_path)
+    uri = manifest.source_uri
+    if uri and not uri.startswith("s3://"):
+        p = Path(uri).expanduser().resolve()
+        if p.is_file():
+            return p
     return None
 
 
@@ -86,31 +73,22 @@ def push_dataset(
 ) -> RemoteDatasetInfo:
     """Push a local dataset to the remote cluster.
 
-    Reads the local catalog, tars the latest version's records
-    with a metadata sidecar, uploads, and extracts on remote.
+    Reads local records directly from datasets/{name}/records.jsonl,
+    uploads with a metadata sidecar, and extracts on remote.
     Also uploads the original source data file (for SFT/LoRA/DPO
     training methods that need prompt/response format).
     """
-    catalog_path = (
-        data_root / DATASETS_DIR_NAME / dataset_name / CATALOG_FILE_NAME
-    )
-    catalog = read_catalog_file(catalog_path)
-    version_id = _read_latest_version_id(catalog)
-
-    version_dir = (
-        data_root / DATASETS_DIR_NAME / dataset_name
-        / VERSIONS_DIR_NAME / version_id
-    )
-    records_path = version_dir / RECORDS_FILE_NAME
+    dataset_dir = data_root / DATASETS_DIR_NAME / dataset_name
+    records_path = dataset_dir / RECORDS_FILE_NAME
     if not records_path.exists():
         raise ForgeRemoteError(
             f"Records file not found: {records_path}"
         )
 
-    source_path = _find_source_file(catalog, version_id)
+    source_path = _find_source_file(dataset_dir)
 
     size_bytes = records_path.stat().st_size
-    metadata = _build_metadata(dataset_name, size_bytes, version_id)
+    metadata = _build_metadata(dataset_name, size_bytes)
     if source_path:
         metadata["has_source"] = True
 
@@ -122,7 +100,6 @@ def push_dataset(
     return RemoteDatasetInfo(
         name=dataset_name,
         size_bytes=size_bytes,
-        version_id=version_id,
         synced_at=metadata["synced_at"],
     )
 
@@ -203,7 +180,6 @@ def _read_remote_metadata(
         return RemoteDatasetInfo(
             name=str(data["name"]),
             size_bytes=int(size_bytes),
-            version_id=str(data["version_id"]),
             synced_at=str(data["synced_at"]),
         )
     except (json.JSONDecodeError, KeyError, ValueError):

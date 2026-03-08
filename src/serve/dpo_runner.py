@@ -42,7 +42,6 @@ def run_dpo_training(
     options: DpoOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full DPO training workflow and persist run lifecycle metadata."""
     training_options = _dpo_options_to_training_options(options)
@@ -50,7 +49,6 @@ def run_dpo_training(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path,
         config_hash=config_hash,
@@ -66,7 +64,6 @@ def run_dpo_training(
             context=context,
             loop_result=loop_result,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             random_seed=random_seed,
         )
@@ -147,7 +144,6 @@ def _persist_dpo_outputs(
     context: DpoContext,
     loop_result: DpoLoopResult,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -171,7 +167,6 @@ def _persist_dpo_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.training_options.dataset_name,
-        dataset_version_id=dataset_version_id,
         config_hash=config_hash,
         random_seed=random_seed,
         training_options=asdict(context.training_options),
@@ -188,7 +183,6 @@ def _persist_dpo_outputs(
         output_dir=context.output_dir,
         run_id=run_id,
         dataset_name=context.training_options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.training_options.initial_weights_path,
         config_hash=config_hash,
         result=base_result,
@@ -211,7 +205,6 @@ def _dpo_options_to_training_options(options: DpoOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         epochs=options.epochs,
         learning_rate=options.learning_rate,
         batch_size=options.batch_size,

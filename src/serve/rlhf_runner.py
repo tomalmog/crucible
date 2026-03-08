@@ -59,7 +59,6 @@ def run_rlhf_training(
     options: RlhfOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full RLHF training workflow and persist run lifecycle metadata."""
     training_options = _rlhf_options_to_training_options(options)
@@ -67,7 +66,6 @@ def run_rlhf_training(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.policy_model_path,
         config_hash=config_hash,
@@ -80,7 +78,7 @@ def run_rlhf_training(
         epoch_metrics = _build_epoch_metrics(ppo_results)
         result = _persist_rlhf_outputs(
             context, epoch_metrics, run_record.run_id,
-            dataset_version_id, config_hash, random_seed,
+            config_hash, random_seed,
         )
         run_registry.transition(
             run_id=run_record.run_id, next_state="completed",
@@ -287,7 +285,6 @@ def _persist_rlhf_outputs(
     context: _RlhfContext,
     epoch_metrics: list[EpochMetric],
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     random_seed: int,
 ) -> TrainingRunResult:
@@ -302,7 +299,6 @@ def _persist_rlhf_outputs(
     reproducibility_path = save_reproducibility_bundle(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.training_options.dataset_name,
-        dataset_version_id=dataset_version_id,
         config_hash=config_hash, random_seed=random_seed,
         training_options=asdict(context.training_options),
     )
@@ -315,7 +311,6 @@ def _persist_rlhf_outputs(
     contract_path = save_training_artifact_contract(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.training_options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.training_options.initial_weights_path,
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
@@ -336,7 +331,6 @@ def _rlhf_options_to_training_options(options: RlhfOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         epochs=options.epochs,
         learning_rate=options.learning_rate,
         batch_size=options.batch_size,

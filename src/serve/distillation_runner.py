@@ -43,7 +43,6 @@ def run_distillation(
     options: DistillationOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run knowledge distillation training workflow.
 
@@ -52,7 +51,6 @@ def run_distillation(
         options: Distillation training options.
         random_seed: Seed for reproducibility.
         data_root: Forge data root path.
-        dataset_version_id: Dataset version identifier.
 
     Returns:
         Training run artifact summary.
@@ -67,7 +65,6 @@ def run_distillation(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.teacher_model_path,
         config_hash=config_hash,
@@ -471,7 +468,6 @@ def _to_training_options(options: DistillationOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         epochs=options.epochs,
         learning_rate=options.learning_rate,
         batch_size=options.batch_size,

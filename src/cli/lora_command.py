@@ -51,7 +51,6 @@ def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int
         lora_config=lora_config,
         tokenizer_path=getattr(args, "tokenizer_path", None),
         resume_checkpoint_path=getattr(args, "resume_checkpoint_path", None),
-        version_id=None,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,

@@ -59,7 +59,6 @@ class QloraOptions:
     lora_alpha: float = DEFAULT_LORA_ALPHA
     lora_dropout: float = DEFAULT_LORA_DROPOUT
     lora_target_modules: tuple[str, ...] = DEFAULT_LORA_TARGET_MODULES
-    version_id: str | None = None
     epochs: int = DEFAULT_TRAIN_EPOCHS
     learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
     batch_size: int = DEFAULT_BATCH_SIZE

@@ -37,7 +37,6 @@ def run_sft_training(
     options: SftOptions,
     random_seed: int,
     data_root: Path,
-    dataset_version_id: str,
 ) -> TrainingRunResult:
     """Run a full SFT training workflow and persist run lifecycle metadata."""
     training_options = _sft_options_to_training_options(options)
@@ -45,7 +44,6 @@ def run_sft_training(
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
         dataset_name=options.dataset_name,
-        dataset_version_id=dataset_version_id,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path,
         config_hash=config_hash,
@@ -58,7 +56,6 @@ def run_sft_training(
             training_options=training_options,
             random_seed=random_seed,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             run_registry=run_registry,
         )
@@ -69,7 +66,6 @@ def run_sft_training(
             context=context,
             loop_result=loop_result,
             run_id=run_record.run_id,
-            dataset_version_id=dataset_version_id,
             config_hash=config_hash,
             random_seed=random_seed,
         )
@@ -97,7 +93,6 @@ def _build_sft_runtime_context(
     training_options: TrainingOptions,
     random_seed: int,
     run_id: str,
-    dataset_version_id: str,
     config_hash: str,
     run_registry: TrainingRunRegistry,
 ) -> TrainingRuntimeContext:
@@ -153,7 +148,7 @@ def _build_sft_runtime_context(
         train_batches=train_batches, validation_batches=val_batches,
         tokenizer=tokenizer, options=training_options,
         output_dir=output_dir, device=device,
-        run_id=run_id, dataset_version_id=dataset_version_id,
+        run_id=run_id,
         config_hash=config_hash, hooks=hooks, run_registry=run_registry,
     )
 
@@ -163,7 +158,6 @@ def _sft_options_to_training_options(options: SftOptions) -> TrainingOptions:
     return TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        version_id=options.version_id,
         epochs=options.epochs,
         learning_rate=options.learning_rate,
         batch_size=options.batch_size,

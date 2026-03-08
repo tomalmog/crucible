@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from core.errors import ForgeStoreError
-from core.types import DataRecord, RecordMetadata, SnapshotManifest, TrainingExportRequest
+from core.types import DataRecord, RecordMetadata, DatasetManifest, TrainingExportRequest
 from store.training_export import export_training_shards
 
 
@@ -21,13 +21,10 @@ def _sample_record() -> DataRecord:
     return DataRecord(record_id="rid", text="sample text", metadata=metadata)
 
 
-def _sample_manifest() -> SnapshotManifest:
-    return SnapshotManifest(
+def _sample_manifest() -> DatasetManifest:
+    return DatasetManifest(
         dataset_name="demo",
-        version_id="v1",
         created_at=datetime.now(timezone.utc),
-        parent_version=None,
-        recipe_steps=("step",),
         record_count=1,
     )
 

@@ -27,14 +27,14 @@ from serve.training_setup import fit_training_tokenizer, validate_file_paths, va
 
 def run_rlvr_training(
     records: list[DataRecord], options: RlvrOptions,
-    random_seed: int, data_root: Path, dataset_version_id: str,
+    random_seed: int, data_root: Path,
 ) -> TrainingRunResult:
     """Run RLVR training with verifiable rewards."""
     training_options = _rlvr_options_to_training_options(options)
     config_hash = compute_training_config_hash(training_options)
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
-        dataset_name=options.dataset_name, dataset_version_id=dataset_version_id,
+        dataset_name=options.dataset_name,
         output_dir=str(Path(options.output_dir).expanduser().resolve()),
         parent_model_path=options.initial_weights_path, config_hash=config_hash,
     )
@@ -42,12 +42,12 @@ def run_rlvr_training(
     try:
         context = _build_rlvr_context(
             records, options, training_options, random_seed,
-            run_record.run_id, dataset_version_id, config_hash, run_registry,
+            run_record.run_id, config_hash, run_registry,
         )
         run_registry.transition(run_record.run_id, "running")
         invoke_hook("on_run_start", context.hooks.on_run_start, context)
         loop_result = run_training_loop(context)
-        result = _persist_rlvr_outputs(context, loop_result, run_record.run_id, dataset_version_id, config_hash, random_seed)
+        result = _persist_rlvr_outputs(context, loop_result, run_record.run_id, config_hash, random_seed)
         invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
         run_registry.transition(run_id=run_record.run_id, next_state="completed",
             artifact_contract_path=result.artifact_contract_path, model_path=result.model_path)
@@ -62,7 +62,7 @@ def run_rlvr_training(
         raise
 
 
-def _build_rlvr_context(records, options, training_options, random_seed, run_id, dataset_version_id, config_hash, run_registry):
+def _build_rlvr_context(records, options, training_options, random_seed, run_id, config_hash, run_registry):
     torch_module = _import_torch()
     validate_training_options(training_options)
     validate_file_paths(
@@ -96,7 +96,7 @@ def _build_rlvr_context(records, options, training_options, random_seed, run_id,
         precision_runtime=precision_runtime, loss_function=loss_fn,
         train_batches=train_batches, validation_batches=val_batches,
         tokenizer=tokenizer, options=training_options, output_dir=output_dir, device=device,
-        run_id=run_id, dataset_version_id=dataset_version_id,
+        run_id=run_id,
         config_hash=config_hash, hooks=hooks, run_registry=run_registry,
     )
 
@@ -132,7 +132,7 @@ def _build_rlvr_batches(data, tokenizer, options):
     return to_batches(data[:split_idx]), to_batches(data[split_idx:]) if split_idx < len(data) else (to_batches(data[:split_idx]), [])
 
 
-def _persist_rlvr_outputs(context, loop_result, run_id, dataset_version_id, config_hash, random_seed):
+def _persist_rlvr_outputs(context, loop_result, run_id, config_hash, random_seed):
     from dataclasses import asdict
     from serve.training_artifact_contract import save_training_artifact_contract
     from serve.training_artifacts import save_model_weights, save_training_history, save_training_plot
@@ -154,7 +154,7 @@ def _persist_rlvr_outputs(context, loop_result, run_id, dataset_version_id, conf
     save_reproducibility_bundle(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id, config_hash=config_hash,
+        config_hash=config_hash,
         random_seed=random_seed, training_options=asdict(context.options),
     )
     base_result = TrainingRunResult(
@@ -168,7 +168,6 @@ def _persist_rlvr_outputs(context, loop_result, run_id, dataset_version_id, conf
     contract_path = save_training_artifact_contract(
         output_dir=context.output_dir, run_id=run_id,
         dataset_name=context.options.dataset_name,
-        dataset_version_id=dataset_version_id,
         parent_model_path=context.options.initial_weights_path,
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
@@ -187,7 +186,7 @@ def _persist_rlvr_outputs(context, loop_result, run_id, dataset_version_id, conf
 
 def _rlvr_options_to_training_options(options):
     return TrainingOptions(
-        dataset_name=options.dataset_name, output_dir=options.output_dir, version_id=options.version_id,
+        dataset_name=options.dataset_name, output_dir=options.output_dir,
         epochs=options.epochs, learning_rate=options.learning_rate, batch_size=options.batch_size,
         max_token_length=options.max_token_length, validation_split=options.validation_split,
         precision_mode=options.precision_mode, optimizer_type=options.optimizer_type,
