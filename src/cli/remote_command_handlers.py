@@ -226,6 +226,38 @@ def _handle_pull_model(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_remote_chat(
+    client: ForgeClient, args: argparse.Namespace,
+) -> int:
+    """Stream chat inference from a remote cluster model."""
+    import sys
+
+    from core.chat_types import ChatOptions
+    from core.slurm_types import SlurmResourceConfig
+    from serve.remote_chat_runner import stream_remote_chat
+
+    options = ChatOptions(
+        model_path=args.model_path,
+        prompt=args.prompt,
+        max_new_tokens=args.max_new_tokens,
+        temperature=args.temperature,
+        top_k=args.top_k,
+        stream=True,
+    )
+    resources = SlurmResourceConfig(
+        partition=args.partition,
+        gpu_type=args.gpu_type,
+        memory=args.memory,
+        time_limit=args.time_limit,
+    )
+    for chunk in stream_remote_chat(
+        client._config.data_root, args.cluster, options, resources,
+    ):
+        sys.stdout.write(chunk)
+        sys.stdout.flush()
+    return 0
+
+
 def _build_resources(args: argparse.Namespace) -> "SlurmResourceConfig":
     """Build SlurmResourceConfig from parsed CLI arguments."""
     from core.slurm_types import SlurmResourceConfig

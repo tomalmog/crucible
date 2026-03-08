@@ -98,6 +98,19 @@ def add_remote_command(
     dd.add_argument("--cluster", required=True, help="Cluster name")
     dd.add_argument("--dataset", required=True, help="Dataset name")
 
+    # chat
+    ch = sub.add_parser("chat", help="Run chat inference on a remote cluster model")
+    ch.add_argument("--cluster", required=True, help="Cluster name")
+    ch.add_argument("--model-path", required=True, help="Model path on remote cluster")
+    ch.add_argument("--prompt", required=True, help="Chat prompt text")
+    ch.add_argument("--max-new-tokens", type=int, default=80, help="Max tokens to generate")
+    ch.add_argument("--temperature", type=float, default=0.7, help="Sampling temperature")
+    ch.add_argument("--top-k", type=int, default=40, help="Top-k sampling")
+    ch.add_argument("--partition", default="", help="Slurm partition")
+    ch.add_argument("--gpu-type", default="", help="GPU type (e.g. a100)")
+    ch.add_argument("--memory", default="16G", help="Memory limit")
+    ch.add_argument("--time-limit", default="00:30:00", help="Wall-clock limit")
+
 
 def _add_submit_args(parser: argparse.ArgumentParser) -> None:
     """Add common submission arguments to a parser."""
@@ -124,6 +137,7 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
         _handle_logs,
         _handle_pull_model,
         _handle_register_cluster,
+        _handle_remote_chat,
         _handle_remove_cluster,
         _handle_reset_env,
         _handle_status,
@@ -155,6 +169,7 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
         "dataset-list": _handle_dataset_list,
         "dataset-pull": _handle_dataset_pull,
         "dataset-delete": _handle_dataset_delete,
+        "chat": _handle_remote_chat,
     }
     handler = handlers.get(args.remote_action)
     if handler is None:

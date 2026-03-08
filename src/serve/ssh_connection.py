@@ -7,6 +7,7 @@ file transfer, and streaming log reads.
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -176,6 +177,60 @@ class SshSession:
     def mkdir_p(self, remote_path: str) -> None:
         """Create a directory (and parents) on the remote host."""
         self.execute(f"mkdir -p {remote_path}")
+
+    def stream_command(
+        self,
+        command: str,
+        timeout: int = 120,
+    ) -> Generator[str, None, None]:
+        """Execute a command and yield stdout chunks as they arrive.
+
+        Args:
+            command: Shell command to execute.
+            timeout: Channel timeout in seconds.
+
+        Yields:
+            Raw stdout chunks (not split by line).
+
+        Raises:
+            ForgeRemoteError: On transport failure or non-zero exit.
+        """
+        try:
+            transport = self.client.get_transport()
+            if transport is None:
+                raise ForgeRemoteError("SSH transport is not available.")
+            channel = transport.open_session()
+            channel.settimeout(float(timeout))
+            channel.exec_command(command)
+            while not channel.exit_status_ready():
+                if channel.recv_ready():
+                    chunk = channel.recv(4096).decode("utf-8", errors="replace")
+                    yield chunk
+                else:
+                    time.sleep(0.05)
+            # Drain remaining stdout using blocking recv — the SSH
+            # protocol can deliver exit status before all data arrives,
+            # so recv_ready() alone would miss trailing chunks.
+            while True:
+                chunk_bytes = channel.recv(4096)
+                if not chunk_bytes:
+                    break
+                yield chunk_bytes.decode("utf-8", errors="replace")
+            exit_code = channel.recv_exit_status()
+            stderr = ""
+            while channel.recv_stderr_ready():
+                stderr += channel.recv_stderr(4096).decode("utf-8", errors="replace")
+            channel.close()
+            if exit_code != 0:
+                raise ForgeRemoteError(
+                    f"Remote command exited with code {exit_code}: {stderr.strip()}"
+                )
+        except ForgeRemoteError:
+            raise
+        except Exception as error:
+            raise ForgeRemoteError(
+                f"Command streaming failed: {error}"
+            ) from error
 
     def tail_follow(
         self,

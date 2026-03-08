@@ -34,6 +34,7 @@ _SERVE_EXCLUDES = frozenset({
     "remote_log_streamer.py",
     "remote_job_state.py",
     "remote_model_registry.py",
+    "remote_chat_runner.py",
 })
 
 

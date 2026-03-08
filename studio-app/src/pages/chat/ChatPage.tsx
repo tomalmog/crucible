@@ -2,10 +2,12 @@ import { FormEvent, useEffect, useMemo, useRef, useState, Dispatch, SetStateActi
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useForge } from "../../context/ForgeContext";
 import { getForgeCommandStatus, startForgeCommand } from "../../api/studioApi";
+import { listClusters } from "../../api/remoteApi";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
 import { ModelSelect } from "../../components/shared/ModelSelect";
+import { useRemoteChatConfig } from "../../hooks/useRemoteChatConfig";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -21,7 +23,7 @@ const SAMPLING_PRESETS = {
 type SamplingPreset = keyof typeof SAMPLING_PRESETS | "custom";
 
 export function ChatPage() {
-  const { dataRoot, selectedDataset } = useForge();
+  const { dataRoot, selectedDataset, modelGroups } = useForge();
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
@@ -37,6 +39,15 @@ export function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatThreadRef = useRef<HTMLDivElement>(null);
+
+  // Detect whether the selected model is on a remote cluster
+  const remoteHost = useMemo(() => {
+    if (!modelPath) return "";
+    const group = modelGroups.find((g) => g.activeRemotePath === modelPath);
+    return group ? group.activeRemoteHost : "";
+  }, [modelPath, modelGroups]);
+  const isRemoteModel = remoteHost.length > 0;
+  const remote = useRemoteChatConfig(dataRoot, remoteHost, isRemoteModel);
 
   // Sync dataset name from global context when it changes
   useEffect(() => {
@@ -83,7 +94,13 @@ export function ChatPage() {
 
     try {
       const prompt = buildPromptText(messages, userText);
-      const args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
+      let args: string[];
+      if (isRemoteModel) {
+        const clusterName = await resolveClusterName(dataRoot, remoteHost);
+        args = buildRemoteChatArgs(clusterName, modelPath, prompt, maxNewTokens, temperature, topK, remote.config);
+      } else {
+        args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
+      }
       setMessages((c) => [...c, { role: "assistant", content: "" }]);
       const taskStart = await startForgeCommand(dataRoot, args);
       const taskStatus = await streamChatTask(taskStart.task_id, setMessages);
@@ -117,15 +134,37 @@ export function ChatPage() {
             <FormField label="Model">
               <ModelSelect value={modelPath} onChange={setModelPath} />
             </FormField>
-            <FormField label="Dataset (optional)">
-              <DatasetSelect value={datasetName} onChange={(v) => setDatasetName(v)} placeholder="optional" />
-            </FormField>
-            <FormField label="Tokenizer Path">
-              <input value={tokenizerPath} onChange={(e) => setTokenizerPath(e.currentTarget.value)} placeholder="auto-detect" />
-            </FormField>
-            <FormField label="Custom Weights">
-              <input value={weightsPath} onChange={(e) => setWeightsPath(e.currentTarget.value)} placeholder="optional .pt or .safetensors path" />
-            </FormField>
+            {!isRemoteModel && <>
+              <FormField label="Dataset (optional)">
+                <DatasetSelect value={datasetName} onChange={(v) => setDatasetName(v)} placeholder="optional" />
+              </FormField>
+              <FormField label="Tokenizer Path">
+                <input value={tokenizerPath} onChange={(e) => setTokenizerPath(e.currentTarget.value)} placeholder="auto-detect" />
+              </FormField>
+              <FormField label="Custom Weights">
+                <input value={weightsPath} onChange={(e) => setWeightsPath(e.currentTarget.value)} placeholder="optional .pt or .safetensors path" />
+              </FormField>
+            </>}
+            {isRemoteModel && remote.clusterInfo && <>
+              <FormField label="Partition">
+                <select value={remote.config.partition} onChange={(e) => remote.setPartition(e.currentTarget.value)}>
+                  <option value="">Default</option>
+                  {remote.clusterInfo.partitions.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </FormField>
+              <FormField label="GPU Type">
+                <select value={remote.config.gpuType} onChange={(e) => remote.setGpuType(e.currentTarget.value)}>
+                  <option value="">Any</option>
+                  {remote.clusterInfo.gpuTypes.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Memory">
+                <input value={remote.config.memory} onChange={(e) => remote.setMemory(e.currentTarget.value)} />
+              </FormField>
+              <FormField label="Time Limit">
+                <input value={remote.config.timeLimit} onChange={(e) => remote.setTimeLimit(e.currentTarget.value)} placeholder="HH:MM:SS" />
+              </FormField>
+            </>}
             <FormField label="Sampling Preset">
               <select value={samplingPreset} onChange={(e) => applyPreset(e.currentTarget.value as SamplingPreset)}>
                 <option value="deterministic">deterministic</option>
@@ -143,15 +182,17 @@ export function ChatPage() {
             <FormField label="Top K">
               <input value={topK} onChange={(e) => updateSampling("topK", e.currentTarget.value)} />
             </FormField>
-            <FormField label="Max Token Length">
-              <input value={maxTokenLength} onChange={(e) => setMaxTokenLength(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Position Embedding">
-              <select value={positionEmbeddingType} onChange={(e) => setPositionEmbeddingType(e.currentTarget.value)}>
-                <option value="learned">learned</option>
-                <option value="sinusoidal">sinusoidal</option>
-              </select>
-            </FormField>
+            {!isRemoteModel && <>
+              <FormField label="Max Token Length">
+                <input value={maxTokenLength} onChange={(e) => setMaxTokenLength(e.currentTarget.value)} />
+              </FormField>
+              <FormField label="Position Embedding">
+                <select value={positionEmbeddingType} onChange={(e) => setPositionEmbeddingType(e.currentTarget.value)}>
+                  <option value="learned">learned</option>
+                  <option value="sinusoidal">sinusoidal</option>
+                </select>
+              </FormField>
+            </>}
           </div>
         </FormSection>
 
@@ -202,6 +243,36 @@ async function streamChatTask(taskId: string, setMessages: Dispatch<SetStateActi
 
 function buildPromptText(_messages: ChatMessage[], currentText: string): string {
   return currentText;
+}
+
+async function resolveClusterName(dataRoot: string, host: string): Promise<string> {
+  const clusters = await listClusters(dataRoot);
+  const match = clusters.find((c) => c.host === host);
+  if (!match) {
+    throw new Error(`No registered cluster found for host "${host}".`);
+  }
+  return match.name;
+}
+
+function buildRemoteChatArgs(
+  cluster: string, modelPath: string, prompt: string,
+  maxTokens: string, temp: string, topK: string,
+  res: { partition: string; gpuType: string; memory: string; timeLimit: string },
+): string[] {
+  const args = [
+    "remote", "chat",
+    "--cluster", cluster,
+    "--model-path", modelPath.trim(),
+    "--prompt", prompt,
+    "--max-new-tokens", maxTokens.trim() || "80",
+    "--temperature", temp.trim() || "0.7",
+    "--top-k", topK.trim() || "40",
+  ];
+  if (res.partition) args.push("--partition", res.partition);
+  if (res.gpuType) args.push("--gpu-type", res.gpuType);
+  if (res.memory) args.push("--memory", res.memory);
+  if (res.timeLimit) args.push("--time-limit", res.timeLimit);
+  return args;
 }
 
 function buildChatArgs(dataset: string, tokenizer: string, model: string, prompt: string, maxTokens: string, temp: string, topK: string, maxLen: string, posEmb: string, weights: string): string[] {
