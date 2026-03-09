@@ -93,7 +93,10 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
     <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
       <input
         value={open ? search : displayValue}
-        onChange={(e) => setSearch(e.currentTarget.value)}
+        onChange={(e) => {
+          setSearch(e.currentTarget.value);
+          if (!open) setOpen(true);
+        }}
         placeholder={placeholder}
       />
       {open && hasResults && (
