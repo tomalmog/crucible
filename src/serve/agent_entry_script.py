@@ -221,6 +221,15 @@ def main() -> None:
             "run_id": getattr(result, "run_id", ""),
             "result": str(result),
         }
+        # Embed training history into result.json so the UI can render
+        # loss curves without a separate SSH fetch.
+        hp = getattr(result, "history_path", "")
+        if hp:
+            try:
+                with open(hp) as hf:
+                    result_data["training_history"] = json.load(hf)
+            except Exception:
+                pass
     except Exception as exc:
         import traceback
         result_data = {

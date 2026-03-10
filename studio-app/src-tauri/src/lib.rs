@@ -36,6 +36,7 @@ pub fn run() {
             commands::remote_queries::list_remote_jobs,
             commands::remote_queries::get_remote_job,
             commands::remote_queries::delete_remote_job,
+            commands::remote_cli_ops::get_remote_job_result,
             commands::remote_cli_ops::get_remote_job_logs,
             commands::remote_cli_ops::sync_remote_job_status,
             commands::remote_cli_ops::cancel_remote_job,

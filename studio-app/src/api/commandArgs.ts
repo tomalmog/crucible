@@ -290,6 +290,7 @@ export function buildRemoteEvalArgs(
   opts: {
     baseModel?: string;
     maxSamples?: string;
+    modelName?: string;
     partition?: string;
     gpusPerNode?: string;
     gpuType?: string;
@@ -304,6 +305,7 @@ export function buildRemoteEvalArgs(
     "--model-path", modelPath,
     "--benchmarks", benchmarks,
   ];
+  if (opts.modelName) args.push("--model-name", opts.modelName);
   if (opts.baseModel) args.push("--base-model", opts.baseModel);
   if (opts.maxSamples) args.push("--max-samples", opts.maxSamples);
   if (opts.partition) args.push("--partition", opts.partition);

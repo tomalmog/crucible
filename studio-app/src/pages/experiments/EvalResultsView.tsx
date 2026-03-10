@@ -14,7 +14,7 @@ const ALL_BENCHMARKS = [
 ] as const;
 
 export function EvalResultsView() {
-  const { dataRoot } = useCrucible();
+  const { dataRoot, modelGroups } = useCrucible();
   const navigate = useNavigate();
   const [modelPath, setModelPath] = useState("");
   const [baseModelPath, setBaseModelPath] = useState("");
@@ -65,7 +65,12 @@ export function EvalResultsView() {
     setError(null);
     try {
       const benchmarks = Array.from(selectedBenchmarks).join(",");
+      // Look up the registered model name from the selected path
+      const selectedGroup = modelGroups.find(
+        (g) => g.activeRemotePath === modelPath || g.activeModelPath === modelPath,
+      );
       const args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
+        modelName: selectedGroup?.modelName || undefined,
         baseModel: baseModelPath.trim() || undefined,
         maxSamples: maxSamples.trim() || undefined,
         partition: partition || undefined,

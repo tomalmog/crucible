@@ -4,9 +4,11 @@ import { useJobs } from "../../hooks/useJobs";
 import { useRemoteJobs } from "../../hooks/useRemoteJobs";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandTaskStatus } from "../../types";
+import type { RemoteJobRecord } from "../../types/remote";
 import { syncRemoteJobStatus } from "../../api/remoteApi";
 import { Activity, Loader2 } from "lucide-react";
 import { JobResultDetail } from "./JobResultDetail";
+import { RemoteJobResultDetail } from "./RemoteJobResultDetail";
 import { JobRow } from "./JobRow";
 import { RemoteJobRow } from "./RemoteJobRow";
 
@@ -51,6 +53,7 @@ export function JobsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
+  const [viewingRemoteJob, setViewingRemoteJob] = useState<RemoteJobRecord | null>(null);
   const syncedRef = useRef<Set<string>>(new Set());
   const remoteJobsRef = useRef(remoteJobs);
   remoteJobsRef.current = remoteJobs;
@@ -111,6 +114,10 @@ export function JobsPage() {
     return <JobResultDetail job={viewingJob} onBack={() => setViewingJob(null)} />;
   }
 
+  if (viewingRemoteJob) {
+    return <RemoteJobResultDetail job={viewingRemoteJob} onBack={() => setViewingRemoteJob(null)} />;
+  }
+
   return (
     <>
       <PageHeader title="Jobs">
@@ -164,6 +171,7 @@ export function JobsPage() {
               job={rj}
               onDelete={() => removeRemoteJob(rj.jobId)}
               onCancel={() => cancelRemoteJob(rj.jobId).catch(console.error)}
+              onView={() => setViewingRemoteJob(rj)}
             />
           ))}
         </div>

@@ -17,12 +17,22 @@ def is_huggingface_model_id(model_path: str) -> bool:
     """Check if the path looks like a HuggingFace model ID or local HF directory.
 
     Returns True for model IDs like 'gpt2', 'meta-llama/Llama-2-7b'.
-    Returns True for local directories containing config.json (downloaded HF models).
-    Returns False for file paths like '/path/to/model.pt'.
+    Returns True for local directories containing a HuggingFace config.json
+    (one that has a ``model_type`` key).
+    Returns False for file paths like '/path/to/model.pt' or directories
+    with Crucible-produced weight files.
     """
-    path = Path(model_path)
+    path = Path(model_path).expanduser()
     if path.is_dir():
-        return (path / "config.json").exists()
+        config = path / "config.json"
+        if config.exists():
+            import json
+            try:
+                data = json.loads(config.read_text())
+                return "model_type" in data
+            except Exception:
+                return False
+        return False
     if path.exists():
         return False
     if path.suffix in (".pt", ".bin", ".safetensors", ".onnx"):
@@ -50,6 +60,9 @@ def load_huggingface_model(
         CrucibleDependencyError: If transformers is not installed.
         CrucibleServeError: If model loading fails.
     """
+    # Expand ~ so local paths aren't mistaken for HuggingFace repo IDs.
+    model_id = str(Path(model_id).expanduser()) if "~" in model_id else model_id
+
     try:
         from transformers import AutoConfig, AutoModelForCausalLM
     except ImportError as error:

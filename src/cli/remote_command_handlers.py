@@ -158,6 +158,7 @@ def _handle_eval_submit(client: CrucibleClient, args: argparse.Namespace) -> int
         cluster_name=args.cluster,
         method_args=method_args,
         resources=resources,
+        model_name=args.model_name,
     )
     print(f"job_id={record.job_id}")
     print(f"slurm_job_id={record.slurm_job_id}")
@@ -225,6 +226,20 @@ def _handle_status(client: CrucibleClient, args: argparse.Namespace) -> int:
         print(f"  Remote model: {record.model_path_remote}")
     if record.model_path_local:
         print(f"  Local model: {record.model_path_local}")
+    return 0
+
+
+def _handle_result(client: CrucibleClient, args: argparse.Namespace) -> int:
+    from serve.remote_result_reader import read_remote_result
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+    from store.remote_job_store import load_remote_job
+
+    record = load_remote_job(client._config.data_root, args.job_id)
+    cluster = load_cluster(client._config.data_root, record.cluster_name)
+    with SshSession(cluster) as session:
+        result = read_remote_result(session, record)
+    print(f"CRUCIBLE_JSON:{json.dumps(result)}")
     return 0
 
 

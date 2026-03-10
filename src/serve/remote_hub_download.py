@@ -49,9 +49,9 @@ def download_model_to_cluster(
         ensure_remote_env(session)
         _ensure_hf_hub_installed(session)
 
-        remote_path = _build_remote_model_path(
-            cluster.remote_workspace, repo_id,
-        )
+        # Resolve ~ so snapshot_download gets an absolute path.
+        workspace = session.resolve_path(cluster.remote_workspace)
+        remote_path = _build_remote_model_path(workspace, repo_id)
         session.mkdir_p(remote_path)
 
         _progress(f"Downloading {repo_id}...")
@@ -102,9 +102,9 @@ def download_dataset_to_cluster(
         ensure_remote_env(session)
         _ensure_hf_hub_installed(session)
 
-        remote_path = _build_remote_dataset_path(
-            cluster.remote_workspace, repo_id,
-        )
+        # Resolve ~ so snapshot_download gets an absolute path.
+        workspace = session.resolve_path(cluster.remote_workspace)
+        remote_path = _build_remote_dataset_path(workspace, repo_id)
         session.mkdir_p(remote_path)
 
         _progress(f"Downloading {repo_id}...")

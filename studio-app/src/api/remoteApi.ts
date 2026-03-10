@@ -16,6 +16,19 @@ export async function getRemoteJob(dataRoot: string, jobId: string): Promise<Rem
   return invoke<RemoteJobRecord>("get_remote_job", { dataRoot, jobId });
 }
 
+export async function getRemoteJobResult(
+  dataRoot: string,
+  jobId: string,
+  bypassCache?: boolean,
+): Promise<Record<string, unknown>> {
+  const key = `jobResult:${dataRoot}:${jobId}`;
+  if (bypassCache) invalidate(key);
+  const raw = await cached(key, Infinity, () =>
+    sshLimited(() => invoke<string>("get_remote_job_result", { dataRoot, jobId })),
+  );
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
 export async function getRemoteJobLogs(
   dataRoot: string,
   jobId: string,

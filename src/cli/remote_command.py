@@ -70,6 +70,10 @@ def add_remote_command(
     lg.add_argument("--follow", action="store_true", help="Stream logs in real time")
     lg.add_argument("--tail", type=int, default=100, help="Number of trailing lines")
 
+    # result
+    rs = sub.add_parser("result", help="Fetch result.json from a remote job")
+    rs.add_argument("--job-id", required=True, help="Remote job ID")
+
     # cancel
     cn = sub.add_parser("cancel", help="Cancel a remote job")
     cn.add_argument("--job-id", required=True, help="Remote job ID")
@@ -103,6 +107,7 @@ def add_remote_command(
     es.add_argument("--cluster", required=True, help="Cluster name")
     es.add_argument("--model-path", required=True, help="Path to model on cluster")
     es.add_argument("--benchmarks", default="mmlu,gsm8k,hellaswag,arc,truthfulqa,winogrande,humaneval", help="Comma-separated benchmarks")
+    es.add_argument("--model-name", default="", help="Display name for the model in results")
     es.add_argument("--base-model", default="", help="Optional base model path for comparison")
     es.add_argument("--max-samples", type=int, default=None, help="Max examples per benchmark")
     es.add_argument("--partition", default="", help="Slurm partition")
@@ -156,6 +161,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         _handle_remote_chat,
         _handle_remove_cluster,
         _handle_reset_env,
+        _handle_result,
         _handle_status,
         _handle_submit,
         _handle_submit_sweep,
@@ -179,6 +185,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "eval-submit": _handle_eval_submit,
         "list": _handle_list_jobs,
         "status": _handle_status,
+        "result": _handle_result,
         "logs": _handle_logs,
         "cancel": _handle_cancel,
         "pull-model": _handle_pull_model,

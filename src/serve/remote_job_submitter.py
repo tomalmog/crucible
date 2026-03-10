@@ -182,6 +182,7 @@ def submit_remote_eval_job(
     cluster_name: str,
     method_args: dict[str, object],
     resources: SlurmResourceConfig,
+    model_name: str = "",
 ) -> RemoteJobRecord:
     """Submit an evaluation job to a remote Slurm cluster.
 
@@ -219,6 +220,7 @@ def submit_remote_eval_job(
         updated_at=ts,
         remote_output_dir=workdir,
         submit_phase="Preparing submission...",
+        model_name=model_name,
     )
     save_remote_job(data_root, record)
 

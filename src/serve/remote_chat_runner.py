@@ -106,12 +106,15 @@ def _upload_runner_script(
     options: ChatOptions,
 ) -> None:
     """Upload the chat runner script to the remote bundle directory."""
+    # Resolve ~ so the compute node gets an absolute path.
+    model_path = session.resolve_path(options.model_path)
+
     encoded = base64.b64encode(
         options.prompt.encode("utf-8"),
     ).decode("ascii")
     script = _RUNNER_TEMPLATE.format(
         encoded_prompt=encoded,
-        model_path=options.model_path,
+        model_path=model_path,
         max_new_tokens=options.max_new_tokens,
         temperature=options.temperature,
         top_k=options.top_k,

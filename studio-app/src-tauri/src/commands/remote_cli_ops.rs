@@ -9,6 +9,28 @@ use crate::commands::remote_queries::{
 use crate::commands::runtime_queries::resolve_data_root_path;
 
 #[tauri::command]
+pub async fn get_remote_job_result(data_root: String, job_id: String) -> Result<String, String> {
+    let job_path = resolve_data_root_path(&data_root)
+        .join("remote-jobs")
+        .join(format!("{job_id}.json"));
+    if !job_path.exists() {
+        return Err(format!("Remote job '{job_id}' not found"));
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let stdout = run_crucible_cli(&data_root, &["remote", "result", "--job-id", &job_id])
+            .map_err(|e| format!("Result fetch failed: {e}"))?;
+        for line in stdout.lines() {
+            if let Some(json_str) = line.strip_prefix("CRUCIBLE_JSON:") {
+                return Ok(json_str.to_string());
+            }
+        }
+        Err("No CRUCIBLE_JSON line found in result output".to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))?
+}
+
+#[tauri::command]
 pub async fn get_remote_job_logs(data_root: String, job_id: String) -> Result<String, String> {
     let job_path = resolve_data_root_path(&data_root)
         .join("remote-jobs")

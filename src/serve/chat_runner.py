@@ -57,7 +57,7 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
         context = _build_hf_runtime_context(options)
         response_text = _generate_response_text(context)
         return ChatResult(response_text=response_text)
-    model_format = detect_model_format(options.model_path)
+    model_format = _detect_dir_aware_format(options.model_path)
     if model_format == "onnx":
         response_text = run_onnx_chat(records, options)
         return ChatResult(response_text=response_text)
@@ -155,6 +155,20 @@ def _import_torch() -> Any:
             "Chat inference requires torch, but it is not installed. Install torch to run crucible chat."
         ) from error
     return torch
+
+
+def _detect_dir_aware_format(model_path: str) -> str:
+    """Detect model format, searching inside directories for weight files."""
+    from pathlib import Path as _Path
+
+    path = _Path(model_path).expanduser().resolve()
+    if path.is_dir():
+        for name in ("model.onnx", "model.pt", "model.safetensors",
+                      "pytorch_model.bin", "model.pth", "model.bin"):
+            if (path / name).exists():
+                return detect_model_format(str(path / name))
+        return "unknown"
+    return detect_model_format(model_path)
 
 
 def _resolve_inference_device(torch_module: Any) -> Any:

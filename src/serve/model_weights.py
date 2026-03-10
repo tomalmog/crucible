@@ -89,14 +89,20 @@ def _find_weights_file_in_dir(directory: Path) -> Path:
         "pytorch_model.bin",
         "model.pth",
         "model.bin",
+        "model.onnx",
     ]
     for name in candidates:
         path = directory / name
         if path.exists():
             return path
+    found = [
+        f"{f.name}/" if f.is_dir() else f.name
+        for f in sorted(directory.iterdir())
+    ]
     raise CrucibleServeError(
         f"Path {directory} is a directory but contains no recognized model weights. "
-        f"Expected one of: {', '.join(candidates)}"
+        f"Expected one of: {', '.join(candidates)}. "
+        f"Directory contents: {', '.join(found) or '(empty)'}"
     )
 
 

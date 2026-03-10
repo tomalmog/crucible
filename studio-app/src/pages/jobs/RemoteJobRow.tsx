@@ -8,6 +8,7 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  Eye,
   Trash2,
   Check,
   Server,
@@ -19,7 +20,7 @@ import {
 
 const ACTIVE_STATES = new Set(["running", "pending"]);
 
-export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void }) {
+export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void; onView: () => void }) {
   const { dataRoot, refreshModels } = useCrucible();
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepArraySize} trials)` : "";
   const [showLogs, setShowLogs] = useState(false);
@@ -205,6 +206,15 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
         <div className="flex-row">
           {!isSubmitting && job.slurmJobId && (
             <span className="run-row-meta">Slurm {job.slurmJobId}</span>
+          )}
+          {(isCompleted || isFailed) && (
+            <button
+              className="btn btn-sm"
+              onClick={(e) => { e.stopPropagation(); onView(); }}
+              title="View result"
+            >
+              <Eye size={12} /> Result
+            </button>
           )}
           {!isSubmitting && (
             <button

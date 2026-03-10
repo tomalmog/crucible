@@ -14,6 +14,21 @@ interface ChatMessage {
   content: string;
 }
 
+const SESSION_CHAT_KEY = "crucible_chat_messages";
+
+function loadSessionMessages(): ChatMessage[] {
+  try {
+    const raw = sessionStorage.getItem(SESSION_CHAT_KEY);
+    return raw ? (JSON.parse(raw) as ChatMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionMessages(msgs: ChatMessage[]): void {
+  sessionStorage.setItem(SESSION_CHAT_KEY, JSON.stringify(msgs));
+}
+
 const CHAT_POLL_MS = 100;
 const SAMPLING_PRESETS = {
   deterministic: { maxNewTokens: "80", temperature: "0", topK: "0" },
@@ -35,7 +50,7 @@ export function ChatPage() {
   const [positionEmbeddingType, setPositionEmbeddingType] = useState("learned");
   const [samplingPreset, setSamplingPreset] = useState<SamplingPreset>("balanced");
   const [draftMessage, setDraftMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadSessionMessages);
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatThreadRef = useRef<HTMLDivElement>(null);
@@ -53,6 +68,11 @@ export function ChatPage() {
   useEffect(() => {
     if (selectedDataset) setDatasetName(selectedDataset);
   }, [selectedDataset]);
+
+  // Persist messages to sessionStorage so they survive page navigation.
+  useEffect(() => {
+    saveSessionMessages(messages);
+  }, [messages]);
 
   // Auto-scroll chat thread to bottom when new messages arrive
   useEffect(() => {
