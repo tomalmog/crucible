@@ -3,6 +3,7 @@ import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
+import { ModelSelect } from "../../components/shared/ModelSelect";
 import { PathInput } from "../../components/shared/PathInput";
 
 export function LlmJudgeForm() {
@@ -17,7 +18,7 @@ export function LlmJudgeForm() {
 
   const missing = useMemo(() => {
     const m: string[] = [];
-    if (!modelPath.trim()) m.push("model path");
+    if (!modelPath.trim()) m.push("model");
     if (!judgeApi.trim()) m.push("judge API endpoint");
     return m;
   }, [modelPath, judgeApi]);
@@ -46,8 +47,8 @@ export function LlmJudgeForm() {
       output={results}
     >
       <div className="grid-2">
-        <FormField label="Model Path" required>
-          <PathInput value={modelPath} onChange={setModelPath} placeholder="/path/to/model.pt" filters={[{ name: "Model", extensions: ["pt"] }]} />
+        <FormField label="Model" required>
+          <ModelSelect value={modelPath} onChange={setModelPath} />
         </FormField>
         <FormField label="Judge API Endpoint" required>
           <input value={judgeApi} onChange={(e) => setJudgeApi(e.currentTarget.value)} placeholder="https://api.openai.com/v1/chat/completions" />

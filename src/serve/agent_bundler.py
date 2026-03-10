@@ -17,6 +17,7 @@ from serve.agent_entry_script import ENTRY_SCRIPT
 # Modules to include in the agent tarball
 _BUNDLE_MODULES = (
     "core",
+    "eval",
     "serve",
     "store",
     "ingest",

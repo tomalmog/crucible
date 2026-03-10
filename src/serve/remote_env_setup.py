@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 ENV_NAME = "crucible"
 _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
-    "transformers", "accelerate", "safetensors",
+    "transformers", "accelerate", "safetensors", "datasets",
 )
 
 # Shell snippet that sources conda's init script from common locations.

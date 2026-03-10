@@ -141,6 +141,29 @@ def _handle_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_eval_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
+    from serve.remote_job_submitter import submit_remote_eval_job
+
+    resources = _build_resources(args)
+    method_args: dict[str, object] = {
+        "model_path": args.model_path,
+        "benchmarks": args.benchmarks,
+    }
+    if args.max_samples is not None:
+        method_args["max_samples"] = args.max_samples
+    if args.base_model:
+        method_args["base_model_path"] = args.base_model
+    record = submit_remote_eval_job(
+        data_root=client._config.data_root,
+        cluster_name=args.cluster,
+        method_args=method_args,
+        resources=resources,
+    )
+    print(f"job_id={record.job_id}")
+    print(f"slurm_job_id={record.slurm_job_id}")
+    return 0
+
+
 def _handle_submit_sweep(client: CrucibleClient, args: argparse.Namespace) -> int:
     import yaml
 

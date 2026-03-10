@@ -11,7 +11,7 @@ from eval.benchmark_runner import BenchmarkResult
 from eval.benchmarks._model_loader import compute_sequence_loss, load_eval_model
 
 
-def run_arc(model_path: str) -> BenchmarkResult:
+def run_arc(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
     """Run ARC-Challenge benchmark against a model.
 
     For each question, computes sequence loss for each answer
@@ -19,6 +19,8 @@ def run_arc(model_path: str) -> BenchmarkResult:
     """
     eval_model = load_eval_model(model_path)
     examples = _load_arc_examples()
+    if max_samples:
+        examples = examples[:max_samples]
     correct = 0
     for example in examples:
         prompt = f"Question: {example['question']}\nAnswer:"

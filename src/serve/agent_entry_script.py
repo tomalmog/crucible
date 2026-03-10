@@ -138,19 +138,6 @@ def main() -> None:
     _log_memory("after-client-init")
     print("CRUCIBLE_AGENT: Client ready", flush=True)
 
-    # Ensure output_dir and dataset_name are set
-    _ensure_output_dir(method_args)
-    _ensure_dataset_name(method_args, method)
-    _hydrate_nested_configs(method_args, method)
-
-    # For record-based methods, ingest raw data if provided
-    if method in _RECORD_BASED_METHODS:
-        _ingest_raw_data(client, method_args)
-
-    print(f"CRUCIBLE_AGENT: Dispatching {method}...", flush=True)
-    print(f"CRUCIBLE_AGENT: Config keys: {list(method_args.keys())}", flush=True)
-    _log_memory("before-dispatch")
-
     # Pre-flight: import torch before dispatch to isolate import crashes
     print("CRUCIBLE_AGENT: Importing torch...", flush=True)
     import torch
@@ -159,6 +146,70 @@ def main() -> None:
         print(f"CRUCIBLE_AGENT: GPU: {torch.cuda.get_device_name(0)}, "
               f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB", flush=True)
     _log_memory("after-torch")
+
+    # --- Eval jobs: run benchmarks directly, skip training setup ---
+    if method == "eval":
+        print("CRUCIBLE_AGENT: Running evaluation...", flush=True)
+        from eval.benchmark_runner import run_benchmarks, AVAILABLE_BENCHMARKS
+        benchmarks_str = method_args.get("benchmarks", "")
+        benchmarks = (
+            [b.strip() for b in benchmarks_str.split(",") if b.strip()]
+            if benchmarks_str else list(AVAILABLE_BENCHMARKS)
+        )
+        model_path = method_args.get("model_path", "")
+        base_model_path = method_args.get("base_model_path") or None
+        max_samples_val = method_args.get("max_samples")
+        max_samples = int(max_samples_val) if max_samples_val else None
+        try:
+            eval_result = run_benchmarks(
+                model_path, benchmarks, base_model_path,
+                max_samples=max_samples,
+            )
+            result_data = {
+                "status": "completed",
+                "job_type": "eval",
+                "model_path": eval_result.model_path,
+                "average_score": eval_result.average_score,
+                "benchmarks": [
+                    {"name": r.benchmark_name, "score": r.score,
+                     "num_examples": r.num_examples, "correct": r.correct}
+                    for r in eval_result.benchmark_results
+                ],
+            }
+            if eval_result.base_results:
+                result_data["base_benchmarks"] = [
+                    {"name": r.benchmark_name, "score": r.score,
+                     "num_examples": r.num_examples, "correct": r.correct}
+                    for r in eval_result.base_results
+                ]
+        except Exception as exc:
+            import traceback
+            result_data = {
+                "status": "failed",
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+            }
+        with open(output_path, "w") as f:
+            json.dump(result_data, f, indent=2)
+        if result_data["status"] == "failed":
+            print(f"CRUCIBLE_AGENT_ERROR: {result_data['error']}", file=sys.stderr)
+            sys.exit(1)
+        avg = result_data.get("average_score", "N/A")
+        print(f"CRUCIBLE_AGENT: Evaluation complete. Average score: {avg}")
+        print("CRUCIBLE_AGENT_COMPLETE")
+        return
+
+    # --- Training jobs: set up output dir, dataset, and dispatch ---
+    _ensure_output_dir(method_args)
+    _ensure_dataset_name(method_args, method)
+    _hydrate_nested_configs(method_args, method)
+
+    if method in _RECORD_BASED_METHODS:
+        _ingest_raw_data(client, method_args)
+
+    print(f"CRUCIBLE_AGENT: Dispatching {method}...", flush=True)
+    print(f"CRUCIBLE_AGENT: Config keys: {list(method_args.keys())}", flush=True)
+    _log_memory("before-dispatch")
 
     try:
         result = dispatch_training(client, method, method_args)

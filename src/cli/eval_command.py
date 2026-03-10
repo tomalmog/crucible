@@ -22,6 +22,7 @@ def run_eval_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         model_path=args.model_path,
         benchmarks=benchmarks,
         base_model_path=args.base_model,
+        max_samples=args.max_samples,
     )
     print(f"model_path={result.model_path}")
     print(f"average_score={result.average_score}")
@@ -44,3 +45,4 @@ def add_eval_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
         help=f"Comma-separated list of benchmarks ({','.join(AVAILABLE_BENCHMARKS)})",
     )
     parser.add_argument("--base-model", help="Optional base model path for comparison")
+    parser.add_argument("--max-samples", type=int, default=None, help="Max examples per benchmark")

@@ -5,6 +5,7 @@ interface ModelSelectProps {
   value: string;
   onChange: (modelPath: string) => void;
   placeholder?: string;
+  remoteOnly?: boolean;
 }
 
 interface ModelOption {
@@ -18,7 +19,7 @@ interface ModelOption {
  * Shows local and remote models in grouped sections.
  * Local models pass activeModelPath; remote models pass activeRemotePath.
  */
-export function ModelSelect({ value, onChange, placeholder = "select a registered model" }: ModelSelectProps) {
+export function ModelSelect({ value, onChange, placeholder = "select a registered model", remoteOnly = false }: ModelSelectProps) {
   const { modelGroups } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -44,7 +45,7 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
     const lowerQuery = query.toLowerCase();
     for (const g of modelGroups) {
       if (!g.modelName.toLowerCase().includes(lowerQuery)) continue;
-      if (g.hasLocal && g.activeModelPath) {
+      if (!remoteOnly && g.hasLocal && g.activeModelPath) {
         result.push({ label: g.modelName, value: g.activeModelPath, section: "local" });
       }
       if (g.hasRemote && g.activeRemotePath) {
@@ -53,7 +54,7 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
       }
     }
     return result;
-  }, [modelGroups, query]);
+  }, [modelGroups, query, remoteOnly]);
 
   const localOptions = options.filter((o) => o.section === "local");
   const remoteOptions = options.filter((o) => o.section === "remote");

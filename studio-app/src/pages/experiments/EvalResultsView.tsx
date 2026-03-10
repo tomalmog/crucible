@@ -1,33 +1,85 @@
-import { useState, useMemo } from "react";
-import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
-import { PathInput } from "../../components/shared/PathInput";
+import { ModelSelect } from "../../components/shared/ModelSelect";
+import { listClusters } from "../../api/remoteApi";
+import { startCrucibleCommand } from "../../api/studioApi";
+import { buildRemoteEvalArgs } from "../../api/commandArgs";
+import type { ClusterConfig } from "../../types/remote";
+
+const ALL_BENCHMARKS = [
+  "mmlu", "gsm8k", "hellaswag", "arc", "truthfulqa", "winogrande", "humaneval",
+] as const;
 
 export function EvalResultsView() {
   const { dataRoot } = useCrucible();
-  const command = useCrucibleCommand();
+  const navigate = useNavigate();
   const [modelPath, setModelPath] = useState("");
   const [baseModelPath, setBaseModelPath] = useState("");
-  const [benchmarks, setBenchmarks] = useState("mmlu,gsm8k,hellaswag,arc");
-  const [results, setResults] = useState<string>("");
+  const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(
+    new Set(ALL_BENCHMARKS),
+  );
+  const [maxSamples, setMaxSamples] = useState("");
+  const [cluster, setCluster] = useState("");
+  const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+  const [partition, setPartition] = useState("");
+  const [gpusPerNode, setGpusPerNode] = useState("1");
+  const [gpuType, setGpuType] = useState("");
+  const [memory, setMemory] = useState("32G");
+  const [timeLimit, setTimeLimit] = useState("04:00:00");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dataRoot) return;
+    listClusters(dataRoot).then((c) => {
+      setClusters(c);
+      if (c.length > 0 && !cluster) setCluster(c[0].name);
+    }).catch(() => setClusters([]));
+  }, [dataRoot]);
+
+  const selectedCluster = clusters.find((c) => c.name === cluster);
+
+  const toggleBenchmark = useCallback((name: string) => {
+    setSelectedBenchmarks((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
 
   const missing = useMemo(() => {
     const m: string[] = [];
-    if (!modelPath.trim()) m.push("model path");
+    if (!modelPath.trim()) m.push("model");
+    if (!cluster) m.push("cluster");
+    if (selectedBenchmarks.size === 0) m.push("benchmarks");
     return m;
-  }, [modelPath]);
+  }, [modelPath, cluster, selectedBenchmarks]);
 
-  async function runEval() {
-    if (!dataRoot) return;
-    const args = ["eval", "--model-path", modelPath, "--benchmarks", benchmarks];
-    if (baseModelPath.trim()) {
-      args.push("--base-model", baseModelPath);
-    }
-    const status = await command.run(dataRoot, args);
-    if (status.status === "completed" && command.output) {
-      setResults(command.output);
+  async function submitEval() {
+    if (!dataRoot || missing.length > 0) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const benchmarks = Array.from(selectedBenchmarks).join(",");
+      const args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
+        baseModel: baseModelPath.trim() || undefined,
+        maxSamples: maxSamples.trim() || undefined,
+        partition: partition || undefined,
+        gpusPerNode,
+        gpuType: gpuType || undefined,
+        memory,
+        timeLimit,
+      });
+      await startCrucibleCommand(dataRoot, args);
+      navigate("/jobs");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -35,22 +87,98 @@ export function EvalResultsView() {
     <CommandFormPanel
       title="Model Evaluation"
       missing={missing}
-      isRunning={command.isRunning}
-      submitLabel="Run Evaluation"
-      runningLabel="Evaluating..."
-      onSubmit={() => runEval().catch(console.error)}
-      error={command.error}
-      output={results}
+      isRunning={submitting}
+      submitLabel="Submit to Cluster"
+      runningLabel="Submitting..."
+      onSubmit={() => submitEval().catch(console.error)}
+      error={error}
     >
       <div className="grid-2">
-        <FormField label="Model Path" required>
-          <PathInput value={modelPath} onChange={setModelPath} placeholder="/path/to/model.pt" filters={[{ name: "Model", extensions: ["pt"] }]} />
+        <FormField label="Model" required>
+          <ModelSelect value={modelPath} onChange={setModelPath} remoteOnly />
         </FormField>
         <FormField label="Base Model" hint="optional, for comparison">
-          <PathInput value={baseModelPath} onChange={setBaseModelPath} placeholder="/path/to/base_model.pt" filters={[{ name: "Model", extensions: ["pt"] }]} />
+          <ModelSelect
+            value={baseModelPath}
+            onChange={setBaseModelPath}
+            placeholder="select base model (optional)"
+            remoteOnly
+          />
         </FormField>
-        <FormField label="Benchmarks" hint="comma-separated">
-          <input value={benchmarks} onChange={(e) => setBenchmarks(e.currentTarget.value)} />
+      </div>
+
+      <FormField label="Benchmarks" required>
+        <div className="flex-row" style={{ flexWrap: "wrap", gap: 8 }}>
+          {ALL_BENCHMARKS.map((b) => (
+            <label
+              key={b}
+              style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4, cursor: "pointer" }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedBenchmarks.has(b)}
+                onChange={() => toggleBenchmark(b)}
+                style={{ width: "auto" }}
+              />
+              <span style={{ fontSize: "0.8125rem" }}>{b}</span>
+            </label>
+          ))}
+        </div>
+      </FormField>
+
+      <FormField label="Max Samples" hint="optional, leave empty for full dataset">
+        <input
+          type="number"
+          value={maxSamples}
+          onChange={(e) => setMaxSamples(e.currentTarget.value)}
+          placeholder="e.g. 100"
+        />
+      </FormField>
+
+      <div className="grid-2">
+        <FormField label="Cluster" required>
+          <select value={cluster} onChange={(e) => setCluster(e.currentTarget.value)}>
+            {clusters.length === 0 && <option value="">No clusters registered</option>}
+            {clusters.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name} ({c.user}@{c.host})
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Partition">
+          <select value={partition} onChange={(e) => setPartition(e.currentTarget.value)}>
+            <option value="">Default</option>
+            {selectedCluster?.partitions.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="GPU Type">
+          <select value={gpuType} onChange={(e) => setGpuType(e.currentTarget.value)}>
+            <option value="">Any</option>
+            {selectedCluster?.gpuTypes.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="GPUs">
+          <input
+            type="number"
+            min={1}
+            value={gpusPerNode}
+            onChange={(e) => setGpusPerNode(e.currentTarget.value)}
+          />
+        </FormField>
+        <FormField label="Memory">
+          <input value={memory} onChange={(e) => setMemory(e.currentTarget.value)} />
+        </FormField>
+        <FormField label="Time Limit">
+          <input
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(e.currentTarget.value)}
+            placeholder="HH:MM:SS"
+          />
         </FormField>
       </div>
     </CommandFormPanel>

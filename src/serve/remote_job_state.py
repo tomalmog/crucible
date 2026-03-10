@@ -41,6 +41,8 @@ def _handle_completed_terminal(
     record: RemoteJobRecord,
 ) -> None:
     """Handle model discovery/registration for completed terminal jobs."""
+    if record.training_method == "eval":
+        return  # Eval jobs don't produce models
     if not record.model_path_remote:
         cluster = load_cluster(data_root, record.cluster_name)
         with SshSession(cluster) as session:
@@ -140,8 +142,8 @@ def _build_state_transition_fields(
             crucible_state = "failed"
             extra_fields["submit_phase"] = f"Failed: {result_error}"
 
-    # On completion, discover model path and auto-register
-    if crucible_state == "completed" and not record.model_path_remote:
+    # On completion, discover model path and auto-register (skip for eval)
+    if crucible_state == "completed" and not record.model_path_remote and record.training_method != "eval":
         import time
         model_path = ""
         for _attempt in range(8):

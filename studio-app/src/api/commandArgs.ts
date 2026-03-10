@@ -282,6 +282,39 @@ export function buildRemoteMethodArgs(
   return out;
 }
 
+/** Build CLI args for `crucible remote eval-submit ...`. */
+export function buildRemoteEvalArgs(
+  cluster: string,
+  modelPath: string,
+  benchmarks: string,
+  opts: {
+    baseModel?: string;
+    maxSamples?: string;
+    partition?: string;
+    gpusPerNode?: string;
+    gpuType?: string;
+    cpusPerTask?: string;
+    memory?: string;
+    timeLimit?: string;
+  } = {},
+): string[] {
+  const args = [
+    "remote", "eval-submit",
+    "--cluster", cluster,
+    "--model-path", modelPath,
+    "--benchmarks", benchmarks,
+  ];
+  if (opts.baseModel) args.push("--base-model", opts.baseModel);
+  if (opts.maxSamples) args.push("--max-samples", opts.maxSamples);
+  if (opts.partition) args.push("--partition", opts.partition);
+  if (opts.gpusPerNode) args.push("--gpus-per-node", opts.gpusPerNode);
+  if (opts.gpuType) args.push("--gpu-type", opts.gpuType);
+  if (opts.cpusPerTask) args.push("--cpus-per-task", opts.cpusPerTask);
+  if (opts.memory) args.push("--memory", opts.memory);
+  if (opts.timeLimit) args.push("--time-limit", opts.timeLimit);
+  return args;
+}
+
 /** Build the full CLI args array for `crucible remote submit ...`. */
 export function buildRemoteSubmitArgs(
   method: TrainingMethod,

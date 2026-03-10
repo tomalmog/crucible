@@ -98,6 +98,21 @@ def add_remote_command(
     dd.add_argument("--cluster", required=True, help="Cluster name")
     dd.add_argument("--dataset", required=True, help="Dataset name")
 
+    # eval-submit
+    es = sub.add_parser("eval-submit", help="Submit evaluation job to cluster")
+    es.add_argument("--cluster", required=True, help="Cluster name")
+    es.add_argument("--model-path", required=True, help="Path to model on cluster")
+    es.add_argument("--benchmarks", default="mmlu,gsm8k,hellaswag,arc,truthfulqa,winogrande,humaneval", help="Comma-separated benchmarks")
+    es.add_argument("--base-model", default="", help="Optional base model path for comparison")
+    es.add_argument("--max-samples", type=int, default=None, help="Max examples per benchmark")
+    es.add_argument("--partition", default="", help="Slurm partition")
+    es.add_argument("--nodes", type=int, default=1, help="Number of nodes")
+    es.add_argument("--gpus-per-node", type=int, default=1, help="GPUs per node")
+    es.add_argument("--gpu-type", default="", help="GPU type (e.g. a100)")
+    es.add_argument("--cpus-per-task", type=int, default=4, help="CPUs per task")
+    es.add_argument("--memory", default="32G", help="Memory limit")
+    es.add_argument("--time-limit", default="04:00:00", help="Wall-clock limit")
+
     # chat
     ch = sub.add_parser("chat", help="Run chat inference on a remote cluster model")
     ch.add_argument("--cluster", required=True, help="Cluster name")
@@ -132,6 +147,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Dispatch to the appropriate remote sub-subcommand handler."""
     from cli.remote_command_handlers import (
         _handle_cancel,
+        _handle_eval_submit,
         _handle_list_clusters,
         _handle_list_jobs,
         _handle_logs,
@@ -160,6 +176,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "reset-env": _handle_reset_env,
         "submit": _handle_submit,
         "submit-sweep": _handle_submit_sweep,
+        "eval-submit": _handle_eval_submit,
         "list": _handle_list_jobs,
         "status": _handle_status,
         "logs": _handle_logs,

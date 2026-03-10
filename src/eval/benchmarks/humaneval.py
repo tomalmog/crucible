@@ -18,7 +18,7 @@ from eval.benchmarks._model_loader import generate_text, load_eval_model
 _EXEC_TIMEOUT_SECONDS = 10
 
 
-def run_humaneval(model_path: str) -> BenchmarkResult:
+def run_humaneval(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
     """Run HumanEval benchmark against a model.
 
     Generates function body completions for each problem and
@@ -26,6 +26,8 @@ def run_humaneval(model_path: str) -> BenchmarkResult:
     """
     eval_model = load_eval_model(model_path)
     examples = _load_humaneval_examples()
+    if max_samples:
+        examples = examples[:max_samples]
     correct = 0
     for example in examples:
         prompt = str(example["prompt"])

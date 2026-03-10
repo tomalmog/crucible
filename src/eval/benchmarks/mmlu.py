@@ -11,7 +11,7 @@ from eval.benchmark_runner import BenchmarkResult
 from eval.benchmarks._model_loader import EvalModel, compute_logits, load_eval_model
 
 
-def run_mmlu(model_path: str) -> BenchmarkResult:
+def run_mmlu(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
     """Run MMLU benchmark against a model.
 
     Loads the MMLU dataset, formats each question as a multiple-choice
@@ -19,6 +19,8 @@ def run_mmlu(model_path: str) -> BenchmarkResult:
     """
     eval_model = load_eval_model(model_path)
     examples = _load_mmlu_examples()
+    if max_samples:
+        examples = examples[:max_samples]
     correct = 0
     for example in examples:
         prompt = _format_prompt(example)

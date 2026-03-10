@@ -13,7 +13,7 @@ from eval.benchmark_runner import BenchmarkResult
 from eval.benchmarks._model_loader import generate_text, load_eval_model
 
 
-def run_gsm8k(model_path: str) -> BenchmarkResult:
+def run_gsm8k(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
     """Run GSM8K benchmark against a model.
 
     Generates a chain-of-thought response for each problem,
@@ -21,6 +21,8 @@ def run_gsm8k(model_path: str) -> BenchmarkResult:
     """
     eval_model = load_eval_model(model_path)
     examples = _load_gsm8k_examples()
+    if max_samples:
+        examples = examples[:max_samples]
     correct = 0
     for example in examples:
         prompt = f"Question: {example['question']}\nAnswer: Let's solve step by step.\n"

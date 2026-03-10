@@ -31,11 +31,12 @@ class EvaluationHarness:
         model_path: str,
         benchmarks: list[str] | None = None,
         base_model_path: str | None = None,
+        max_samples: int | None = None,
     ) -> EvaluationResult:
         """Run evaluation benchmarks and store results."""
         if benchmarks is None:
             benchmarks = list(AVAILABLE_BENCHMARKS)
-        result = run_benchmarks(model_path, benchmarks, base_model_path)
+        result = run_benchmarks(model_path, benchmarks, base_model_path, max_samples=max_samples)
         self._store_result(result)
         return result
 

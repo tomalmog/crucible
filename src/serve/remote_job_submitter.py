@@ -177,6 +177,87 @@ def submit_remote_job(
     )
 
 
+def submit_remote_eval_job(
+    data_root: Path,
+    cluster_name: str,
+    method_args: dict[str, object],
+    resources: SlurmResourceConfig,
+) -> RemoteJobRecord:
+    """Submit an evaluation job to a remote Slurm cluster.
+
+    Args:
+        data_root: Root .crucible directory.
+        cluster_name: Name of the registered cluster.
+        method_args: Eval arguments (model_path, benchmarks, max_samples).
+        resources: Resource allocation for the job.
+
+    Returns:
+        The persisted RemoteJobRecord.
+    """
+    cluster = load_cluster(data_root, cluster_name)
+    job_id = generate_job_id()
+    workdir = f"{cluster.remote_workspace}/{job_id}"
+
+    tarball = build_agent_tarball(
+        cache_dir=data_root / "cache" / "agent-bundles",
+    )
+
+    config_payload = {
+        "method": "eval",
+        "method_args": method_args,
+        "result_output": "result.json",
+    }
+
+    ts = now_iso()
+    record = RemoteJobRecord(
+        job_id=job_id,
+        slurm_job_id="",
+        cluster_name=cluster_name,
+        training_method="eval",
+        state="submitting",
+        submitted_at=ts,
+        updated_at=ts,
+        remote_output_dir=workdir,
+        submit_phase="Preparing submission...",
+    )
+    save_remote_job(data_root, record)
+
+    try:
+        _update_phase(data_root, job_id, "Connecting to cluster...")
+        with SshSession(cluster) as session:
+            cluster = _resolve_cluster_workspace(cluster, session)
+            workdir = f"{cluster.remote_workspace}/{job_id}"
+            update_remote_job_state(
+                data_root, job_id, "submitting",
+                remote_output_dir=workdir,
+            )
+            session.mkdir_p(workdir)
+            _update_phase(data_root, job_id, "Provisioning environment...")
+            ensure_remote_env(session)
+            _update_phase(data_root, job_id, "Uploading eval bundle...")
+            _upload_bundle(session, tarball, workdir)
+            _upload_config(session, config_payload, workdir)
+            script = _generate_script(
+                cluster, resources, job_id, "eval",
+            )
+            _upload_script(session, script, workdir)
+            _update_phase(data_root, job_id, "Submitting to Slurm...")
+            slurm_job_id = _submit_sbatch(session, workdir)
+    except Exception as exc:
+        update_remote_job_state(
+            data_root, job_id, "failed",
+            submit_phase=f"Failed: {exc}",
+        )
+        raise
+
+    return update_remote_job_state(
+        data_root, job_id, "running",
+        slurm_job_id=slurm_job_id,
+        remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
+        submit_phase="",
+    )
+
+
 def submit_remote_sweep(
     data_root: Path,
     cluster_name: str,

@@ -215,7 +215,7 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
               <Terminal size={12} /> Logs
             </button>
           )}
-          {isCompleted && !hasLocalModel && !pulling && !pullDone && (
+          {isCompleted && !hasLocalModel && !pulling && !pullDone && job.trainingMethod !== "eval" && (
             <button
               className="btn btn-sm"
               onClick={(e) => { e.stopPropagation(); handlePull(); }}

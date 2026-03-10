@@ -59,6 +59,7 @@ def run_benchmarks(
     model_path: str,
     benchmarks: list[str],
     base_model_path: str | None = None,
+    max_samples: int | None = None,
 ) -> EvaluationResult:
     """Run selected benchmarks against a model."""
     from eval.benchmarks.mmlu import run_mmlu
@@ -82,7 +83,7 @@ def run_benchmarks(
     for name in benchmarks:
         if name not in benchmark_map:
             continue
-        result = benchmark_map[name](model_path)
+        result = benchmark_map[name](model_path, max_samples=max_samples)
         results.append(result)
     avg = sum(r.score for r in results) / max(len(results), 1)
     base_results: list[BenchmarkResult] = []
@@ -90,7 +91,7 @@ def run_benchmarks(
         for name in benchmarks:
             if name not in benchmark_map:
                 continue
-            base_results.append(benchmark_map[name](base_model_path))
+            base_results.append(benchmark_map[name](base_model_path, max_samples=max_samples))
     return EvaluationResult(
         model_path=model_path,
         benchmark_results=tuple(results),
