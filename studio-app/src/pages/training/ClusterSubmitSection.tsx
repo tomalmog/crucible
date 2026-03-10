@@ -80,7 +80,7 @@ export function ClusterSubmitSection({
   return (
     <div className="form-section-divider">
       {mode === "toggle" && (
-        <label className="flex-row">
+        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, justifySelf: "start" }}>
           <input
             type="checkbox"
             checked={enabled}
