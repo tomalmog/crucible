@@ -8,7 +8,7 @@ import pytest
 
 from cli.main import build_parser, main
 from core.types import TrainingRunResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def test_replay_parser_requires_bundle_path() -> None:
@@ -63,7 +63,7 @@ def test_replay_command_invokes_train(monkeypatch, tmp_path) -> None:
             epochs_completed=1,
         )
 
-    monkeypatch.setattr(ForgeClient, "train", _fake_train)
+    monkeypatch.setattr(CrucibleClient, "train", _fake_train)
     override_dir = str(tmp_path / "replay_out")
     exit_code = main([
         "replay",

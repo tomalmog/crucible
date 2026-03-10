@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import DataRecord, RecordMetadata, TrainingOptions
 from serve.training_setup import fit_training_tokenizer, validate_training_options
 
@@ -28,7 +28,7 @@ def test_validate_training_options_rejects_non_divisible_attention_shape(tmp_pat
         attention_heads=3,
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -54,7 +54,7 @@ def test_validate_training_options_rejects_unknown_position_embedding(tmp_path) 
         position_embedding_type="unknown",  # type: ignore[arg-type]
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -68,7 +68,7 @@ def test_validate_training_options_rejects_non_positive_checkpoint_interval(tmp_
         checkpoint_every_epochs=0,
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -83,7 +83,7 @@ def test_validate_training_options_rejects_conflicting_weight_sources(tmp_path) 
         resume_checkpoint_path=str(tmp_path / "checkpoint.pt"),
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -97,7 +97,7 @@ def test_validate_training_options_rejects_unknown_optimizer_type(tmp_path) -> N
         optimizer_type="invalid",  # type: ignore[arg-type]
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -112,7 +112,7 @@ def test_validate_training_options_rejects_invalid_step_scheduler_gamma(tmp_path
         scheduler_gamma=1.5,
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True
@@ -126,7 +126,7 @@ def test_validate_training_options_rejects_unknown_precision_mode(tmp_path) -> N
         precision_mode="mixed",  # type: ignore[arg-type]
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         validate_training_options(options)
 
     assert True

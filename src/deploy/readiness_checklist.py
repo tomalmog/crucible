@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 from core.deployment_types import DeploymentChecklist
-from core.errors import ForgeDeployError
+from core.errors import CrucibleDeployError
 
 _MAX_REASONABLE_MODEL_SIZE_BYTES = 10 * 1024 * 1024 * 1024  # 10 GB
 

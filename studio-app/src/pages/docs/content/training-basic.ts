@@ -5,10 +5,10 @@ export const trainingBasic: DocEntry = {
   title: "Basic Training",
   category: "Training",
   content: `
-Standard supervised training from scratch. Trains a new model on raw text data from a Forge dataset.
+Standard supervised training from scratch. Trains a new model on raw text data from a Crucible dataset.
 
 **Required:**
-- \`--dataset\` — Forge dataset name
+- \`--dataset\` — Crucible dataset name
 - \`--output-dir\` — Directory for output artifacts
 
 **Key options:**

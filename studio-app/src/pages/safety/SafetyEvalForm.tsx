@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { buildSafetyEvalArgs } from "../../api/commandArgs";
 import { FormField } from "../../components/shared/FormField";
 import { CommandProgress } from "../../components/shared/CommandProgress";
@@ -10,7 +10,7 @@ interface SafetyEvalFormProps {
 }
 
 export function SafetyEvalForm({ dataRoot, onResult }: SafetyEvalFormProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [dataset, setDataset] = useState("");
   const [categories, setCategories] = useState("");

@@ -1,6 +1,6 @@
 """Training loop execution and checkpoint orchestration.
 
-This module runs default and custom training loops for Forge serving.
+This module runs default and custom training loops for Crucible serving.
 It isolates epoch execution, resume loading, and checkpoint persistence.
 """
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import BatchLossMetric, EpochMetric
 from serve.custom_loop_loader import load_custom_training_loop
 from serve.training_checkpoint import (
@@ -101,7 +101,7 @@ def _resolve_resume_state(context: TrainingRuntimeContext) -> ResumeTrainingStat
         device=context.device,
     )
     if resume_checkpoint.next_epoch > context.options.epochs:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Resume checkpoint epoch exceeds target epochs: start_epoch={resume_checkpoint.next_epoch}, "
             f"configured epochs={context.options.epochs}. Increase --epochs to continue training."
         )
@@ -300,7 +300,7 @@ def _persist_checkpoint_state(
 def _validate_metric_rows(metrics: list[EpochMetric]) -> None:
     """Ensure custom loops return at least one epoch metric row."""
     if not metrics:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "Custom loop returned no metrics. Return at least one EpochMetric row."
         )
 

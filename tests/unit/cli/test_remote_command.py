@@ -18,7 +18,7 @@ def test_remote_register_cluster_parses() -> None:
         "--ssh-key", "/home/jdoe/.ssh/id_rsa",
         "--partition", "gpu",
         "--module-loads", "module load cuda/12.1,module load python/3.11",
-        "--remote-workspace", "/scratch/forge",
+        "--remote-workspace", "/scratch/crucible",
     ])
     assert args.command == "remote"
     assert args.remote_action == "register-cluster"
@@ -28,7 +28,7 @@ def test_remote_register_cluster_parses() -> None:
     assert args.ssh_key == "/home/jdoe/.ssh/id_rsa"
     assert args.partition == "gpu"
     assert args.module_loads == "module load cuda/12.1,module load python/3.11"
-    assert args.remote_workspace == "/scratch/forge"
+    assert args.remote_workspace == "/scratch/crucible"
 
 
 def test_remote_register_cluster_requires_name() -> None:

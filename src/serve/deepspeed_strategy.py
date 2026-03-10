@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 
 _VALID_ZERO_STAGES = frozenset({0, 1, 2, 3})
 
@@ -46,10 +46,10 @@ def build_deepspeed_config_dict(
         A dictionary suitable for deepspeed.initialize().
 
     Raises:
-        ForgeDistributedError: If the ZeRO stage is invalid.
+        CrucibleDistributedError: If the ZeRO stage is invalid.
     """
     if config.zero_stage not in _VALID_ZERO_STAGES:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Invalid ZeRO stage {config.zero_stage}. "
             f"Supported stages: {sorted(_VALID_ZERO_STAGES)}."
         )
@@ -93,12 +93,12 @@ def _import_deepspeed() -> Any:
         The deepspeed module.
 
     Raises:
-        ForgeDependencyError: If deepspeed is not installed.
+        CrucibleDependencyError: If deepspeed is not installed.
     """
     try:
         import deepspeed
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "DeepSpeed strategy requires the deepspeed package. "
             "Install it with: pip install deepspeed"
         ) from error
@@ -173,7 +173,7 @@ class DeepSpeedStrategy:
         """
         save_fn = getattr(model, "save_checkpoint", None)
         if save_fn is not None:
-            save_fn(path, tag="forge_checkpoint")
+            save_fn(path, tag="crucible_checkpoint")
             return
         _fallback_save_checkpoint(model, optimizer, path)
 
@@ -189,7 +189,7 @@ class DeepSpeedStrategy:
         """
         load_fn = getattr(model, "load_checkpoint", None)
         if load_fn is not None:
-            load_fn(path, tag="forge_checkpoint")
+            load_fn(path, tag="crucible_checkpoint")
             return
         _fallback_load_checkpoint(model, optimizer, path)
 

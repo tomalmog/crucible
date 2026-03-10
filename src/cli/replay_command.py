@@ -1,4 +1,4 @@
-"""Replay command wiring for Forge CLI.
+"""Replay command wiring for Crucible CLI.
 
 This module isolates replay command parser and execution logic.
 It keeps the top-level CLI module focused and within size constraints.
@@ -10,7 +10,7 @@ import argparse
 
 from core.types import TrainingRunResult
 from serve.reproducibility_replay import replay_training_run
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_replay_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -34,11 +34,11 @@ def add_replay_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     )
 
 
-def run_replay_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_replay_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle replay command invocation.
 
     Args:
-        client: ForgeClient SDK instance.
+        client: CrucibleClient SDK instance.
         args: Parsed CLI arguments.
 
     Returns:

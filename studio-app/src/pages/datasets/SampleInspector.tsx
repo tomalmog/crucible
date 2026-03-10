@@ -1,8 +1,8 @@
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { EmptyState } from "../../components/shared/EmptyState";
 
 export function SampleInspector() {
-  const { samples } = useForge();
+  const { samples } = useCrucible();
 
   if (samples.length === 0) {
     return <EmptyState title="No samples" description="Select a dataset to view sample records." />;

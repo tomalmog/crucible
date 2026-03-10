@@ -1,4 +1,4 @@
-"""Model registry CLI command wiring for Forge.
+"""Model registry CLI command wiring for Crucible.
 
 This module isolates the model subcommand parser and execution
 logic, mapping CLI arguments to ModelRegistry operations.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -33,7 +33,7 @@ def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     _add_delete_subcommand(model_subs)
 
 
-def run_model_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_model_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Dispatch model sub-subcommand execution.
 
     Args:

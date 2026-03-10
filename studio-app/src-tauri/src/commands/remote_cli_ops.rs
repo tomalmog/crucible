@@ -1,4 +1,4 @@
-//! Async Tauri commands that shell out to the forge CLI for remote ops.
+//! Async Tauri commands that shell out to the crucible CLI for remote ops.
 //!
 //! Each command runs the subprocess on a blocking thread via
 //! `spawn_blocking` so the Tauri main thread stays responsive.
@@ -17,7 +17,7 @@ pub async fn get_remote_job_logs(data_root: String, job_id: String) -> Result<St
         return Err(format!("Remote job '{job_id}' not found"));
     }
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(&data_root, &["remote", "logs", "--job-id", &job_id, "--tail", "200"])
+        run_crucible_cli(&data_root, &["remote", "logs", "--job-id", &job_id, "--tail", "200"])
             .map_err(|e| format!("Log fetch failed: {e}"))
     })
     .await
@@ -36,7 +36,7 @@ pub async fn sync_remote_job_status(
         return Err(format!("Remote job '{job_id}' not found"));
     }
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(&data_root, &["remote", "status", "--job-id", &job_id])
+        run_crucible_cli(&data_root, &["remote", "status", "--job-id", &job_id])
             .map_err(|e| format!("Status sync failed: {e}"))?;
         let data = read_json_file(&job_path)?;
         parse_remote_job(&data)
@@ -57,7 +57,7 @@ pub async fn cancel_remote_job(
         return Err(format!("Remote job '{job_id}' not found"));
     }
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(&data_root, &["remote", "cancel", "--job-id", &job_id])
+        run_crucible_cli(&data_root, &["remote", "cancel", "--job-id", &job_id])
             .map_err(|e| format!("Cancel failed: {e}"))?;
         let data = read_json_file(&job_path)?;
         parse_remote_job(&data)
@@ -72,19 +72,19 @@ pub async fn list_remote_datasets(
     cluster: String,
 ) -> Result<Vec<RemoteDatasetSummary>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let stdout = run_forge_cli(
+        let stdout = run_crucible_cli(
             &data_root,
             &["remote", "dataset-list", "--cluster", &cluster],
         )
         .map_err(|e| format!("dataset-list failed: {e}"))?;
         for line in stdout.lines() {
-            if let Some(json_str) = line.strip_prefix("FORGE_JSON:") {
+            if let Some(json_str) = line.strip_prefix("CRUCIBLE_JSON:") {
                 let items: Vec<RemoteDatasetSummary> = serde_json::from_str(json_str)
                     .map_err(|e| format!("Failed to parse dataset list JSON: {e}"))?;
                 return Ok(items);
             }
         }
-        Err("No FORGE_JSON line found in dataset-list output".to_string())
+        Err("No CRUCIBLE_JSON line found in dataset-list output".to_string())
     })
     .await
     .map_err(|e| format!("Task join error: {e}"))?
@@ -97,7 +97,7 @@ pub async fn push_dataset_to_cluster(
     dataset: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(
+        run_crucible_cli(
             &data_root,
             &["remote", "dataset-push", "--cluster", &cluster, "--dataset", &dataset],
         )
@@ -115,7 +115,7 @@ pub async fn pull_dataset_from_cluster(
     dataset: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(
+        run_crucible_cli(
             &data_root,
             &["remote", "dataset-pull", "--cluster", &cluster, "--dataset", &dataset],
         )
@@ -133,7 +133,7 @@ pub async fn delete_remote_dataset_cmd(
     dataset: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_forge_cli(
+        run_crucible_cli(
             &data_root,
             &["remote", "dataset-delete", "--cluster", &cluster, "--dataset", &dataset],
         )
@@ -144,23 +144,23 @@ pub async fn delete_remote_dataset_cmd(
     .map_err(|e| format!("Task join error: {e}"))?
 }
 
-/// Run a forge CLI subprocess and return stdout on success, stderr on error.
-fn run_forge_cli(data_root: &str, args: &[&str]) -> Result<String, String> {
+/// Run a crucible CLI subprocess and return stdout on success, stderr on error.
+fn run_crucible_cli(data_root: &str, args: &[&str]) -> Result<String, String> {
     let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/forge");
-    let forge_bin = if venv_binary.exists() {
+    let venv_binary = workspace_root.join(".venv/bin/crucible");
+    let crucible_bin = if venv_binary.exists() {
         venv_binary
     } else {
-        std::path::PathBuf::from("forge")
+        std::path::PathBuf::from("crucible")
     };
-    let output = std::process::Command::new(&forge_bin)
+    let output = std::process::Command::new(&crucible_bin)
         .current_dir(&workspace_root)
         .env("PYTHONUNBUFFERED", "1")
         .arg("--data-root")
         .arg(data_root)
         .args(args)
         .output()
-        .map_err(|e| format!("Failed to run forge CLI: {e}"))?;
+        .map_err(|e| format!("Failed to run crucible CLI: {e}"))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {

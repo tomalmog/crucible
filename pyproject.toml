@@ -3,9 +3,9 @@ requires = ["setuptools==75.8.0", "wheel==0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "forge"
+name = "crucible"
 version = "0.1.0"
-description = "Forge phase-one MVP for ML training data pipelines"
+description = "Crucible phase-one MVP for ML training data pipelines"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -24,7 +24,7 @@ remote = ["paramiko==3.5.0"]
 eval = ["datasets>=3.0.0"]
 
 [project.scripts]
-forge = "cli.main:main"
+crucible = "cli.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

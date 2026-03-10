@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 
 export function CloudBurstForm() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [provider, setProvider] = useState("modal");
   const [gpuType, setGpuType] = useState("a100");
   const [hours, setHours] = useState("2.0");

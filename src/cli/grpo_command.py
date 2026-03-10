@@ -1,4 +1,4 @@
-"""GRPO command wiring for Forge CLI.
+"""GRPO command wiring for Crucible CLI.
 
 This module isolates GRPO command parser and execution logic,
 mapping CLI arguments to GrpoOptions for group relative policy optimization.
@@ -36,10 +36,10 @@ from core.grpo_types import (
     GrpoOptions,
 )
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_grpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_grpo_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle GRPO command invocation."""
     options = GrpoOptions(
         dataset_name=args.dataset,

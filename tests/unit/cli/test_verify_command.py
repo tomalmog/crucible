@@ -17,7 +17,7 @@ def _build_report(failed_count: int) -> VerificationReport:
     status = "failed" if failed_count > 0 else "passed"
     return VerificationReport(
         mode="quick",
-        runtime_data_root="/tmp/forge-verify",
+        runtime_data_root="/tmp/crucible-verify",
         artifacts_kept=failed_count > 0,
         checks=(
             VerificationCheckResult(
@@ -43,7 +43,7 @@ def test_cli_verify_returns_zero_when_all_checks_pass(
     )
     monkeypatch.setattr(
         "cli.verify_command.save_verification_report",
-        lambda report: "/tmp/forge-verify/verification_report.json",
+        lambda report: "/tmp/crucible-verify/verification_report.json",
     )
 
     exit_code = main(["verify"])
@@ -64,7 +64,7 @@ def test_cli_verify_returns_one_when_any_check_fails(
     )
     monkeypatch.setattr(
         "cli.verify_command.save_verification_report",
-        lambda report: "/tmp/forge-verify/verification_report.json",
+        lambda report: "/tmp/crucible-verify/verification_report.json",
     )
 
     exit_code = main(["verify"])
@@ -77,7 +77,7 @@ def test_cli_verify_handles_input_validation_failures_without_traceback(
     capsys,
 ) -> None:
     """Verify command should print a friendly error for invalid source paths."""
-    exit_code = main(["verify", "--source", "/tmp/forge-verify-missing-source"])
+    exit_code = main(["verify", "--source", "/tmp/crucible-verify-missing-source"])
     output = capsys.readouterr().out.strip()
 
     assert exit_code == 1 and output.startswith("verification_error=")

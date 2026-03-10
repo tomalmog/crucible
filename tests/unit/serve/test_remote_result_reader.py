@@ -31,7 +31,7 @@ def _make_record() -> RemoteJobRecord:
         state="completed",
         submitted_at=ts,
         updated_at=ts,
-        remote_output_dir="/scratch/forge/rj-test123",
+        remote_output_dir="/scratch/crucible/rj-test123",
     )
 
 

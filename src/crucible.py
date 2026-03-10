@@ -1,4 +1,4 @@
-"""Public SDK surface for Forge.
+"""Public SDK surface for Crucible.
 
 This module provides a stable import path for phase-one users.
 It re-exports the primary client and typed option models.
@@ -6,7 +6,7 @@ It re-exports the primary client and typed option models.
 
 from __future__ import annotations
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.distillation_types import DistillationOptions
 from core.domain_adaptation_types import DomainAdaptationOptions
 from core.dpo_types import DpoOptions
@@ -23,7 +23,7 @@ from core.types import (
 )
 from serve.training_dataloader import build_default_dataloader_options, create_pytorch_dataloader
 from serve.training_runner import run_training
-from store.dataset_sdk import Dataset, ForgeClient
+from store.dataset_sdk import Dataset, CrucibleClient
 from transforms.quality_scoring import supported_quality_models
 
 __all__ = [
@@ -32,8 +32,8 @@ __all__ = [
     "DistillationOptions",
     "DomainAdaptationOptions",
     "DpoOptions",
-    "ForgeClient",
-    "ForgeConfig",
+    "CrucibleClient",
+    "CrucibleConfig",
     "IngestOptions",
     "LoraConfig",
     "LoraTrainingOptions",

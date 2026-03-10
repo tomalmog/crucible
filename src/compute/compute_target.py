@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from core.compute_types import JobStatus, JobSubmission
-from core.errors import ForgeComputeError
+from core.errors import CrucibleComputeError
 
 
 class ComputeExecutor(Protocol):
@@ -42,13 +42,13 @@ def resolve_executor(executor_type: str) -> ComputeExecutor:
         A concrete executor implementing ComputeExecutor.
 
     Raises:
-        ForgeComputeError: If the executor type is not supported.
+        CrucibleComputeError: If the executor type is not supported.
     """
     if executor_type == "local":
         from compute.local_executor import LocalExecutor
 
         return LocalExecutor()
-    raise ForgeComputeError(
+    raise CrucibleComputeError(
         f"Unsupported executor type: {executor_type!r}. "
         "Only 'local' is currently supported."
     )

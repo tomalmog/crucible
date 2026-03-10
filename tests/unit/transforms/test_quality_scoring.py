@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeTransformError
+from core.errors import CrucibleTransformError
 from transforms.quality_scoring import score_quality
 
 
@@ -24,7 +24,7 @@ def test_score_quality_perplexity_sets_model_name() -> None:
 
 def test_score_quality_raises_for_unknown_model() -> None:
     """Unknown model name should raise a transform error."""
-    with pytest.raises(ForgeTransformError):
+    with pytest.raises(CrucibleTransformError):
         score_quality(["sample text"], "unknown-model")
 
     assert True

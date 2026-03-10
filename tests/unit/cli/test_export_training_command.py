@@ -10,7 +10,7 @@ def test_cli_export_training_prints_manifest_path(tmp_path, capsys) -> None:
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     (source_dir / "a.txt").write_text("alpha", encoding="utf-8")
-    data_root = tmp_path / "forge"
+    data_root = tmp_path / "crucible"
 
     ingest_args = [
         "--data-root",

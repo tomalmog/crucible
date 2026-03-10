@@ -4,8 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from core.slurm_types import ClusterConfig
 from serve.cluster_validator import update_cluster_validated, validate_cluster
+
+# All tests patch ensure_remote_env to a no-op since cluster_validator
+# now calls it before running checks.
+_MOCK_ENSURE = patch("serve.cluster_validator.ensure_remote_env")
 
 
 def _make_cluster() -> ClusterConfig:
@@ -26,6 +32,13 @@ def _patch_session(responses: list[tuple[str, str, int]]) -> MagicMock:
     ctx.__enter__ = MagicMock(return_value=session)
     ctx.__exit__ = MagicMock(return_value=False)
     return ctx
+
+
+@pytest.fixture(autouse=True)
+def _mock_ensure_remote_env() -> None:
+    """Disable ensure_remote_env for all tests — validation now calls it."""
+    with _MOCK_ENSURE:
+        yield
 
 
 # -- _check_python -----------------------------------------------------------
@@ -159,6 +172,26 @@ def test_validate_cluster_all_pass() -> None:
     with patch("serve.cluster_validator.SshSession", return_value=ctx):
         result = validate_cluster(_make_cluster())
     assert result.errors == ()
+
+
+# -- ensure_remote_env integration --------------------------------------------
+
+def test_validate_cluster_returns_error_when_env_setup_fails(
+    _mock_ensure_remote_env: None,
+) -> None:
+    """Validation returns early with error if env provisioning fails."""
+    ctx = _patch_session([])  # no SSH calls should be made
+    with (
+        patch("serve.cluster_validator.SshSession", return_value=ctx),
+        patch(
+            "serve.cluster_validator.ensure_remote_env",
+            side_effect=RuntimeError("conda not found"),
+        ),
+    ):
+        result = validate_cluster(_make_cluster())
+    assert len(result.errors) == 1
+    assert "conda not found" in result.errors[0]
+    assert result.python_ok is False
 
 
 # -- update_cluster_validated -------------------------------------------------

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import { PathInput } from "../../components/shared/PathInput";
@@ -15,8 +15,8 @@ interface ModelActionsProps {
 type DeleteScope = "registry" | "local" | "remote" | "both";
 
 export function ModelActions({ dataRoot, versions, modelName }: ModelActionsProps) {
-  const command = useForgeCommand();
-  const { refreshModels } = useForge();
+  const command = useCrucibleCommand();
+  const { refreshModels } = useCrucible();
   const [action, setAction] = useState<"tag" | "rollback" | "export" | "delete">("tag");
   const [version, setVersion] = useState("");
   const [tag, setTag] = useState("");

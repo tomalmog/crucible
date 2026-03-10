@@ -18,7 +18,7 @@ from core.constants import (
     SUPPORTED_TRAIN_PRECISION_MODES,
     SUPPORTED_TRAIN_SCHEDULER_TYPES,
 )
-from core.errors import ForgeRunSpecError
+from core.errors import CrucibleRunSpecError
 from core.types import OptimizerType, PositionEmbeddingType, PrecisionMode, SchedulerType
 
 
@@ -26,7 +26,7 @@ def required_string(args: Mapping[str, object], field_name: str) -> str:
     """Read a required string field from a run-spec step."""
     value = optional_string(args, field_name)
     if value is None:
-        raise ForgeRunSpecError(f"Run-spec step is missing required field '{field_name}'.")
+        raise CrucibleRunSpecError(f"Run-spec step is missing required field '{field_name}'.")
     return value
 
 
@@ -38,7 +38,7 @@ def optional_string(args: Mapping[str, object], field_name: str) -> str | None:
     if isinstance(value, str):
         stripped = value.strip()
         return stripped if stripped else None
-    raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be a string when provided.")
+    raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be a string when provided.")
 
 
 def optional_int(args: Mapping[str, object], field_name: str) -> int | None:
@@ -47,10 +47,10 @@ def optional_int(args: Mapping[str, object], field_name: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool):
-        raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be an integer.")
+        raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be an integer.")
     if isinstance(value, int):
         return value
-    raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be an integer.")
+    raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be an integer.")
 
 
 def int_with_default(args: Mapping[str, object], field_name: str, default_value: int) -> int:
@@ -65,10 +65,10 @@ def optional_float(args: Mapping[str, object], field_name: str) -> float | None:
     if value is None:
         return None
     if isinstance(value, bool):
-        raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be numeric.")
+        raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be numeric.")
     if isinstance(value, (int, float)):
         return float(value)
-    raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be numeric.")
+    raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be numeric.")
 
 
 def float_with_default(args: Mapping[str, object], field_name: str, default_value: float) -> float:
@@ -88,7 +88,7 @@ def optional_bool(
         return default_value
     if isinstance(value, bool):
         return value
-    raise ForgeRunSpecError(f"Run-spec field '{field_name}' must be true/false.")
+    raise CrucibleRunSpecError(f"Run-spec field '{field_name}' must be true/false.")
 
 
 def parse_position_embedding_type(args: Mapping[str, object]) -> PositionEmbeddingType:
@@ -99,7 +99,7 @@ def parse_position_embedding_type(args: Mapping[str, object]) -> PositionEmbeddi
     if value in SUPPORTED_POSITION_EMBEDDING_TYPES:
         return cast(PositionEmbeddingType, value)
     supported_rows = ", ".join(SUPPORTED_POSITION_EMBEDDING_TYPES)
-    raise ForgeRunSpecError(
+    raise CrucibleRunSpecError(
         f"Invalid position_embedding_type '{value}'. Use one of: {supported_rows}."
     )
 
@@ -112,7 +112,7 @@ def parse_optimizer_type(args: Mapping[str, object]) -> OptimizerType:
     if value in SUPPORTED_TRAIN_OPTIMIZER_TYPES:
         return cast(OptimizerType, value)
     supported_rows = ", ".join(SUPPORTED_TRAIN_OPTIMIZER_TYPES)
-    raise ForgeRunSpecError(f"Invalid optimizer_type '{value}'. Use one of: {supported_rows}.")
+    raise CrucibleRunSpecError(f"Invalid optimizer_type '{value}'. Use one of: {supported_rows}.")
 
 
 def parse_precision_mode(args: Mapping[str, object]) -> PrecisionMode:
@@ -123,7 +123,7 @@ def parse_precision_mode(args: Mapping[str, object]) -> PrecisionMode:
     if value in SUPPORTED_TRAIN_PRECISION_MODES:
         return cast(PrecisionMode, value)
     supported_rows = ", ".join(SUPPORTED_TRAIN_PRECISION_MODES)
-    raise ForgeRunSpecError(f"Invalid precision_mode '{value}'. Use one of: {supported_rows}.")
+    raise CrucibleRunSpecError(f"Invalid precision_mode '{value}'. Use one of: {supported_rows}.")
 
 
 def parse_scheduler_type(args: Mapping[str, object]) -> SchedulerType:
@@ -134,4 +134,4 @@ def parse_scheduler_type(args: Mapping[str, object]) -> SchedulerType:
     if value in SUPPORTED_TRAIN_SCHEDULER_TYPES:
         return cast(SchedulerType, value)
     supported_rows = ", ".join(SUPPORTED_TRAIN_SCHEDULER_TYPES)
-    raise ForgeRunSpecError(f"Invalid scheduler_type '{value}'. Use one of: {supported_rows}.")
+    raise CrucibleRunSpecError(f"Invalid scheduler_type '{value}'. Use one of: {supported_rows}.")

@@ -7,7 +7,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.multimodal_types import MultimodalOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -56,7 +56,7 @@ def run_multimodal_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -75,14 +75,14 @@ def _build_mm_context(records, options, training_options, random_seed, run_id, c
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     data = _load_mm_data(options.multimodal_data_path)
     if not data:
-        raise ForgeServeError("No multimodal data loaded.")
+        raise CrucibleServeError("No multimodal data loaded.")
     random.Random(random_seed).shuffle(data)
     train_batches, val_batches = _build_mm_batches(data, tokenizer, options)
     device = resolve_execution_device(torch_module)
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -104,7 +104,7 @@ def _build_mm_context(records, options, training_options, random_seed, run_id, c
 def _load_mm_data(data_path):
     path = Path(data_path)
     if not path.exists():
-        raise ForgeServeError(f"Multimodal data file not found: {data_path}")
+        raise CrucibleServeError(f"Multimodal data file not found: {data_path}")
     data = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -206,5 +206,5 @@ def _import_torch():
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError("Multimodal training requires torch.") from error
+        raise CrucibleDependencyError("Multimodal training requires torch.") from error
     return torch

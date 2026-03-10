@@ -62,11 +62,11 @@ def _parse_number(text: str) -> float | None:
 
 def _load_gsm8k_examples() -> list[dict[str, object]]:
     """Load GSM8K examples from HuggingFace datasets."""
-    from core.errors import ForgeDependencyError
+    from core.errors import CrucibleDependencyError
     try:
         from datasets import load_dataset  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "GSM8K benchmark requires the datasets package. "
             "Install with: pip install datasets"
         ) from error

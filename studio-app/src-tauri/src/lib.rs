@@ -1,4 +1,4 @@
-//! Tauri entrypoint and command wiring for Forge Studio desktop app.
+//! Tauri entrypoint and command wiring for Crucible Studio desktop app.
 
 mod commands;
 mod models;
@@ -8,7 +8,7 @@ use tauri::{Manager, RunEvent};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
-        .manage(commands::forge_task_store::CommandTaskStore::default())
+        .manage(commands::crucible_task_store::CommandTaskStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -17,18 +17,19 @@ pub fn run() {
             commands::dataset_queries::list_datasets,
             commands::dataset_queries::load_training_history,
             commands::dataset_queries::sample_records,
-            commands::forge_commands::start_forge_command,
-            commands::forge_commands::get_forge_command_status,
-            commands::forge_commands::list_forge_tasks,
-            commands::forge_commands::kill_forge_task,
-            commands::forge_commands::rename_forge_task,
-            commands::forge_commands::delete_forge_task,
+            commands::crucible_commands::start_crucible_command,
+            commands::crucible_commands::get_crucible_command_status,
+            commands::crucible_commands::list_crucible_tasks,
+            commands::crucible_commands::kill_crucible_task,
+            commands::crucible_commands::rename_crucible_task,
+            commands::crucible_commands::delete_crucible_task,
             commands::runtime_queries::list_training_runs,
             commands::runtime_queries::get_lineage_graph,
             commands::runtime_queries::get_hardware_profile,
             commands::model_queries::list_model_groups,
             commands::model_queries::list_model_versions,
             commands::model_queries::get_model_architecture,
+            commands::model_queries::get_model_index_mtime,
             commands::config_store::load_training_config,
             commands::config_store::save_training_config,
             commands::remote_queries::list_clusters,
@@ -48,7 +49,7 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::ExitRequested { .. } = event {
-            let store = app_handle.state::<commands::forge_task_store::CommandTaskStore>();
+            let store = app_handle.state::<commands::crucible_task_store::CommandTaskStore>();
             store.kill_all_running();
         }
     });

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from core.errors import ForgeSftError
+from core.errors import CrucibleSftError
 from core.sft_types import SftExample
 from serve.sft_data_loader import load_sft_examples, validate_sft_example
 
@@ -33,7 +33,7 @@ def test_load_sft_examples_valid_jsonl(tmp_path) -> None:
 
 
 def test_load_sft_examples_missing_prompt_raises(tmp_path) -> None:
-    """Rows missing 'prompt' should raise ForgeSftError with line number."""
+    """Rows missing 'prompt' should raise CrucibleSftError with line number."""
     data_file = tmp_path / "sft_data.jsonl"
     rows = [
         {"response": "Missing prompt field."},
@@ -43,12 +43,12 @@ def test_load_sft_examples_missing_prompt_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeSftError, match="line 1.*prompt"):
+    with pytest.raises(CrucibleSftError, match="line 1.*prompt"):
         load_sft_examples(str(data_file))
 
 
 def test_load_sft_examples_empty_response_raises(tmp_path) -> None:
-    """Rows with empty 'response' should raise ForgeSftError."""
+    """Rows with empty 'response' should raise CrucibleSftError."""
     data_file = tmp_path / "sft_data.jsonl"
     rows = [
         {"prompt": "A question", "response": "   "},
@@ -58,7 +58,7 @@ def test_load_sft_examples_empty_response_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeSftError, match="line 1.*response"):
+    with pytest.raises(CrucibleSftError, match="line 1.*response"):
         load_sft_examples(str(data_file))
 
 

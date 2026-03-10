@@ -41,11 +41,11 @@ def run_hellaswag(model_path: str) -> BenchmarkResult:
 
 def _load_hellaswag_examples() -> list[dict[str, object]]:
     """Load HellaSwag examples from HuggingFace datasets."""
-    from core.errors import ForgeDependencyError
+    from core.errors import CrucibleDependencyError
     try:
         from datasets import load_dataset  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "HellaSwag benchmark requires the datasets package. "
             "Install with: pip install datasets"
         ) from error

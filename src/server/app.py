@@ -1,4 +1,4 @@
-"""FastAPI application factory for Forge collaboration server.
+"""FastAPI application factory for Crucible collaboration server.
 
 This module creates and configures the FastAPI application with
 database setup and route registration.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from server.database import (
     DatabaseConfig,
     create_engine_from_config,
@@ -23,7 +23,7 @@ def _import_fastapi() -> Any:
         import fastapi
         return fastapi
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "fastapi is required for the collaboration server. "
             "Install it with: pip install fastapi"
         ) from exc
@@ -39,13 +39,13 @@ def create_app(config: DatabaseConfig | None = None) -> Any:
         Configured FastAPI application instance.
 
     Raises:
-        ForgeDependencyError: If fastapi is not installed.
+        CrucibleDependencyError: If fastapi is not installed.
     """
     fastapi = _import_fastapi()
     resolved_config = config or DatabaseConfig()
 
     app = fastapi.FastAPI(
-        title="Forge Collaboration Server",
+        title="Crucible Collaboration Server",
         description="Real-time collaboration for ML training runs",
         version="0.1.0",
     )

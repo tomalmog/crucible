@@ -38,11 +38,11 @@ def run_mmlu(model_path: str) -> BenchmarkResult:
 
 def _load_mmlu_examples() -> list[dict[str, object]]:
     """Load MMLU examples from HuggingFace datasets."""
-    from core.errors import ForgeDependencyError
+    from core.errors import CrucibleDependencyError
     try:
         from datasets import load_dataset  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "MMLU benchmark requires the datasets package. "
             "Install with: pip install datasets"
         ) from error

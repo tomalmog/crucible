@@ -1,4 +1,4 @@
-"""LLM-as-Judge command wiring for Forge CLI.
+"""LLM-as-Judge command wiring for Crucible CLI.
 
 This module provides the judge command for evaluating model
 outputs using an external LLM judge.
@@ -11,10 +11,10 @@ import json
 from pathlib import Path
 
 from eval.llm_judge import DEFAULT_CRITERIA, JudgeCriteria, LlmJudge
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_judge_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_judge_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle judge command invocation."""
     criteria_names = args.criteria.split(",") if args.criteria else None
     if criteria_names:

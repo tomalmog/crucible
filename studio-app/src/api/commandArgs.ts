@@ -282,7 +282,7 @@ export function buildRemoteMethodArgs(
   return out;
 }
 
-/** Build the full CLI args array for `forge remote submit ...`. */
+/** Build the full CLI args array for `crucible remote submit ...`. */
 export function buildRemoteSubmitArgs(
   method: TrainingMethod,
   methodArgsJson: string,

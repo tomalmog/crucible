@@ -11,7 +11,7 @@ import math
 import random as random_module
 from typing import Sequence
 
-from core.errors import ForgeSweepError
+from core.errors import CrucibleSweepError
 from core.sweep_types import SweepConfig, SweepParameter
 
 
@@ -29,7 +29,7 @@ def generate_sweep_parameters(
         List of parameter dictionaries for each trial.
 
     Raises:
-        ForgeSweepError: If strategy is unsupported or parameters invalid.
+        CrucibleSweepError: If strategy is unsupported or parameters invalid.
     """
     _validate_parameters(config.parameters)
     if config.strategy == "grid":
@@ -40,7 +40,7 @@ def generate_sweep_parameters(
             config.max_trials,
             random_seed,
         )
-    raise ForgeSweepError(
+    raise CrucibleSweepError(
         f"Unsupported sweep strategy '{config.strategy}'. Use 'grid' or 'random'."
     )
 
@@ -57,11 +57,11 @@ def generate_grid_parameters(
         List of parameter dictionaries, one per grid point.
 
     Raises:
-        ForgeSweepError: If any parameter has no values for grid search.
+        CrucibleSweepError: If any parameter has no values for grid search.
     """
     for param in parameters:
         if not param.values:
-            raise ForgeSweepError(
+            raise CrucibleSweepError(
                 f"Grid search requires explicit 'values' for parameter "
                 f"'{param.name}'. Provide at least one value."
             )
@@ -87,7 +87,7 @@ def generate_random_parameters(
         List of parameter dictionaries, one per trial.
 
     Raises:
-        ForgeSweepError: If min_value >= max_value for any parameter.
+        CrucibleSweepError: If min_value >= max_value for any parameter.
     """
     _validate_random_bounds(parameters)
     rng = random_module.Random(random_seed)
@@ -136,10 +136,10 @@ def _sample_log_uniform(
         Log-uniformly sampled value.
 
     Raises:
-        ForgeSweepError: If bounds are not positive for log scale.
+        CrucibleSweepError: If bounds are not positive for log scale.
     """
     if min_value <= 0 or max_value <= 0:
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             "Log-scale sampling requires positive min_value and max_value."
         )
     log_min = math.log(min_value)
@@ -156,10 +156,10 @@ def _validate_parameters(
         parameters: Sweep parameters to validate.
 
     Raises:
-        ForgeSweepError: If parameters tuple is empty.
+        CrucibleSweepError: If parameters tuple is empty.
     """
     if not parameters:
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             "Sweep requires at least one parameter. Add parameters to config."
         )
 
@@ -173,13 +173,13 @@ def _validate_random_bounds(
         parameters: Parameters to validate.
 
     Raises:
-        ForgeSweepError: If min_value >= max_value for non-values params.
+        CrucibleSweepError: If min_value >= max_value for non-values params.
     """
     for param in parameters:
         if param.values:
             continue
         if param.min_value >= param.max_value:
-            raise ForgeSweepError(
+            raise CrucibleSweepError(
                 f"Parameter '{param.name}' has min_value >= max_value "
                 f"({param.min_value} >= {param.max_value}). "
                 f"Set min_value < max_value for random search."

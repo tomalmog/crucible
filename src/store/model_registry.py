@@ -1,7 +1,7 @@
-"""Model versioning registry for Forge.
+"""Model versioning registry for Crucible.
 
 This module provides the main ModelRegistry class that manages
-model versions, tags, and rollback under .forge/models/.
+model versions, tags, and rollback under .crucible/models/.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.errors import ForgeModelRegistryError
+from core.errors import CrucibleModelRegistryError
 from core.model_registry_types import DeleteResult, ModelTag, ModelVersion
 from store.model_diff import diff_model_versions
 from store.model_registry_io import (
@@ -32,7 +32,7 @@ from store.model_rollback import rollback_active_version
 
 
 class ModelRegistry:
-    """Manages model versions persisted under .forge/models/.
+    """Manages model versions persisted under .crucible/models/.
 
     Provides registration, tagging, diffing, and rollback of
     model artifacts produced by training runs.
@@ -42,7 +42,7 @@ class ModelRegistry:
         """Create a model registry rooted at data_root.
 
         Args:
-            data_root: Root .forge directory for storage.
+            data_root: Root .crucible directory for storage.
         """
         self._data_root = data_root
         self._models_root = data_root / "models"
@@ -136,11 +136,11 @@ class ModelRegistry:
             The requested ModelVersion record.
 
         Raises:
-            ForgeModelRegistryError: If version does not exist.
+            CrucibleModelRegistryError: If version does not exist.
         """
         version_path = self._models_root / "versions" / f"{version_id}.json"
         if not version_path.exists():
-            raise ForgeModelRegistryError(
+            raise CrucibleModelRegistryError(
                 f"Model version {version_id} not found in registry."
             )
         return load_model_version(self._models_root, version_id)
@@ -164,7 +164,7 @@ class ModelRegistry:
             Newly created ModelTag record.
 
         Raises:
-            ForgeModelRegistryError: If version does not exist.
+            CrucibleModelRegistryError: If version does not exist.
         """
         self.get_version(version_id)
         tag = ModelTag(
@@ -200,7 +200,7 @@ class ModelRegistry:
             The ModelVersion the tag points to.
 
         Raises:
-            ForgeModelRegistryError: If tag does not exist.
+            CrucibleModelRegistryError: If tag does not exist.
         """
         tag = load_model_tag(self._models_root, tag_name)
         return self.get_version(tag.version_id)
@@ -234,7 +234,7 @@ class ModelRegistry:
             The ModelVersion now marked as active.
 
         Raises:
-            ForgeModelRegistryError: If version does not exist.
+            CrucibleModelRegistryError: If version does not exist.
         """
         return rollback_active_version(self, model_name, version_id)
 
@@ -475,7 +475,7 @@ def _safe_delete_local_path(
     """Delete a local model path only if it lives under a safe subdirectory.
 
     Args:
-        data_root: The .forge root directory.
+        data_root: The .crucible root directory.
         model_path: Path to the model artifact.
 
     Returns:

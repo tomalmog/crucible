@@ -1,7 +1,7 @@
 """ONNX Runtime chat inference runner.
 
 This module executes autoregressive text generation against ONNX model
-artifacts exported from compatible Forge/PyTorch architectures.
+artifacts exported from compatible Crucible/PyTorch architectures.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from core.chat_types import ChatOptions, ChatTokenizer
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.types import DataRecord
 from serve.chat_option_resolver import resolve_chat_tokenizer, resolve_chat_training_options
 
@@ -61,7 +61,7 @@ def _build_onnx_chat_context(
 def _resolve_model_path(model_path: str) -> Path:
     resolved_path = Path(model_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Model file not found at {resolved_path}. "
             "Provide a valid --model-path for chat inference."
         )
@@ -72,7 +72,7 @@ def _import_onnxruntime_optional() -> Any:
     try:
         import onnxruntime
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "ONNX inference requires onnxruntime, but it is not installed. "
             "Install with pip install -e .[onnx] to run chat on .onnx models."
         ) from error
@@ -83,7 +83,7 @@ def _import_numpy_optional() -> Any:
     try:
         import numpy
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "ONNX inference requires numpy, but it is not installed. "
             "Install with pip install -e .[onnx] to run chat on .onnx models."
         ) from error
@@ -95,7 +95,7 @@ def _build_session(ort_module: Any, model_path: Path) -> Any:
     try:
         return ort_module.InferenceSession(str(model_path), providers=providers)
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to initialize ONNX Runtime session from {model_path}: {error}. "
             "Verify the ONNX artifact and retry."
         ) from error
@@ -105,14 +105,14 @@ def _resolve_input_names(session: Any) -> list[str]:
     """Resolve all input names declared by the ONNX model graph."""
     inputs = list(session.get_inputs())
     if not inputs:
-        raise ForgeServeError("ONNX model has no inputs. Provide a valid language-model graph.")
+        raise CrucibleServeError("ONNX model has no inputs. Provide a valid language-model graph.")
     return [str(inp.name) for inp in inputs]
 
 
 def _resolve_output_name(session: Any) -> str:
     outputs = list(session.get_outputs())
     if not outputs:
-        raise ForgeServeError("ONNX model has no outputs. Provide a valid language-model graph.")
+        raise CrucibleServeError("ONNX model has no outputs. Provide a valid language-model graph.")
     return str(outputs[0].name)
 
 

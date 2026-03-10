@@ -18,4 +18,4 @@ def test_create_app_with_default_config() -> None:
     """create_app with None config should use default DatabaseConfig."""
     app = create_app()
     assert app is not None
-    assert app.title == "Forge Collaboration Server"
+    assert app.title == "Crucible Collaboration Server"

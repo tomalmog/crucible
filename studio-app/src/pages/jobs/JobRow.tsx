@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { CommandTaskStatus } from "../../types";
 import { parseTrainingProgress } from "../training/TrainingRunMonitor";
 import { formatDuration } from "../../components/shared/formatDuration";
-import { statusBadgeClass, extractForgeError } from "./JobsPage";
+import { statusBadgeClass, extractCrucibleError } from "./JobsPage";
 import {
   Square,
   ChevronDown,
@@ -160,7 +160,7 @@ export function JobRow({
           {job.stderr && (
             <div>
               {job.status === "failed" && (() => {
-                const friendly = extractForgeError(job.stderr);
+                const friendly = extractCrucibleError(job.stderr);
                 return friendly ? (
                   <div className="error-alert-prominent">
                     {friendly}

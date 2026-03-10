@@ -1,4 +1,4 @@
-"""Forge CLI entry points.
+"""Crucible CLI entry points.
 This module maps argparse commands onto SDK calls via a dispatch table.
 """
 
@@ -72,9 +72,9 @@ from cli.sweep_command import add_sweep_command, run_sweep_command
 from cli.synthetic_command import add_synthetic_command, run_synthetic_command
 from cli.train_command import add_train_command, run_train_command
 from cli.verify_command import add_verify_command, run_verify_command
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from serve.training_progress import emit_progress
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 _CommandHandler = Callable[..., int]
 
@@ -152,8 +152,8 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level CLI parser."""
-    parser = argparse.ArgumentParser(prog="forge", description="Forge CLI")
-    parser.add_argument("--data-root", help="Override FORGE_DATA_ROOT for this command")
+    parser = argparse.ArgumentParser(prog="crucible", description="Crucible CLI")
+    parser.add_argument("--data-root", help="Override CRUCIBLE_DATA_ROOT for this command")
     subparsers = parser.add_subparsers(dest="command", required=True)
     for registrar in _COMMAND_REGISTRARS:
         registrar(subparsers)
@@ -168,7 +168,7 @@ _TRAINING_COMMANDS = frozenset({
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Forge CLI."""
+    """Run the Crucible CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
     client = _build_client(args.data_root)
@@ -182,9 +182,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     return handler(client, args)
 
 
-def _build_client(data_root: str | None) -> ForgeClient:
+def _build_client(data_root: str | None) -> CrucibleClient:
     """Build SDK client with optional data-root override."""
-    config = ForgeConfig.from_env()
+    config = CrucibleConfig.from_env()
     if data_root:
         config = replace(config, data_root=Path(data_root).expanduser().resolve())
-    return ForgeClient(config)
+    return CrucibleClient(config)

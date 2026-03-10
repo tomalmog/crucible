@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from core.domain_adaptation_types import DomainAdaptationOptions
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataRecord, RecordMetadata, TrainingRunResult
 from serve.domain_adaptation_runner import run_domain_adaptation
 from serve.training_execution import TrainingLoopResult
@@ -42,7 +42,7 @@ def test_domain_adaptation_raises_without_torch(monkeypatch, tmp_path) -> None:
         output_dir=str(tmp_path),
         base_model_path="/tmp/base.pt",
     )
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         run_domain_adaptation(
             _build_records(), options,
             random_seed=1, data_root=tmp_path,

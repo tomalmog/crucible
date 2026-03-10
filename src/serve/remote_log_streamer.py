@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import TERMINAL_JOB_STATES
 from serve.remote_job_state import is_job_done, query_sacct_details, sync_final_state
 from serve.ssh_connection import SshSession
@@ -70,7 +70,7 @@ def fetch_remote_logs(
                 "The file may be on a compute node's local /tmp "
                 "which is not accessible from the login node.\n"
                 "Consider setting your cluster's Remote Workspace "
-                "to a shared filesystem path (e.g. /home/you/forge-jobs)."
+                "to a shared filesystem path (e.g. /home/you/crucible-jobs)."
                 + (f"\n\n--- Slurm Job Info (sacct) ---\n{sacct_info}" if sacct_info else "")
             )
         return session.tail_last(log_path, lines=tail_lines)
@@ -110,5 +110,5 @@ def _fetch_static_logs(
     try:
         content = fetch_remote_logs(data_root, record.job_id, tail_lines)  # type: ignore[union-attr]
         yield from content.splitlines()
-    except ForgeRemoteError:
+    except CrucibleRemoteError:
         yield f"[could not retrieve logs for {record.job_id}]"  # type: ignore[union-attr]

@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 from core.deployment_types import LatencyProfile
-from core.errors import ForgeDeployError, ForgeDependencyError
+from core.errors import CrucibleDeployError, CrucibleDependencyError
 
 
 def profile_model_latency(
@@ -36,15 +36,15 @@ def profile_model_latency(
         Tuple of LatencyProfile results for each combination.
 
     Raises:
-        ForgeDeployError: If model path is invalid.
-        ForgeDependencyError: If onnxruntime is not available.
+        CrucibleDeployError: If model path is invalid.
+        CrucibleDependencyError: If onnxruntime is not available.
     """
     if not os.path.isfile(model_path):
-        raise ForgeDeployError(f"Model file not found: {model_path}")
+        raise CrucibleDeployError(f"Model file not found: {model_path}")
     if not model_path.endswith(".onnx"):
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Latency profiling requires an ONNX model, got '{model_path}'. "
-            "Export your PyTorch model to ONNX first with: forge deploy package --format onnx"
+            "Export your PyTorch model to ONNX first with: crucible deploy package --format onnx"
         )
 
     session = _load_onnx_session(model_path)
@@ -70,12 +70,12 @@ def _load_onnx_session(model_path: str) -> Any:
         An onnxruntime InferenceSession.
 
     Raises:
-        ForgeDependencyError: If onnxruntime is not installed.
+        CrucibleDependencyError: If onnxruntime is not installed.
     """
     try:
         import onnxruntime as ort  # type: ignore[import-untyped]
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "onnxruntime is required for latency profiling. "
             "Install with: pip install onnxruntime"
         ) from exc

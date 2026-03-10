@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from serve.model_weights import load_initial_weights
 
 
@@ -65,7 +65,7 @@ class _FakeOnnxModule:
 
 def test_load_initial_weights_raises_for_missing_path(tmp_path: Path) -> None:
     """Missing checkpoint path should raise a clear serve error."""
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_initial_weights(
             torch_module=_FakeTorch(payload={}),
             model=_FakeModel(),
@@ -113,7 +113,7 @@ def test_load_initial_weights_rejects_invalid_payload(tmp_path: Path) -> None:
     model_path = tmp_path / "model.pt"
     model_path.write_text("placeholder", encoding="utf-8")
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_initial_weights(
             torch_module=_FakeTorch(payload=["not", "a", "mapping"]),
             model=_FakeModel(),
@@ -156,10 +156,10 @@ def test_load_initial_weights_onnx_requires_onnx_dependency(
     model_path.write_text("placeholder", encoding="utf-8")
     monkeypatch.setattr(
         "serve.model_weights._import_onnx_optional",
-        lambda: (_ for _ in ()).throw(ForgeDependencyError("missing onnx")),
+        lambda: (_ for _ in ()).throw(CrucibleDependencyError("missing onnx")),
     )
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         load_initial_weights(
             torch_module=_FakeTorch(payload={}),
             model=_FakeModel(),

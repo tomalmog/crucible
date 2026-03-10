@@ -16,7 +16,7 @@ from core.benchmark_types import (
     LatencyResult,
     PerplexityResult,
 )
-from core.errors import ForgeBenchmarkError, ForgeDependencyError
+from core.errors import CrucibleBenchmarkError, CrucibleDependencyError
 from core.types import DataRecord
 from serve.benchmark_latency import profile_latency
 from serve.benchmark_perplexity import compute_perplexity_benchmark
@@ -40,8 +40,8 @@ def run_benchmark(
         Combined benchmark result.
 
     Raises:
-        ForgeBenchmarkError: If model loading or evaluation fails.
-        ForgeDependencyError: If torch is unavailable.
+        CrucibleBenchmarkError: If model loading or evaluation fails.
+        CrucibleDependencyError: If torch is unavailable.
     """
     torch_module = _import_torch()
     model, device = _load_model(torch_module, config.model_path)
@@ -72,7 +72,7 @@ def format_benchmark_report(result: BenchmarkResult) -> str:
         Multi-line text report string.
     """
     lines = [
-        "=== Forge Benchmark Report ===",
+        "=== Crucible Benchmark Report ===",
         f"Model: {result.model_path}",
         f"Dataset: {result.dataset_name}",
     ]
@@ -109,7 +109,7 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Benchmark requires torch. Install torch to run benchmarks."
         ) from error
     return torch
@@ -121,14 +121,14 @@ def _load_model(
     """Load model weights and return model and device."""
     path = Path(model_path).expanduser().resolve()
     if not path.exists():
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             f"Model file not found at {path}."
         )
     device = resolve_execution_device(torch_module)
     try:
         model = torch_module.load(str(path), map_location=device)
     except Exception as error:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             f"Failed to load model from {path}: {error}"
         ) from error
     model.eval()
@@ -147,7 +147,7 @@ def _tokenize_records(
         if len(encoded) > 1:
             sequences.append(encoded)
     if not sequences:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             "No valid sequences generated from records."
         )
     return sequences

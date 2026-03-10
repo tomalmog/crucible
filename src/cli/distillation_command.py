@@ -1,4 +1,4 @@
-"""Distillation command wiring for Forge CLI.
+"""Distillation command wiring for Crucible CLI.
 
 This module isolates distillation command parser and execution logic,
 mapping CLI arguments to DistillationOptions for knowledge distillation.
@@ -32,10 +32,10 @@ from core.constants import (
 )
 from core.distillation_types import DistillationOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_distillation_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_distillation_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle distillation command invocation.
 
     Args:

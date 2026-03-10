@@ -11,7 +11,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeOrpoError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleOrpoError, CrucibleServeError
 from core.orpo_types import OrpoOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -73,7 +73,7 @@ def run_orpo_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -101,7 +101,7 @@ def _build_orpo_runtime_context(
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     orpo_data = _load_orpo_data(options.orpo_data_path)
     if not orpo_data:
-        raise ForgeOrpoError(
+        raise CrucibleOrpoError(
             "No ORPO preference data loaded. Check orpo_data_path file content."
         )
     random.Random(random_seed).shuffle(orpo_data)
@@ -112,7 +112,7 @@ def _build_orpo_runtime_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -142,7 +142,7 @@ def _load_orpo_data(data_path: str) -> list[dict[str, str]]:
     """Load ORPO preference pairs from JSONL file."""
     path = Path(data_path)
     if not path.exists():
-        raise ForgeOrpoError(f"ORPO data file not found: {data_path}")
+        raise CrucibleOrpoError(f"ORPO data file not found: {data_path}")
     data: list[dict[str, str]] = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -280,7 +280,7 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
-            "ORPO training requires torch. Install torch to run forge orpo-train."
+        raise CrucibleDependencyError(
+            "ORPO training requires torch. Install torch to run crucible orpo-train."
         ) from error
     return torch

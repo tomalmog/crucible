@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 
 interface ExperimentRunDetail {
   hyperparameters?: Record<string, string>;
@@ -14,7 +14,7 @@ interface ExperimentDetailProps {
 }
 
 export function ExperimentDetail({ runId, dataRoot }: ExperimentDetailProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [detail, setDetail] = useState<ExperimentRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
 

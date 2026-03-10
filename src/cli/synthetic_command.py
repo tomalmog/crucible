@@ -7,10 +7,10 @@ import json
 from pathlib import Path
 
 from serve.synthetic_data import export_synthetic_data, filter_by_quality, generate_synthetic_data
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_synthetic_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_synthetic_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     seed_prompts = _load_seed_prompts(args.seed_prompts)
     if not seed_prompts:
         print("No seed prompts found.")

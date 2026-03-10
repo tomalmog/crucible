@@ -10,15 +10,15 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.constants import SUPPORTED_TEXT_EXTENSIONS
-from core.errors import ForgeDependencyError, ForgeIngestError
+from core.errors import CrucibleDependencyError, CrucibleIngestError
 from core.s3_uri import S3Location, parse_s3_uri
 from core.types import SourceTextRecord
 from ingest.parquet_reader import read_parquet_records
 
 
-def read_source_records(source_uri: str, config: ForgeConfig) -> list[SourceTextRecord]:
+def read_source_records(source_uri: str, config: CrucibleConfig) -> list[SourceTextRecord]:
     """Load source records from local files or S3.
 
     Args:
@@ -29,7 +29,7 @@ def read_source_records(source_uri: str, config: ForgeConfig) -> list[SourceText
         Ordered list of source records.
 
     Raises:
-        ForgeIngestError: If source cannot be read.
+        CrucibleIngestError: If source cannot be read.
     """
     if source_uri.startswith("s3://"):
         return _read_s3_records(source_uri, config)
@@ -46,10 +46,10 @@ def _read_local_records(source_path: Path) -> list[SourceTextRecord]:
         Collected source records.
 
     Raises:
-        ForgeIngestError: If path is missing or unreadable.
+        CrucibleIngestError: If path is missing or unreadable.
     """
     if not source_path.exists():
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Failed to read source at {source_path}: path does not exist. "
             "Provide an existing file or directory."
         )
@@ -60,7 +60,7 @@ def _read_local_records(source_path: Path) -> list[SourceTextRecord]:
         if file_path.is_file() and _is_supported_file(file_path):
             records.extend(_read_file_records(file_path))
     if not records:
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"No readable text files found under {source_path}. "
             f"Supported extensions: {SUPPORTED_TEXT_EXTENSIONS}."
         )
@@ -95,7 +95,7 @@ def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
         Source records extracted from JSON lines.
 
     Raises:
-        ForgeIngestError: If JSONL has invalid lines or missing text.
+        CrucibleIngestError: If JSONL has invalid lines or missing text.
     """
     records: list[SourceTextRecord] = []
     for line_number, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
@@ -120,12 +120,12 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
         Parsed JSON object containing text field.
 
     Raises:
-        ForgeIngestError: If line is invalid.
+        CrucibleIngestError: If line is invalid.
     """
     try:
         payload = json.loads(line)
     except json.JSONDecodeError as error:
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Failed to parse JSONL record at {file_path}:{line_number}: "
             f"{error.msg}. Fix the JSON syntax and retry ingest."
         ) from error
@@ -137,14 +137,14 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
     response = payload.get("response")
     if isinstance(prompt, str) and isinstance(response, str):
         return {"text": f"{prompt}\n{response}"}
-    raise ForgeIngestError(
+    raise CrucibleIngestError(
         f"Invalid JSONL record at {file_path}:{line_number}: "
         "expected 'text' field or 'prompt'/'response' fields. "
         "Fix the format and retry ingest."
     )
 
 
-def _read_s3_records(source_uri: str, config: ForgeConfig) -> list[SourceTextRecord]:
+def _read_s3_records(source_uri: str, config: CrucibleConfig) -> list[SourceTextRecord]:
     """Read records from S3 objects under a prefix.
 
     Args:
@@ -155,21 +155,21 @@ def _read_s3_records(source_uri: str, config: ForgeConfig) -> list[SourceTextRec
         Source records loaded from objects.
 
     Raises:
-        ForgeIngestError: If S3 read fails or no records found.
+        CrucibleIngestError: If S3 read fails or no records found.
     """
     location = parse_s3_uri(source_uri, domain="ingest")
     s3_client = _create_s3_client(config)
     object_keys = _list_s3_keys(s3_client, location)
     records = _download_s3_text_records(s3_client, location.bucket, object_keys)
     if not records:
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"No readable text objects found for {source_uri}. "
             "Upload .txt/.md/.text/.jsonl files and retry ingest."
         )
     return records
 
 
-def _create_s3_client(config: ForgeConfig) -> Any:
+def _create_s3_client(config: CrucibleConfig) -> Any:
     """Create a boto3 S3 client.
 
     Args:
@@ -179,12 +179,12 @@ def _create_s3_client(config: ForgeConfig) -> Any:
         Boto3 S3 client.
 
     Raises:
-        ForgeDependencyError: If boto3 is missing.
+        CrucibleDependencyError: If boto3 is missing.
     """
     try:
         import boto3
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "S3 support requires boto3, but it is not installed. "
             "Install boto3 to ingest from s3:// sources."
         ) from error
@@ -193,7 +193,7 @@ def _create_s3_client(config: ForgeConfig) -> Any:
     return session.client("s3")
 
 
-def _build_boto3_session_kwargs(config: ForgeConfig) -> dict[str, str]:
+def _build_boto3_session_kwargs(config: CrucibleConfig) -> dict[str, str]:
     """Build boto3 Session kwargs from config.
 
     Args:
@@ -266,7 +266,7 @@ def _records_from_text_body(source_uri: str, key: str, body: str) -> list[Source
         Parsed records.
 
     Raises:
-        ForgeIngestError: If JSONL content is invalid.
+        CrucibleIngestError: If JSONL content is invalid.
     """
     suffix = Path(key).suffix.lower()
     if suffix != ".jsonl":

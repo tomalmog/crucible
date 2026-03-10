@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import pytest
 
-from core.config import ForgeConfig
-from core.errors import ForgeIngestError
+from core.config import CrucibleConfig
+from core.errors import CrucibleIngestError
 from core.types import DataRecord, RecordMetadata, SourceTextRecord
 from ingest.checkpoint_store import IngestCheckpointStore
 
@@ -24,7 +24,7 @@ def _sample_data_record() -> DataRecord:
 
 def test_prepare_run_initializes_state(tmp_path) -> None:
     """New non-resume run should initialize checkpoint stage."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     checkpoint = IngestCheckpointStore(config.data_root, "demo")
 
     state = checkpoint.prepare_run("sig", resume=False)
@@ -34,11 +34,11 @@ def test_prepare_run_initializes_state(tmp_path) -> None:
 
 def test_prepare_run_resume_requires_matching_signature(tmp_path) -> None:
     """Resume should fail when signature differs from checkpoint state."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     checkpoint = IngestCheckpointStore(config.data_root, "demo")
     checkpoint.prepare_run("sig-1", resume=False)
 
-    with pytest.raises(ForgeIngestError):
+    with pytest.raises(CrucibleIngestError):
         checkpoint.prepare_run("sig-2", resume=True)
 
     assert True
@@ -46,7 +46,7 @@ def test_prepare_run_resume_requires_matching_signature(tmp_path) -> None:
 
 def test_checkpoint_roundtrip_source_records(tmp_path) -> None:
     """Checkpoint should roundtrip source record payloads."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     checkpoint = IngestCheckpointStore(config.data_root, "demo")
     checkpoint.prepare_run("sig", resume=False)
     source_records = [SourceTextRecord(source_uri="a.txt", text="alpha")]
@@ -59,7 +59,7 @@ def test_checkpoint_roundtrip_source_records(tmp_path) -> None:
 
 def test_checkpoint_roundtrip_enriched_records(tmp_path) -> None:
     """Checkpoint should roundtrip enriched DataRecord payloads."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     checkpoint = IngestCheckpointStore(config.data_root, "demo")
     checkpoint.prepare_run("sig", resume=False)
     records = [_sample_data_record()]

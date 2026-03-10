@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from serve.training_run_registry import TrainingRunRegistry
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def test_client_run_spec_delegates_to_shared_executor(monkeypatch) -> None:
-    """ForgeClient.run_spec should route to shared execution engine."""
-    config = replace(ForgeConfig.from_env())
-    client = ForgeClient(config)
+    """CrucibleClient.run_spec should route to shared execution engine."""
+    config = replace(CrucibleConfig.from_env())
+    client = CrucibleClient(config)
 
-    def _fake_execute(client_arg: ForgeClient, spec_file: str) -> tuple[str, ...]:
+    def _fake_execute(client_arg: CrucibleClient, spec_file: str) -> tuple[str, ...]:
         _ = client_arg
         return (f"executed={spec_file}",)
 
@@ -25,9 +25,9 @@ def test_client_run_spec_delegates_to_shared_executor(monkeypatch) -> None:
 
 
 def test_client_hardware_profile_returns_profile_payload(monkeypatch) -> None:
-    """ForgeClient.hardware_profile should return detect_hardware_profile output."""
-    config = replace(ForgeConfig.from_env())
-    client = ForgeClient(config)
+    """CrucibleClient.hardware_profile should return detect_hardware_profile output."""
+    config = replace(CrucibleConfig.from_env())
+    client = CrucibleClient(config)
 
     class _FakeProfile:
         def to_dict(self) -> dict[str, object]:
@@ -41,8 +41,8 @@ def test_client_hardware_profile_returns_profile_payload(monkeypatch) -> None:
 
 def test_client_run_registry_helpers_load_runs_and_lineage(tmp_path) -> None:
     """SDK helper methods should read run IDs, run records, and lineage graph."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
-    client = ForgeClient(config)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
+    client = CrucibleClient(config)
     registry = TrainingRunRegistry(tmp_path)
     run_record = registry.start_run(
         dataset_name="demo",

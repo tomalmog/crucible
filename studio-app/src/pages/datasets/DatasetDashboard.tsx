@@ -1,10 +1,10 @@
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { BarChart } from "../../components/shared/BarChart";
 import { EmptyState } from "../../components/shared/EmptyState";
 
 export function DatasetDashboard() {
-  const { dashboard } = useForge();
+  const { dashboard } = useCrucible();
 
   if (!dashboard) {
     return <EmptyState title="No dashboard data" description="Select a dataset to view quality and source composition." />;

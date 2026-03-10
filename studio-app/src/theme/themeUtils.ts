@@ -1,4 +1,4 @@
-const THEME_KEY = "forge-theme";
+const THEME_KEY = "crucible-theme";
 
 export type Theme = "light" | "dark";
 

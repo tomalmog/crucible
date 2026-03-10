@@ -43,11 +43,11 @@ def run_truthfulqa(model_path: str) -> BenchmarkResult:
 
 def _load_truthfulqa_examples() -> list[dict[str, object]]:
     """Load TruthfulQA MC1 examples from HuggingFace datasets."""
-    from core.errors import ForgeDependencyError
+    from core.errors import CrucibleDependencyError
     try:
         from datasets import load_dataset  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "TruthfulQA benchmark requires the datasets package. "
             "Install with: pip install datasets"
         ) from error

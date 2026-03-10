@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataRecord, RecordMetadata, TrainingOptions, TrainingRunResult
 from serve.training_execution import TrainingLoopResult
 from serve.training_hooks import TrainingHooks
@@ -37,7 +37,7 @@ def test_run_training_raises_without_torch(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(builtins, "__import__", _patched_import)
     options = TrainingOptions(dataset_name="demo", output_dir=str(tmp_path))
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         run_training(
             _build_records(),
             options,

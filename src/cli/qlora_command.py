@@ -1,4 +1,4 @@
-"""QLoRA command wiring for Forge CLI.
+"""QLoRA command wiring for Crucible CLI.
 
 This module isolates QLoRA command parser and execution logic,
 mapping CLI arguments to QloraOptions for quantized LoRA training.
@@ -38,11 +38,11 @@ from core.qlora_types import (
     QloraOptions,
 )
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def run_qlora_command(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Handle QLoRA command invocation."""
     target_modules = (

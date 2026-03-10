@@ -2,7 +2,7 @@
 
 This module defines a protocol for tracking adapters and provides
 concrete implementations for Weights & Biases and TensorBoard.
-Adapters are optional — missing dependencies raise ForgeDependencyError.
+Adapters are optional — missing dependencies raise CrucibleDependencyError.
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ class WandbAdapter:
     """Weights & Biases experiment tracking adapter."""
 
     def __init__(self, project: str, run_name: str) -> None:
-        from core.errors import ForgeDependencyError
+        from core.errors import CrucibleDependencyError
         try:
             import wandb  # type: ignore[import-untyped]
         except ImportError as error:
-            raise ForgeDependencyError(
+            raise CrucibleDependencyError(
                 "W&B tracking requires the wandb package. "
                 "Install with: pip install wandb"
             ) from error
@@ -58,11 +58,11 @@ class TensorBoardAdapter:
     """TensorBoard experiment tracking adapter."""
 
     def __init__(self, log_dir: str) -> None:
-        from core.errors import ForgeDependencyError
+        from core.errors import CrucibleDependencyError
         try:
             from torch.utils.tensorboard import SummaryWriter  # type: ignore[import-untyped]
         except ImportError as error:
-            raise ForgeDependencyError(
+            raise CrucibleDependencyError(
                 "TensorBoard tracking requires tensorboard. "
                 "Install with: pip install tensorboard"
             ) from error

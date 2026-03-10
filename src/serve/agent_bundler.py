@@ -1,6 +1,6 @@
-"""Build a tarball of Forge modules for remote execution.
+"""Build a tarball of Crucible modules for remote execution.
 
-Bundles the minimal set of Forge source modules needed to run
+Bundles the minimal set of Crucible source modules needed to run
 training on a remote Slurm cluster, plus a generated entry script.
 """
 
@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from serve.agent_entry_script import ENTRY_SCRIPT
 
 # Modules to include in the agent tarball
@@ -39,7 +39,7 @@ _SERVE_EXCLUDES = frozenset({
 
 
 def _src_root() -> Path:
-    """Locate the Forge src/ directory."""
+    """Locate the Crucible src/ directory."""
     return Path(__file__).resolve().parent.parent
 
 
@@ -71,7 +71,7 @@ def _compute_src_hash(src_root: Path) -> str:
 
 
 def build_agent_tarball(cache_dir: Path | None = None) -> Path:
-    """Build a tarball containing Forge modules and entry script.
+    """Build a tarball containing Crucible modules and entry script.
 
     Args:
         cache_dir: Directory to cache the tarball. If None, uses tempdir.
@@ -84,13 +84,13 @@ def build_agent_tarball(cache_dir: Path | None = None) -> Path:
 
     if cache_dir is not None:
         cache_dir.mkdir(parents=True, exist_ok=True)
-        cached = cache_dir / f"forge-agent-{content_hash}.tar.gz"
+        cached = cache_dir / f"crucible-agent-{content_hash}.tar.gz"
         if cached.exists():
             return cached
         tarball_path = cached
     else:
-        tmp = tempfile.mkdtemp(prefix="forge-agent-")
-        tarball_path = Path(tmp) / "forge-agent.tar.gz"
+        tmp = tempfile.mkdtemp(prefix="crucible-agent-")
+        tarball_path = Path(tmp) / "crucible-agent.tar.gz"
 
     try:
         with tarfile.open(tarball_path, "w:gz") as tar:
@@ -109,10 +109,10 @@ def build_agent_tarball(cache_dir: Path | None = None) -> Path:
 
             # Add entry script
             _add_string_to_tar(
-                tar, "forge_agent_entry.py", ENTRY_SCRIPT,
+                tar, "crucible_agent_entry.py", ENTRY_SCRIPT,
             )
     except Exception as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to build agent tarball: {error}"
         ) from error
 

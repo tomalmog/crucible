@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ModelListPanel } from "./ModelListPanel";
 import { ModelOverview } from "./ModelOverview";
@@ -11,7 +11,7 @@ import { ModelMergeForm } from "./ModelMergeForm";
 type Tab = "overview" | "diff" | "actions" | "merge";
 
 export function ModelsPage() {
-  const { dataRoot, modelVersions, selectedModel, selectedModelName, refreshModels } = useForge();
+  const { dataRoot, modelVersions, selectedModel, selectedModelName, refreshModels } = useCrucible();
   const [tab, setTab] = useState<Tab>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);

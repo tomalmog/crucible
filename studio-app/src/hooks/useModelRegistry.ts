@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
-import { useForgeCommand } from "./useForgeCommand";
+import { useCrucibleCommand } from "./useCrucibleCommand";
 
 export function useModelRegistry(dataRoot: string) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [listOutput, setListOutput] = useState("");
 
   const listModels = useCallback(async () => {

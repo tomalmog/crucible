@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.errors import ForgeIngestError, ForgeStoreError
+from core.errors import CrucibleIngestError, CrucibleStoreError
 
 
 @dataclass(frozen=True)
@@ -30,8 +30,8 @@ def parse_s3_uri(uri: str, domain: str) -> S3Location:
         Parsed bucket and prefix pair.
 
     Raises:
-        ForgeIngestError: For ingest-domain parse failures.
-        ForgeStoreError: For store-domain parse failures.
+        CrucibleIngestError: For ingest-domain parse failures.
+        CrucibleStoreError: For store-domain parse failures.
     """
     stripped_uri = uri.removeprefix("s3://")
     if "/" not in stripped_uri:
@@ -50,13 +50,13 @@ def _raise_uri_error(uri: str, domain: str) -> None:
         domain: Error domain string.
 
     Raises:
-        ForgeIngestError: For ingest domain.
-        ForgeStoreError: For store domain.
+        CrucibleIngestError: For ingest domain.
+        CrucibleStoreError: For store domain.
     """
     message = (
         f"Invalid S3 URI '{uri}': expected s3://bucket/prefix. "
         "Provide both bucket and prefix."
     )
     if domain == "ingest":
-        raise ForgeIngestError(message)
-    raise ForgeStoreError(message)
+        raise CrucibleIngestError(message)
+    raise CrucibleStoreError(message)

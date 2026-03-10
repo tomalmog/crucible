@@ -1,4 +1,4 @@
-"""Compute CLI command wiring for Forge.
+"""Compute CLI command wiring for Crucible.
 
 This module isolates compute subcommand parser and execution logic,
 mapping CLI arguments to local executor operations for job management.
@@ -10,7 +10,7 @@ import argparse
 
 from compute.compute_target import resolve_executor
 from core.compute_types import ComputeTarget, JobSubmission
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_compute_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -32,7 +32,7 @@ def add_compute_command(subparsers: argparse._SubParsersAction[argparse.Argument
 
 
 def run_compute_command(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Dispatch compute sub-subcommand execution.
 

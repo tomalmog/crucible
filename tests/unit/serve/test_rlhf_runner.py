@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeRlhfError
+from core.errors import CrucibleRlhfError
 from core.rlhf_types import PpoConfig, RewardModelConfig, RlhfOptions
 
 

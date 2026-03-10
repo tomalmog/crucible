@@ -13,7 +13,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 
 _DEFAULT_MAX_RESTARTS = 3
 
@@ -61,7 +61,7 @@ def build_elastic_launch_args(
         List of command-line arguments for subprocess.run.
 
     Raises:
-        ForgeDistributedError: If configuration is invalid.
+        CrucibleDistributedError: If configuration is invalid.
     """
     _validate_elastic_config(min_nodes, max_nodes, nproc_per_node)
     return [
@@ -100,7 +100,7 @@ def launch_elastic_training(
         Exit code from the torchrun subprocess.
 
     Raises:
-        ForgeDistributedError: If configuration is invalid or launch fails.
+        CrucibleDistributedError: If configuration is invalid or launch fails.
     """
     cmd = build_elastic_launch_args(
         min_nodes=min_nodes,
@@ -119,7 +119,7 @@ def launch_elastic_training(
     try:
         result = subprocess.run(cmd, env=env, check=False)
     except OSError as error:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Failed to launch elastic training subprocess: {error}"
         ) from error
     return result.returncode
@@ -138,17 +138,17 @@ def _validate_elastic_config(
         nproc_per_node: Processes per node.
 
     Raises:
-        ForgeDistributedError: If any parameter is invalid.
+        CrucibleDistributedError: If any parameter is invalid.
     """
     if min_nodes < 1:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"min_nodes must be at least 1, got {min_nodes}."
         )
     if max_nodes < min_nodes:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"max_nodes ({max_nodes}) must be >= min_nodes ({min_nodes})."
         )
     if nproc_per_node < 1:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"nproc_per_node must be at least 1, got {nproc_per_node}."
         )

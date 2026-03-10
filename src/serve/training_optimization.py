@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingOptions
 
 
@@ -54,7 +54,7 @@ def _build_optimizer(torch_module: Any, model: Any, options: TrainingOptions) ->
             momentum=options.sgd_momentum,
             weight_decay=options.weight_decay,
         )
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Unsupported optimizer_type {options.optimizer_type!r}. "
         "Use adam, adamw, or sgd."
     )
@@ -77,7 +77,7 @@ def _build_scheduler(torch_module: Any, optimizer: Any, options: TrainingOptions
             T_max=t_max_epochs,
             eta_min=options.scheduler_eta_min,
         )
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Unsupported scheduler_type {options.scheduler_type!r}. "
         "Use none, step, or cosine."
     )

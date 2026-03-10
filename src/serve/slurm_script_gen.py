@@ -23,7 +23,7 @@ def generate_single_node_script(
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
-    job_name = f"forge-{training_method}-{date_tag}"
+    job_name = f"crucible-{training_method}-{date_tag}"
 
     lines = ["#!/bin/bash"]
     lines.append(f"#SBATCH --job-name={job_name}")
@@ -47,11 +47,11 @@ def generate_single_node_script(
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
-    lines.append("tar xzf forge-agent.tar.gz")
+    lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
-    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
+    lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
     lines.append(
-        f"{cluster.python_path} forge_agent_entry.py --config {config_filename}"
+        f"{cluster.python_path} crucible_agent_entry.py --config {config_filename}"
     )
     lines.extend(_post_agent_diagnostic_lines())
 
@@ -69,7 +69,7 @@ def generate_multi_node_script(
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
-    job_name = f"forge-{training_method}-{date_tag}"
+    job_name = f"crucible-{training_method}-{date_tag}"
 
     lines = ["#!/bin/bash"]
     lines.append(f"#SBATCH --job-name={job_name}")
@@ -95,9 +95,9 @@ def generate_multi_node_script(
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
-    lines.append("tar xzf forge-agent.tar.gz")
+    lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
-    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
+    lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
     lines.append("")
 
     # Multi-node environment variables
@@ -115,7 +115,7 @@ def generate_multi_node_script(
     lines.append("    --node_rank=$SLURM_NODEID \\")
     lines.append("    --master_addr=$MASTER_ADDR \\")
     lines.append("    --master_port=$MASTER_PORT \\")
-    lines.append(f"    forge_agent_entry.py --config {config_filename}")
+    lines.append(f"    crucible_agent_entry.py --config {config_filename}")
 
     return "\n".join(lines) + "\n"
 
@@ -145,7 +145,7 @@ def generate_sweep_script(
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
-    job_name = f"forge-sweep-{training_method}-{date_tag}"
+    job_name = f"crucible-sweep-{training_method}-{date_tag}"
 
     lines = ["#!/bin/bash"]
     lines.append(f"#SBATCH --job-name={job_name}")
@@ -170,11 +170,11 @@ def generate_sweep_script(
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
     lines.append(f"cd {workdir}")
-    lines.append("tar xzf forge-agent.tar.gz")
+    lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
-    lines.append(f"echo 'FORGE: Starting {training_method} agent...'")
+    lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
     lines.append(
-        f"{cluster.python_path} forge_agent_entry.py "
+        f"{cluster.python_path} crucible_agent_entry.py "
         "--config trials/trial_${SLURM_ARRAY_TASK_ID}.json"
     )
     lines.extend(_post_agent_diagnostic_lines())
@@ -190,19 +190,19 @@ _CUDA_PREFLIGHT = (
     "    r = ctypes.c_int()\n"
     "    err = cuda.cuInit(0)\n"
     "    if err != 0:\n"
-    "        print('FORGE_AGENT_ERROR: CUDA driver error (cuInit=' + str(err) + '). '\n"
+    "        print('CRUCIBLE_AGENT_ERROR: CUDA driver error (cuInit=' + str(err) + '). '\n"
     "              'This node has a broken GPU driver. '\n"
     "              'Resubmit the job to try a different node.', file=sys.stderr)\n"
     "        sys.exit(1)\n"
     "    cuda.cuDeviceGetCount(ctypes.byref(r))\n"
     "    if r.value == 0:\n"
-    "        print('FORGE_AGENT_ERROR: No CUDA devices found.', file=sys.stderr)\n"
+    "        print('CRUCIBLE_AGENT_ERROR: No CUDA devices found.', file=sys.stderr)\n"
     "        sys.exit(1)\n"
     "    name = ctypes.create_string_buffer(256)\n"
     "    cuda.cuDeviceGetName(name, 256, 0)\n"
     "    print('CUDA pre-flight OK: ' + str(r.value) + ' device(s), ' + name.value.decode())\n"
     "except Exception as e:\n"
-    "    print('FORGE_AGENT_ERROR: CUDA pre-flight failed: ' + str(e), file=sys.stderr)\n"
+    "    print('CRUCIBLE_AGENT_ERROR: CUDA pre-flight failed: ' + str(e), file=sys.stderr)\n"
     "    sys.exit(1)\n"
     "CUDA_CHECK"
 )
@@ -232,7 +232,7 @@ def _cuda_env_lines() -> list[str]:
 def _memory_diagnostic_lines() -> list[str]:
     """Show available memory before starting the agent."""
     return [
-        "echo 'FORGE: Memory available:'",
+        "echo 'CRUCIBLE: Memory available:'",
         "free -m 2>/dev/null | head -3 || true",
         "",
     ]
@@ -242,13 +242,13 @@ def _post_agent_diagnostic_lines() -> list[str]:
     """Check exit code and diagnose OOM kills after agent exits."""
     return [
         "rc=$?",
-        'if [ $rc -eq 0 ]; then echo "FORGE: Agent finished successfully"',
+        'if [ $rc -eq 0 ]; then echo "CRUCIBLE: Agent finished successfully"',
         "elif [ $rc -eq 137 ] || [ $rc -eq 9 ]; then",
-        '    echo "FORGE_AGENT_ERROR: Process killed (exit $rc) — likely OOM killed by Slurm cgroup"',
-        '    echo "FORGE: Checking dmesg for OOM events..."',
+        '    echo "CRUCIBLE_AGENT_ERROR: Process killed (exit $rc) — likely OOM killed by Slurm cgroup"',
+        '    echo "CRUCIBLE: Checking dmesg for OOM events..."',
         "    dmesg -T 2>/dev/null | tail -20 | grep -i 'killed\\|oom\\|memory' || true",
-        '    echo "FORGE: Consider increasing --mem in cluster resource settings"',
-        'else echo "FORGE: Agent failed with exit code $rc"; fi',
+        '    echo "CRUCIBLE: Consider increasing --mem in cluster resource settings"',
+        'else echo "CRUCIBLE: Agent failed with exit code $rc"; fi',
         "exit $rc",
         "",
     ]
@@ -276,6 +276,6 @@ def _module_load_lines(cluster: ClusterConfig) -> list[str]:
     for cmd in cluster.module_loads:
         lines.append(cmd)
     lines.append(CONDA_INIT)
-    lines.append("conda activate forge")
+    lines.append("conda activate crucible")
     lines.append("")
     return lines

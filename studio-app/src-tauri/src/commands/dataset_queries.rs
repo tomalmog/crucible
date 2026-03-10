@@ -154,8 +154,23 @@ fn read_records(data_root: &str, dataset_name: &str) -> Result<Vec<Value>, Strin
 }
 
 fn dataset_records_size(datasets_dir: &Path, name: &str) -> u64 {
-    let records = datasets_dir.join(name).join("records.jsonl");
-    fs::metadata(&records).map(|m| m.len()).unwrap_or(0)
+    let dir = datasets_dir.join(name);
+    dir_size_bytes(&dir)
+}
+
+fn dir_size_bytes(dir: &Path) -> u64 {
+    let mut total: u64 = 0;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                total += fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            } else if path.is_dir() {
+                total += dir_size_bytes(&path);
+            }
+        }
+    }
+    total
 }
 
 fn read_child_dirs(parent: &Path) -> Result<Vec<String>, String> {

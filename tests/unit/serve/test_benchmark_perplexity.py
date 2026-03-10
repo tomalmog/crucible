@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from core.benchmark_types import PerplexityResult
-from core.errors import ForgeBenchmarkError
+from core.errors import CrucibleBenchmarkError
 from serve.benchmark_perplexity import compute_perplexity_benchmark
 
 
@@ -86,7 +86,7 @@ def test_compute_perplexity_raises_on_empty_sequences() -> None:
     torch_mock = _build_mock_torch()
     model = _build_mock_model()
 
-    with pytest.raises(ForgeBenchmarkError, match="No sequences"):
+    with pytest.raises(CrucibleBenchmarkError, match="No sequences"):
         compute_perplexity_benchmark(
             torch_module=torch_mock,
             model=model,

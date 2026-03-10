@@ -73,11 +73,11 @@ def _check_solution(code: str, test_code: str, entry_point: str) -> bool:
 
 def _load_humaneval_examples() -> list[dict[str, object]]:
     """Load HumanEval examples from HuggingFace datasets."""
-    from core.errors import ForgeDependencyError
+    from core.errors import CrucibleDependencyError
     try:
         from datasets import load_dataset  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "HumanEval benchmark requires the datasets package. "
             "Install with: pip install datasets"
         ) from error

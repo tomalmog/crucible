@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import pytest
 
-from core.config import ForgeConfig
-from core.errors import ForgeStoreError
+from core.config import CrucibleConfig
+from core.errors import CrucibleStoreError
 from core.types import DataRecord, RecordMetadata, DatasetWriteRequest
 from store.snapshot_store import DatasetStore
 
@@ -24,7 +24,7 @@ def _sample_record() -> DataRecord:
 
 def test_save_dataset_persists_manifest(tmp_path) -> None:
     """Store should create a dataset with manifest."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     store = DatasetStore(config)
     request = DatasetWriteRequest(
         dataset_name="demo",
@@ -38,7 +38,7 @@ def test_save_dataset_persists_manifest(tmp_path) -> None:
 
 def test_load_records_returns_written_payload(tmp_path) -> None:
     """Store should return records written into a dataset."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     store = DatasetStore(config)
     request = DatasetWriteRequest(
         dataset_name="demo",
@@ -53,10 +53,10 @@ def test_load_records_returns_written_payload(tmp_path) -> None:
 
 def test_load_records_raises_for_unknown_dataset(tmp_path) -> None:
     """Loading should fail when dataset manifest is missing."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     store = DatasetStore(config)
 
-    with pytest.raises(ForgeStoreError):
+    with pytest.raises(CrucibleStoreError):
         store.load_records("missing")
 
     assert (tmp_path / "datasets" / "missing").exists()

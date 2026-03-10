@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.training_hooks import (
     build_loss_function_from_hooks,
     invoke_hook,
@@ -46,12 +46,12 @@ def test_build_loss_function_from_hooks_uses_default_when_unset() -> None:
 
 
 def test_invoke_hook_raises_traceable_error_on_callback_failure() -> None:
-    """Hook invocation should wrap user callback failures in ForgeServeError."""
+    """Hook invocation should wrap user callback failures in CrucibleServeError."""
 
     def _broken_hook() -> None:
         raise RuntimeError("boom")
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         invoke_hook("on_run_start", _broken_hook)
 
     assert True

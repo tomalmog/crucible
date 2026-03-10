@@ -11,13 +11,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeSweepError
+from core.errors import CrucibleSweepError
 from core.sweep_types import SweepConfig, SweepResult, SweepTrialResult
 from core.training_methods import TRAINING_METHOD_DISPATCH, TRAINING_METHOD_LABELS, dispatch_training
 from core.training_types import TrainingRunResult
 from serve.sweep_analysis import find_best_trial, rank_trials
 from serve.sweep_parameter_generator import generate_sweep_parameters
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def _log(message: str) -> None:
@@ -26,7 +26,7 @@ def _log(message: str) -> None:
 
 
 def run_sweep(
-    client: ForgeClient,
+    client: CrucibleClient,
     config: SweepConfig,
     random_seed: int,
 ) -> SweepResult:
@@ -41,7 +41,7 @@ def run_sweep(
         SweepResult with all trials and best configuration.
 
     Raises:
-        ForgeSweepError: If no trials complete successfully.
+        CrucibleSweepError: If no trials complete successfully.
     """
     param_combos = generate_sweep_parameters(config, random_seed)
     total_trials = len(param_combos)
@@ -73,7 +73,7 @@ def run_sweep(
 
 
 def _run_single_trial(
-    client: ForgeClient,
+    client: CrucibleClient,
     config: SweepConfig,
     trial_id: int,
     params: dict[str, float],
@@ -127,7 +127,7 @@ def _build_trial_kwargs(
     """
     method = config.training_method
     if method not in TRAINING_METHOD_DISPATCH:
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             f"Unknown training method '{method}'."
         )
     _, options_class = TRAINING_METHOD_DISPATCH[method]
@@ -142,7 +142,7 @@ def _build_trial_kwargs(
     valid_fields = set(options_class.__dataclass_fields__)
     for name, value in params.items():
         if name not in valid_fields:
-            raise ForgeSweepError(
+            raise CrucibleSweepError(
                 f"Parameter '{name}' is not a valid field for "
                 f"{options_class.__name__}."
             )
@@ -185,17 +185,17 @@ def _extract_metric(
         Final metric value from training history.
 
     Raises:
-        ForgeSweepError: If metric cannot be extracted.
+        CrucibleSweepError: If metric cannot be extracted.
     """
     history_path = Path(result.history_path)
     if not history_path.exists():
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             f"Training history not found at {history_path}."
         )
     try:
         history_data = json.loads(history_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             f"Failed to read training history: {exc}"
         ) from exc
     return _parse_metric_from_history(history_data, metric)
@@ -215,23 +215,23 @@ def _parse_metric_from_history(
         Final epoch metric value.
 
     Raises:
-        ForgeSweepError: If metric is not found in history.
+        CrucibleSweepError: If metric is not found in history.
     """
     epochs = history_data.get("epochs", [])
     if not epochs:
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             "Training history contains no epoch data."
         )
     last_epoch = epochs[-1]
     if metric not in last_epoch:
         available = ", ".join(sorted(last_epoch.keys()))
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             f"Metric '{metric}' not found in history. "
             f"Available: {available}."
         )
     value = last_epoch[metric]
     if not isinstance(value, (int, float)):
-        raise ForgeSweepError(
+        raise CrucibleSweepError(
             f"Metric '{metric}' value is not numeric: {value}."
         )
     return float(value)
@@ -253,14 +253,14 @@ def _build_sweep_result(
         SweepResult with ranked trials and best configuration.
 
     Raises:
-        ForgeSweepError: If no trials completed successfully.
+        CrucibleSweepError: If no trials completed successfully.
     """
     if not trials:
         msg = "No sweep trials completed successfully."
         if errors:
             first_error = errors[0]
             msg += f" First trial error: {first_error}"
-        raise ForgeSweepError(msg)
+        raise CrucibleSweepError(msg)
     ranked = rank_trials(trials, minimize)
     best = find_best_trial(ranked)
     return SweepResult(

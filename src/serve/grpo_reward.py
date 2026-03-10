@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from core.errors import ForgeGrpoError
+from core.errors import CrucibleGrpoError
 
 
 class RewardFunction(Protocol):
@@ -27,16 +27,16 @@ def load_reward_function(reward_path: str) -> RewardFunction:
     """
     path = Path(reward_path)
     if not path.exists():
-        raise ForgeGrpoError(f"Reward function file not found: {reward_path}")
+        raise CrucibleGrpoError(f"Reward function file not found: {reward_path}")
     spec = importlib.util.spec_from_file_location("grpo_reward_module", path)
     if spec is None or spec.loader is None:
-        raise ForgeGrpoError(f"Cannot load reward module from: {reward_path}")
+        raise CrucibleGrpoError(f"Cannot load reward module from: {reward_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules["grpo_reward_module"] = module
     spec.loader.exec_module(module)
     fn = getattr(module, "score", None)
     if fn is None or not callable(fn):
-        raise ForgeGrpoError(
+        raise CrucibleGrpoError(
             f"Reward module {reward_path} must define a callable 'score(prompt, response) -> float'."
         )
     return fn

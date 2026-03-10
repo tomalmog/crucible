@@ -1,4 +1,4 @@
-"""PyTorch chat inference runner for Forge-trained models.
+"""PyTorch chat inference runner for Crucible-trained models.
 
 This module loads a trained model checkpoint and generates text
 responses from prompt input using training-compatible settings.
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.chat_types import ChatOptions, ChatResult, ChatTokenizer
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.types import DataRecord
 from serve.architecture_loader import load_training_model
 from serve.chat_option_resolver import (
@@ -50,7 +50,7 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
         Generated response text.
 
     Raises:
-        ForgeServeError: If model loading or generation fails.
+        CrucibleServeError: If model loading or generation fails.
     """
     _validate_chat_options(options)
     if is_huggingface_model_id(options.model_path):
@@ -151,8 +151,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
-            "Chat inference requires torch, but it is not installed. Install torch to run forge chat."
+        raise CrucibleDependencyError(
+            "Chat inference requires torch, but it is not installed. Install torch to run crucible chat."
         ) from error
     return torch
 
@@ -165,17 +165,17 @@ def _resolve_inference_device(torch_module: Any) -> Any:
 def _validate_chat_options(options: ChatOptions) -> None:
     """Validate chat-specific option fields."""
     if not options.prompt.strip():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "Invalid prompt: expected non-empty input text. Provide --prompt with message content."
         )
     if options.max_new_tokens < 1:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid max_new_tokens {options.max_new_tokens}: expected value >= 1."
         )
     if options.temperature < 0:
-        raise ForgeServeError(f"Invalid temperature {options.temperature}: expected value >= 0.")
+        raise CrucibleServeError(f"Invalid temperature {options.temperature}: expected value >= 0.")
     if options.top_k < 0:
-        raise ForgeServeError(f"Invalid top_k {options.top_k}: expected value >= 0.")
+        raise CrucibleServeError(f"Invalid top_k {options.top_k}: expected value >= 0.")
 
 
 def _generate_response_text(context: ChatRuntimeContext) -> str:

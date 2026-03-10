@@ -1,14 +1,14 @@
-"""Cost tracking command wiring for Forge CLI."""
+"""Cost tracking command wiring for Crucible CLI."""
 
 from __future__ import annotations
 
 import argparse
 
 from serve.cost_tracker import CostTracker
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_cost_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_cost_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle cost subcommand dispatch."""
     tracker = CostTracker(client._config.data_root)
     subcmd = args.cost_subcommand

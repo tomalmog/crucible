@@ -1,4 +1,4 @@
-"""DPO command wiring for Forge CLI.
+"""DPO command wiring for Crucible CLI.
 
 This module isolates DPO command parser and execution logic,
 mapping CLI arguments to DpoOptions for preference optimization.
@@ -32,10 +32,10 @@ from core.constants import (
 )
 from core.dpo_types import DpoOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_dpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_dpo_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle DPO command invocation.
 
     Args:

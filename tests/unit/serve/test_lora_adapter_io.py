@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeLoraError
+from core.errors import CrucibleLoraError
 from core.lora_types import LoraAdapterInfo, LoraConfig
 
 

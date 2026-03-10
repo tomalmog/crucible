@@ -1,4 +1,4 @@
-"""SFT command wiring for Forge CLI.
+"""SFT command wiring for Crucible CLI.
 
 This module isolates SFT command parser and execution logic,
 mapping CLI arguments to SftOptions for supervised fine-tuning.
@@ -31,10 +31,10 @@ from core.constants import (
 )
 from core.sft_types import SftOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_sft_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_sft_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle SFT command invocation.
 
     Args:

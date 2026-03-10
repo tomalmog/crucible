@@ -5,14 +5,14 @@ import { TrainingWizard } from "./TrainingWizard";
 import { TrainingRunHistory } from "./TrainingRunHistory";
 import { SweepConfigForm } from "./SweepConfigForm";
 import { TrainingMethod } from "../../types/training";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 
 type View = "pick" | "wizard" | "history" | "sweep";
 
 export function TrainingPage() {
   const [view, setView] = useState<View>("pick");
   const [selectedMethod, setSelectedMethod] = useState<TrainingMethod | null>(null);
-  const { dataRoot } = useForge();
+  const { dataRoot } = useCrucible();
 
   function onPickMethod(method: TrainingMethod) {
     setSelectedMethod(method);

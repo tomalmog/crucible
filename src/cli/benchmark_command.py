@@ -1,4 +1,4 @@
-"""Benchmark command wiring for Forge CLI.
+"""Benchmark command wiring for Crucible CLI.
 
 This module isolates benchmark command parser and execution logic,
 mapping CLI arguments to BenchmarkConfig for evaluation runs.
@@ -10,11 +10,11 @@ import argparse
 
 from core.benchmark_types import BenchmarkConfig
 from serve.benchmark_runner import format_benchmark_report, run_benchmark
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def run_benchmark_command(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Handle benchmark command invocation.
 

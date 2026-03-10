@@ -6,7 +6,7 @@ import json
 import pytest
 from pathlib import Path
 
-from core.errors import ForgeKtoError
+from core.errors import CrucibleKtoError
 from serve.kto_data_loader import load_kto_examples, split_kto_examples
 from core.kto_types import KtoExample
 
@@ -25,8 +25,8 @@ def test_load_kto_examples(tmp_path: Path) -> None:
 
 
 def test_load_kto_missing_file() -> None:
-    """Missing file raises ForgeKtoError."""
-    with pytest.raises(ForgeKtoError, match="not found"):
+    """Missing file raises CrucibleKtoError."""
+    with pytest.raises(CrucibleKtoError, match="not found"):
         load_kto_examples("/nonexistent/path.jsonl")
 
 

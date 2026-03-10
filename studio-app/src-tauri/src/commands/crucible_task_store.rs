@@ -1,4 +1,4 @@
-//! Background Forge command task store and execution worker helpers.
+//! Background Crucible command task store and execution worker helpers.
 
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use std::collections::HashMap;
@@ -206,8 +206,8 @@ impl CommandTaskStore {
 
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>) {
         let working_directory = workspace_root_dir();
-        let forge_bin = resolve_forge_binary(&working_directory);
-        let spawn_result = Command::new(forge_bin)
+        let crucible_bin = resolve_crucible_binary(&working_directory);
+        let spawn_result = Command::new(crucible_bin)
             .current_dir(working_directory)
             .env("PYTHONUNBUFFERED", "1")
             .arg("--data-root")
@@ -318,7 +318,7 @@ impl CommandTaskStore {
             if let Some(task) = tasks.get_mut(task_id) {
                 task.exit_code = Some(-1);
                 task.status = TaskLifecycleStatus::Failed;
-                task.stderr = format!("Failed to run forge command: {error_message}");
+                task.stderr = format!("Failed to run crucible command: {error_message}");
                 task.finished_at = Some(now);
                 observed_elapsed_seconds = Some(task.started_at.elapsed().as_secs_f64().max(1.0));
             }
@@ -330,7 +330,7 @@ impl CommandTaskStore {
 
     fn generate_task_id(&self) -> String {
         let value = self.inner.next_task_id.fetch_add(1, Ordering::Relaxed);
-        format!("forge-task-{value}")
+        format!("crucible-task-{value}")
     }
 
     fn insert_running_task(
@@ -469,12 +469,12 @@ fn workspace_root_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn resolve_forge_binary(workspace_root: &Path) -> PathBuf {
-    let venv_binary = workspace_root.join(".venv/bin/forge");
+fn resolve_crucible_binary(workspace_root: &Path) -> PathBuf {
+    let venv_binary = workspace_root.join(".venv/bin/crucible");
     if venv_binary.exists() {
         return venv_binary;
     }
-    PathBuf::from("forge")
+    PathBuf::from("crucible")
 }
 
 #[cfg(test)]

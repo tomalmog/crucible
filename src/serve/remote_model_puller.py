@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import RemoteJobRecord
 from serve.remote_result_reader import read_remote_result
 from serve.ssh_connection import SshSession
@@ -22,7 +22,7 @@ def cancel_remote_job(
     """Cancel a running remote job via scancel.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         job_id: Local job identifier.
 
     Returns:
@@ -38,7 +38,7 @@ def cancel_remote_job(
             f"scancel {record.slurm_job_id}", timeout=15,
         )
         if code != 0:
-            raise ForgeRemoteError(f"scancel failed: {stderr.strip()}")
+            raise CrucibleRemoteError(f"scancel failed: {stderr.strip()}")
 
     return update_remote_job_state(data_root, job_id, "cancelled")
 
@@ -56,7 +56,7 @@ def pull_remote_model(
     Prints progress messages to stdout for UI consumption.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         job_id: Local job identifier.
         model_name: Name to register under. Auto-generated if None.
 
@@ -70,7 +70,7 @@ def pull_remote_model(
     from store.remote_job_store import load_remote_job, update_remote_job_state
 
     def progress(msg: str) -> None:
-        print(f"FORGE_PULL_PROGRESS: {msg}", flush=True)
+        print(f"CRUCIBLE_PULL_PROGRESS: {msg}", flush=True)
         sys.stdout.flush()
 
     record = load_remote_job(data_root, job_id)
@@ -99,7 +99,7 @@ def pull_remote_model(
             f"test -d '{model_dir}'", timeout=10,
         )
         if rc != 0:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"Model directory not found on cluster: {model_dir}\n"
                 f"(model_path from result.json: {remote_model})"
             )
@@ -123,7 +123,7 @@ def pull_remote_model(
             timeout=600,
         )
         if code != 0:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"Remote tar failed (dir={model_dir}): {stderr.strip()}"
             )
 
@@ -212,14 +212,14 @@ def _read_model_path(
     result = read_remote_result(session, record)
     if not result:
         result_path = f"{record.remote_output_dir}/result.json"
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"No result.json found at {result_path}. "
             "Training may not have completed."
         )
     model_path = result.get("model_path", "")
     if not model_path:
         error_msg = result.get("error", "unknown error")
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Job result has no model_path. "
             f"Training status: {result.get('status', '?')}, "
             f"error: {error_msg}"

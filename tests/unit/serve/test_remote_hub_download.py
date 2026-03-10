@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.remote_hub_download import (
     _build_remote_model_path,
@@ -50,9 +50,9 @@ def test_ensure_hf_hub_installed_installs_when_missing() -> None:
 
 
 def test_ensure_hf_hub_installed_raises_on_install_failure() -> None:
-    """Raises ForgeRemoteError when pip install also fails."""
+    """Raises CrucibleRemoteError when pip install also fails."""
     session = _make_session([("", "", 1), ("", "pip error", 1)])
-    with pytest.raises(ForgeRemoteError, match="Failed to install huggingface_hub"):
+    with pytest.raises(CrucibleRemoteError, match="Failed to install huggingface_hub"):
         _ensure_hf_hub_installed(session)
 
 
@@ -66,16 +66,16 @@ def test_run_snapshot_download_success() -> None:
 
 
 def test_run_snapshot_download_raises_on_failure() -> None:
-    """Raises ForgeRemoteError when the remote command exits non-zero."""
+    """Raises CrucibleRemoteError when the remote command exits non-zero."""
     session = _make_session([("", "network error", 1)])
-    with pytest.raises(ForgeRemoteError, match="Remote download of org/model failed"):
+    with pytest.raises(CrucibleRemoteError, match="Remote download of org/model failed"):
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 
 def test_run_snapshot_download_raises_when_path_missing() -> None:
-    """Raises ForgeRemoteError when stdout lacks the expected marker."""
+    """Raises CrucibleRemoteError when stdout lacks the expected marker."""
     session = _make_session([("some other output", "", 0)])
-    with pytest.raises(ForgeRemoteError, match="path not reported"):
+    with pytest.raises(CrucibleRemoteError, match="path not reported"):
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 

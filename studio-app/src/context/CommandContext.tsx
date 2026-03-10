@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { startForgeCommand, getForgeCommandStatus } from "../api/studioApi";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
 import { CommandTaskStatus } from "../types";
 
 const POLL_INTERVAL_MS = 500;
@@ -32,12 +32,12 @@ export function CommandProvider({ children }: { children: ReactNode }) {
     async (dataRoot: string, args: string[]): Promise<CommandTaskStatus> => {
       setIsRunning(true);
       const command = args[0] ?? "unknown";
-      const taskStart = await startForgeCommand(dataRoot, args);
+      const taskStart = await startCrucibleCommand(dataRoot, args);
       setActiveTask({ taskId: taskStart.task_id, command, status: null });
 
       let status: CommandTaskStatus;
       while (true) {
-        status = await getForgeCommandStatus(taskStart.task_id);
+        status = await getCrucibleCommandStatus(taskStart.task_id);
         setActiveTask({ taskId: taskStart.task_id, command, status });
         if (status.status !== "running") break;
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));

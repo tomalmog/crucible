@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 TrainingRunState = Literal[
     "queued",
@@ -60,7 +60,7 @@ def validate_transition(current: TrainingRunState, next_state: TrainingRunState)
     """Validate one lifecycle transition against allowed state machine edges."""
     allowed_states = ALLOWED_STATE_TRANSITIONS[current]
     if next_state not in allowed_states:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid training run state transition {current!r} -> {next_state!r}. "
             f"Allowed: {', '.join(allowed_states) or 'none'}."
         )
@@ -70,7 +70,7 @@ def run_record_from_payload(payload: dict[str, object], payload_path: Path) -> T
     """Deserialize a lifecycle record payload from JSON."""
     raw_events = payload.get("events")
     if not isinstance(raw_events, list):
-        raise ForgeServeError(f"Invalid run state at {payload_path}: events must be a list.")
+        raise CrucibleServeError(f"Invalid run state at {payload_path}: events must be a list.")
     events = tuple(run_event_from_payload(item, payload_path) for item in raw_events)
     state = parse_state(payload.get("state"), payload_path)
     try:
@@ -88,7 +88,7 @@ def run_record_from_payload(payload: dict[str, object], payload_path: Path) -> T
             error_message=optional_string(payload.get("error_message")),
         )
     except KeyError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid run state at {payload_path}: missing required field {error.args[0]!r}."
         ) from error
 
@@ -96,7 +96,7 @@ def run_record_from_payload(payload: dict[str, object], payload_path: Path) -> T
 def run_event_from_payload(payload: object, payload_path: Path) -> TrainingRunEvent:
     """Deserialize one run event payload from JSON."""
     if not isinstance(payload, dict):
-        raise ForgeServeError(f"Invalid run event at {payload_path}: expected object entries.")
+        raise CrucibleServeError(f"Invalid run event at {payload_path}: expected object entries.")
     return TrainingRunEvent(
         state=parse_state(payload.get("state"), payload_path),
         timestamp=str(payload.get("timestamp", "")),
@@ -109,7 +109,7 @@ def parse_state(raw_state: object, payload_path: Path) -> TrainingRunState:
     if isinstance(raw_state, str) and raw_state in ALLOWED_STATE_TRANSITIONS:
         return cast(TrainingRunState, raw_state)
     allowed = ", ".join(ALLOWED_STATE_TRANSITIONS.keys())
-    raise ForgeServeError(f"Invalid run state at {payload_path}: expected one of {allowed}.")
+    raise CrucibleServeError(f"Invalid run state at {payload_path}: expected one of {allowed}.")
 
 
 def optional_string(raw_value: object) -> str | None:

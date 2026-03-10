@@ -1,4 +1,4 @@
-"""Export-spec command wiring for Forge CLI.
+"""Export-spec command wiring for Crucible CLI.
 
 This module exports a training run's configuration as a YAML run-spec
 file, enabling reproducible pipeline execution.
@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.run_spec_export import export_run_to_yaml
 from core.types import TrainingOptions
 from serve.training_run_types import TrainingRunRecord
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_export_spec_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_export_spec_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle export-spec command invocation.
 
     Loads a training run's metadata and exports it as YAML.

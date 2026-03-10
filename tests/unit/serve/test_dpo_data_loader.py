@@ -7,7 +7,7 @@ import json
 import pytest
 
 from core.dpo_types import DpoExample
-from core.errors import ForgeDpoError
+from core.errors import CrucibleDpoError
 from serve.dpo_data_loader import load_dpo_examples, validate_dpo_example
 
 
@@ -33,7 +33,7 @@ def test_load_dpo_examples_valid_jsonl(tmp_path) -> None:
 
 
 def test_load_dpo_examples_missing_prompt_raises(tmp_path) -> None:
-    """Rows missing 'prompt' should raise ForgeDpoError with line number."""
+    """Rows missing 'prompt' should raise CrucibleDpoError with line number."""
     data_file = tmp_path / "dpo_data.jsonl"
     rows = [
         {"chosen": "Good answer.", "rejected": "Bad answer."},
@@ -43,12 +43,12 @@ def test_load_dpo_examples_missing_prompt_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeDpoError, match="line 1.*prompt"):
+    with pytest.raises(CrucibleDpoError, match="line 1.*prompt"):
         load_dpo_examples(str(data_file))
 
 
 def test_load_dpo_examples_missing_chosen_raises(tmp_path) -> None:
-    """Rows missing 'chosen' should raise ForgeDpoError."""
+    """Rows missing 'chosen' should raise CrucibleDpoError."""
     data_file = tmp_path / "dpo_data.jsonl"
     rows = [
         {"prompt": "A question", "rejected": "Bad answer."},
@@ -58,12 +58,12 @@ def test_load_dpo_examples_missing_chosen_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeDpoError, match="line 1.*chosen"):
+    with pytest.raises(CrucibleDpoError, match="line 1.*chosen"):
         load_dpo_examples(str(data_file))
 
 
 def test_load_dpo_examples_empty_rejected_raises(tmp_path) -> None:
-    """Rows with empty 'rejected' should raise ForgeDpoError."""
+    """Rows with empty 'rejected' should raise CrucibleDpoError."""
     data_file = tmp_path / "dpo_data.jsonl"
     rows = [
         {"prompt": "A question", "chosen": "Good answer.", "rejected": "   "},
@@ -73,22 +73,22 @@ def test_load_dpo_examples_empty_rejected_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeDpoError, match="line 1.*rejected"):
+    with pytest.raises(CrucibleDpoError, match="line 1.*rejected"):
         load_dpo_examples(str(data_file))
 
 
 def test_load_dpo_examples_empty_file_raises(tmp_path) -> None:
-    """Empty file should raise ForgeDpoError."""
+    """Empty file should raise CrucibleDpoError."""
     data_file = tmp_path / "dpo_data.jsonl"
     data_file.write_text("", encoding="utf-8")
 
-    with pytest.raises(ForgeDpoError, match="no valid examples"):
+    with pytest.raises(CrucibleDpoError, match="no valid examples"):
         load_dpo_examples(str(data_file))
 
 
 def test_load_dpo_examples_missing_file_raises(tmp_path) -> None:
-    """Non-existent file should raise ForgeDpoError."""
-    with pytest.raises(ForgeDpoError, match="not found"):
+    """Non-existent file should raise CrucibleDpoError."""
+    with pytest.raises(CrucibleDpoError, match="not found"):
         load_dpo_examples(str(tmp_path / "missing.jsonl"))
 
 

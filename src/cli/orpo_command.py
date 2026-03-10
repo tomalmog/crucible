@@ -1,4 +1,4 @@
-"""ORPO command wiring for Forge CLI.
+"""ORPO command wiring for Crucible CLI.
 
 This module isolates ORPO command parser and execution logic,
 mapping CLI arguments to OrpoOptions for odds ratio preference optimization.
@@ -30,10 +30,10 @@ from core.constants import (
 )
 from core.orpo_types import DEFAULT_ORPO_BETA, DEFAULT_ORPO_LAMBDA, OrpoOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_orpo_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_orpo_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle ORPO command invocation."""
     options = OrpoOptions(
         dataset_name=args.dataset, output_dir=args.output_dir,

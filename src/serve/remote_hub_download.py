@@ -1,7 +1,7 @@
 """Download HuggingFace models and datasets to remote clusters via SSH.
 
 Connects to a registered cluster, ensures ``huggingface_hub`` is
-available in the forge conda env, runs ``snapshot_download`` on
+available in the crucible conda env, runs ``snapshot_download`` on
 the remote, and optionally registers the model in the local registry.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from serve.remote_env_setup import ENV_NAME, conda_cmd, ensure_remote_env
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
@@ -28,7 +28,7 @@ def download_model_to_cluster(
     """Download a HuggingFace model to a remote cluster via SSH.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         repo_id: HuggingFace repo ID (e.g. 'meta-llama/Llama-2-7b').
         cluster_name: Name of the registered cluster.
         model_name: Name for model registry (defaults to repo_id).
@@ -39,7 +39,7 @@ def download_model_to_cluster(
         The remote path where the model was downloaded.
 
     Raises:
-        ForgeRemoteError: If connection, install, or download fails.
+        CrucibleRemoteError: If connection, install, or download fails.
     """
     cluster = load_cluster(data_root, cluster_name)
 
@@ -83,7 +83,7 @@ def download_dataset_to_cluster(
     """Download a HuggingFace dataset to a remote cluster via SSH.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         repo_id: HuggingFace dataset repo ID.
         cluster_name: Name of the registered cluster.
         revision: Optional dataset revision/branch.
@@ -92,7 +92,7 @@ def download_dataset_to_cluster(
         The remote path where the dataset was downloaded.
 
     Raises:
-        ForgeRemoteError: If connection, install, or download fails.
+        CrucibleRemoteError: If connection, install, or download fails.
     """
     cluster = load_cluster(data_root, cluster_name)
 
@@ -140,7 +140,7 @@ def _write_remote_dataset_metadata(
         "synced_at": datetime.now(timezone.utc).isoformat(),
     })
     meta_path = f"{remote_path}/metadata.json"
-    session.execute(f"cat > {meta_path} << 'FORGE_EOF'\n{metadata}\nFORGE_EOF")
+    session.execute(f"cat > {meta_path} << 'CRUCIBLE_EOF'\n{metadata}\nCRUCIBLE_EOF")
 
 
 def _progress(msg: str) -> None:
@@ -149,7 +149,7 @@ def _progress(msg: str) -> None:
 
 
 def _ensure_hf_hub_installed(session: SshSession) -> None:
-    """Install ``huggingface_hub`` in the forge env if missing."""
+    """Install ``huggingface_hub`` in the crucible env if missing."""
     check = 'import huggingface_hub; print("hf_ok")'
     stdout, _, code = session.execute(
         conda_cmd(f'conda run -n {ENV_NAME} python -c "{check}"'),
@@ -164,7 +164,7 @@ def _ensure_hf_hub_installed(session: SshSession) -> None:
         timeout=300,
     )
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to install huggingface_hub: {stderr.strip()}"
         )
 
@@ -202,11 +202,11 @@ def _run_snapshot_download(
         timeout=1800,
     )
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Remote download of {repo_id} failed: {stderr.strip()}"
         )
     if "downloaded_to=" not in stdout:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Download succeeded but path not reported. "
             f"stdout: {stdout[:300]}"
         )

@@ -1,4 +1,4 @@
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import { CommandProgress } from "../../components/shared/CommandProgress";
 
@@ -7,7 +7,7 @@ interface ReadinessChecklistProps {
 }
 
 export function ReadinessChecklist({ dataRoot }: ReadinessChecklistProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
 
   async function runChecklist() {
     await command.run(dataRoot, ["deploy", "checklist"]);

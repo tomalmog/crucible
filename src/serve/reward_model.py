@@ -10,7 +10,7 @@ import copy
 from pathlib import Path
 from typing import Any, Protocol
 
-from core.errors import ForgeRlhfError
+from core.errors import CrucibleRlhfError
 
 
 class RewardScorer(Protocol):
@@ -47,11 +47,11 @@ def load_external_reward_model(
         Loaded reward model in eval mode.
 
     Raises:
-        ForgeRlhfError: If checkpoint cannot be loaded.
+        CrucibleRlhfError: If checkpoint cannot be loaded.
     """
     resolved_path = Path(path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Reward model not found at {resolved_path}. "
             "Provide a valid --reward-model-path."
         )
@@ -60,7 +60,7 @@ def load_external_reward_model(
             str(resolved_path), map_location=device,
         )
     except (OSError, RuntimeError) as error:
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Failed to load reward model from {resolved_path}: {error}."
         ) from error
     model.load_state_dict(state_dict)
@@ -154,14 +154,14 @@ def _extract_encoder_hidden(base_model: Any, input_ids: Any) -> Any:
 
     Runs the model's embedding and transformer blocks to obtain hidden
     representations, bypassing the final output projection that maps
-    to vocabulary logits.  Supports both the Forge DefaultCausalModel
+    to vocabulary logits.  Supports both the Crucible DefaultCausalModel
     (which uses ``blocks``) and models with an ``encoder`` attribute.
     Falls back to the full forward pass for HuggingFace models.
     """
     import torch
 
     embedding = getattr(base_model, "embedding", None)
-    # Forge DefaultCausalModel uses self.blocks; others may use self.encoder
+    # Crucible DefaultCausalModel uses self.blocks; others may use self.encoder
     encoder = getattr(base_model, "encoder", None)
     blocks = getattr(base_model, "blocks", None)
 
@@ -189,7 +189,7 @@ def _extract_encoder_hidden(base_model: Any, input_ids: Any) -> Any:
                 diagonal=1,
             ).bool()
             return encoder(hidden, mask=mask)
-        # Forge model: run through blocks + final_norm
+        # Crucible model: run through blocks + final_norm
         for block in blocks:
             hidden = block(hidden)
         final_norm = getattr(base_model, "final_norm", None)

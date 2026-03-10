@@ -9,11 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.config import ForgeConfig
-from core.errors import ForgeDependencyError, ForgeStoreError
+from core.config import CrucibleConfig
+from core.errors import CrucibleDependencyError, CrucibleStoreError
 
 
-def create_s3_client(config: ForgeConfig) -> Any:
+def create_s3_client(config: CrucibleConfig) -> Any:
     """Create boto3 S3 client for exports.
 
     Args:
@@ -23,12 +23,12 @@ def create_s3_client(config: ForgeConfig) -> Any:
         Boto3 S3 client.
 
     Raises:
-        ForgeDependencyError: If boto3 is missing.
+        CrucibleDependencyError: If boto3 is missing.
     """
     try:
         import boto3
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "S3 export requires boto3, but it is not installed. "
             "Install boto3 to export versions to s3:// destinations."
         ) from error
@@ -51,7 +51,7 @@ def upload_directory(s3_client: Any, version_dir: Path, bucket: str, prefix: str
         prefix: Destination key prefix.
 
     Raises:
-        ForgeStoreError: If upload fails.
+        CrucibleStoreError: If upload fails.
     """
     for local_file in sorted(version_dir.rglob("*")):
         if not local_file.is_file():
@@ -61,7 +61,7 @@ def upload_directory(s3_client: Any, version_dir: Path, bucket: str, prefix: str
         try:
             s3_client.upload_file(str(local_file), bucket, object_key)
         except Exception as error:
-            raise ForgeStoreError(
+            raise CrucibleStoreError(
                 f"Failed to export snapshot file {local_file} to s3://{bucket}/{object_key}: {error}. "
                 "Check AWS credentials and retry export."
             ) from error

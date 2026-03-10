@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import argparse
 
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def _handle_dataset_push(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_dataset_push(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_dataset_ops import push_dataset
     from serve.ssh_connection import SshSession
     from store.cluster_registry import load_cluster
@@ -23,7 +23,7 @@ def _handle_dataset_push(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_dataset_list(client: CrucibleClient, args: argparse.Namespace) -> int:
     import json as json_mod
     from serve.remote_dataset_ops import list_remote_datasets
     from serve.ssh_connection import SshSession
@@ -38,7 +38,7 @@ def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
         for ds in datasets:
             print(f"  {ds.name}  {_format_bytes(ds.size_bytes)}  synced {ds.synced_at}")
     # Machine-readable output for Tauri
-    print("FORGE_JSON:" + json_mod.dumps([
+    print("CRUCIBLE_JSON:" + json_mod.dumps([
         {"name": d.name, "size_bytes": d.size_bytes,
          "synced_at": d.synced_at}
         for d in datasets
@@ -46,7 +46,7 @@ def _handle_dataset_list(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_dataset_pull(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_dataset_pull(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_dataset_ops import pull_remote_dataset
     from serve.ssh_connection import SshSession
     from store.cluster_registry import load_cluster
@@ -60,7 +60,7 @@ def _handle_dataset_pull(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_dataset_delete(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_dataset_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_dataset_ops import delete_remote_dataset
     from serve.ssh_connection import SshSession
     from store.cluster_registry import load_cluster

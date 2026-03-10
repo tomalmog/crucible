@@ -9,13 +9,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.constants import (
     DATASETS_DIR_NAME,
     MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
 )
-from core.errors import ForgeStoreError
+from core.errors import CrucibleStoreError
 from core.logging_config import get_logger
 from core.types import (
     DataRecord,
@@ -36,7 +36,7 @@ class DatasetStore:
     Each dataset lives at datasets/{name}/ with records.jsonl and manifest.json.
     """
 
-    def __init__(self, config: ForgeConfig) -> None:
+    def __init__(self, config: CrucibleConfig) -> None:
         self._config = config
         self._datasets_root = config.data_root / DATASETS_DIR_NAME
         self._datasets_root.mkdir(parents=True, exist_ok=True)
@@ -90,12 +90,12 @@ class DatasetStore:
             Pair of manifest and loaded records.
 
         Raises:
-            ForgeStoreError: If dataset is missing.
+            CrucibleStoreError: If dataset is missing.
         """
         dataset_dir = self._dataset_dir(dataset_name)
         manifest_path = dataset_dir / MANIFEST_FILE_NAME
         if not manifest_path.exists():
-            raise ForgeStoreError(
+            raise CrucibleStoreError(
                 f"Dataset '{dataset_name}' not found (no manifest at {manifest_path}). "
                 "Ingest data before reading."
             )

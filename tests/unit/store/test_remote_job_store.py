@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import RemoteJobRecord
 from store.remote_job_store import (
     generate_job_id,
@@ -26,8 +26,8 @@ def _make_record(job_id: str = "rj-abc123def456") -> RemoteJobRecord:
         state="running",
         submitted_at=ts,
         updated_at=ts,
-        remote_output_dir="/scratch/forge/rj-abc123def456",
-        remote_log_path="/scratch/forge/rj-abc123def456/slurm-12345.out",
+        remote_output_dir="/scratch/crucible/rj-abc123def456",
+        remote_log_path="/scratch/crucible/rj-abc123def456/slurm-12345.out",
     )
 
 
@@ -58,8 +58,8 @@ def test_save_and_load_remote_job(tmp_path: object) -> None:
 
 
 def test_load_missing_job_raises(tmp_path: object) -> None:
-    """load_remote_job should raise ForgeRemoteError for nonexistent job."""
-    with pytest.raises(ForgeRemoteError, match="not found"):
+    """load_remote_job should raise CrucibleRemoteError for nonexistent job."""
+    with pytest.raises(CrucibleRemoteError, match="not found"):
         load_remote_job(tmp_path, "rj-nonexistent12")  # type: ignore[arg-type]
 
 

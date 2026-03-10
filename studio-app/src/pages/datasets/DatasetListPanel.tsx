@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Trash2, Upload, Download, Loader2 } from "lucide-react";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { deleteDataset } from "../../api/studioApi";
 import {
   listClusters,
@@ -31,7 +31,7 @@ interface DatasetListPanelProps {
 type ListTab = "local" | "remote";
 
 export function DatasetListPanel({ onSelect, refreshKey, onRefreshingChange }: DatasetListPanelProps) {
-  const { dataRoot, datasets, selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
+  const { dataRoot, datasets, selectedDataset, setSelectedDataset, refreshDatasets } = useCrucible();
 
   const [listTab, setListTab] = useState<ListTab>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);

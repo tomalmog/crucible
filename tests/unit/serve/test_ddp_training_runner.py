@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 from serve.ddp_training_runner import (
     _resolve_rank_device,
     _unwrap_ddp_model,
@@ -80,22 +80,22 @@ def test_wrap_model_with_ddp_returns_wrapped_model() -> None:
 
 
 def test_wrap_model_raises_when_parallel_unavailable() -> None:
-    """Should raise ForgeDistributedError when nn.parallel is missing."""
+    """Should raise CrucibleDistributedError when nn.parallel is missing."""
     torch_mod = _FakeTorch()
     torch_mod.nn.parallel = None  # type: ignore[assignment]
     model = MagicMock()
 
-    with pytest.raises(ForgeDistributedError, match="unavailable"):
+    with pytest.raises(CrucibleDistributedError, match="unavailable"):
         _wrap_model_with_ddp(torch_mod, model, rank=0)
 
 
 def test_wrap_model_raises_when_ddp_class_unavailable() -> None:
-    """Should raise ForgeDistributedError when DDP class is missing."""
+    """Should raise CrucibleDistributedError when DDP class is missing."""
     torch_mod = _FakeTorch()
     torch_mod.nn.parallel.DistributedDataParallel = None  # type: ignore[assignment]
     model = MagicMock()
 
-    with pytest.raises(ForgeDistributedError, match="not available"):
+    with pytest.raises(CrucibleDistributedError, match="not available"):
         _wrap_model_with_ddp(torch_mod, model, rank=0)
 
 

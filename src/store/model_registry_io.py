@@ -1,14 +1,14 @@
 """Persistence helpers for model registry storage.
 
 This module handles reading and writing model version, tag, group,
-and index JSON files under the .forge/models/ directory tree.
+and index JSON files under the .crucible/models/ directory tree.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from core.errors import ForgeModelRegistryError
+from core.errors import CrucibleModelRegistryError
 from core.model_registry_types import ModelTag, ModelVersion
 from serve.training_run_io import read_json_file, write_json_file
 
@@ -30,7 +30,7 @@ def save_model_version(models_root: Path, version: ModelVersion) -> Path:
     try:
         write_json_file(target, payload)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to save model version {version.version_id}: {error}."
         ) from error
     return target
@@ -50,11 +50,11 @@ def load_model_version(models_root: Path, version_id: str) -> ModelVersion:
     try:
         raw = read_json_file(target)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to load model version {version_id}: {error}."
         ) from error
     if not isinstance(raw, dict):
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Invalid version data for {version_id}."
         )
     return _dict_to_version(raw)
@@ -81,7 +81,7 @@ def save_model_tag(models_root: Path, tag: ModelTag) -> Path:
     try:
         write_json_file(target, payload)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to save model tag {tag.tag_name}: {error}."
         ) from error
     return target
@@ -101,11 +101,11 @@ def load_model_tag(models_root: Path, tag_name: str) -> ModelTag:
     try:
         raw = read_json_file(target)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to load model tag {tag_name}: {error}."
         ) from error
     if not isinstance(raw, dict):
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Invalid tag data for {tag_name}."
         )
     return ModelTag(
@@ -137,7 +137,7 @@ def save_model_group(models_root: Path, model_name: str, group_data: dict[str, o
     try:
         write_json_file(target, group_data)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to save model group {model_name}: {error}."
         ) from error
     return target
@@ -158,7 +158,7 @@ def load_model_group(models_root: Path, model_name: str) -> dict[str, object]:
     try:
         raw = read_json_file(target, default_value=default)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to load model group {model_name}: {error}."
         ) from error
     if not isinstance(raw, dict):
@@ -181,7 +181,7 @@ def save_registry_index(models_root: Path, index: dict[str, object]) -> Path:
     try:
         write_json_file(target, index)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to save registry index: {error}."
         ) from error
     return target
@@ -201,7 +201,7 @@ def load_registry_index(models_root: Path) -> dict[str, object]:
     try:
         raw = read_json_file(target, default_value=default)
     except Exception as error:
-        raise ForgeModelRegistryError(
+        raise CrucibleModelRegistryError(
             f"Failed to load registry index: {error}."
         ) from error
     if not isinstance(raw, dict):

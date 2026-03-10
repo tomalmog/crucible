@@ -8,10 +8,10 @@ from typing import cast
 from core.constants import *
 from core.multimodal_types import MultimodalOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_multimodal_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_multimodal_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     options = MultimodalOptions(
         dataset_name=args.dataset, output_dir=args.output_dir,
         multimodal_data_path=args.multimodal_data_path,

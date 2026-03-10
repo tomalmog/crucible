@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 from serve.tpu_setup import (
     TpuDeviceInfo,
     detect_tpu_availability,
@@ -60,13 +60,13 @@ class TestResolveTpuDevice:
 
     def test_raises_on_none_device(self) -> None:
         xla = _make_xla_module(device=None)
-        with pytest.raises(ForgeDistributedError, match="No TPU device"):
+        with pytest.raises(CrucibleDistributedError, match="No TPU device"):
             resolve_tpu_device(xla)
 
     def test_raises_on_exception(self) -> None:
         xla = MagicMock()
         xla.xla_device.side_effect = RuntimeError("fail")
-        with pytest.raises(ForgeDistributedError, match="Failed to resolve TPU"):
+        with pytest.raises(CrucibleDistributedError, match="Failed to resolve TPU"):
             resolve_tpu_device(xla)
 
 
@@ -101,7 +101,7 @@ class TestInitXlaMesh:
     def test_raises_on_failure(self) -> None:
         xla = MagicMock()
         xla.runtime.initialize_cache.side_effect = RuntimeError("fail")
-        with pytest.raises(ForgeDistributedError, match="Failed to initialize XLA mesh"):
+        with pytest.raises(CrucibleDistributedError, match="Failed to initialize XLA mesh"):
             init_xla_mesh(xla)
 
     def test_skips_when_no_runtime(self) -> None:
@@ -114,7 +114,7 @@ class TestImportXla:
 
     def test_raises_when_not_available(self) -> None:
         with patch("serve.tpu_setup._try_import_xla", return_value=None):
-            with pytest.raises(ForgeDependencyError, match="torch_xla"):
+            with pytest.raises(CrucibleDependencyError, match="torch_xla"):
                 import_xla()
 
     def test_returns_module_when_available(self) -> None:

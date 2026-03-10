@@ -245,4 +245,4 @@ def test_format_benchmark_report_both_sections() -> None:
 
     assert "Perplexity" in report
     assert "Latency" in report
-    assert "Forge Benchmark Report" in report
+    assert "Crucible Benchmark Report" in report

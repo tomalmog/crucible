@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeQloraError
+from core.errors import CrucibleQloraError
 
 
 @dataclass(frozen=True)
@@ -30,11 +30,11 @@ class QuantizationConfig:
 def validate_quantization_config(config: QuantizationConfig) -> None:
     """Validate quantization configuration parameters."""
     if config.bits not in (4, 8):
-        raise ForgeQloraError(
+        raise CrucibleQloraError(
             f"Quantization bits must be 4 or 8, got {config.bits}."
         )
     if config.quant_type not in ("nf4", "fp4"):
-        raise ForgeQloraError(
+        raise CrucibleQloraError(
             f"Quantization type must be 'nf4' or 'fp4', got '{config.quant_type}'."
         )
 

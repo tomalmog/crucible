@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from core.errors import ForgeStoreError
+from core.errors import CrucibleStoreError
 from core.types import DataRecord, RecordMetadata, DatasetManifest, TrainingExportRequest
 from store.training_export import export_training_shards
 
@@ -42,7 +42,7 @@ def test_export_training_shards_rejects_invalid_shard_size(tmp_path) -> None:
     """Export should fail when shard size is not positive."""
     request = TrainingExportRequest(dataset_name="demo", output_dir=str(tmp_path), shard_size=0)
 
-    with pytest.raises(ForgeStoreError):
+    with pytest.raises(CrucibleStoreError):
         export_training_shards(request, _sample_manifest(), [_sample_record()])
 
     assert True

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from core.domain_adaptation_types import DomainAdaptationOptions
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
@@ -111,7 +111,7 @@ def _build_adaptation_context(
     tokenizer = fit_training_tokenizer(records, training_options)
     sequences = build_training_sequences(records, tokenizer, options.max_token_length)
     if not sequences:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "No trainable sequences generated from domain data. "
             "Check dataset content and max token length."
         )
@@ -130,7 +130,7 @@ def _build_adaptation_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model_path if use_hf else None,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
     )
     if not use_hf:
@@ -180,7 +180,7 @@ def _load_reference_sequences(
     """Load reference text lines and tokenize for drift evaluation."""
     path = Path(reference_path).expanduser().resolve()
     if not path.exists():
-        raise ForgeServeError(f"Reference data file not found at {path}.")
+        raise CrucibleServeError(f"Reference data file not found at {path}.")
     lines = path.read_text(encoding="utf-8").strip().splitlines()
     sequences: list[list[int]] = []
     for line in lines:
@@ -254,7 +254,7 @@ def _infer_checkpoint_vocab_size(
         embedding_weight = state.get("embedding.weight")
         if embedding_weight is not None and hasattr(embedding_weight, "shape"):
             return int(embedding_weight.shape[0])
-    except ForgeServeError:
+    except CrucibleServeError:
         pass
     return fallback
 
@@ -295,9 +295,9 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Domain adaptation requires torch, but it is not installed. "
-            "Install torch to run forge domain-adapt."
+            "Install torch to run crucible domain-adapt."
         ) from error
     return torch
 
@@ -308,7 +308,7 @@ def _try_save_plot(
     """Save training plot unless plotting dependency is unavailable."""
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
-    except ForgeDependencyError:
+    except CrucibleDependencyError:
         return None
 
 
@@ -316,5 +316,5 @@ def _invoke_error_hook(context: TrainingRuntimeContext, error: Exception) -> Non
     """Invoke error hook without replacing the original failure."""
     try:
         invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-    except ForgeServeError:
+    except CrucibleServeError:
         return

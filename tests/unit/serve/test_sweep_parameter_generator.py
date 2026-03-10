@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from core.errors import ForgeSweepError
+from core.errors import CrucibleSweepError
 from core.sweep_types import SweepConfig, SweepParameter
 from serve.sweep_parameter_generator import (
     generate_grid_parameters,
@@ -46,7 +46,7 @@ def test_grid_single_parameter() -> None:
 def test_grid_raises_on_empty_values() -> None:
     """Grid search should fail if any parameter has no values."""
     params = (SweepParameter(name="learning_rate"),)
-    with pytest.raises(ForgeSweepError, match="explicit 'values'"):
+    with pytest.raises(CrucibleSweepError, match="explicit 'values'"):
         generate_grid_parameters(params)
 
 
@@ -132,7 +132,7 @@ def test_random_raises_on_invalid_bounds() -> None:
             name="learning_rate", min_value=0.1, max_value=0.1,
         ),
     )
-    with pytest.raises(ForgeSweepError, match="min_value >= max_value"):
+    with pytest.raises(CrucibleSweepError, match="min_value >= max_value"):
         generate_random_parameters(params, max_trials=5, random_seed=42)
 
 
@@ -146,7 +146,7 @@ def test_log_scale_raises_on_non_positive_bounds() -> None:
             log_scale=True,
         ),
     )
-    with pytest.raises(ForgeSweepError, match="positive"):
+    with pytest.raises(CrucibleSweepError, match="positive"):
         generate_random_parameters(params, max_trials=1, random_seed=42)
 
 
@@ -194,7 +194,7 @@ def test_generate_sweep_parameters_raises_on_empty() -> None:
         parameters=(),
         strategy="grid",
     )
-    with pytest.raises(ForgeSweepError, match="at least one parameter"):
+    with pytest.raises(CrucibleSweepError, match="at least one parameter"):
         generate_sweep_parameters(config, random_seed=42)
 
 

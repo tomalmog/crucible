@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 
 def _cuda_expected() -> bool:
@@ -28,7 +28,7 @@ def resolve_execution_device(torch_module: Any) -> Any:
     """Resolve the preferred torch device for execution.
 
     Raises:
-        ForgeServeError: If GPUs are expected (Slurm job, CUDA_VISIBLE_DEVICES set)
+        CrucibleServeError: If GPUs are expected (Slurm job, CUDA_VISIBLE_DEVICES set)
             but CUDA is not available. Never silently falls back to CPU.
     """
     if is_tpu_available():
@@ -38,7 +38,7 @@ def resolve_execution_device(torch_module: Any) -> Any:
     if cuda_module is not None and bool(cuda_module.is_available()):
         return torch_module.device("cuda")
     if _cuda_expected():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "CUDA GPUs were expected but torch.cuda.is_available() returned False. "
             "Possible causes: (1) this node has a broken GPU driver (cuInit error 999), "
             "try resubmitting to get a different node; "
@@ -64,13 +64,13 @@ def resolve_device_for_rank(torch_module: Any, rank: int) -> Any:
         Torch device for the given rank.
 
     Raises:
-        ForgeServeError: If GPUs are expected but CUDA is not available.
+        CrucibleServeError: If GPUs are expected but CUDA is not available.
     """
     cuda_module = getattr(torch_module, "cuda", None)
     if cuda_module is not None and bool(cuda_module.is_available()):
         return torch_module.device(f"cuda:{rank}")
     if _cuda_expected():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "CUDA GPUs were expected but torch.cuda.is_available() returned False. "
             f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', 'unset')}. "
             "Reinstall torch with the correct CUDA version."

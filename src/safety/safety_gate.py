@@ -6,7 +6,7 @@ to determine if a model is safe for deployment.
 
 from __future__ import annotations
 
-from core.errors import ForgeSafetyError
+from core.errors import CrucibleSafetyError
 from core.safety_types import SafetyEvalConfig, SafetyGateResult, SafetyReport
 from safety.toxicity_scorer import score_batch_toxicity
 
@@ -28,10 +28,10 @@ def run_safety_gate(
         Safety gate result with pass/fail status.
 
     Raises:
-        ForgeSafetyError: If no texts are provided.
+        CrucibleSafetyError: If no texts are provided.
     """
     if not texts:
-        raise ForgeSafetyError("No texts provided for safety gate.")
+        raise CrucibleSafetyError("No texts provided for safety gate.")
 
     threshold = config.toxicity_threshold
     scores = score_batch_toxicity(texts, threshold=threshold)

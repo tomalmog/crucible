@@ -6,24 +6,24 @@ import os
 
 import pytest
 
-from core.config import ForgeConfig
-from core.errors import ForgeConfigError
+from core.config import CrucibleConfig
+from core.errors import CrucibleConfigError
 
 
 def test_from_env_reads_data_root(monkeypatch: pytest.MonkeyPatch) -> None:
     """Config should resolve data root from environment."""
-    monkeypatch.setenv("FORGE_DATA_ROOT", "./.tmp-forge")
+    monkeypatch.setenv("CRUCIBLE_DATA_ROOT", "./.tmp-crucible")
 
-    config = ForgeConfig.from_env()
+    config = CrucibleConfig.from_env()
 
-    assert config.data_root.name == ".tmp-forge"
+    assert config.data_root.name == ".tmp-crucible"
 
 
 def test_from_env_raises_for_invalid_seed(monkeypatch: pytest.MonkeyPatch) -> None:
     """Config should fail for non-numeric random seed."""
-    monkeypatch.setenv("FORGE_RANDOM_SEED", "not-a-number")
+    monkeypatch.setenv("CRUCIBLE_RANDOM_SEED", "not-a-number")
 
-    with pytest.raises(ForgeConfigError):
-        ForgeConfig.from_env()
+    with pytest.raises(CrucibleConfigError):
+        CrucibleConfig.from_env()
 
-    assert os.getenv("FORGE_RANDOM_SEED") == "not-a-number"
+    assert os.getenv("CRUCIBLE_RANDOM_SEED") == "not-a-number"

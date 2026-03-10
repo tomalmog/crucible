@@ -1,4 +1,4 @@
-"""WebSocket connection manager for Forge collaboration server.
+"""WebSocket connection manager for Crucible collaboration server.
 
 This module manages active WebSocket connections and provides
 broadcast capabilities for real-time run update notifications.

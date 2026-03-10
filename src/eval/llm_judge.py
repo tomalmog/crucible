@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 
 
 @dataclass(frozen=True)

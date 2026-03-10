@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from cli.main import main
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from serve.huggingface_hub import (
     HubDatasetInfo,
     HubModelInfo,
@@ -66,15 +66,15 @@ def test_cli_search(
 
 
 def test_missing_dep(monkeypatch: pytest.MonkeyPatch) -> None:
-    """search_models should raise ForgeDependencyError when hub is absent."""
+    """search_models should raise CrucibleDependencyError when hub is absent."""
 
     def _raise_dep_error() -> None:
-        raise ForgeDependencyError("huggingface_hub is required")
+        raise CrucibleDependencyError("huggingface_hub is required")
 
     monkeypatch.setattr(
         "serve.huggingface_hub._import_huggingface_hub",
         _raise_dep_error,
     )
 
-    with pytest.raises(ForgeDependencyError, match="huggingface_hub is required"):
+    with pytest.raises(CrucibleDependencyError, match="huggingface_hub is required"):
         search_models("test")

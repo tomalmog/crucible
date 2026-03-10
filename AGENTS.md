@@ -1,4 +1,4 @@
-# AGENTS.md — Forge Codebase Standards
+# AGENTS.md — Crucible Codebase Standards
 
 > This file governs all AI-assisted code generation in this repository.
 > Every agent (Copilot, Claude, Cursor, etc.) MUST follow these rules.
@@ -49,7 +49,7 @@ If the answer to any of these is "no," rewrite it.
 ## Project Structure
 
 ```
-forge/
+crucible/
 ├── src/                        # Python — CLI, SDK, core library
 │   ├── core/                   #   Shared types, errors, constants, config
 │   ├── cli/                    #   CLI commands (one file per command)
@@ -60,7 +60,7 @@ forge/
 │   ├── eval/                   #   Evaluation runners
 │   ├── deploy/                 #   Deployment logic
 │   ├── safety/                 #   Safety evaluation and gating
-│   └── forge.py                #   ForgeClient SDK entry point
+│   └── crucible.py              #   CrucibleClient SDK entry point
 ├── studio-app/                 # Frontend — Tauri desktop app
 │   ├── src/
 │   │   ├── api/                #   Tauri invoke wrappers + CLI arg builders
@@ -126,7 +126,7 @@ forge/
   - Good: `TrainingWizard.tsx`, `MetricCard.tsx`, `PageHeader.tsx`
   - Bad: `Card.tsx`, `Component.tsx`, `View.tsx`
 - **TypeScript hooks:** `useCamelCase.ts` — name describes what state/behavior it provides.
-  - Good: `useTrainingConfig.ts`, `useForgeCommand.ts`
+  - Good: `useTrainingConfig.ts`, `useCrucibleCommand.ts`
   - Bad: `useData.ts`, `useStuff.ts`
 - **TypeScript types:** `camelCase.ts` in `types/` for shared types.
   - Good: `training.ts`, `deploy.ts`, `models.ts`
@@ -181,7 +181,7 @@ Every component follows this order:
 ### State
 - Keep state as close to where it's used as possible.
 - Lift state only when two or more siblings need it.
-- Context is for app-wide state (`ForgeContext`, `CommandContext`). Not for passing props two levels down.
+- Context is for app-wide state (`CrucibleContext`, `CommandContext`). Not for passing props two levels down.
 - Never store derived state. Compute it from source state in render or `useMemo`.
 
 ### Memoization
@@ -221,13 +221,13 @@ The design system lives in `studio-app/src/theme/`:
 
 ### Error Handling
 - Custom exceptions live in `src/core/errors.py`, grouped by domain:
-  `ForgeIngestError`, `ForgeStoreError`, `ForgeTransformError`, etc.
+  `CrucibleIngestError`, `CrucibleStoreError`, `CrucibleTransformError`, etc.
 - Never catch bare `Exception` unless you re-raise with context.
 - Never silently swallow errors. Every `except` block must log or re-raise.
 - Error messages must include: what happened, what input caused it, what the user should do.
 
 ### Configuration
-- All config flows through `ForgeConfig` in `src/core/config.py`.
+- All config flows through `CrucibleConfig` in `src/core/config.py`.
 - Environment variables are read in ONE place. No `os.getenv()` scattered through business logic.
 - Every config value has a default, a type, and a docstring.
 - Secrets are never logged, never in error messages, never in stack traces.
@@ -258,7 +258,7 @@ The Studio UI calls the Python CLI via Tauri subprocess. The contract is:
 
 - **CLI flags are the API.** If you add/rename/remove a CLI flag, update `commandArgs.ts`.
 - **stdout is the data channel.** Training progress is JSON-per-line on stdout, parsed by `parseTrainingProgress()` in `TrainingRunMonitor.tsx`.
-- **stderr is for logs and errors.** The UI parses `ForgeXxxError:` patterns for friendly messages.
+- **stderr is for logs and errors.** The UI parses `CrucibleXxxError:` patterns for friendly messages.
 - **Defaults must stay in sync.** Python defaults (`constants.py`, `*_types.py`) and UI defaults (`training.ts`, `getDefaultConfigForMethod`) must agree. If you change one, grep for the old value and update every occurrence. Fine-tuning methods (DPO, LoRA, RLHF, SFT, distillation) need much lower learning rates than training from scratch — never use the generic `DEFAULT_TRAIN_LEARNING_RATE` for them.
 
 Never change stdout format without updating the frontend parser.

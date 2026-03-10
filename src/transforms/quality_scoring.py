@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.constants import DEFAULT_QUALITY_MODEL, SUPPORTED_QUALITY_MODELS
-from core.errors import ForgeTransformError
+from core.errors import CrucibleTransformError
 from transforms.perplexity_quality import score_texts_with_perplexity
 
 
@@ -39,12 +39,12 @@ def score_quality(texts: list[str], model_name: str = DEFAULT_QUALITY_MODEL) -> 
         Ordered quality score results.
 
     Raises:
-        ForgeTransformError: If model name is unsupported.
+        CrucibleTransformError: If model name is unsupported.
     """
     normalized_model = model_name.lower().strip()
     if normalized_model not in SUPPORTED_QUALITY_MODELS:
         supported = ", ".join(SUPPORTED_QUALITY_MODELS)
-        raise ForgeTransformError(
+        raise CrucibleTransformError(
             f"Unsupported quality model '{model_name}'. "
             f"Choose one of: {supported}."
         )

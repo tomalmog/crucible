@@ -9,12 +9,12 @@ from __future__ import annotations
 import argparse
 import subprocess
 
-from core.errors import ForgeModelRegistryError
-from store.dataset_sdk import ForgeClient
+from core.errors import CrucibleModelRegistryError
+from store.dataset_sdk import CrucibleClient
 from store.model_diff import format_model_diff
 
 
-def _run_list(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_list(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model list subcommand.
 
     Args:
@@ -56,7 +56,7 @@ def _run_list(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_register(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_register(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model register subcommand.
 
     Args:
@@ -77,7 +77,7 @@ def _run_register(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_tag(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_tag(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model tag subcommand.
 
     Args:
@@ -93,7 +93,7 @@ def _run_tag(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_diff(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_diff(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model diff subcommand.
 
     Args:
@@ -111,7 +111,7 @@ def _run_diff(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_rollback(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_rollback(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model rollback subcommand.
 
     Args:
@@ -127,14 +127,14 @@ def _run_rollback(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_delete(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model delete subcommand."""
     registry = client.model_registry()
 
     if args.version_id:
         try:
             version = registry.get_version(args.version_id)
-        except ForgeModelRegistryError as exc:
+        except CrucibleModelRegistryError as exc:
             print(f"Error: {exc}")
             return 1
         versions = [version]
@@ -200,8 +200,8 @@ def _delete_remote_paths(versions: list[object]) -> None:
             continue
         if not v.remote_host or not v.remote_path:
             continue
-        if "/forge-jobs/rj-" not in v.remote_path:
-            print(f"  Skipped remote (not a forge job path): {v.remote_path}")
+        if "/crucible-jobs/rj-" not in v.remote_path:
+            print(f"  Skipped remote (not a crucible job path): {v.remote_path}")
             continue
         try:
             subprocess.run(

@@ -1,4 +1,4 @@
-"""Chat command wiring for Forge CLI.
+"""Chat command wiring for Crucible CLI.
 
 This module isolates chat command parser and execution logic.
 It supports quick inference checks against trained model weights.
@@ -25,10 +25,10 @@ from core.constants import (
     SUPPORTED_POSITION_EMBEDDING_TYPES,
 )
 from core.types import PositionEmbeddingType
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_chat_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle chat command invocation."""
     options = ChatOptions(
         model_path=args.model_path,

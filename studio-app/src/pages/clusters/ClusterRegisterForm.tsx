@@ -1,24 +1,27 @@
 import { useState } from "react";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
-import { useForge } from "../../context/ForgeContext";
-import { startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
+import { useCrucible } from "../../context/CrucibleContext";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
+import type { ClusterConfig } from "../../types/remote";
 
 interface ClusterRegisterFormProps {
   onRegistered: () => void;
+  editCluster?: ClusterConfig;
 }
 
-export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) {
-  const { dataRoot } = useForge();
-  const [name, setName] = useState("");
-  const [host, setHost] = useState("");
-  const [user, setUser] = useState("");
+export function ClusterRegisterForm({ onRegistered, editCluster }: ClusterRegisterFormProps) {
+  const isEdit = !!editCluster;
+  const { dataRoot } = useCrucible();
+  const [name, setName] = useState(editCluster?.name ?? "");
+  const [host, setHost] = useState(editCluster?.host ?? "");
+  const [user, setUser] = useState(editCluster?.user ?? "");
   const [sshKey, setSshKey] = useState("");
   const [password, setPassword] = useState("");
-  const [partition, setPartition] = useState("");
-  const [moduleLoads, setModuleLoads] = useState("");
-  const [pythonPath, setPythonPath] = useState("python3");
-  const [workspace, setWorkspace] = useState("/tmp/forge-jobs");
+  const [partition, setPartition] = useState(editCluster?.defaultPartition ?? "");
+  const [moduleLoads, setModuleLoads] = useState(editCluster?.moduleLoads.join(", ") ?? "");
+  const [pythonPath, setPythonPath] = useState(editCluster?.pythonPath ?? "python3");
+  const [workspace, setWorkspace] = useState(editCluster?.remoteWorkspace ?? "~/crucible-jobs");
   const [validate, setValidate] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,22 +47,22 @@ export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) 
       if (password) args.push("--password", password);
       if (partition) args.push("--partition", partition);
       if (moduleLoads) args.push("--module-loads", moduleLoads);
-      if (pythonPath !== "python3") args.push("--python-path", pythonPath);
-      if (workspace !== "/tmp/forge-jobs") args.push("--remote-workspace", workspace);
+      args.push("--python-path", pythonPath);
+      args.push("--remote-workspace", workspace);
       if (validate) args.push("--validate");
 
-      const { task_id } = await startForgeCommand(dataRoot, args);
+      const { task_id } = await startCrucibleCommand(dataRoot, args);
       // Poll until the background task completes
-      let status = await getForgeCommandStatus(task_id);
+      let status = await getCrucibleCommandStatus(task_id);
       while (status.status === "running") {
         await new Promise((r) => setTimeout(r, 500));
-        status = await getForgeCommandStatus(task_id);
+        status = await getCrucibleCommandStatus(task_id);
       }
       if (status.status === "failed") {
         const stderr = status.stderr || "Unknown error";
         setError(stderr.split("\n").filter(Boolean).pop() || stderr);
       } else {
-        setOutput(status.stdout || `Cluster '${name}' registered successfully.`);
+        setOutput(status.stdout || `Cluster '${name}' ${isEdit ? "updated" : "registered"} successfully.`);
         onRegistered();
       }
     } catch (err) {
@@ -71,11 +74,11 @@ export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) 
 
   return (
     <CommandFormPanel
-      title="Register Cluster"
+      title={isEdit ? "Edit Cluster" : "Register Cluster"}
       missing={missing}
       isRunning={isRunning}
-      submitLabel="Register"
-      runningLabel="Registering..."
+      submitLabel={isEdit ? "Save" : "Register"}
+      runningLabel={isEdit ? "Saving..." : "Registering..."}
       onSubmit={handleSubmit}
       error={error}
       output={output}
@@ -86,6 +89,7 @@ export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) 
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
           placeholder="my-hpc"
+          readOnly={isEdit}
         />
       </FormField>
 
@@ -107,7 +111,7 @@ export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) 
         />
       </FormField>
 
-      <FormField label="SSH Key" hint="Path to private key (optional, uses ssh-agent by default)">
+      <FormField label="SSH Key" hint={isEdit ? "Leave blank to keep current key" : "Path to private key (optional, uses ssh-agent by default)"}>
         <input
           className="input"
           value={sshKey}
@@ -116,7 +120,7 @@ export function ClusterRegisterForm({ onRegistered }: ClusterRegisterFormProps) 
         />
       </FormField>
 
-      <FormField label="Password" hint="Optional — only needed if key-based auth is not set up">
+      <FormField label="Password" hint={isEdit ? "Leave blank to keep current password" : "Optional — only needed if key-based auth is not set up"}>
         <input
           className="input"
           type="password"

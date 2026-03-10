@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.ssh_connection import SshSession
 
@@ -17,9 +17,9 @@ def _make_cluster() -> ClusterConfig:
 
 
 def test_client_property_not_connected_raises() -> None:
-    """Accessing client before connect raises ForgeRemoteError."""
+    """Accessing client before connect raises CrucibleRemoteError."""
     session = SshSession(_make_cluster())
-    with pytest.raises(ForgeRemoteError, match="not connected"):
+    with pytest.raises(CrucibleRemoteError, match="not connected"):
         _ = session.client
 
 
@@ -50,13 +50,13 @@ def test_execute_returns_stdout_stderr_exitcode() -> None:
 
 
 def test_execute_raises_on_error() -> None:
-    """execute() wraps exceptions in ForgeRemoteError."""
+    """execute() wraps exceptions in CrucibleRemoteError."""
     session = SshSession(_make_cluster())
     mock_client = MagicMock()
     mock_client.exec_command.side_effect = OSError("broken pipe")
     session._client = mock_client
 
-    with pytest.raises(ForgeRemoteError, match="Remote command failed"):
+    with pytest.raises(CrucibleRemoteError, match="Remote command failed"):
         session.execute("ls")
 
 
@@ -73,7 +73,7 @@ def test_upload_calls_sftp_put() -> None:
 
 
 def test_upload_raises_on_sftp_error() -> None:
-    """upload() wraps SFTP exceptions in ForgeRemoteError."""
+    """upload() wraps SFTP exceptions in CrucibleRemoteError."""
     session = SshSession(_make_cluster())
     mock_client = MagicMock()
     mock_sftp = MagicMock()
@@ -81,7 +81,7 @@ def test_upload_raises_on_sftp_error() -> None:
     mock_client.open_sftp.return_value = mock_sftp
     session._client = mock_client
 
-    with pytest.raises(ForgeRemoteError, match="SFTP upload failed"):
+    with pytest.raises(CrucibleRemoteError, match="SFTP upload failed"):
         session.upload(Path("/tmp/local.bin"), "/remote/local.bin")
 
 

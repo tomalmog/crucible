@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig, RemoteJobRecord, SlurmResourceConfig
 from serve.remote_job_submitter import submit_remote_job
 
@@ -16,7 +16,7 @@ _MODULE = "serve.remote_job_submitter"
 _JOB_ID = "rj-test123"
 _TS = "2026-01-01T00:00:00Z"
 _CLUSTER_NAME = "test-cluster"
-_WORKSPACE = "/scratch/forge"
+_WORKSPACE = "/scratch/crucible"
 _WORKDIR = f"{_WORKSPACE}/{_JOB_ID}"
 
 
@@ -109,7 +109,7 @@ def _call_submit(
     method_args: dict[str, object] | None = None,
 ) -> RemoteJobRecord:
     return submit_remote_job(
-        data_root=Path("/tmp/forge"),
+        data_root=Path("/tmp/crucible"),
         cluster_name=_CLUSTER_NAME,
         training_method="sft",
         method_args=method_args or {},
@@ -171,10 +171,10 @@ def test_submit_remote_job_verifies_dataset(
 def test_submit_remote_job_raises_on_missing_dataset(
     _patch_all: dict[str, MagicMock],
 ) -> None:
-    """ForgeRemoteError is raised when the dataset directory is absent."""
+    """CrucibleRemoteError is raised when the dataset directory is absent."""
     session = _patch_all["SshSession"].return_value.__enter__.return_value
     session.execute.return_value = ("", "", 1)
-    with pytest.raises(ForgeRemoteError, match="not found on cluster"):
+    with pytest.raises(CrucibleRemoteError, match="not found on cluster"):
         _call_submit(method_args={"dataset_name": "test-ds"})
 
 

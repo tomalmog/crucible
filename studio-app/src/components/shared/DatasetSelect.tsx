@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingCluster } from "../../context/TrainingClusterContext";
 import { listRemoteDatasets } from "../../api/remoteApi";
 import type { RemoteDatasetInfo } from "../../types/remote";
@@ -23,7 +23,7 @@ interface DatasetOption {
  * active, remote datasets from that cluster in a grouped "Remote" section.
  */
 export function DatasetSelect({ value, onChange, placeholder = "dataset name" }: DatasetSelectProps) {
-  const { datasets, dataRoot } = useForge();
+  const { datasets, dataRoot } = useCrucible();
   const cluster = useTrainingCluster();
   const [open, setOpen] = useState(false);
   const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);

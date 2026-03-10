@@ -7,17 +7,17 @@ export const evaluationSafety: DocEntry = {
   content: `
 ## Evaluation & Safety
 
-Training a model is only half the job. Forge provides tools to evaluate quality and catch safety issues before deployment.
+Training a model is only half the job. Crucible provides tools to evaluate quality and catch safety issues before deployment.
 
 ### Benchmarks
 
 Run standard evaluation benchmarks to measure model quality:
 
 \`\`\`bash
-forge eval --model-path ./outputs/model.pt --benchmarks mmlu,gsm8k,hellaswag
+crucible eval --model-path ./outputs/model.pt --benchmarks mmlu,gsm8k,hellaswag
 \`\`\`
 
-Forge includes seven benchmarks, each testing a different capability:
+Crucible includes seven benchmarks, each testing a different capability:
 
 | Benchmark | What It Measures | Scoring |
 |-----------|-----------------|---------|
@@ -36,24 +36,24 @@ Benchmark datasets are downloaded automatically from HuggingFace on first use.
 Run automated checks on a trained model with a single command:
 
 \`\`\`bash
-forge verify --model <path>
+crucible verify --model <path>
 \`\`\`
 
 This runs a suite of checks: model loads correctly, generates coherent output, meets minimum quality thresholds, and passes safety filters. The output is a pass/fail report with details on each check.
 
 ### LLM-as-Judge
 
-Use a stronger model to score your model's outputs. Forge sends your model's responses to a judge model that rates them on configurable criteria: helpfulness, accuracy, coherence, and safety. This provides a scalable quality signal that correlates well with human evaluation.
+Use a stronger model to score your model's outputs. Crucible sends your model's responses to a judge model that rates them on configurable criteria: helpfulness, accuracy, coherence, and safety. This provides a scalable quality signal that correlates well with human evaluation.
 
 \`\`\`bash
-forge judge --model-path ./outputs/model.pt \\
+crucible judge --model-path ./outputs/model.pt \\
   --judge-api https://api.openai.com/v1/chat/completions \\
   --criteria helpfulness,accuracy,safety
 \`\`\`
 
 ### Toxicity Scoring
 
-Automated detection of harmful, biased, or toxic content in model outputs. Forge runs a dedicated toxicity classifier over a sample of generated text and reports a toxicity rate. High scores indicate the model needs additional safety training or filtering.
+Automated detection of harmful, biased, or toxic content in model outputs. Crucible runs a dedicated toxicity classifier over a sample of generated text and reports a toxicity rate. High scores indicate the model needs additional safety training or filtering.
 
 ### Safety Gates
 
@@ -63,7 +63,7 @@ Define pass/fail criteria that a model must meet before it is considered ready f
 - Maximum toxicity rate
 - Required judge scores above a minimum
 
-If any gate fails, Forge flags the model and blocks downstream export steps. Gates are configurable per project.
+If any gate fails, Crucible flags the model and blocks downstream export steps. Gates are configurable per project.
 
 ### Studio UI
 

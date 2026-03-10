@@ -10,7 +10,7 @@ import math
 from typing import Any
 
 from core.benchmark_types import PerplexityResult
-from core.errors import ForgeBenchmarkError
+from core.errors import CrucibleBenchmarkError
 
 
 def compute_perplexity_benchmark(
@@ -33,10 +33,10 @@ def compute_perplexity_benchmark(
         PerplexityResult with perplexity and token counts.
 
     Raises:
-        ForgeBenchmarkError: If no sequences or computation fails.
+        CrucibleBenchmarkError: If no sequences or computation fails.
     """
     if not sequences:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             "No sequences provided for perplexity benchmark."
         )
     model.eval()
@@ -54,7 +54,7 @@ def compute_perplexity_benchmark(
             total_loss += batch_loss
             total_tokens += batch_tokens
     if total_tokens == 0:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             "No valid tokens found during perplexity evaluation."
         )
     avg_loss = total_loss / total_tokens

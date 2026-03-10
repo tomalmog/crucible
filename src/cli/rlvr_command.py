@@ -8,10 +8,10 @@ from typing import cast
 from core.constants import *
 from core.rlvr_types import RlvrOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_rlvr_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_rlvr_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     options = RlvrOptions(
         dataset_name=args.dataset, output_dir=args.output_dir,
         rlvr_data_path=args.rlvr_data_path, verifier_type=args.verifier_type,

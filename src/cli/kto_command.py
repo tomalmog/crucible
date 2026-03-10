@@ -1,4 +1,4 @@
-"""KTO command wiring for Forge CLI.
+"""KTO command wiring for Crucible CLI.
 
 This module isolates KTO command parser and execution logic,
 mapping CLI arguments to KtoOptions for Kahneman-Tversky Optimization.
@@ -35,10 +35,10 @@ from core.kto_types import (
     KtoOptions,
 )
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_kto_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_kto_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle KTO command invocation."""
     options = KtoOptions(
         dataset_name=args.dataset, output_dir=args.output_dir,

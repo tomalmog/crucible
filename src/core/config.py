@@ -1,4 +1,4 @@
-"""Runtime configuration model for Forge.
+"""Runtime configuration model for Crucible.
 
 This module owns all environment variable parsing and validation.
 Other modules consume a typed config object instead of raw env reads.
@@ -11,11 +11,11 @@ import os
 from pathlib import Path
 
 from core.constants import DEFAULT_DATA_ROOT
-from core.errors import ForgeConfigError
+from core.errors import CrucibleConfigError
 
 
 @dataclass(frozen=True)
-class ForgeConfig:
+class CrucibleConfig:
     """Validated runtime configuration.
 
     Attributes:
@@ -31,19 +31,19 @@ class ForgeConfig:
     random_seed: int
 
     @classmethod
-    def from_env(cls) -> "ForgeConfig":
+    def from_env(cls) -> "CrucibleConfig":
         """Build config from process environment variables.
 
         Returns:
             A validated config object.
 
         Raises:
-            ForgeConfigError: If environment values are invalid.
+            CrucibleConfigError: If environment values are invalid.
         """
-        data_root_value = os.getenv("FORGE_DATA_ROOT", str(DEFAULT_DATA_ROOT))
-        s3_region = os.getenv("FORGE_S3_REGION")
-        s3_profile = os.getenv("FORGE_S3_PROFILE")
-        random_seed_value = os.getenv("FORGE_RANDOM_SEED", "42")
+        data_root_value = os.getenv("CRUCIBLE_DATA_ROOT", str(DEFAULT_DATA_ROOT))
+        s3_region = os.getenv("CRUCIBLE_S3_REGION")
+        s3_profile = os.getenv("CRUCIBLE_S3_PROFILE")
+        random_seed_value = os.getenv("CRUCIBLE_RANDOM_SEED", "42")
         random_seed = _parse_random_seed(random_seed_value)
         return cls(
             data_root=Path(data_root_value).expanduser().resolve(),
@@ -63,13 +63,13 @@ def _parse_random_seed(raw_value: str) -> int:
         Parsed integer seed.
 
     Raises:
-        ForgeConfigError: If value cannot be parsed into int.
+        CrucibleConfigError: If value cannot be parsed into int.
     """
     try:
         return int(raw_value)
     except ValueError as error:
-        raise ForgeConfigError(
-            "Invalid FORGE_RANDOM_SEED value: "
+        raise CrucibleConfigError(
+            "Invalid CRUCIBLE_RANDOM_SEED value: "
             f"expected integer, got '{raw_value}'. "
-            "Set FORGE_RANDOM_SEED to a numeric value."
+            "Set CRUCIBLE_RANDOM_SEED to a numeric value."
         ) from error

@@ -9,7 +9,7 @@ from core.slurm_types import ClusterConfig, RemoteJobRecord
 from serve.remote_job_state import (
     check_remote_job_state,
     is_job_done,
-    slurm_state_to_forge,
+    slurm_state_to_crucible,
 )
 from serve.remote_log_streamer import fetch_remote_logs
 
@@ -33,8 +33,8 @@ def _make_record(**overrides: object) -> RemoteJobRecord:
         state="running",
         submitted_at="2026-01-01T00:00:00Z",
         updated_at="2026-01-01T00:00:00Z",
-        remote_output_dir="/scratch/forge/rj-test123",
-        remote_log_path="/scratch/forge/rj-test123/slurm-12345.out",
+        remote_output_dir="/scratch/crucible/rj-test123",
+        remote_log_path="/scratch/crucible/rj-test123/slurm-12345.out",
     )
     defaults.update(overrides)
     return RemoteJobRecord(**defaults)  # type: ignore[arg-type]
@@ -44,27 +44,27 @@ def _make_cluster() -> ClusterConfig:
     return ClusterConfig(name="test-hpc", host="hpc.example.com", user="jdoe")
 
 
-# -- slurm_state_to_forge -----------------------------------------------------
+# -- slurm_state_to_crucible -----------------------------------------------------
 
 
-def test_slurm_state_to_forge_completed_returns_completed() -> None:
+def test_slurm_state_to_crucible_completed_returns_completed() -> None:
     """COMPLETED maps to completed."""
-    assert slurm_state_to_forge("COMPLETED") == "completed"
+    assert slurm_state_to_crucible("COMPLETED") == "completed"
 
 
-def test_slurm_state_to_forge_failed_returns_failed() -> None:
+def test_slurm_state_to_crucible_failed_returns_failed() -> None:
     """FAILED maps to failed."""
-    assert slurm_state_to_forge("FAILED") == "failed"
+    assert slurm_state_to_crucible("FAILED") == "failed"
 
 
-def test_slurm_state_to_forge_cancelled_returns_cancelled() -> None:
+def test_slurm_state_to_crucible_cancelled_returns_cancelled() -> None:
     """CANCELLED maps to cancelled."""
-    assert slurm_state_to_forge("CANCELLED") == "cancelled"
+    assert slurm_state_to_crucible("CANCELLED") == "cancelled"
 
 
-def test_slurm_state_to_forge_unknown_defaults_running() -> None:
+def test_slurm_state_to_crucible_unknown_defaults_running() -> None:
     """Unknown Slurm state defaults to running."""
-    assert slurm_state_to_forge("CONFIGURING") == "running"
+    assert slurm_state_to_crucible("CONFIGURING") == "running"
 
 
 # -- is_job_done ---------------------------------------------------------------
@@ -115,7 +115,7 @@ def test_fetch_remote_logs_returns_sacct_when_no_file(
     mock_load_cluster: MagicMock,
 ) -> None:
     """When log file missing, sacct info is included in the message."""
-    mock_load_job.return_value = _make_record()
+    mock_load_job.return_value = _make_record(state="failed")
     mock_session = _make_session([
         ("", "", 1),  # test -f fails
         ("12345|FAILED|1:0||00:05:00|node01|OOM\n", "", 0),  # sacct query

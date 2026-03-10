@@ -1,4 +1,4 @@
-"""Dataset curation command wiring for Forge CLI.
+"""Dataset curation command wiring for Crucible CLI.
 
 This module provides commands for scoring, analyzing, and
 managing training dataset quality.
@@ -11,10 +11,10 @@ import json
 from pathlib import Path
 
 from serve.dataset_curator import compute_distributions, score_examples
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_curate_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_curate_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle curate subcommand dispatch."""
     subcmd = args.curate_subcommand
     if subcmd == "score":
@@ -27,7 +27,7 @@ def run_curate_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 1
 
 
-def _run_score(client: ForgeClient, dataset_name: str) -> int:
+def _run_score(client: CrucibleClient, dataset_name: str) -> int:
     """Score dataset examples for quality."""
     dataset = client.dataset(dataset_name)
     _, records = dataset.load_records()
@@ -39,7 +39,7 @@ def _run_score(client: ForgeClient, dataset_name: str) -> int:
     return 0
 
 
-def _run_stats(client: ForgeClient, dataset_name: str) -> int:
+def _run_stats(client: CrucibleClient, dataset_name: str) -> int:
     """Compute dataset distribution statistics."""
     dataset = client.dataset(dataset_name)
     _, records = dataset.load_records()
@@ -54,7 +54,7 @@ def _run_stats(client: ForgeClient, dataset_name: str) -> int:
     return 0
 
 
-def _run_remove(client: ForgeClient, dataset_name: str, record_ids: list[str]) -> int:
+def _run_remove(client: CrucibleClient, dataset_name: str, record_ids: list[str]) -> int:
     """Remove specific records from dataset."""
     print(f"Removed {len(record_ids)} records from {dataset_name}")
     return 0

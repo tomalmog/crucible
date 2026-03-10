@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import {
   listDatasets,
   listModelGroups,
@@ -6,6 +6,7 @@ import {
   getDatasetDashboard,
   sampleRecords,
   getHardwareProfile,
+  getModelIndexMtime,
 } from "../api/studioApi";
 import {
   DatasetDashboard,
@@ -15,7 +16,7 @@ import {
 import type { ModelGroup, ModelVersion } from "../types/models";
 import { loadSessionState, saveSessionState } from "../session_state";
 
-interface ForgeContextValue {
+interface CrucibleContextValue {
   dataRoot: string;
   setDataRoot: (value: string) => void;
   datasets: DatasetEntry[];
@@ -35,17 +36,17 @@ interface ForgeContextValue {
   refreshHardwareProfile: () => Promise<void>;
 }
 
-const ForgeCtx = createContext<ForgeContextValue | null>(null);
+const CrucibleCtx = createContext<CrucibleContextValue | null>(null);
 
-export function useForge(): ForgeContextValue {
-  const ctx = useContext(ForgeCtx);
-  if (!ctx) throw new Error("useForge must be inside ForgeProvider");
+export function useCrucible(): CrucibleContextValue {
+  const ctx = useContext(CrucibleCtx);
+  if (!ctx) throw new Error("useCrucible must be inside CrucibleProvider");
   return ctx;
 }
 
 const INITIAL = loadSessionState();
 
-export function ForgeProvider({ children }: { children: ReactNode }) {
+export function CrucibleProvider({ children }: { children: ReactNode }) {
   const [dataRoot, setDataRoot] = useState(INITIAL.data_root);
   const [datasets, setDatasets] = useState<DatasetEntry[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string | null>(
@@ -132,6 +133,23 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
     refreshHardwareProfile().catch(console.error);
   }, []);
 
+  // Auto-refresh models by polling index.json mtime every 5s
+  const lastModelMtime = useRef<string>("");
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const mtime = await getModelIndexMtime(dataRoot);
+        if (lastModelMtime.current && mtime !== lastModelMtime.current) {
+          refreshModels().catch(console.error);
+        }
+        lastModelMtime.current = mtime;
+      } catch {
+        // index.json may not exist yet — ignore
+      }
+    }, 5_000);
+    return () => clearInterval(poll);
+  }, [dataRoot, refreshModels]);
+
   // Reload dashboard and samples when dataset changes
   useEffect(() => {
     if (!selectedDataset) {
@@ -162,7 +180,7 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
   }, [dataRoot, selectedDataset, selectedModelName, selectedModel]);
 
   return (
-    <ForgeCtx.Provider
+    <CrucibleCtx.Provider
       value={{
         dataRoot,
         setDataRoot,
@@ -184,6 +202,6 @@ export function ForgeProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </ForgeCtx.Provider>
+    </CrucibleCtx.Provider>
   );
 }

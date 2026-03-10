@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 
@@ -12,8 +12,8 @@ interface Comparison {
 }
 
 export function CompareChatPage() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [modelA, setModelA] = useState("");
   const [modelB, setModelB] = useState("");
   const [prompt, setPrompt] = useState("");

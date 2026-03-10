@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from core.benchmark_types import LatencyResult
-from core.errors import ForgeBenchmarkError
+from core.errors import CrucibleBenchmarkError
 
 
 def profile_latency(
@@ -33,10 +33,10 @@ def profile_latency(
         LatencyResult with percentile and throughput data.
 
     Raises:
-        ForgeBenchmarkError: If no sequences or profiling fails.
+        CrucibleBenchmarkError: If no sequences or profiling fails.
     """
     if not sequences:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             "No sequences provided for latency profiling."
         )
     model.eval()
@@ -81,7 +81,7 @@ def _compute_latency_stats(
 ) -> LatencyResult:
     """Compute percentile statistics from latency measurements."""
     if not latencies:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             "No latency measurements recorded."
         )
     sorted_latencies = sorted(latencies)

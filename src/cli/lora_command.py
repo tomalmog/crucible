@@ -1,4 +1,4 @@
-"""LoRA command wiring for Forge CLI.
+"""LoRA command wiring for Crucible CLI.
 
 This module isolates LoRA training and merge command parser logic,
 mapping CLI arguments to LoraTrainingOptions for adapter fine-tuning.
@@ -32,10 +32,10 @@ from core.constants import (
 )
 from core.lora_types import LoraConfig, LoraTrainingOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_lora_train_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_lora_train_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle lora-train command invocation."""
     lora_config = LoraConfig(
         rank=args.lora_rank,

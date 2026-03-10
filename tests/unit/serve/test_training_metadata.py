@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingOptions
 from serve.tokenization import VocabularyTokenizer
 from serve.training_metadata import (
@@ -145,7 +145,7 @@ def test_load_tokenizer_from_path_raises_for_missing_file(tmp_path: Path) -> Non
     """Missing vocabulary file should raise a traceable error."""
     missing_path = tmp_path / "nonexistent.json"
 
-    with pytest.raises(ForgeServeError, match="Tokenizer vocabulary file not found"):
+    with pytest.raises(CrucibleServeError, match="Tokenizer vocabulary file not found"):
         load_tokenizer_from_path(str(missing_path))
 
 
@@ -156,5 +156,5 @@ def test_load_tokenizer_from_path_raises_for_unrecognized_format(tmp_path: Path)
     bad_path = tmp_path / "weird.json"
     bad_path.write_text(json.dumps({"name": "not a vocab"}), encoding="utf-8")
 
-    with pytest.raises(ForgeServeError, match="Unrecognized tokenizer format"):
+    with pytest.raises(CrucibleServeError, match="Unrecognized tokenizer format"):
         load_tokenizer_from_path(str(bad_path))

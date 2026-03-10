@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, cast
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 # Hook type aliases use Any for the context parameter because of a circular
 # import: training_context imports TrainingHooks from this module, so we
@@ -48,7 +48,7 @@ def load_training_hooks(hooks_path: str | None) -> TrainingHooks:
         return TrainingHooks()
     resolved_path = Path(hooks_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Hooks file not found at {resolved_path}. Provide a valid --hooks-file path."
         )
     module = _load_python_module(resolved_path)
@@ -84,12 +84,12 @@ def build_loss_function_from_hooks(
     try:
         loss_function = hooks.build_loss_function(runtime_context, torch_module)
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Hook 'build_loss_function' failed: {error}. "
             "Fix the hook function or remove --hooks-file."
         ) from error
     if loss_function is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "Hook 'build_loss_function' returned None. Return a torch loss module instance."
         )
     return loss_function
@@ -106,7 +106,7 @@ def invoke_hook(
     try:
         hook_fn(*args)
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Hook '{hook_name}' failed: {error}. Fix the hook function or remove --hooks-file."
         ) from error
 
@@ -117,13 +117,13 @@ def _load_optional_hook(module: types.ModuleType, attribute_name: str) -> Callab
         return None
     if callable(hook):
         return cast(Callable[..., object], hook)
-    raise ForgeServeError(f"Invalid hooks file: '{attribute_name}' exists but is not callable.")
+    raise CrucibleServeError(f"Invalid hooks file: '{attribute_name}' exists but is not callable.")
 
 
 def _load_python_module(module_path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location("forge_user_training_hooks", str(module_path))
+    spec = importlib.util.spec_from_file_location("crucible_user_training_hooks", str(module_path))
     if spec is None or spec.loader is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load hooks module at {module_path}. Verify file path and syntax."
         )
     module = importlib.util.module_from_spec(spec)

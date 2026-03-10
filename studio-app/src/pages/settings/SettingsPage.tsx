@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 import { HardwareProfileView } from "./HardwareProfileView";
 import { getTheme, setTheme, type Theme } from "../../theme/themeUtils";
 
 export function SettingsPage() {
-  const { dataRoot, setDataRoot, refreshDatasets, hardwareProfile, refreshHardwareProfile } = useForge();
+  const { dataRoot, setDataRoot, refreshDatasets, hardwareProfile, refreshHardwareProfile } = useCrucible();
   const [theme, setThemeState] = useState<Theme>(getTheme());
 
   function handleThemeChange(t: Theme) {
@@ -31,7 +31,7 @@ export function SettingsPage() {
 
         <div className="panel">
           <h3 className="panel-title">Data Root</h3>
-          <FormField label="Path to .forge data directory">
+          <FormField label="Path to .crucible data directory">
             <input value={dataRoot} onChange={(e) => setDataRoot(e.currentTarget.value)} />
           </FormField>
           <button className="btn gap-top-sm" onClick={() => refreshDatasets().catch(console.error)}>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeSafetyError
+from core.errors import CrucibleSafetyError
 from core.safety_types import SafetyEvalConfig
 from safety.safety_gate import format_gate_result, run_safety_gate
 
@@ -43,13 +43,13 @@ def test_safety_gate_fails_toxic_text() -> None:
 
 
 def test_safety_gate_raises_on_empty_texts() -> None:
-    """Safety gate should raise ForgeSafetyError with no texts."""
+    """Safety gate should raise CrucibleSafetyError with no texts."""
     config = SafetyEvalConfig(
         model_path="/tmp/model.pt",
         eval_data_path="/tmp/data.json",
         output_dir="/tmp/out",
     )
-    with pytest.raises(ForgeSafetyError, match="No texts provided"):
+    with pytest.raises(CrucibleSafetyError, match="No texts provided"):
         run_safety_gate(config, [])
 
 

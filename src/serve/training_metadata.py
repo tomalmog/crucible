@@ -16,7 +16,7 @@ from core.constants import (
     DEFAULT_TOKENIZER_VOCAB_FILE_NAME,
     DEFAULT_TRAINING_CONFIG_FILE_NAME,
 )
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingOptions
 from serve.tokenization import VocabularyTokenizer
 
@@ -46,7 +46,7 @@ def load_training_config(model_path: str) -> dict[str, object] | None:
         return None
     payload = _read_json_payload(config_path)
     if not isinstance(payload, dict):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid training config format at {config_path}: expected JSON object."
         )
     return cast(dict[str, object], payload)
@@ -55,7 +55,7 @@ def load_training_config(model_path: str) -> dict[str, object] | None:
 def load_tokenizer(model_path: str) -> ChatTokenizer | None:
     """Load persisted training tokenizer located beside model weights.
 
-    Checks for Forge vocab.json first, then HuggingFace tokenizer.json.
+    Checks for Crucible vocab.json first, then HuggingFace tokenizer.json.
     Returns None if no vocabulary file exists next to the model.
     """
     artifact_dir = _artifact_dir(model_path)
@@ -72,7 +72,7 @@ def load_tokenizer_from_path(vocabulary_path: str) -> ChatTokenizer:
     """Load tokenizer from an explicit file path.
 
     Supports two formats:
-    - Forge flat vocabulary: ``{"token": id, ...}``
+    - Crucible flat vocabulary: ``{"token": id, ...}``
     - HuggingFace tokenizer.json: loaded via the ``tokenizers`` library for
       full BPE/WordPiece/Unigram encode/decode support.
 
@@ -83,17 +83,17 @@ def load_tokenizer_from_path(vocabulary_path: str) -> ChatTokenizer:
         Loaded tokenizer instance.
 
     Raises:
-        ForgeServeError: If the file is missing, malformed, or has invalid entries.
+        CrucibleServeError: If the file is missing, malformed, or has invalid entries.
     """
     resolved_path = Path(vocabulary_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Tokenizer vocabulary file not found at {resolved_path}. "
             "Provide a valid --tokenizer-path or re-run training to generate vocab.json."
         )
     payload = _read_json_payload(resolved_path)
     if not isinstance(payload, dict):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid tokenizer vocabulary format at {resolved_path}: expected JSON object."
         )
     if _is_huggingface_tokenizer(payload):
@@ -114,12 +114,12 @@ def _extract_vocabulary_mapping(
     payload: dict[str, object],
     source_path: Path,
 ) -> dict[str, object]:
-    """Extract the token-to-id mapping from a flat Forge vocabulary payload."""
+    """Extract the token-to-id mapping from a flat Crucible vocabulary payload."""
     if _looks_like_flat_vocabulary(payload):
         return payload
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Unrecognized tokenizer format at {source_path}. "
-        "Expected a Forge vocab.json (flat {{token: id}}) or "
+        "Expected a Crucible vocab.json (flat {{token: id}}) or "
         "a HuggingFace tokenizer.json. Install the tokenizers library "
         "for HuggingFace support: pip install tokenizers"
     )
@@ -141,11 +141,11 @@ def _validate_vocabulary(
     vocabulary: dict[str, int] = {}
     for raw_token, raw_token_id in raw_vocab.items():
         if not isinstance(raw_token, str):
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Invalid tokenizer vocabulary at {source_path}: token keys must be strings."
             )
         if not isinstance(raw_token_id, int):
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Invalid tokenizer vocabulary at {source_path}: token id for "
                 f"{raw_token!r} must be an integer."
             )
@@ -166,12 +166,12 @@ def _read_json_payload(payload_path: Path) -> object:
     try:
         return json.loads(payload_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to parse JSON artifact at {payload_path}: {error.msg}. "
             "Re-run training to regenerate valid artifacts."
         ) from error
     except OSError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to read artifact at {payload_path}: {error}. "
             "Verify file permissions and retry."
         ) from error

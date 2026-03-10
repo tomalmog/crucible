@@ -10,7 +10,7 @@ import math
 from contextlib import nullcontext
 from typing import Any
 
-from core.errors import ForgeServeError, ForgeTrainingDivergedError
+from core.errors import CrucibleServeError, CrucibleTrainingDivergedError
 from core.types import BatchLossMetric
 from serve.gradient_accumulation import run_accumulated_batch_step
 from serve.tokenization import SequenceBatch
@@ -116,7 +116,7 @@ def _run_accumulated_pass(
             current_accumulation=current_accumulation,
         )
         if math.isnan(loss_value) or math.isinf(loss_value):
-            raise ForgeTrainingDivergedError(
+            raise CrucibleTrainingDivergedError(
                 f"Training diverged: loss is {loss_value} at epoch {epoch_index}, batch {batch_index}. "
                 "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
             )
@@ -189,7 +189,7 @@ def _run_batch_step(
             )
         loss_value = float(loss.item())
         if math.isnan(loss_value) or math.isinf(loss_value):
-            raise ForgeTrainingDivergedError(
+            raise CrucibleTrainingDivergedError(
                 f"Training diverged: loss is {loss_value} at epoch {epoch_index}, batch {batch_index}. "
                 "Try reducing --learning-rate, checking your data for corruption, or using --gradient-clipping."
             )
@@ -221,7 +221,7 @@ def _run_batch_step(
             context.optimizer.step()
     except RuntimeError as runtime_err:
         if "out of memory" in str(runtime_err).lower():
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 "GPU out of memory during training. Try: "
                 "--batch-size (smaller), --gradient-checkpointing, "
                 "--max-token-length (shorter), or --precision fp16/bf16."

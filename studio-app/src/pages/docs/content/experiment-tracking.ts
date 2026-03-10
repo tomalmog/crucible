@@ -7,14 +7,14 @@ export const experimentTracking: DocEntry = {
   content: `
 ## Experiment Tracking
 
-Forge logs metrics to local JSONL files by default. You can optionally stream metrics to **Weights & Biases** or **TensorBoard** for richer visualization and team collaboration.
+Crucible logs metrics to local JSONL files by default. You can optionally stream metrics to **Weights & Biases** or **TensorBoard** for richer visualization and team collaboration.
 
 ### Weights & Biases
 
 Pass \`--wandb-project\` to any training command to log metrics to a W&B project:
 
 \`\`\`bash
-forge train --dataset my-data --wandb-project my-project
+crucible train --dataset my-data --wandb-project my-project
 \`\`\`
 
 This creates a new W&B run that tracks:
@@ -22,14 +22,14 @@ This creates a new W&B run that tracks:
 - All hyperparameters (learning rate, batch size, architecture, etc.)
 - Run metadata (method, dataset, output directory)
 
-**Requirements:** Install the \`wandb\` package (\`pip install wandb\`) and authenticate with \`wandb login\`. Forge will raise a clear error if the package is missing.
+**Requirements:** Install the \`wandb\` package (\`pip install wandb\`) and authenticate with \`wandb login\`. Crucible will raise a clear error if the package is missing.
 
 ### TensorBoard
 
 Pass \`--tensorboard-dir\` to write TensorBoard event files:
 
 \`\`\`bash
-forge train --dataset my-data --tensorboard-dir ./tb_logs
+crucible train --dataset my-data --tensorboard-dir ./tb_logs
 \`\`\`
 
 Then launch the TensorBoard UI:
@@ -47,7 +47,7 @@ Metrics logged: \`train_loss\` and \`validation_loss\` as scalars at each epoch 
 You can enable both at the same time:
 
 \`\`\`bash
-forge train --dataset my-data \\
+crucible train --dataset my-data \\
   --wandb-project my-project \\
   --tensorboard-dir ./tb_logs
 \`\`\`
@@ -65,6 +65,6 @@ In the Training wizard, expand the **Experiment Tracking** section under Advance
 
 ### Local Tracking
 
-Even without external integrations, Forge always logs to local JSONL files under the data root. The Experiments page in Studio reads these logs to show run history, metric comparisons, and cost summaries.
+Even without external integrations, Crucible always logs to local JSONL files under the data root. The Experiments page in Studio reads these logs to show run history, metric comparisons, and cost summaries.
 `,
 };

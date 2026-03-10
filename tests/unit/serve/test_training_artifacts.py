@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import BatchLossMetric, EpochMetric
 from serve.training_artifacts import (
     ensure_training_output_dir,
@@ -59,7 +59,7 @@ def test_save_training_plot_raises_without_matplotlib(monkeypatch, tmp_path: Pat
 
     monkeypatch.setattr(builtins, "__import__", _patched_import)
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         save_training_plot(
             tmp_path,
             [EpochMetric(epoch=1, train_loss=1.0, validation_loss=1.0)],

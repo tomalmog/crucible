@@ -3,12 +3,12 @@ import { PageHeader } from "../../components/shared/PageHeader";
 import { SafetyEvalForm } from "./SafetyEvalForm";
 import { SafetyGateForm } from "./SafetyGateForm";
 import { SafetyResultsView } from "./SafetyResultsView";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 
 type Tab = "evaluate" | "gate";
 
 export function SafetyPage() {
-  const { dataRoot } = useForge();
+  const { dataRoot } = useCrucible();
   const [tab, setTab] = useState<Tab>("evaluate");
   const [lastOutput, setLastOutput] = useState("");
 

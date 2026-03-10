@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from core.benchmark_types import LatencyResult
-from core.errors import ForgeBenchmarkError
+from core.errors import CrucibleBenchmarkError
 from serve.benchmark_latency import profile_latency
 
 
@@ -66,7 +66,7 @@ def test_profile_latency_raises_on_empty_sequences() -> None:
     torch_mock = _build_mock_torch()
     model = _build_mock_model()
 
-    with pytest.raises(ForgeBenchmarkError, match="No sequences"):
+    with pytest.raises(CrucibleBenchmarkError, match="No sequences"):
         profile_latency(
             torch_module=torch_mock,
             model=model,

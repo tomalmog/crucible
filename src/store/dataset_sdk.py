@@ -10,7 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from core.chat_types import ChatOptions, ChatResult
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.distillation_types import DistillationOptions
 from core.domain_adaptation_types import DomainAdaptationOptions
 from core.dpo_types import DpoOptions
@@ -21,9 +21,9 @@ from core.orpo_types import OrpoOptions
 from core.qlora_types import QloraOptions
 from core.rlvr_types import RlvrOptions
 from core.errors import (
-    ForgeDistillationError, ForgeDpoError, ForgeGrpoError, ForgeKtoError,
-    ForgeLoraError, ForgeMultimodalError, ForgeOrpoError, ForgeQloraError,
-    ForgeRlhfError, ForgeRlvrError, ForgeSftError, ForgeServeError,
+    CrucibleDistillationError, CrucibleDpoError, CrucibleGrpoError, CrucibleKtoError,
+    CrucibleLoraError, CrucibleMultimodalError, CrucibleOrpoError, CrucibleQloraError,
+    CrucibleRlhfError, CrucibleRlvrError, CrucibleSftError, CrucibleServeError,
 )
 from core.lora_types import LoraTrainingOptions
 from core.rlhf_types import RlhfOptions
@@ -58,11 +58,11 @@ from serve.training_runner import run_training
 from store.snapshot_store import DatasetStore
 
 
-class ForgeClient:
+class CrucibleClient:
     """Primary SDK entry point for dataset workflows."""
 
-    def __init__(self, config: ForgeConfig | None = None) -> None:
-        self._config = config or ForgeConfig.from_env()
+    def __init__(self, config: CrucibleConfig | None = None) -> None:
+        self._config = config or CrucibleConfig.from_env()
         self._store = DatasetStore(self._config)
 
     def ingest(self, options: IngestOptions) -> str:
@@ -95,7 +95,7 @@ class ForgeClient:
                 return replace(options, **{data_path_field: str(resolved)})
         flag = data_path_field.replace("_", "-")
         dataset = getattr(options, "dataset_name", "")
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"No data path provided (--{flag}). "
             f"Re-ingest the dataset{' ' + repr(dataset) if dataset else ''} "
             f"to store the source path, or pass --{flag} explicitly."
@@ -219,10 +219,10 @@ class ForgeClient:
         dataset = self.dataset(options.dataset_name)
         return dataset.chat(options)
 
-    def with_data_root(self, data_root: str) -> "ForgeClient":
+    def with_data_root(self, data_root: str) -> "CrucibleClient":
         """Clone the client with a different local data root."""
         resolved_root = Path(data_root).expanduser().resolve()
-        return ForgeClient(replace(self._config, data_root=resolved_root))
+        return CrucibleClient(replace(self._config, data_root=resolved_root))
 
     def run_spec(self, spec_file: str) -> tuple[str, ...]:
         """Execute a YAML run-spec through the shared execution engine."""
@@ -283,7 +283,7 @@ class Dataset:
     def train(self, options: TrainingOptions) -> TrainingRunResult:
         """Train a model on this dataset with default/custom loop."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Training options dataset '{options.dataset_name}' does not match handle "
                 f"'{self._dataset_name}'."
             )
@@ -296,7 +296,7 @@ class Dataset:
     def sft_train(self, options: SftOptions) -> TrainingRunResult:
         """Run supervised fine-tuning on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeSftError(
+            raise CrucibleSftError(
                 f"SFT dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -308,7 +308,7 @@ class Dataset:
     def lora_train(self, options: LoraTrainingOptions) -> TrainingRunResult:
         """Run LoRA fine-tuning on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeLoraError(
+            raise CrucibleLoraError(
                 f"LoRA dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         return run_lora_training(
@@ -319,7 +319,7 @@ class Dataset:
     def dpo_train(self, options: DpoOptions) -> TrainingRunResult:
         """Run DPO preference optimization on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeDpoError(
+            raise CrucibleDpoError(
                 f"DPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -331,7 +331,7 @@ class Dataset:
     def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
         """Run RLHF training with PPO on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeRlhfError(
+            raise CrucibleRlhfError(
                 f"RLHF dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -343,7 +343,7 @@ class Dataset:
     def distill(self, options: DistillationOptions) -> TrainingRunResult:
         """Run knowledge distillation on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeDistillationError(
+            raise CrucibleDistillationError(
                 f"Distillation dataset '{options.dataset_name}' != "
                 f"handle '{self._dataset_name}'."
             )
@@ -356,7 +356,7 @@ class Dataset:
     def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
         """Run domain adaptation on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Domain adaptation dataset '{options.dataset_name}' != "
                 f"handle '{self._dataset_name}'."
             )
@@ -369,7 +369,7 @@ class Dataset:
     def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:
         """Run GRPO training on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeGrpoError(
+            raise CrucibleGrpoError(
                 f"GRPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -381,7 +381,7 @@ class Dataset:
     def qlora_train(self, options: QloraOptions) -> TrainingRunResult:
         """Run QLoRA training on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeQloraError(
+            raise CrucibleQloraError(
                 f"QLoRA dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -393,7 +393,7 @@ class Dataset:
     def kto_train(self, options: KtoOptions) -> TrainingRunResult:
         """Run KTO training on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeKtoError(
+            raise CrucibleKtoError(
                 f"KTO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -405,7 +405,7 @@ class Dataset:
     def orpo_train(self, options: OrpoOptions) -> TrainingRunResult:
         """Run ORPO training on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeOrpoError(
+            raise CrucibleOrpoError(
                 f"ORPO dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -417,7 +417,7 @@ class Dataset:
     def multimodal_train(self, options: MultimodalOptions) -> TrainingRunResult:
         """Run multimodal fine-tuning on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeMultimodalError(
+            raise CrucibleMultimodalError(
                 f"Multimodal dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -429,7 +429,7 @@ class Dataset:
     def rlvr_train(self, options: RlvrOptions) -> TrainingRunResult:
         """Run RLVR training on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeRlvrError(
+            raise CrucibleRlvrError(
                 f"RLVR dataset '{options.dataset_name}' != handle '{self._dataset_name}'."
             )
         _, records = self.load_records()
@@ -441,7 +441,7 @@ class Dataset:
     def chat(self, options: ChatOptions) -> ChatResult:
         """Run one chat completion on this dataset."""
         if options.dataset_name != self._dataset_name:
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Chat options dataset '{options.dataset_name}' does not match handle "
                 f"'{self._dataset_name}'."
             )

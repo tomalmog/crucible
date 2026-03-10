@@ -12,7 +12,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingOptions, TrainingRunResult
 
 
@@ -26,32 +26,32 @@ def load_reproducibility_bundle(bundle_path: str) -> dict[str, object]:
         Parsed bundle dictionary.
 
     Raises:
-        ForgeServeError: If the file is missing, unreadable, or invalid.
+        CrucibleServeError: If the file is missing, unreadable, or invalid.
     """
     path = Path(bundle_path)
     if not path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Reproducibility bundle not found at {bundle_path}. "
             "Verify the path and retry."
         )
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to read reproducibility bundle at {bundle_path}: {error}."
         ) from error
     try:
         data = json.loads(text)
     except json.JSONDecodeError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid JSON in reproducibility bundle at {bundle_path}: {error}."
         ) from error
     if not isinstance(data, dict):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Reproducibility bundle at {bundle_path} is not a JSON object."
         )
     if "training_options" not in data:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Reproducibility bundle at {bundle_path} is missing "
             "'training_options' key."
         )
@@ -70,18 +70,18 @@ def reconstruct_training_options(
         Reconstructed TrainingOptions instance.
 
     Raises:
-        ForgeServeError: If the training_options dict is incompatible.
+        CrucibleServeError: If the training_options dict is incompatible.
     """
     raw_options = bundle.get("training_options")
     if not isinstance(raw_options, dict):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "Bundle 'training_options' is not a dictionary. "
             "Cannot reconstruct TrainingOptions."
         )
     try:
         return TrainingOptions(**raw_options)
     except TypeError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Cannot reconstruct TrainingOptions from bundle: {error}. "
             "The bundle may be from an incompatible version."
         ) from error
@@ -98,7 +98,7 @@ def replay_training_run(
     the output directory, and delegates to ``client.train()``.
 
     Args:
-        client: ForgeClient instance used to execute training.
+        client: CrucibleClient instance used to execute training.
         bundle_path: Path to the reproducibility bundle JSON file.
         output_dir: Optional override for the training output directory.
 
@@ -106,7 +106,7 @@ def replay_training_run(
         TrainingRunResult from the replayed training run.
 
     Raises:
-        ForgeServeError: If bundle loading or option reconstruction fails.
+        CrucibleServeError: If bundle loading or option reconstruction fails.
     """
     bundle = load_reproducibility_bundle(bundle_path)
     options = reconstruct_training_options(bundle)

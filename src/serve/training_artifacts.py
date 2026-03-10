@@ -16,7 +16,7 @@ from core.constants import (
     DEFAULT_TRAIN_PLOT_FILE_NAME,
     DEFAULT_TRAINED_MODEL_FILE_NAME,
 )
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import BatchLossMetric, EpochMetric
 
 
@@ -90,14 +90,14 @@ def save_training_plot(
         Plot file path when generated; otherwise None.
 
     Raises:
-        ForgeDependencyError: If matplotlib is missing.
+        CrucibleDependencyError: If matplotlib is missing.
     """
     if not metrics:
         return None
     try:
         import matplotlib.pyplot as plot
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Training plot generation requires matplotlib. "
             "Install matplotlib to produce loss graphs."
         ) from error

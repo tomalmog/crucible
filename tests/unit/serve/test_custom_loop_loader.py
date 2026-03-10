@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.custom_loop_loader import load_custom_training_loop
 
 
@@ -19,7 +19,7 @@ def test_load_custom_training_loop_returns_none_without_path() -> None:
 
 def test_load_custom_training_loop_raises_for_missing_file(tmp_path: Path) -> None:
     """Missing custom loop file should raise serve error."""
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_custom_training_loop(str(tmp_path / "missing.py"))
 
     assert True

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 
 
 def is_huggingface_model_id(model_path: str) -> bool:
@@ -47,13 +47,13 @@ def load_huggingface_model(
         Loaded PyTorch model.
 
     Raises:
-        ForgeDependencyError: If transformers is not installed.
-        ForgeServeError: If model loading fails.
+        CrucibleDependencyError: If transformers is not installed.
+        CrucibleServeError: If model loading fails.
     """
     try:
         from transformers import AutoConfig, AutoModelForCausalLM
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Loading HuggingFace models requires transformers. "
             "Install with: pip install transformers"
         ) from error
@@ -84,12 +84,12 @@ def load_huggingface_model(
     try:
         model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             f"Model '{model_id}' requires an extra dependency: {error}. "
             "Install it and try again."
         ) from error
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load HuggingFace model '{model_id}': {error}. "
             "Verify the model ID is correct (e.g. 'gpt2', 'meta-llama/Llama-2-7b')."
         ) from error
@@ -110,13 +110,13 @@ def load_huggingface_tokenizer(model_id: str) -> Any:
     Returns the tokenizer with pad_token set if missing.
 
     Raises:
-        ForgeDependencyError: If transformers is not installed.
-        ForgeServeError: If tokenizer loading fails.
+        CrucibleDependencyError: If transformers is not installed.
+        CrucibleServeError: If tokenizer loading fails.
     """
     try:
         from transformers import AutoTokenizer
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Loading HuggingFace tokenizers requires transformers. "
             "Install with: pip install transformers"
         ) from error
@@ -124,7 +124,7 @@ def load_huggingface_tokenizer(model_id: str) -> Any:
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id)
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load tokenizer for '{model_id}': {error}."
         ) from error
 
@@ -137,7 +137,7 @@ def load_huggingface_tokenizer(model_id: str) -> Any:
 def _make_logits_wrapper(hf_model: Any) -> Any:
     """Wrap a HuggingFace causal LM so forward() returns raw logits.
 
-    The Forge training loop calls model(inputs) and expects a plain
+    The Crucible training loop calls model(inputs) and expects a plain
     tensor of logits. HuggingFace models return dataclass-like objects
     with a .logits attribute. This creates a thin nn.Module wrapper
     that bridges the two interfaces.
@@ -145,7 +145,7 @@ def _make_logits_wrapper(hf_model: Any) -> Any:
     try:
         import torch.nn as nn
     except ImportError as error:
-        raise ForgeDependencyError("torch is required") from error
+        raise CrucibleDependencyError("torch is required") from error
 
     class _HfLogitsWrapper(nn.Module):
         def __init__(self, model: Any) -> None:
@@ -162,20 +162,20 @@ def _make_logits_wrapper(hf_model: Any) -> Any:
 def build_or_load_model(
     torch_module: Any,
     base_model: str | None,
-    build_forge_model: Any,
+    build_crucible_model: Any,
     device: Any,
 ) -> Any:
-    """Build a Forge model or load a HuggingFace model depending on base_model.
+    """Build a Crucible model or load a HuggingFace model depending on base_model.
 
     If base_model is a HuggingFace model ID (e.g. 'gpt2'), loads the full
     pretrained model via transformers and wraps it so forward() returns raw
-    logits (compatible with Forge training loops). Otherwise falls back to
-    the provided build_forge_model callable.
+    logits (compatible with Crucible training loops). Otherwise falls back to
+    the provided build_crucible_model callable.
 
     Args:
         torch_module: Imported torch module.
         base_model: HuggingFace model ID, file path, or None.
-        build_forge_model: Callable that returns a Forge model when no HF
+        build_crucible_model: Callable that returns a Crucible model when no HF
             model is used. Signature: () -> model.
         device: Target device for the model.
 
@@ -186,7 +186,7 @@ def build_or_load_model(
         model = load_huggingface_model(base_model, device=device)
         return _make_logits_wrapper(model)
 
-    model = build_forge_model()
+    model = build_crucible_model()
     model = model.to(device)
     return model
 
@@ -195,7 +195,7 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
     """Load custom weights into an existing model architecture."""
     resolved = Path(weights_path).expanduser().resolve()
     if not resolved.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Custom weights file not found: {resolved}. "
             "Verify the path is correct."
         )
@@ -203,7 +203,7 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Loading custom weights requires torch."
         ) from error
 
@@ -213,7 +213,7 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
             from safetensors.torch import load_file
             state_dict = load_file(str(resolved))
         except ImportError:
-            raise ForgeDependencyError(
+            raise CrucibleDependencyError(
                 "Loading .safetensors weights requires the safetensors library. "
                 "Install with: pip install safetensors"
             )
@@ -222,7 +222,7 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
         if isinstance(state_dict, dict) and "model_state_dict" in state_dict:
             state_dict = state_dict["model_state_dict"]
     else:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Unsupported weight format '{suffix}' for {resolved}. "
             "Supported: .pt, .pth, .bin, .safetensors"
         )

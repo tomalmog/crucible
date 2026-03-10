@@ -26,8 +26,8 @@ export function AppSidebar() {
     <aside className="app-sidebar">
       <div className="sidebar-brand">
         <h2>
-          <span className="brand-icon">F</span>
-          Forge Studio
+          <span className="brand-icon">C</span>
+          Crucible
         </h2>
       </div>
       <nav className="sidebar-nav">

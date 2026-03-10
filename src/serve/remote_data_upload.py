@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig, SlurmResourceConfig
 from serve.slurm_script_gen import (
     generate_multi_node_script,
@@ -19,7 +19,7 @@ from serve.ssh_connection import SshSession
 
 def _upload_bundle(session: SshSession, tarball: Path, workdir: str) -> None:
     """Upload the agent tarball to the remote workspace."""
-    session.upload(tarball, f"{workdir}/forge-agent.tar.gz")
+    session.upload(tarball, f"{workdir}/crucible-agent.tar.gz")
 
 
 def _upload_config(
@@ -43,11 +43,11 @@ def _submit_sbatch(session: SshSession, workdir: str) -> str:
         f"sbatch {workdir}/job.sh", timeout=30,
     )
     if code != 0:
-        raise ForgeRemoteError(f"sbatch failed: {stderr.strip()}")
+        raise CrucibleRemoteError(f"sbatch failed: {stderr.strip()}")
     # sbatch output: "Submitted batch job 12345"
     parts = stdout.strip().split()
     if len(parts) < 4:
-        raise ForgeRemoteError(f"Unexpected sbatch output: {stdout.strip()}")
+        raise CrucibleRemoteError(f"Unexpected sbatch output: {stdout.strip()}")
     return parts[-1]
 
 

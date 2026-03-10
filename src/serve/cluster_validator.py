@@ -3,7 +3,7 @@
 Checks Python, PyTorch, CUDA, Slurm availability, discovers partitions
 and GPU types, and suggests module loads.
 
-Every check that relies on the forge conda env must prefix its command
+Every check that relies on the crucible conda env must prefix its command
 with the conda init + activate snippet because each ``session.execute``
 runs in its own shell.
 """
@@ -14,15 +14,15 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, ClusterValidationResult
-from serve.remote_env_setup import CONDA_ACTIVATE
+from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
 from serve.ssh_connection import SshSession
 
 
 def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
-    """Validate a remote cluster's readiness for Forge jobs.
+    """Validate a remote cluster's readiness for Crucible jobs.
 
-    Opens an SSH connection, runs diagnostic commands, and returns
-    a structured validation result.
+    Opens an SSH connection, ensures the crucible conda env exists,
+    runs diagnostic commands, and returns a structured validation result.
 
     Args:
         cluster: Cluster configuration to validate.
@@ -34,6 +34,12 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     errors: list[str] = []
 
     with SshSession(cluster) as session:
+        try:
+            ensure_remote_env(session)
+        except Exception as exc:
+            errors.append(f"Failed to provision crucible env: {exc}")
+            return replace(result, errors=tuple(errors))
+
         result = _check_python(session, cluster, result, errors)
         result = _check_torch(session, cluster, result, errors)
         result = _check_slurm(session, result, errors)
@@ -44,7 +50,7 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
 
 
 def _env_prefix(cluster: ClusterConfig) -> str:
-    """Build a shell prefix that loads modules and activates the forge env."""
+    """Build a shell prefix that loads modules and activates the crucible env."""
     parts: list[str] = list(cluster.module_loads)
     parts.append(CONDA_ACTIVATE)
     return " && ".join(parts)
@@ -56,7 +62,7 @@ def _check_python(
     result: ClusterValidationResult,
     errors: list[str],
 ) -> ClusterValidationResult:
-    """Check if Python is accessible inside the forge env."""
+    """Check if Python is accessible inside the crucible env."""
     prefix = _env_prefix(cluster)
     py = cluster.python_path
     stdout, stderr, code = session.execute(
@@ -75,7 +81,7 @@ def _check_torch(
     result: ClusterValidationResult,
     errors: list[str],
 ) -> ClusterValidationResult:
-    """Check if PyTorch and CUDA are available inside the forge env."""
+    """Check if PyTorch and CUDA are available inside the crucible env."""
     prefix = _env_prefix(cluster)
     py = cluster.python_path
     script = (

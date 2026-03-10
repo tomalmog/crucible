@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
 import { useTrainingLocation } from "../../hooks/useTrainingLocation";
 import { buildTrainingArgs, buildRemoteMethodArgs, buildRemoteSubmitArgs } from "../../api/commandArgs";
-import { startForgeCommand } from "../../api/studioApi";
+import { startCrucibleCommand } from "../../api/studioApi";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -59,12 +59,11 @@ interface TrainingWizardProps {
 
 export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
-  const { refreshModels } = useForge();
+  const { refreshModels } = useCrucible();
   const navigate = useNavigate();
-  const command = useForgeCommand();
-  const registerCommand = useForgeCommand();
+  const command = useCrucibleCommand();
+  const registerCommand = useCrucibleCommand();
   const [step, setStep] = useState<Step>("config");
-  const [registerModel, setRegisterModel] = useState(false);
   const [modelName, setModelName] = useState("My-Model-0");
   const [registered, setRegistered] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -77,9 +76,10 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
+    if (!modelName.trim()) m.push("model name");
     if (remoteEnabled && !clusterConfig.cluster) m.push("cluster");
     return m;
-  }, [method, extra, remoteEnabled, clusterConfig.cluster]);
+  }, [method, extra, modelName, remoteEnabled, clusterConfig.cluster]);
   const canStart = missing.length === 0;
 
   async function startTraining() {
@@ -91,16 +91,14 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
       const status = await command.run(dataRoot, args);
       setStep("done");
       if (status.status === "completed" && status.exit_code === 0) {
-        if (registerModel && modelName.trim()) {
-          const modelPath = parseModelPath(status.stdout);
-          if (modelPath) {
-            const regStatus = await registerCommand.run(dataRoot, [
-              "model", "register", "--name", modelName.trim(), "--model-path", modelPath,
-            ]);
-            if (regStatus.status === "completed" && regStatus.exit_code === 0) {
-              setRegistered(true);
-              refreshModels().catch(console.error);
-            }
+        const modelPath = parseModelPath(status.stdout);
+        if (modelPath && modelName.trim()) {
+          const regStatus = await registerCommand.run(dataRoot, [
+            "model", "register", "--name", modelName.trim(), "--model-path", modelPath,
+          ]);
+          if (regStatus.status === "completed" && regStatus.exit_code === 0) {
+            setRegistered(true);
+            refreshModels().catch(console.error);
           }
         }
       }
@@ -122,9 +120,9 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
       const methodArgsJson = JSON.stringify(merged);
-      const effectiveName = registerModel && modelName.trim() ? modelName.trim() : undefined;
+      const effectiveName = modelName.trim() || undefined;
       const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);
-      await startForgeCommand(dataRoot, args);
+      await startCrucibleCommand(dataRoot, args);
       navigate("/jobs");
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
@@ -184,23 +182,13 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
           <SharedTrainingFields config={shared} onChange={setShared} />
 
-          <FormField label="Register output as model">
+          <FormField label="Model Name" required>
             <input
-              type="checkbox"
-              checked={registerModel}
-              onChange={(e) => setRegisterModel(e.target.checked)}
-              style={{ width: "auto" }}
+              value={modelName}
+              onChange={(e) => setModelName(e.currentTarget.value)}
+              placeholder="My-Model-0"
             />
           </FormField>
-          {registerModel && (
-            <FormField label="Model Name" required>
-              <input
-                value={modelName}
-                onChange={(e) => setModelName(e.currentTarget.value)}
-                placeholder="My-Model-0"
-              />
-            </FormField>
-          )}
 
           <ClusterSubmitSection
             mode={clusterMode}
@@ -282,7 +270,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
               <span>Model registered as &ldquo;{modelName}&rdquo;</span>
             </div>
           )}
-          {registerModel && registerCommand.error && (
+          {registerCommand.error && (
             <div className="error-alert">
               Failed to register model: {registerCommand.error}
             </div>

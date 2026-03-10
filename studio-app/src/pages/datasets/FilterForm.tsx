@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useForge } from "../../context/ForgeContext";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucible } from "../../context/CrucibleContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { buildFilterArgs } from "../../api/commandArgs";
 import { FormField } from "../../components/shared/FormField";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import { CommandProgress } from "../../components/shared/CommandProgress";
 
 export function FilterForm() {
-  const { dataRoot, selectedDataset, refreshDatasets } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot, selectedDataset, refreshDatasets } = useCrucible();
+  const command = useCrucibleCommand();
   const [minQuality, setMinQuality] = useState("0.0");
   const [language, setLanguage] = useState("");
   const [maxRecords, setMaxRecords] = useState("");

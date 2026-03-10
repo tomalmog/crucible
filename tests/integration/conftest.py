@@ -8,37 +8,37 @@ from pathlib import Path
 
 import pytest
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.types import DataRecord, RecordMetadata, IngestOptions, TrainingRunResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 @pytest.fixture()
-def forge_config(tmp_path: Path) -> ForgeConfig:
-    """ForgeConfig rooted in a temporary directory."""
-    return replace(ForgeConfig.from_env(), data_root=tmp_path)
+def crucible_config(tmp_path: Path) -> CrucibleConfig:
+    """CrucibleConfig rooted in a temporary directory."""
+    return replace(CrucibleConfig.from_env(), data_root=tmp_path)
 
 
 @pytest.fixture()
-def forge_client(forge_config: ForgeConfig) -> ForgeClient:
-    """ForgeClient backed by the temporary data root."""
-    return ForgeClient(forge_config)
+def crucible_client(crucible_config: CrucibleConfig) -> CrucibleClient:
+    """CrucibleClient backed by the temporary data root."""
+    return CrucibleClient(crucible_config)
 
 
 @pytest.fixture()
 def ingested_dataset(
-    forge_client: ForgeClient, tmp_path: Path
-) -> tuple[ForgeClient, str]:
+    crucible_client: CrucibleClient, tmp_path: Path
+) -> tuple[CrucibleClient, str]:
     """Ingest two text files and return (client, dataset_name)."""
     raw_dir = tmp_path / "raw_files"
     raw_dir.mkdir()
     (raw_dir / "a.txt").write_text("Hello world this is a sample document.")
     (raw_dir / "b.txt").write_text("Another document with enough text content.")
     dataset_name = "test-ds"
-    forge_client.ingest(
+    crucible_client.ingest(
         IngestOptions(dataset_name=dataset_name, source_uri=str(raw_dir))
     )
-    return forge_client, dataset_name
+    return crucible_client, dataset_name
 
 
 @pytest.fixture()

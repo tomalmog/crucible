@@ -1,6 +1,6 @@
 # Training Methods Reference
 
-This document is the authoritative reference for how each training method in Forge
+This document is the authoritative reference for how each training method in Crucible
 should work. Use it to verify correctness and catch regressions.
 
 ---

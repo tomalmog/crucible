@@ -1,4 +1,4 @@
-# Forge — Completed Features
+# Crucible — Completed Features
 
 Reference document for context recovery. Everything listed here is implemented, tested, and working.
 
@@ -139,7 +139,7 @@ Reference document for context recovery. Everything listed here is implemented, 
 
 ### Model Registry
 - Grouped by name (e.g. "My-Transformer") with per-model version history
-- Storage: `.forge/models/groups/{name}.json`, `.forge/models/versions/{id}.json`, `.forge/models/index.json`
+- Storage: `.crucible/models/groups/{name}.json`, `.crucible/models/versions/{id}.json`, `.crucible/models/index.json`
 - Auto-migration from old flat format via `migrate_flat_to_grouped()`
 - Tagging (semantic labels), rollback to previous versions
 - Diff between versions (config/tokenizer/bench/safety deltas)
@@ -152,7 +152,7 @@ Reference document for context recovery. Everything listed here is implemented, 
 ### Architecture
 - React Router v7 with hash routing (12 pages)
 - Sidebar navigation with Lucide React icons
-- ForgeContext (global state) + CommandContext (command execution)
+- CrucibleContext (global state) + CommandContext (command execution)
 - CSS design system: variables.css, reset.css, components.css, layout.css
 - Dark/light theme with `getTheme()`/`setTheme()` and localStorage persistence
 

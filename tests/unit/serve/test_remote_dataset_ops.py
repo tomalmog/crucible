@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.remote_dataset_ops import (
     RemoteDatasetInfo,
@@ -24,7 +24,7 @@ def _make_cluster() -> ClusterConfig:
         name="test-hpc",
         host="hpc.example.com",
         user="jdoe",
-        remote_workspace="/scratch/forge",
+        remote_workspace="/scratch/crucible",
     )
 
 
@@ -32,10 +32,10 @@ def _make_cluster() -> ClusterConfig:
 
 
 def test_push_dataset_raises_when_records_missing(tmp_path: Path) -> None:
-    """ForgeRemoteError is raised when records.jsonl does not exist."""
+    """CrucibleRemoteError is raised when records.jsonl does not exist."""
     session = MagicMock()
     cluster = _make_cluster()
-    with pytest.raises(ForgeRemoteError, match="Records file not found"):
+    with pytest.raises(CrucibleRemoteError, match="Records file not found"):
         push_dataset(session, cluster, "my-ds", tmp_path)
 
 
@@ -73,8 +73,10 @@ def test_list_remote_datasets_returns_info_list() -> None:
     session = MagicMock()
     session.execute.side_effect = [
         ("ds1\nds2\n", "", 0),
-        (meta1, "", 0),
-        (meta2, "", 0),
+        (meta1, "", 0),            # cat metadata.json ds1
+        ("12345\n", "", 0),         # du -sb ds1
+        (meta2, "", 0),            # cat metadata.json ds2
+        ("67890\n", "", 0),         # du -sb ds2
     ]
     cluster = _make_cluster()
     results = list_remote_datasets(session, cluster)
@@ -117,31 +119,40 @@ def test_delete_remote_dataset_executes_rm() -> None:
 
 
 def test_delete_remote_dataset_raises_on_failure() -> None:
-    """Non-zero exit code raises ForgeRemoteError."""
+    """Non-zero exit code raises CrucibleRemoteError."""
     session = MagicMock()
     session.execute.return_value = ("", "permission denied", 1)
     cluster = _make_cluster()
-    with pytest.raises(ForgeRemoteError, match="Failed to delete"):
+    with pytest.raises(CrucibleRemoteError, match="Failed to delete"):
         delete_remote_dataset(session, cluster, "old-ds")
 
 
 # -- pull_remote_dataset ----------------------------------------------------
 
 
-def test_pull_remote_dataset_downloads_records(tmp_path: Path) -> None:
-    """download is called with the correct remote and local paths."""
+def test_pull_remote_dataset_downloads_and_registers(tmp_path: Path) -> None:
+    """Pull downloads records, creates manifest, returns dataset dir."""
     session = MagicMock()
-    session.execute.return_value = ("", "", 0)
+    session.execute.side_effect = [
+        ("", "", 0),   # test -f records.jsonl
+        ("", "", 1),   # test -f source.jsonl (not present)
+    ]
+    # Simulate download writing the records file
+    def fake_download(remote: str, local: Path) -> None:
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text('{"record_id":"1","text":"hello"}\n')
+    session.download.side_effect = fake_download
     cluster = _make_cluster()
     result = pull_remote_dataset(session, cluster, "pull-ds", tmp_path)
-    session.download.assert_called_once()
-    assert result.name == "records.jsonl"
+    assert result == tmp_path / "datasets" / "pull-ds"
+    assert (result / "manifest.json").exists()
+    assert (result / "records.jsonl").exists()
 
 
 def test_pull_remote_dataset_raises_when_not_found(tmp_path: Path) -> None:
-    """ForgeRemoteError is raised when remote records file does not exist."""
+    """CrucibleRemoteError is raised when remote records file does not exist."""
     session = MagicMock()
     session.execute.return_value = ("", "", 1)
     cluster = _make_cluster()
-    with pytest.raises(ForgeRemoteError, match="Remote records not found"):
+    with pytest.raises(CrucibleRemoteError, match="Remote records not found"):
         pull_remote_dataset(session, cluster, "missing-ds", tmp_path)

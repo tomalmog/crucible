@@ -16,7 +16,7 @@ from core.constants import (
     DEFAULT_TRAINING_CONFIG_FILE_NAME,
     TRAINING_ARTIFACT_CONTRACT_FILE_NAME,
 )
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingRunResult
 
 
@@ -85,7 +85,7 @@ def load_training_artifact_contract(model_path: str) -> dict[str, object] | None
         return None
     payload = _read_payload(contract_path)
     if not isinstance(payload, dict):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid artifact contract at {contract_path}: expected JSON object."
         )
     return payload
@@ -95,7 +95,7 @@ def _write_payload(payload_path: Path, payload: dict[str, object]) -> None:
     try:
         payload_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     except OSError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to write artifact contract at {payload_path}: {error}. "
             "Check directory permissions and retry."
         ) from error
@@ -105,10 +105,10 @@ def _read_payload(payload_path: Path) -> object:
     try:
         return json.loads(payload_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to parse artifact contract at {payload_path}: {error.msg}."
         ) from error
     except OSError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to read artifact contract at {payload_path}: {error}."
         ) from error

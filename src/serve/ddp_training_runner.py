@@ -6,7 +6,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.distributed_data_sampler import (
     partition_batches_for_rank,
@@ -84,7 +84,7 @@ def _run_ddp_workflow(
         records, tokenizer, options.max_token_length,
     )
     if not sequences:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             "No trainable sequences generated from dataset records."
         )
     random.Random(random_seed).shuffle(sequences)
@@ -129,12 +129,12 @@ def _wrap_model_with_ddp(
     """Wrap a model with DistributedDataParallel."""
     nn_parallel = getattr(torch_module.nn, "parallel", None)
     if nn_parallel is None:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             "torch.nn.parallel is unavailable for DDP wrapping."
         )
     ddp_class = getattr(nn_parallel, "DistributedDataParallel", None)
     if ddp_class is None:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             "DistributedDataParallel is not available in torch.nn.parallel."
         )
     return ddp_class(model, device_ids=[rank])
@@ -289,8 +289,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Distributed training requires torch. "
-            "Install torch to run forge distributed-train."
+            "Install torch to run crucible distributed-train."
         ) from error
     return torch

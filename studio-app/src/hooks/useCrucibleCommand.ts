@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
-import { startForgeCommand, getForgeCommandStatus } from "../api/studioApi";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
 import { CommandTaskStatus } from "../types";
 
 const POLL_MS = 400;
 
-interface ForgeCommandState {
+interface CrucibleCommandState {
   isRunning: boolean;
   status: CommandTaskStatus | null;
   output: string;
@@ -13,7 +13,7 @@ interface ForgeCommandState {
   reset: () => void;
 }
 
-export function useForgeCommand(): ForgeCommandState {
+export function useCrucibleCommand(): CrucibleCommandState {
   const [isRunning, setIsRunning] = useState(false);
   const [status, setStatus] = useState<CommandTaskStatus | null>(null);
   const [output, setOutput] = useState("");
@@ -33,11 +33,11 @@ export function useForgeCommand(): ForgeCommandState {
     setStatus(null);
 
     try {
-      const taskStart = await startForgeCommand(dataRoot, args);
+      const taskStart = await startCrucibleCommand(dataRoot, args);
       let taskStatus: CommandTaskStatus;
 
       while (true) {
-        taskStatus = await getForgeCommandStatus(taskStart.task_id);
+        taskStatus = await getCrucibleCommandStatus(taskStart.task_id);
         setStatus(taskStatus);
         setOutput([taskStatus.stdout, taskStatus.stderr].filter(Boolean).join("\n"));
         if (taskStatus.status !== "running") break;

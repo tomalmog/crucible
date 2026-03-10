@@ -1,4 +1,4 @@
-"""Train command wiring for Forge CLI.
+"""Train command wiring for Crucible CLI.
 
 This module isolates train command parser and execution logic.
 It keeps the top-level CLI module focused and within size constraints.
@@ -49,10 +49,10 @@ from core.types import (
     TrainingOptions,
 )
 from serve.hardware_auto_config import apply_hardware_auto_config
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_train_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_train_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle train command invocation."""
     options = _build_training_options(args)
     if args.auto_config:

@@ -1,6 +1,6 @@
-"""Deploy command wiring for Forge CLI.
+"""Deploy command wiring for Crucible CLI.
 
-This module provides sub-subcommands under ``forge deploy`` for
+This module provides sub-subcommands under ``crucible deploy`` for
 packaging, quantization, latency profiling, and readiness checking.
 """
 
@@ -19,7 +19,7 @@ from deploy.readiness_checklist import (
     format_checklist,
     run_readiness_checklist,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_deploy_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -42,7 +42,7 @@ def add_deploy_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
 
 
 def run_deploy_command(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Dispatch deploy sub-subcommand to the correct handler.
 

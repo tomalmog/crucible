@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.training_run_registry import TrainingRunRegistry
 
 
@@ -43,7 +43,7 @@ def test_transition_rejects_invalid_state_changes(tmp_path) -> None:
     registry.transition(run_record.run_id, "running")
     registry.transition(run_record.run_id, "completed")
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         registry.transition(run_record.run_id, "running")
 
     assert True

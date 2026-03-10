@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 import { PathInput } from "../../components/shared/PathInput";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 
 export function HubPushForm() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [repoId, setRepoId] = useState("");
-  const [message, setMessage] = useState("Upload model via Forge");
+  const [message, setMessage] = useState("Upload model via Crucible");
   const [isPrivate, setIsPrivate] = useState(false);
 
   async function pushModel() {

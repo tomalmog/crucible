@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from core.types import TrainingRunResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 VerificationMode = Literal["quick", "full"]
 VerificationStatus = Literal["passed", "failed", "skipped"]
@@ -58,7 +58,7 @@ class VerificationReport:
 class VerificationRuntime:
     """Shared mutable runtime state used by check functions."""
 
-    client: ForgeClient
+    client: CrucibleClient
     data_root: Path
     source_path: Path
     dataset_name: str

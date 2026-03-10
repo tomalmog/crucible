@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeRlhfError
+from core.errors import CrucibleDependencyError, CrucibleRlhfError
 from core.rlhf_types import RlhfOptions
 from core.types import DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -119,7 +119,7 @@ def _build_rlhf_context(
     policy_model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.policy_model_path if use_hf else None,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
     )
     if not use_hf:
@@ -173,7 +173,7 @@ def _resolve_reward_model(
             torch_module, reward_model,
             options.reward_config.reward_model_path, device,
         )
-    raise ForgeRlhfError(
+    raise CrucibleRlhfError(
         "RLHF training requires either --reward-model-path or "
         "--train-reward-model with --preference-data-path."
     )
@@ -359,9 +359,9 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "RLHF training requires torch, but it is not installed. "
-            "Install torch to run forge rlhf-train."
+            "Install torch to run crucible rlhf-train."
         ) from error
     return torch
 
@@ -372,5 +372,5 @@ def _try_save_plot(
     """Save training plot unless plotting dependency is unavailable."""
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
-    except ForgeDependencyError:
+    except CrucibleDependencyError:
         return None

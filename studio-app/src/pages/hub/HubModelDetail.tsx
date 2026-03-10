@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Download } from "lucide-react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { DownloadModal } from "../../components/shared/DownloadModal";
 import { HubModelDetail as ModelDetail } from "./hubTypes";
 import { formatBytes, formatCount, formatDate } from "./hubUtils";
@@ -13,8 +13,8 @@ interface Props {
 }
 
 export function HubModelDetail({ repoId, targetDir, onBack }: Props) {
-  const { dataRoot, refreshModels } = useForge();
-  const infoCmd = useForgeCommand();
+  const { dataRoot, refreshModels } = useCrucible();
+  const infoCmd = useCrucibleCommand();
   const [detail, setDetail] = useState<ModelDetail | null>(null);
   const [showDownload, setShowDownload] = useState(false);
 

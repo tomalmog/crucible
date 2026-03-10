@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import (
+    ClusterConfig,
     RemoteJobRecord,
     SlurmResourceConfig,
 )
@@ -35,13 +36,24 @@ from store.remote_job_store import (
 )
 
 
+def _resolve_cluster_workspace(
+    cluster: ClusterConfig, session: SshSession,
+) -> ClusterConfig:
+    """Return a copy of *cluster* with remote_workspace as an absolute path."""
+    from dataclasses import replace as dc_replace
+    resolved = session.resolve_path(cluster.remote_workspace)
+    if resolved != cluster.remote_workspace:
+        return dc_replace(cluster, remote_workspace=resolved)
+    return cluster
+
+
 def _update_phase(
     data_root: Path,
     job_id: str,
     phase: str,
 ) -> None:
     """Update the submit_phase field on a job record and print for CLI."""
-    print(f"FORGE_SUBMIT_PHASE: {phase}", flush=True)
+    print(f"CRUCIBLE_SUBMIT_PHASE: {phase}", flush=True)
     update_remote_job_state(
         data_root, job_id, "submitting", submit_phase=phase,
     )
@@ -59,7 +71,7 @@ def submit_remote_job(
     """Submit a training job to a remote Slurm cluster.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         cluster_name: Name of the registered cluster.
         training_method: Training method to dispatch.
         method_args: Arguments passed to the training method.
@@ -103,6 +115,13 @@ def submit_remote_job(
     try:
         _update_phase(data_root, job_id, "Connecting to cluster...")
         with SshSession(cluster) as session:
+            # Resolve ~ to absolute path so Slurm/SFTP work correctly
+            cluster = _resolve_cluster_workspace(cluster, session)
+            workdir = f"{cluster.remote_workspace}/{job_id}"
+            update_remote_job_state(
+                data_root, job_id, "submitting",
+                remote_output_dir=workdir,
+            )
             session.mkdir_p(workdir)
             _update_phase(data_root, job_id, "Provisioning environment...")
             ensure_remote_env(session)
@@ -114,9 +133,9 @@ def submit_remote_job(
                 ds_path = f"{cluster.remote_workspace}/datasets/{ds_name}"
                 _, _, rc = session.execute(f"test -d {ds_path}", timeout=10)
                 if rc != 0:
-                    raise ForgeRemoteError(
+                    raise CrucibleRemoteError(
                         f"Dataset '{ds_name}' not found on cluster "
-                        f"'{cluster_name}'. Push it first with: forge remote "
+                        f"'{cluster_name}'. Push it first with: crucible remote "
                         f"dataset-push --cluster {cluster_name} "
                         f"--dataset {ds_name}"
                     )
@@ -126,7 +145,7 @@ def submit_remote_job(
                 method_args["dataset_path"] = records_file
                 # Data-path methods (SFT, LoRA, DPO, etc.) need the
                 # original source file (prompt/response format), not
-                # the forge ingest records.
+                # the crucible ingest records.
                 data_field = DATA_PATH_FIELDS.get(training_method)
                 if data_field:
                     _, _, src_rc = session.execute(
@@ -168,7 +187,7 @@ def submit_remote_sweep(
     """Submit a sweep as a Slurm job array.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         cluster_name: Registered cluster name.
         training_method: Training method for each trial.
         trial_configs: List of per-trial method_args dicts.
@@ -206,6 +225,13 @@ def submit_remote_sweep(
     try:
         _update_phase(data_root, job_id, "Connecting to cluster...")
         with SshSession(cluster) as session:
+            # Resolve ~ to absolute path so Slurm/SFTP work correctly
+            cluster = _resolve_cluster_workspace(cluster, session)
+            workdir = f"{cluster.remote_workspace}/{job_id}"
+            update_remote_job_state(
+                data_root, job_id, "submitting",
+                remote_output_dir=workdir,
+            )
             session.mkdir_p(workdir)
             session.mkdir_p(f"{workdir}/trials")
             _update_phase(data_root, job_id, "Provisioning environment...")
@@ -224,7 +250,7 @@ def submit_remote_sweep(
                     f"test -d {ds_path}", timeout=10,
                 )
                 if rc != 0:
-                    raise ForgeRemoteError(
+                    raise CrucibleRemoteError(
                         f"Dataset '{ds_name}' not found on cluster "
                         f"'{cluster_name}'. Push it first."
                     )

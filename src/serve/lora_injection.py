@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeLoraError
+from core.errors import CrucibleLoraError
 from core.lora_types import LoraConfig
 from core.logging_config import get_logger
 from serve.lora_linear import create_lora_linear
@@ -36,7 +36,7 @@ def inject_lora_adapters(
         Number of layers replaced.
 
     Raises:
-        ForgeLoraError: If no matching layers found.
+        CrucibleLoraError: If no matching layers found.
     """
     replaced_count = 0
     for parent_name, parent_module in _named_modules_list(model):
@@ -57,7 +57,7 @@ def inject_lora_adapters(
 
     if replaced_count == 0:
         target_list = ", ".join(config.target_modules)
-        raise ForgeLoraError(
+        raise CrucibleLoraError(
             f"No linear layers matched target modules: {target_list}. "
             "Check model architecture and target_modules config."
         )

@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for Forge collaboration server.
+"""SQLAlchemy ORM models for Crucible collaboration server.
 
 This module defines the relational schema for users, runs,
 comments, annotations, and workspaces using declarative mapping.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 
 
 def _import_sqlalchemy() -> Any:
@@ -17,7 +17,7 @@ def _import_sqlalchemy() -> Any:
         import sqlalchemy
         return sqlalchemy
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "sqlalchemy is required for the collaboration server. "
             "Install it with: pip install sqlalchemy"
         ) from exc

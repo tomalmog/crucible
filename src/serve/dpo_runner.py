@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from core.dpo_types import DpoOptions
-from core.errors import ForgeDependencyError, ForgeDpoError
+from core.errors import CrucibleDependencyError, CrucibleDpoError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.hf_model_loader import build_or_load_model
@@ -105,7 +105,7 @@ def _build_dpo_context(
         max_length=options.max_token_length,
     )
     if not dpo_pairs:
-        raise ForgeDpoError(
+        raise CrucibleDpoError(
             "No trainable DPO pairs were generated. "
             "Check DPO data content and max token length."
         )
@@ -114,7 +114,7 @@ def _build_dpo_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -233,9 +233,9 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "DPO training requires torch, but it is not installed. "
-            "Install torch to run forge dpo-train."
+            "Install torch to run crucible dpo-train."
         ) from error
     return torch
 
@@ -248,5 +248,5 @@ def _try_save_plot(
     """Save training plot unless plotting dependency is unavailable."""
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
-    except ForgeDependencyError:
+    except CrucibleDependencyError:
         return None

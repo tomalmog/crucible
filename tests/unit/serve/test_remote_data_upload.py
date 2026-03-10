@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig, SlurmResourceConfig
 from serve.remote_data_upload import (
     _generate_script,
@@ -29,7 +29,7 @@ def _make_cluster() -> ClusterConfig:
         name="test",
         host="test.example.com",
         user="testuser",
-        remote_workspace="/scratch/forge",
+        remote_workspace="/scratch/crucible",
     )
 
 
@@ -51,7 +51,7 @@ def test_upload_bundle_calls_upload() -> None:
     session = _make_session()
     tarball = Path("/tmp/bundle.tar.gz")
     _upload_bundle(session, tarball, "/remote/work")
-    session.upload.assert_called_once_with(tarball, "/remote/work/forge-agent.tar.gz")
+    session.upload.assert_called_once_with(tarball, "/remote/work/crucible-agent.tar.gz")
 
 
 def test_upload_config_calls_upload_text() -> None:
@@ -84,18 +84,18 @@ def test_submit_sbatch_parses_job_id() -> None:
 
 
 def test_submit_sbatch_raises_on_nonzero_exit() -> None:
-    """Non-zero exit code raises ForgeRemoteError."""
+    """Non-zero exit code raises CrucibleRemoteError."""
     session = _make_session()
     session.execute.return_value = ("", "sbatch: error: invalid partition", 1)
-    with pytest.raises(ForgeRemoteError, match="sbatch failed"):
+    with pytest.raises(CrucibleRemoteError, match="sbatch failed"):
         _submit_sbatch(session, "/remote/work")
 
 
 def test_submit_sbatch_raises_on_unexpected_output() -> None:
-    """Stdout with fewer than 4 words raises ForgeRemoteError."""
+    """Stdout with fewer than 4 words raises CrucibleRemoteError."""
     session = _make_session()
     session.execute.return_value = ("Error\n", "", 0)
-    with pytest.raises(ForgeRemoteError, match="Unexpected sbatch output"):
+    with pytest.raises(CrucibleRemoteError, match="Unexpected sbatch output"):
         _submit_sbatch(session, "/remote/work")
 
 

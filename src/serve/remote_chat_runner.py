@@ -1,6 +1,6 @@
 """Run chat inference on a remote Slurm cluster via SSH.
 
-Connects to the cluster, ensures the forge conda env and source
+Connects to the cluster, ensures the crucible conda env and source
 bundle are present, then submits inference to a compute node
 via ``srun`` and streams tokens back to the caller.
 """
@@ -14,14 +14,14 @@ from collections.abc import Generator
 from pathlib import Path
 
 from core.chat_types import ChatOptions
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import SlurmResourceConfig
 from serve.agent_bundler import build_agent_tarball
 from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
 
-_BUNDLE_DIR_NAME = ".forge-chat-bundle"
+_BUNDLE_DIR_NAME = ".crucible-chat-bundle"
 _HASH_MARKER = ".bundle-hash"
 _RUNNER_FILENAME = "_chat_runner.py"
 
@@ -35,7 +35,7 @@ def stream_remote_chat(
     """Stream chat inference from a remote cluster model.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         cluster_name: Registered cluster name.
         options: Chat inference options (model_path, prompt, etc.).
         resources: Slurm resource allocation for the compute node.
@@ -71,7 +71,7 @@ def _sync_bundle(
     tarball: Path,
     bundle_dir: str,
 ) -> None:
-    """Upload and extract the forge bundle if the hash has changed."""
+    """Upload and extract the crucible bundle if the hash has changed."""
     local_hash = _file_hash(tarball)
     marker_path = f"{bundle_dir}/{_HASH_MARKER}"
 
@@ -82,14 +82,14 @@ def _sync_bundle(
         return
 
     session.mkdir_p(bundle_dir)
-    remote_tarball = f"{bundle_dir}/forge-agent.tar.gz"
+    remote_tarball = f"{bundle_dir}/crucible-agent.tar.gz"
     session.upload(tarball, remote_tarball)
     _, stderr, code = session.execute(
         f"tar -xzf {remote_tarball} -C {bundle_dir}",
         timeout=60,
     )
     if code != 0:
-        raise ForgeRemoteError(f"Bundle extraction failed: {stderr.strip()}")
+        raise CrucibleRemoteError(f"Bundle extraction failed: {stderr.strip()}")
     session.upload_text(local_hash, marker_path)
 
 

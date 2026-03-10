@@ -10,7 +10,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeKtoError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleKtoError, CrucibleServeError
 from core.kto_types import KtoOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -73,7 +73,7 @@ def run_kto_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -101,7 +101,7 @@ def _build_kto_runtime_context(
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     kto_examples = load_kto_examples(options.kto_data_path)
     if not kto_examples:
-        raise ForgeKtoError(
+        raise CrucibleKtoError(
             "No KTO examples loaded. Check the kto_data_path file content."
         )
     random.Random(random_seed).shuffle(kto_examples)
@@ -112,7 +112,7 @@ def _build_kto_runtime_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -260,7 +260,7 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
-            "KTO training requires torch. Install torch to run forge kto-train."
+        raise CrucibleDependencyError(
+            "KTO training requires torch. Install torch to run crucible kto-train."
         ) from error
     return torch

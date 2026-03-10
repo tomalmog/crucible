@@ -12,7 +12,7 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 
 if TYPE_CHECKING:
@@ -25,18 +25,19 @@ def _require_paramiko() -> tuple[type, type, type]:
         import paramiko as pm
         return pm.SSHClient, pm.AutoAddPolicy, pm.RSAKey  # type: ignore[return-value]
     except ImportError as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             "paramiko is required for remote operations. "
-            "Install with: pip install 'forge[remote]'"
+            "Install with: pip install 'crucible[remote]'"
         ) from error
 
 
 class SshSession:
-    """Persistent SSH session wrapping paramiko for Forge remote operations."""
+    """Persistent SSH session wrapping paramiko for Crucible remote operations."""
 
     def __init__(self, cluster: ClusterConfig) -> None:
         self._cluster = cluster
         self._client: paramiko.SSHClient | None = None
+        self._remote_home: str = ""
 
     def connect(self) -> None:
         """Establish the SSH connection to the cluster."""
@@ -63,6 +64,9 @@ class SshSession:
         connect_kwargs: dict[str, object] = {
             "hostname": hostname,
             "username": username,
+            "timeout": 15,
+            "auth_timeout": 30,
+            "banner_timeout": 15,
         }
         if self._cluster.ssh_key_path:
             key_path = os.path.expanduser(self._cluster.ssh_key_path)
@@ -77,10 +81,13 @@ class SshSession:
         try:
             client.connect(**connect_kwargs)  # type: ignore[arg-type]
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"SSH connection to {hostname} failed: {error}"
             ) from error
         self._client = client
+        # Resolve remote home directory for ~ expansion in SFTP paths
+        _, stdout_ch, _ = client.exec_command("echo $HOME", timeout=10)
+        self._remote_home = stdout_ch.read().decode().strip()
 
     def close(self) -> None:
         """Close the SSH connection."""
@@ -99,7 +106,7 @@ class SshSession:
     def client(self) -> paramiko.SSHClient:
         """Return the active SSH client, raising if not connected."""
         if self._client is None:
-            raise ForgeRemoteError("SSH session is not connected.")
+            raise CrucibleRemoteError("SSH session is not connected.")
         return self._client
 
     def execute(self, command: str, timeout: int = 60) -> tuple[str, str, int]:
@@ -122,10 +129,22 @@ class SshSession:
             stderr = stderr_ch.read().decode("utf-8", errors="replace")
             exit_code = stdout_ch.channel.recv_exit_status()
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"Remote command failed: {error}"
             ) from error
         return stdout, stderr, exit_code
+
+    def resolve_path(self, path: str) -> str:
+        """Expand ~ to the remote home directory.
+
+        SFTP and Slurm #SBATCH directives do not expand ~, so this
+        must be called to produce an absolute path for those contexts.
+        """
+        if path.startswith("~/") and self._remote_home:
+            return self._remote_home + path[1:]
+        if path == "~" and self._remote_home:
+            return self._remote_home
+        return path
 
     def upload(self, local_path: Path, remote_path: str) -> None:
         """Upload a local file to the remote host via SFTP.
@@ -134,12 +153,13 @@ class SshSession:
             local_path: Path to the local file.
             remote_path: Destination path on the remote.
         """
+        resolved = self.resolve_path(remote_path)
         try:
             sftp = self.client.open_sftp()
-            sftp.put(str(local_path), remote_path)
+            sftp.put(str(local_path), resolved)
             sftp.close()
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"SFTP upload failed: {error}"
             ) from error
 
@@ -150,13 +170,14 @@ class SshSession:
             remote_path: Path on the remote host.
             local_path: Destination path on local machine.
         """
+        resolved = self.resolve_path(remote_path)
         try:
             local_path.parent.mkdir(parents=True, exist_ok=True)
             sftp = self.client.open_sftp()
-            sftp.get(remote_path, str(local_path))
+            sftp.get(resolved, str(local_path))
             sftp.close()
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"SFTP download failed: {error}"
             ) from error
 
@@ -193,12 +214,12 @@ class SshSession:
             Raw stdout chunks (not split by line).
 
         Raises:
-            ForgeRemoteError: On transport failure or non-zero exit.
+            CrucibleRemoteError: On transport failure or non-zero exit.
         """
         try:
             transport = self.client.get_transport()
             if transport is None:
-                raise ForgeRemoteError("SSH transport is not available.")
+                raise CrucibleRemoteError("SSH transport is not available.")
             channel = transport.open_session()
             channel.settimeout(float(timeout))
             channel.exec_command(command)
@@ -222,13 +243,13 @@ class SshSession:
                 stderr += channel.recv_stderr(4096).decode("utf-8", errors="replace")
             channel.close()
             if exit_code != 0:
-                raise ForgeRemoteError(
+                raise CrucibleRemoteError(
                     f"Remote command exited with code {exit_code}: {stderr.strip()}"
                 )
-        except ForgeRemoteError:
+        except CrucibleRemoteError:
             raise
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"Command streaming failed: {error}"
             ) from error
 
@@ -250,7 +271,7 @@ class SshSession:
         try:
             transport = self.client.get_transport()
             if transport is None:
-                raise ForgeRemoteError("SSH transport is not available.")
+                raise CrucibleRemoteError("SSH transport is not available.")
             channel = transport.open_session()
             channel.exec_command(command)
             buf = ""
@@ -268,10 +289,10 @@ class SshSession:
             if buf:
                 yield buf
             channel.close()
-        except ForgeRemoteError:
+        except CrucibleRemoteError:
             raise
         except Exception as error:
-            raise ForgeRemoteError(
+            raise CrucibleRemoteError(
                 f"Log streaming failed: {error}"
             ) from error
 

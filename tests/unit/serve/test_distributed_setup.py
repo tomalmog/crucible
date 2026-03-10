@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 from serve.distributed_setup import (
     cleanup_distributed,
     get_rank,
@@ -155,10 +155,10 @@ def test_is_main_process_false_for_nonzero_rank() -> None:
 
 
 def test_raises_when_distributed_unavailable() -> None:
-    """Should raise ForgeDistributedError when torch.distributed is None."""
+    """Should raise CrucibleDistributedError when torch.distributed is None."""
     torch_mod = _FakeTorch(dist=None)
 
-    with pytest.raises(ForgeDistributedError, match="not available"):
+    with pytest.raises(CrucibleDistributedError, match="not available"):
         get_rank(torch_mod)
 
 

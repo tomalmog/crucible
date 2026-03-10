@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.sft_types import SftOptions
 from core.types import TrainingRunResult
 from serve.sft_tokenization import SftSequence
@@ -141,5 +141,5 @@ def _try_save_plot(
     """Save training plot unless plotting dependency is unavailable."""
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
-    except ForgeDependencyError:
+    except CrucibleDependencyError:
         return None

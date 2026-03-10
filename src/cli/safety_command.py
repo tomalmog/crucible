@@ -1,4 +1,4 @@
-"""Safety CLI command wiring for Forge.
+"""Safety CLI command wiring for Crucible.
 
 This module registers the safety-eval and safety-gate subcommands,
 mapping CLI arguments to safety evaluation and gating functions.
@@ -10,11 +10,11 @@ import argparse
 import json
 from pathlib import Path
 
-from core.errors import ForgeSafetyError
+from core.errors import CrucibleSafetyError
 from core.safety_types import SafetyEvalConfig
 from safety.safety_gate import format_gate_result, run_safety_gate
 from safety.toxicity_scorer import score_batch_toxicity
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def _load_eval_texts(eval_data_path: str) -> list[str]:
@@ -30,15 +30,15 @@ def _load_eval_texts(eval_data_path: str) -> list[str]:
         List of text strings.
 
     Raises:
-        ForgeSafetyError: If the file cannot be loaded.
+        CrucibleSafetyError: If the file cannot be loaded.
     """
     path = Path(eval_data_path)
     if not path.exists():
-        raise ForgeSafetyError(f"Eval data not found: {eval_data_path}")
+        raise CrucibleSafetyError(f"Eval data not found: {eval_data_path}")
     try:
         content = path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ForgeSafetyError(f"Failed to load eval data: {exc}") from exc
+        raise CrucibleSafetyError(f"Failed to load eval data: {exc}") from exc
     # Try JSON array first
     try:
         data = json.loads(content)
@@ -55,7 +55,7 @@ def _load_eval_texts(eval_data_path: str) -> list[str]:
         try:
             item = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise ForgeSafetyError(f"Failed to parse JSONL line: {exc}") from exc
+            raise CrucibleSafetyError(f"Failed to parse JSONL line: {exc}") from exc
         if isinstance(item, str):
             texts.append(item)
         elif isinstance(item, dict) and "text" in item:
@@ -63,12 +63,12 @@ def _load_eval_texts(eval_data_path: str) -> list[str]:
         else:
             texts.append(str(item))
     if not texts:
-        raise ForgeSafetyError("Eval data file is empty or contains no text samples.")
+        raise CrucibleSafetyError("Eval data file is empty or contains no text samples.")
     return texts
 
 
 def run_safety_eval_command(
-    client: ForgeClient,
+    client: CrucibleClient,
     args: argparse.Namespace,
 ) -> int:
     """Handle safety-eval command invocation.
@@ -120,7 +120,7 @@ def add_safety_eval_command(subparsers: argparse._SubParsersAction[argparse.Argu
 
 
 def run_safety_gate_command(
-    client: ForgeClient,
+    client: CrucibleClient,
     args: argparse.Namespace,
 ) -> int:
     """Handle safety-gate command invocation.

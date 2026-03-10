@@ -294,6 +294,18 @@ fn read_json_file(path: &Path) -> Result<Value, String> {
         .map_err(|error| format!("Failed to parse {}: {error}", path.display()))
 }
 
+#[tauri::command]
+pub fn get_model_index_mtime(data_root: String) -> Result<String, String> {
+    let index_path = resolve_data_root_path(&data_root).join("models").join("index.json");
+    let meta = fs::metadata(&index_path).map_err(|e| e.to_string())?;
+    let mtime = meta
+        .modified()
+        .map_err(|e| e.to_string())?
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?;
+    Ok(format!("{}.{}", mtime.as_secs(), mtime.subsec_nanos()))
+}
+
 fn safe_filename(name: &str) -> String {
     name.replace('/', "--")
 }

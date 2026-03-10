@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Mapping, cast
 
 from core.chat_types import ChatOptions, ChatTokenizer
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import DataRecord, PositionEmbeddingType, TrainingOptions
 from serve.training_metadata import load_tokenizer, load_tokenizer_from_path, load_training_config
 from serve.training_setup import fit_training_tokenizer
@@ -42,7 +42,7 @@ def resolve_chat_tokenizer(
     3. Rebuild from dataset records (requires records to be non-None)
 
     Raises:
-        ForgeServeError: If no tokenizer source is available.
+        CrucibleServeError: If no tokenizer source is available.
     """
     if options.tokenizer_path is not None:
         return load_tokenizer_from_path(options.tokenizer_path)
@@ -50,7 +50,7 @@ def resolve_chat_tokenizer(
     if persisted_tokenizer is not None:
         return persisted_tokenizer
     if records is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "No tokenizer found next to the model and no dataset provided. "
             "Provide --tokenizer-path pointing to a vocab.json file, "
             "or provide --dataset to rebuild the tokenizer from ingested data."

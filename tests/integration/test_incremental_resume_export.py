@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from core.config import ForgeConfig
-from core.errors import ForgeStoreError
+from core.config import CrucibleConfig
+from core.errors import CrucibleStoreError
 from core.types import IngestOptions
 from ingest.pipeline import ingest_dataset
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 from store.snapshot_store import DatasetStore
 
 
@@ -25,16 +25,16 @@ def test_resume_uses_checkpoint_without_source_files(tmp_path: Path, monkeypatch
     source_dir.mkdir()
     source_file = source_dir / "a.txt"
     _write_text(source_file, "alpha")
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path / "forge")
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path / "crucible")
     options = IngestOptions(dataset_name="demo", source_uri=str(source_dir))
 
     original_save_dataset = DatasetStore.save_dataset
 
     def _failing_save_dataset(self, request):
-        raise ForgeStoreError("forced failure")
+        raise CrucibleStoreError("forced failure")
 
     monkeypatch.setattr(DatasetStore, "save_dataset", _failing_save_dataset)
-    with pytest.raises(ForgeStoreError):
+    with pytest.raises(CrucibleStoreError):
         ingest_dataset(options, config)
     source_file.unlink()
     monkeypatch.setattr(DatasetStore, "save_dataset", original_save_dataset)
@@ -49,8 +49,8 @@ def test_export_training_creates_manifest(tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     _write_text(source_dir / "a.txt", "alpha training sample")
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path / "forge")
-    client = ForgeClient(config)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path / "crucible")
+    client = CrucibleClient(config)
     client.ingest(IngestOptions(dataset_name="demo", source_uri=str(source_dir)))
 
     manifest_path = client.dataset("demo").export_training(output_dir=str(tmp_path / "exports"))

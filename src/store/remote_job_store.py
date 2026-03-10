@@ -1,6 +1,6 @@
 """CRUD operations for remote Slurm job records.
 
-Persists RemoteJobRecord instances as JSON under .forge/remote-jobs/.
+Persists RemoteJobRecord instances as JSON under .crucible/remote-jobs/.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import RemoteJobRecord, RemoteJobState
 from serve.training_run_io import read_json_file, write_json_file
 
@@ -88,7 +88,7 @@ def save_remote_job(data_root: Path, record: RemoteJobRecord) -> Path:
     """Persist a remote job record to disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         record: Remote job record to save.
 
     Returns:
@@ -98,7 +98,7 @@ def save_remote_job(data_root: Path, record: RemoteJobRecord) -> Path:
     try:
         write_json_file(target, _record_to_dict(record))
     except Exception as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to save remote job {record.job_id}: {error}."
         ) from error
     return target
@@ -108,26 +108,26 @@ def load_remote_job(data_root: Path, job_id: str) -> RemoteJobRecord:
     """Load a remote job record from disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         job_id: Job identifier to load.
 
     Returns:
         Loaded RemoteJobRecord instance.
 
     Raises:
-        ForgeRemoteError: If the job file does not exist or is invalid.
+        CrucibleRemoteError: If the job file does not exist or is invalid.
     """
     target = _job_path(data_root, job_id)
     if not target.exists():
-        raise ForgeRemoteError(f"Remote job '{job_id}' not found.")
+        raise CrucibleRemoteError(f"Remote job '{job_id}' not found.")
     try:
         raw = read_json_file(target)
     except Exception as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to load remote job {job_id}: {error}."
         ) from error
     if not isinstance(raw, dict):
-        raise ForgeRemoteError(f"Invalid remote job data for {job_id}.")
+        raise CrucibleRemoteError(f"Invalid remote job data for {job_id}.")
     return _dict_to_record(raw)
 
 
@@ -135,7 +135,7 @@ def list_remote_jobs(data_root: Path) -> tuple[RemoteJobRecord, ...]:
     """List all remote job records sorted by submission time (newest first).
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
 
     Returns:
         Tuple of RemoteJobRecord instances.
@@ -162,7 +162,7 @@ def update_remote_job_state(
     """Update the state of a remote job and persist to disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         job_id: Job identifier to update.
         state: New lifecycle state.
         **extra: Additional fields to update (model_path_remote, etc.).

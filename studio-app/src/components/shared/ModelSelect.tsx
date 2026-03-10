@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 
 interface ModelSelectProps {
   value: string;
@@ -19,7 +19,7 @@ interface ModelOption {
  * Local models pass activeModelPath; remote models pass activeRemotePath.
  */
 export function ModelSelect({ value, onChange, placeholder = "select a registered model" }: ModelSelectProps) {
-  const { modelGroups } = useForge();
+  const { modelGroups } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);

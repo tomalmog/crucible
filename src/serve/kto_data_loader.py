@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core.errors import ForgeKtoError
+from core.errors import CrucibleKtoError
 from core.kto_types import KtoExample
 
 
@@ -20,7 +20,7 @@ def load_kto_examples(data_path: str) -> list[KtoExample]:
     """
     path = Path(data_path)
     if not path.exists():
-        raise ForgeKtoError(f"KTO data file not found: {data_path}")
+        raise CrucibleKtoError(f"KTO data file not found: {data_path}")
     examples: list[KtoExample] = []
     with open(path, encoding="utf-8") as fh:
         for line_num, line in enumerate(fh, start=1):

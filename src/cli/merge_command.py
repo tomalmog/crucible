@@ -1,4 +1,4 @@
-"""Model merge command wiring for Forge CLI.
+"""Model merge command wiring for Crucible CLI.
 
 This module provides the merge command for combining
 multiple model weights into a single model.
@@ -9,10 +9,10 @@ from __future__ import annotations
 import argparse
 
 from serve.model_merger import SUPPORTED_MERGE_METHODS, MergeConfig, merge_models
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_merge_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_merge_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle merge command invocation."""
     weights = tuple(float(w) for w in args.weights.split(",")) if args.weights else ()
     config = MergeConfig(

@@ -55,33 +55,33 @@ export async function sampleRecords(
   });
 }
 
-export async function startForgeCommand(
+export async function startCrucibleCommand(
   dataRoot: string,
   args: string[],
 ): Promise<CommandTaskStart> {
-  return invoke<CommandTaskStart>("start_forge_command", { dataRoot, args });
+  return invoke<CommandTaskStart>("start_crucible_command", { dataRoot, args });
 }
 
-export async function getForgeCommandStatus(
+export async function getCrucibleCommandStatus(
   taskId: string,
 ): Promise<CommandTaskStatus> {
-  return invoke<CommandTaskStatus>("get_forge_command_status", { taskId });
+  return invoke<CommandTaskStatus>("get_crucible_command_status", { taskId });
 }
 
-export async function listForgeTasks(): Promise<CommandTaskStatus[]> {
-  return invoke<CommandTaskStatus[]>("list_forge_tasks");
+export async function listCrucibleTasks(): Promise<CommandTaskStatus[]> {
+  return invoke<CommandTaskStatus[]>("list_crucible_tasks");
 }
 
-export async function killForgeTask(taskId: string): Promise<void> {
-  return invoke<void>("kill_forge_task", { taskId });
+export async function killCrucibleTask(taskId: string): Promise<void> {
+  return invoke<void>("kill_crucible_task", { taskId });
 }
 
-export async function renameForgeTask(taskId: string, label: string): Promise<void> {
-  return invoke<void>("rename_forge_task", { taskId, label });
+export async function renameCrucibleTask(taskId: string, label: string): Promise<void> {
+  return invoke<void>("rename_crucible_task", { taskId, label });
 }
 
-export async function deleteForgeTask(taskId: string): Promise<void> {
-  return invoke<void>("delete_forge_task", { taskId });
+export async function deleteCrucibleTask(taskId: string): Promise<void> {
+  return invoke<void>("delete_crucible_task", { taskId });
 }
 
 export async function loadTrainingHistory(
@@ -121,4 +121,8 @@ export async function saveTrainingConfig(
   payload: object,
 ): Promise<void> {
   return invoke("save_training_config", { dataRoot, method, payload });
+}
+
+export async function getModelIndexMtime(dataRoot: string): Promise<string> {
+  return invoke<string>("get_model_index_mtime", { dataRoot });
 }

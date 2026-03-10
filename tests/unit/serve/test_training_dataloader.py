@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataLoaderOptions, DataRecord, RecordMetadata
 from serve.training_dataloader import create_pytorch_dataloader, create_token_batches
 
@@ -49,7 +49,7 @@ def test_create_pytorch_dataloader_raises_without_torch(monkeypatch) -> None:
     monkeypatch.setattr(builtins, "__import__", _import)
     options = DataLoaderOptions(1, False, 2, 10)
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         create_pytorch_dataloader(_build_records(), options, random_seed=7)
 
     assert options.batch_size == 1

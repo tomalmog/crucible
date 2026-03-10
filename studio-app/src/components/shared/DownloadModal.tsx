@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download, Check, Loader, Server, Monitor, X } from "lucide-react";
-import { useForge } from "../../context/ForgeContext";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucible } from "../../context/CrucibleContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { listClusters } from "../../api/remoteApi";
 import type { ClusterConfig } from "../../types/remote";
 import { formatBytes } from "../../pages/hub/hubUtils";
@@ -20,12 +20,11 @@ interface DownloadModalProps {
 }
 
 export function DownloadModal({ repoId, targetDir, size, kind = "model", onComplete, onClose }: DownloadModalProps) {
-  const { dataRoot } = useForge();
-  const cmd = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const cmd = useCrucibleCommand();
   const [dest, setDest] = useState<Destination>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [cluster, setCluster] = useState("");
-  const [register, setRegister] = useState(false);
   const [registryName, setRegistryName] = useState("");
   const [dlStatus, setDlStatus] = useState<DownloadStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
@@ -54,10 +53,9 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
     setStatusMsg(dest === "local" ? "Downloading..." : "Connecting to cluster...");
     try {
       const nameFlag = kind === "model" ? "--model-name" : "--dataset-name";
-      // Remote dataset registration is automatic (metadata.json written on cluster)
-      const canRegister = dest === "local" || kind === "model";
-      const registerArgs = canRegister && register
-        ? ["--register", ...(registryName ? [nameFlag, registryName] : [])]
+      const effectiveName = registryName.trim() || repoId;
+      const registerArgs = dest === "local" || kind === "model"
+        ? ["--register", nameFlag, effectiveName]
         : [];
       const localCmd = kind === "model" ? "download-model" : "download-dataset";
       const remoteCmd = kind === "model" ? "download-model-remote" : "download-dataset-remote";
@@ -83,7 +81,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
       setDlStatus("error");
       setStatusMsg("Download failed");
     }
-  }, [dataRoot, dest, repoId, targetDir, cluster, register, registryName, kind, cmd, onComplete]);
+  }, [dataRoot, dest, repoId, targetDir, cluster, registryName, kind, cmd, onComplete]);
 
   const sizeLabel = size ? formatBytes(size) : "";
   const canClose = dlStatus !== "downloading";
@@ -128,20 +126,14 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
                 <span>Download To</span>
                 <input value={targetDir} disabled />
               </label>
-              <label className="download-modal-checkbox">
-                <input type="checkbox" checked={register} onChange={(e) => setRegister(e.target.checked)} />
-                <span>Register in {kind} registry</span>
+              <label>
+                <span>{kind === "model" ? "Model" : "Dataset"} Name</span>
+                <input
+                  value={registryName}
+                  onChange={(e) => setRegistryName(e.currentTarget.value)}
+                  placeholder={repoId}
+                />
               </label>
-              {register && (
-                <label>
-                  <span>{kind === "model" ? "Model" : "Dataset"} Name</span>
-                  <input
-                    value={registryName}
-                    onChange={(e) => setRegistryName(e.currentTarget.value)}
-                    placeholder={repoId}
-                  />
-                </label>
-              )}
             </div>
           )}
 
@@ -161,22 +153,16 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
                       ))}
                     </select>
                   </label>
-                  {kind === "model" && <>
-                    <label className="download-modal-checkbox">
-                      <input type="checkbox" checked={register} onChange={(e) => setRegister(e.target.checked)} />
-                      <span>Register in model registry</span>
+                  {kind === "model" && (
+                    <label>
+                      <span>Model Name</span>
+                      <input
+                        value={registryName}
+                        onChange={(e) => setRegistryName(e.currentTarget.value)}
+                        placeholder={repoId}
+                      />
                     </label>
-                    {register && (
-                      <label>
-                        <span>Model Name</span>
-                        <input
-                          value={registryName}
-                          onChange={(e) => setRegistryName(e.currentTarget.value)}
-                          placeholder={repoId}
-                        />
-                      </label>
-                    )}
-                  </>}
+                  )}
                 </>
               )}
             </div>

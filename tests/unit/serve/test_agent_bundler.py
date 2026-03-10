@@ -47,7 +47,7 @@ def test_build_tarball_contains_entry_script(tmp_path: Path) -> None:
     tarball = _build_with_fake_src(tmp_path)
     with tarfile.open(tarball, "r:gz") as tar:
         names = tar.getnames()
-    assert "forge_agent_entry.py" in names
+    assert "crucible_agent_entry.py" in names
 
 
 def test_build_tarball_includes_module_files(tmp_path: Path) -> None:

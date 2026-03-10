@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 
 export function SyntheticDataForm() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [seedPrompts, setSeedPrompts] = useState("");
   const [count, setCount] = useState("1000");

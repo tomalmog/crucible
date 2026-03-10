@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { FormField } from "../../components/shared/FormField";
 import { FormSection } from "../../components/shared/FormSection";
 import { listClusters } from "../../api/remoteApi";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import type { ClusterConfig } from "../../types/remote";
 
 export type ClusterMode = "toggle" | "auto";
@@ -51,7 +51,7 @@ export function ClusterSubmitSection({
   clusterConfig,
   onChange,
 }: ClusterSubmitSectionProps) {
-  const { dataRoot } = useForge();
+  const { dataRoot } = useCrucible();
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [isLoadingClusters, setIsLoadingClusters] = useState(false);
 

@@ -9,11 +9,11 @@ import argparse
 
 from core.constants import DEFAULT_QUALITY_MODEL
 from core.types import IngestOptions
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 from transforms.quality_scoring import supported_quality_models
 
 
-def run_ingest_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_ingest_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle ingest command."""
     options = IngestOptions(
         dataset_name=args.dataset,
@@ -26,7 +26,7 @@ def run_ingest_command(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def run_export_training_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_export_training_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle export-training command."""
     dataset = client.dataset(args.dataset)
     manifest_path = dataset.export_training(

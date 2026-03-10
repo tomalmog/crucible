@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from core.chat_types import ChatTokenizer
-from core.errors import ForgeDependencyError, ForgeLoraError, ForgeServeError, ForgeTrainingDivergedError
+from core.errors import CrucibleDependencyError, CrucibleLoraError, CrucibleServeError, CrucibleTrainingDivergedError
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
 from serve.model_format import detect_model_format
 from core.lora_types import LoraConfig, LoraTrainingOptions
@@ -56,8 +56,8 @@ def run_lora_training(
         Training run result with artifact paths.
 
     Raises:
-        ForgeLoraError: If LoRA injection or adapter save fails.
-        ForgeServeError: If training execution fails.
+        CrucibleLoraError: If LoRA injection or adapter save fails.
+        CrucibleServeError: If training execution fails.
     """
     _validate_base_model_format(options.base_model_path)
     validate_file_paths(
@@ -144,7 +144,7 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "LoRA training requires torch. Install with pip install torch."
         ) from error
     return torch
@@ -154,7 +154,7 @@ def _validate_base_model_format(base_model_path: str) -> None:
     """Reject ONNX models early — LoRA requires PyTorch weights."""
     fmt = detect_model_format(base_model_path)
     if fmt == "onnx":
-        raise ForgeLoraError(
+        raise CrucibleLoraError(
             f"Cannot LoRA fine-tune an ONNX model ({base_model_path}). "
             "LoRA requires PyTorch weights (.pt). ONNX is an inference-only format — "
             "use a HuggingFace model ID (e.g. 'gpt2') or a .pt checkpoint instead."
@@ -234,7 +234,7 @@ def _build_and_load_model(
 
     Supports three modes:
     - HuggingFace model ID (e.g. 'gpt2'): loads via transformers
-    - PyTorch checkpoint (.pt): builds Forge architecture + loads weights
+    - PyTorch checkpoint (.pt): builds Crucible architecture + loads weights
     - Local directory with model files: loads via transformers
     """
     if is_huggingface_model_id(options.base_model_path):
@@ -291,7 +291,7 @@ def _load_lora_tokenizer(options: LoraTrainingOptions) -> ChatTokenizer | None:
     Tries in order:
     1. Explicit tokenizer_path from options
     2. HuggingFace AutoTokenizer from the base model ID
-    3. Forge vocabulary tokenizer from model directory
+    3. Crucible vocabulary tokenizer from model directory
     """
     from serve.training_setup import resolve_tokenizer
 
@@ -321,7 +321,7 @@ def _load_lora_sequences(
         mask_prompt_tokens=True,
     )
     if not sequences:
-        raise ForgeLoraError(
+        raise CrucibleLoraError(
             "No trainable sequences from LoRA data. "
             "Check data content and max token length."
         )
@@ -361,7 +361,7 @@ def _run_lora_training_loop(
 
     tokenizer = _load_lora_tokenizer(options)
     if tokenizer is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "No tokenizer found. Provide --tokenizer-path or use a HuggingFace model ID."
         )
 
@@ -435,7 +435,7 @@ def _run_lora_training_loop(
                 optimizer.step()
             except RuntimeError as runtime_err:
                 if "out of memory" in str(runtime_err).lower():
-                    raise ForgeServeError(
+                    raise CrucibleServeError(
                         "GPU out of memory during LoRA training. Try: "
                         "--batch-size (smaller), --max-token-length (shorter), "
                         "or reduce --lora-rank."
@@ -443,7 +443,7 @@ def _run_lora_training_loop(
                 raise
             batch_loss = loss.item()
             if math.isnan(batch_loss) or math.isinf(batch_loss):
-                raise ForgeTrainingDivergedError(
+                raise CrucibleTrainingDivergedError(
                     f"LoRA training diverged: loss is {batch_loss} at epoch {epoch}. "
                     "Try reducing --learning-rate or checking your data."
                 )

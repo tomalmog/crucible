@@ -5,9 +5,9 @@ export const studioGuide: DocEntry = {
   title: "Studio Walkthrough",
   category: "Studio Guide",
   content: `
-## Forge Studio Walkthrough
+## Crucible Studio Walkthrough
 
-Forge Studio is the desktop application that gives you a visual interface for every part of the ML training pipeline. Here is what each section does.
+Crucible Studio is the desktop application that gives you a visual interface for every part of the ML training pipeline. Here is what each section does.
 
 ### Sidebar Navigation
 
@@ -17,7 +17,7 @@ The left sidebar is your main navigation. It provides access to: **Training**, *
 
 The training page is where you configure and launch training runs. Start by picking a training method from the method picker — each method card shows a brief description and recommended use case. After selecting a method, a configuration wizard walks you through the required settings: base model, dataset, hyperparameters, and output path. Required fields are marked with \`*\` and a validation alert lists any missing inputs before you can start. Once you launch, a live dashboard shows real-time loss charts, learning rate schedules, throughput metrics, and estimated time remaining.
 
-The training page also includes a **Sweep** tab for running hyperparameter sweeps — define parameters, pick a search strategy, and Forge automatically tries every combination and reports the best configuration. See the Hyperparameter Sweeps doc for details.
+The training page also includes a **Sweep** tab for running hyperparameter sweeps — define parameters, pick a search strategy, and Crucible automatically tries every combination and reports the best configuration. See the Hyperparameter Sweeps doc for details.
 
 ### Datasets
 
@@ -43,6 +43,6 @@ Monitor all running and completed training jobs. Each job shows its status, prog
 
 ### Docs
 
-You are here. The docs section provides searchable, categorized documentation covering every feature in Forge — from CLI commands to training methods to deployment workflows.
+You are here. The docs section provides searchable, categorized documentation covering every feature in Crucible — from CLI commands to training methods to deployment workflows.
 `,
 };

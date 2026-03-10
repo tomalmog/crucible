@@ -33,7 +33,7 @@ def rollback_active_version(
         The ModelVersion that is now marked as active.
 
     Raises:
-        ForgeModelRegistryError: If the version does not exist.
+        CrucibleModelRegistryError: If the version does not exist.
     """
     version = registry.get_version(version_id)
     _update_active_in_group(registry, model_name, version_id)

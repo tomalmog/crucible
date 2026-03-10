@@ -7,7 +7,7 @@ export const concepts: DocEntry = {
   content: `
 ## Key Concepts
 
-A plain-language reference for the core terms you will encounter throughout Forge.
+A plain-language reference for the core terms you will encounter throughout Crucible.
 
 ### Epochs
 
@@ -27,7 +27,7 @@ A number that measures how wrong the model's predictions are. Training is the pr
 
 ### Checkpoints
 
-Saved snapshots of the model weights taken during training. Checkpoints let you resume a run that was interrupted or roll back to an earlier state. Forge saves checkpoints at regular intervals so you can pick the best-performing version.
+Saved snapshots of the model weights taken during training. Checkpoints let you resume a run that was interrupted or roll back to an earlier state. Crucible saves checkpoints at regular intervals so you can pick the best-performing version.
 
 ### LoRA / Adapters
 
@@ -35,7 +35,7 @@ Instead of updating every weight in the model, LoRA (Low-Rank Adaptation) trains
 
 ### Tokenizer
 
-Converts raw text into a sequence of integer token IDs that the model can process. Each model family has its own tokenizer with a specific vocabulary. Forge automatically loads the correct tokenizer for your chosen base model.
+Converts raw text into a sequence of integer token IDs that the model can process. Each model family has its own tokenizer with a specific vocabulary. Crucible automatically loads the correct tokenizer for your chosen base model.
 
 ### Precision (fp32 / fp16 / bf16)
 
@@ -43,7 +43,7 @@ The numerical format used to store model weights. Full precision (fp32) uses 4 b
 
 ### Gradient Clipping
 
-Caps the magnitude of gradients during training to prevent extremely large updates that can destabilize the model. Forge enables gradient clipping by default with a max norm of 1.0. This is one of the most important safeguards against training divergence.
+Caps the magnitude of gradients during training to prevent extremely large updates that can destabilize the model. Crucible enables gradient clipping by default with a max norm of 1.0. This is one of the most important safeguards against training divergence.
 
 ### Overfitting
 

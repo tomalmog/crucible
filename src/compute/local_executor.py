@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.compute_types import JobStatus, JobSubmission
-from core.errors import ForgeComputeError
+from core.errors import CrucibleComputeError
 
 
 class LocalExecutor:
@@ -32,7 +32,7 @@ class LocalExecutor:
             A unique job_id string.
 
         Raises:
-            ForgeComputeError: If the subprocess cannot be started.
+            CrucibleComputeError: If the subprocess cannot be started.
         """
         job_id = uuid.uuid4().hex[:12]
         cmd = [submission.command, *submission.args]
@@ -46,7 +46,7 @@ class LocalExecutor:
                 stderr=subprocess.PIPE,
             )
         except OSError as exc:
-            raise ForgeComputeError(
+            raise CrucibleComputeError(
                 f"Failed to start process: {exc}"
             ) from exc
         self._jobs[job_id] = {
@@ -66,7 +66,7 @@ class LocalExecutor:
             Current JobStatus snapshot.
 
         Raises:
-            ForgeComputeError: If job_id is unknown.
+            CrucibleComputeError: If job_id is unknown.
         """
         entry = self._get_job(job_id)
         process: subprocess.Popen[bytes] = entry["process"]
@@ -97,7 +97,7 @@ class LocalExecutor:
             True if the process was terminated, False if already done.
 
         Raises:
-            ForgeComputeError: If job_id is unknown.
+            CrucibleComputeError: If job_id is unknown.
         """
         entry = self._get_job(job_id)
         process: subprocess.Popen[bytes] = entry["process"]
@@ -124,11 +124,11 @@ class LocalExecutor:
         """Look up a tracked job entry by id.
 
         Raises:
-            ForgeComputeError: If job_id is not found.
+            CrucibleComputeError: If job_id is not found.
         """
         entry = self._jobs.get(job_id)
         if entry is None:
-            raise ForgeComputeError(f"Unknown job id: {job_id!r}")
+            raise CrucibleComputeError(f"Unknown job id: {job_id!r}")
         return entry
 
 

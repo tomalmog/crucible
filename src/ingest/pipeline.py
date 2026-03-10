@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 from core.logging_config import get_logger
 from core.types import (
     DataRecord,
@@ -31,7 +31,7 @@ _LOGGER = get_logger(__name__)
 class IngestPipelineRunner:
     """Stateful runner for resumable ingest pipeline execution."""
 
-    def __init__(self, options: IngestOptions, config: ForgeConfig) -> None:
+    def __init__(self, options: IngestOptions, config: CrucibleConfig) -> None:
         self._options = options
         self._config = config
         self._store = DatasetStore(config)
@@ -87,7 +87,7 @@ class IngestPipelineRunner:
         self._store.save_dataset(write_request)
 
 
-def ingest_dataset(options: IngestOptions, config: ForgeConfig) -> str:
+def ingest_dataset(options: IngestOptions, config: CrucibleConfig) -> str:
     """Run the ingest pipeline and persist dataset records.
 
     Args:
@@ -98,8 +98,8 @@ def ingest_dataset(options: IngestOptions, config: ForgeConfig) -> str:
         Dataset name.
 
     Raises:
-        ForgeIngestError: If source read or transforms fail.
-        ForgeStoreError: If dataset persistence fails.
+        CrucibleIngestError: If source read or transforms fail.
+        CrucibleStoreError: If dataset persistence fails.
     """
     runner = IngestPipelineRunner(options, config)
     return runner.run()

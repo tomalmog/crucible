@@ -40,7 +40,7 @@ def _make_record(
         state="running",
         submitted_at=ts,
         updated_at=ts,
-        remote_output_dir="/scratch/forge/rj-abc123def456",
+        remote_output_dir="/scratch/crucible/rj-abc123def456",
         model_name=model_name,
     )
 

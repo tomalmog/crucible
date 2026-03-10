@@ -1,4 +1,4 @@
-"""Domain adaptation command wiring for Forge CLI.
+"""Domain adaptation command wiring for Crucible CLI.
 
 This module isolates domain-adapt command parser and execution logic,
 mapping CLI arguments to DomainAdaptationOptions for continued pretraining.
@@ -30,11 +30,11 @@ from core.constants import (
 )
 from core.domain_adaptation_types import DomainAdaptationOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def run_domain_adapt_command(
-    client: ForgeClient,
+    client: CrucibleClient,
     args: argparse.Namespace,
 ) -> int:
     """Handle domain-adapt command invocation.

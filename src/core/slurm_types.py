@@ -53,7 +53,7 @@ class ClusterConfig:
     gpu_types: tuple[str, ...] = ()
     module_loads: tuple[str, ...] = ()
     python_path: str = "python3"
-    remote_workspace: str = "/tmp/forge-jobs"
+    remote_workspace: str = "~/crucible-jobs"
     exclude_nodes: str = ""
     validated_at: str = ""
 

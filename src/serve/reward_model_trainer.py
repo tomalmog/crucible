@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeRlhfError
+from core.errors import CrucibleRlhfError
 from core.rlhf_types import RlhfOptions
 from core.types import DataRecord
 from serve.reward_model import build_reward_model_from_base
@@ -38,11 +38,11 @@ def train_reward_model(
         Trained reward model.
 
     Raises:
-        ForgeRlhfError: If preference data is missing or invalid.
+        CrucibleRlhfError: If preference data is missing or invalid.
     """
     preference_path = options.reward_config.preference_data_path
     if preference_path is None:
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             "Reward model training requires --preference-data-path. "
             "Provide a JSONL file with prompt/chosen/rejected triples."
         )
@@ -67,18 +67,18 @@ def _load_preference_pairs(data_path: str) -> list[dict[str, str]]:
         List of preference pair dicts with prompt/chosen/rejected.
 
     Raises:
-        ForgeRlhfError: If file is missing or contains invalid rows.
+        CrucibleRlhfError: If file is missing or contains invalid rows.
     """
     resolved_path = Path(data_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Preference data file not found at {resolved_path}. "
             "Provide a valid --preference-data-path."
         )
     try:
         lines = resolved_path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Failed to read preference data at {resolved_path}: {error}."
         ) from error
     pairs: list[dict[str, str]] = []
@@ -89,7 +89,7 @@ def _load_preference_pairs(data_path: str) -> list[dict[str, str]]:
         pair = _parse_preference_line(stripped, line_num, resolved_path)
         pairs.append(pair)
     if not pairs:
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Preference data at {resolved_path} contains no valid pairs."
         )
     return pairs
@@ -102,18 +102,18 @@ def _parse_preference_line(
     try:
         parsed = json.loads(line)
     except json.JSONDecodeError as error:
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Preference data line {line_num} in {file_path}: "
             f"invalid JSON ({error.msg})."
         ) from error
     if not isinstance(parsed, dict):
-        raise ForgeRlhfError(
+        raise CrucibleRlhfError(
             f"Preference data line {line_num}: expected JSON object."
         )
     for field in ("prompt", "chosen", "rejected"):
         value = parsed.get(field)
         if not isinstance(value, str) or not value.strip():
-            raise ForgeRlhfError(
+            raise CrucibleRlhfError(
                 f"Preference data line {line_num}: "
                 f"missing or empty '{field}' field."
             )

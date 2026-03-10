@@ -1,6 +1,6 @@
 """Auto-provision a conda environment on remote clusters.
 
-Ensures a ``forge`` conda env exists before job submission,
+Ensures a ``crucible`` conda env exists before job submission,
 installing torch and other training dependencies if needed.
 
 SSH ``exec_command`` runs a non-interactive, non-login shell that
@@ -13,12 +13,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 
 if TYPE_CHECKING:
     from serve.ssh_connection import SshSession
 
-ENV_NAME = "forge"
+ENV_NAME = "crucible"
 _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
     "transformers", "accelerate", "safetensors",
@@ -46,58 +46,89 @@ def conda_cmd(command: str) -> str:
 
 
 def ensure_remote_env(session: SshSession) -> None:
-    """Ensure the ``forge`` conda env exists on the remote cluster.
+    """Ensure the ``crucible`` conda env exists on the remote cluster.
 
-    Checks ``conda env list`` for a ``forge`` entry and creates it
+    Checks ``conda env list`` for a ``crucible`` entry and creates it
     if missing.  If the existing env is broken (torch missing or
     install failures), removes it and rebuilds automatically.
+
+    Also removes the legacy ``forge`` env if present (from before the
+    Forge → Crucible rename) to avoid confusion and free disk space.
 
     Args:
         session: Active SSH session to the cluster.
 
     Raises:
-        ForgeRemoteError: If conda is unavailable or env creation
+        CrucibleRemoteError: If conda is unavailable or env creation
             fails after one automatic retry.
     """
-    if _env_exists(session):
+    env_names = _list_env_names(session)
+    if "forge" in env_names:
+        _remove_legacy_forge_env(session)
+    if ENV_NAME in env_names:
         try:
             _ensure_torch_installed(session)
             return
-        except ForgeRemoteError:
+        except CrucibleRemoteError:
             print(
-                "FORGE_ENV_SETUP: forge env is broken — rebuilding...",
+                "CRUCIBLE_ENV_SETUP: crucible env is broken — rebuilding...",
                 flush=True,
             )
             _remove_env(session)
 
-    print("FORGE_ENV_SETUP: creating forge conda env...", flush=True)
+    print("CRUCIBLE_ENV_SETUP: creating crucible conda env...", flush=True)
     try:
         _create_env(session)
-    except ForgeRemoteError:
+    except CrucibleRemoteError:
         # First attempt failed (e.g. stale partial env) — retry once
         print(
-            "FORGE_ENV_SETUP: creation failed — cleaning up and retrying...",
+            "CRUCIBLE_ENV_SETUP: creation failed — cleaning up and retrying...",
             flush=True,
         )
         _remove_env(session)
         _create_env(session)
-    print("FORGE_ENV_SETUP: forge conda env ready.", flush=True)
+    print("CRUCIBLE_ENV_SETUP: crucible conda env ready.", flush=True)
 
 
 def reset_remote_env(session: SshSession) -> None:
-    """Remove the ``forge`` conda env so it is rebuilt on next job.
+    """Remove the ``crucible`` conda env so it is rebuilt on next job.
 
-    Safe to call even if the env does not exist.
+    Also removes the legacy ``forge`` env if present (from before the
+    Forge → Crucible rename).  Safe to call even if neither env exists.
     """
-    if _env_exists(session):
+    env_names = _list_env_names(session)
+    if "forge" in env_names:
+        _remove_legacy_forge_env(session)
+    if ENV_NAME in env_names:
         _remove_env(session)
-        print("FORGE_ENV_SETUP: forge env removed.", flush=True)
+        print("CRUCIBLE_ENV_SETUP: crucible env removed.", flush=True)
     else:
-        print("FORGE_ENV_SETUP: no forge env found — nothing to remove.", flush=True)
+        print("CRUCIBLE_ENV_SETUP: no crucible env found — nothing to remove.", flush=True)
+
+
+def _remove_legacy_forge_env(session: SshSession) -> None:
+    """Remove the old ``forge`` conda env.
+
+    Called only when ``_list_env_names`` already confirmed "forge"
+    is present.  Frees disk space and avoids confusion after the
+    Forge → Crucible rename.
+    """
+    print(
+        "CRUCIBLE_ENV_SETUP: removing legacy 'forge' conda env...",
+        flush=True,
+    )
+    session.execute(
+        conda_cmd("conda remove -n forge --all -y"),
+        timeout=120,
+    )
+    print(
+        "CRUCIBLE_ENV_SETUP: legacy 'forge' env removed.",
+        flush=True,
+    )
 
 
 def _ensure_torch_installed(session: SshSession) -> None:
-    """Check that torch is importable in the forge env."""
+    """Check that torch is importable in the crucible env."""
     check_script = "import torch; print('torch=' + torch.__version__)"
     stdout, _, code = session.execute(
         conda_cmd(
@@ -109,7 +140,7 @@ def _ensure_torch_installed(session: SshSession) -> None:
         return
 
     print(
-        "FORGE_ENV_SETUP: torch not found in forge env — installing...",
+        "CRUCIBLE_ENV_SETUP: torch not found in crucible env — installing...",
         flush=True,
     )
     cuda_tag = _detect_cuda_tag(session)
@@ -123,34 +154,35 @@ def _ensure_torch_installed(session: SshSession) -> None:
         timeout=600,
     )
     if code != 0:
-        raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
-    print("FORGE_ENV_SETUP: torch installed.", flush=True)
+        raise CrucibleRemoteError(f"torch install failed: {stderr.strip()}")
+    print("CRUCIBLE_ENV_SETUP: torch installed.", flush=True)
 
 
 def _remove_env(session: SshSession) -> None:
-    """Remove the ``forge`` conda env.  Ignores errors if already gone."""
+    """Remove the ``crucible`` conda env.  Ignores errors if already gone."""
     session.execute(
         conda_cmd(f"conda remove -n {ENV_NAME} --all -y"),
         timeout=120,
     )
 
 
-def _env_exists(session: SshSession) -> bool:
-    """Return True if the ``forge`` conda env already exists."""
+def _list_env_names(session: SshSession) -> set[str]:
+    """Return the set of conda env names on the remote cluster."""
     stdout, _, code = session.execute(
         conda_cmd("conda env list"), timeout=30,
     )
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             "conda is not available on the remote cluster. "
             "Install Miniconda or ensure conda is on the PATH."
         )
+    names: set[str] = set()
     for line in stdout.splitlines():
         # Each line: "envname  /path/to/env" or "* /path"
         parts = line.split()
-        if parts and parts[0] == ENV_NAME:
-            return True
-    return False
+        if parts and parts[0] not in ("*", "#"):
+            names.add(parts[0])
+    return names
 
 
 def _detect_cuda_tag(session: SshSession) -> str:
@@ -200,20 +232,20 @@ def _detect_cuda_tag(session: SshSession) -> str:
 
 
 def _create_env(session: SshSession) -> None:
-    """Create the ``forge`` conda env and install dependencies."""
+    """Create the ``crucible`` conda env and install dependencies."""
     _, stderr, code = session.execute(
         conda_cmd(f"conda create -n {ENV_NAME} python=3.11 -y"),
         timeout=300,
     )
     if code != 0:
-        raise ForgeRemoteError(f"conda create failed: {stderr.strip()}")
+        raise CrucibleRemoteError(f"conda create failed: {stderr.strip()}")
 
     # Detect CUDA version and install matching torch build.
     cuda_tag = _detect_cuda_tag(session)
     torch_install = (
         f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
     )
-    print(f"FORGE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
+    print(f"CRUCIBLE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
     _, stderr, code = session.execute(
         conda_cmd(
             f"conda run -n {ENV_NAME} pip install {torch_install}",
@@ -221,7 +253,7 @@ def _create_env(session: SshSession) -> None:
         timeout=600,
     )
     if code != 0:
-        raise ForgeRemoteError(f"torch install failed: {stderr.strip()}")
+        raise CrucibleRemoteError(f"torch install failed: {stderr.strip()}")
 
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
@@ -229,4 +261,4 @@ def _create_env(session: SshSession) -> None:
         timeout=600,
     )
     if code != 0:
-        raise ForgeRemoteError(f"pip install failed: {stderr.strip()}")
+        raise CrucibleRemoteError(f"pip install failed: {stderr.strip()}")

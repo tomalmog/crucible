@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core.errors import ForgeSftError
+from core.errors import CrucibleSftError
 from core.sft_types import SftExample
 
 
@@ -26,18 +26,18 @@ def load_sft_examples(data_path: str) -> list[SftExample]:
         Validated list of SftExample objects.
 
     Raises:
-        ForgeSftError: If the file is missing, empty, or contains invalid rows.
+        CrucibleSftError: If the file is missing, empty, or contains invalid rows.
     """
     resolved_path = Path(data_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data file not found at {resolved_path}. "
             "Provide a valid --sft-data-path."
         )
     try:
         lines = resolved_path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"Failed to read SFT data file at {resolved_path}: {error}."
         ) from error
     examples: list[SftExample] = []
@@ -48,7 +48,7 @@ def load_sft_examples(data_path: str) -> list[SftExample]:
         row = _parse_json_line(stripped, line_number, resolved_path)
         examples.append(validate_sft_example(row, line_number))
     if not examples:
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data file at {resolved_path} contains no valid examples. "
             "Add at least one prompt/response pair."
         )
@@ -69,23 +69,23 @@ def validate_sft_example(
         Validated SftExample.
 
     Raises:
-        ForgeSftError: If required fields are missing or empty.
+        CrucibleSftError: If required fields are missing or empty.
     """
     prompt = row.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data line {line_number}: missing or empty 'prompt' field. "
             "Each row must have a non-empty string 'prompt'."
         )
     response = row.get("response")
     if not isinstance(response, str) or not response.strip():
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data line {line_number}: missing or empty 'response' field. "
             "Each row must have a non-empty string 'response'."
         )
     system_prompt = row.get("system_prompt")
     if system_prompt is not None and not isinstance(system_prompt, str):
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data line {line_number}: 'system_prompt' must be a string."
         )
     return SftExample(
@@ -104,12 +104,12 @@ def _parse_json_line(
     try:
         parsed = json.loads(line)
     except json.JSONDecodeError as error:
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data line {line_number} in {file_path}: invalid JSON ({error.msg}). "
             "Fix JSONL syntax and retry."
         ) from error
     if not isinstance(parsed, dict):
-        raise ForgeSftError(
+        raise CrucibleSftError(
             f"SFT data line {line_number} in {file_path}: expected JSON object, "
             f"got {type(parsed).__name__}."
         )

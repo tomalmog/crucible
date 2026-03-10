@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 from serve.multinode_setup import (
     build_multinode_env,
     build_torchrun_multinode_args,
@@ -73,7 +73,7 @@ def launch_multinode_training(
         Exit code from the torchrun subprocess.
 
     Raises:
-        ForgeDistributedError: If configuration is invalid or launch fails.
+        CrucibleDistributedError: If configuration is invalid or launch fails.
     """
     cmd = build_torchrun_multinode_args(
         master_addr=master_addr,
@@ -95,7 +95,7 @@ def launch_multinode_training(
     try:
         result = subprocess.run(cmd, env=env, check=False)
     except OSError as error:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Failed to launch multi-node training subprocess: {error}"
         ) from error
     return result.returncode

@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import { ForgeProvider } from "./context/ForgeContext";
+import { CrucibleProvider } from "./context/CrucibleContext";
 import { CommandProvider } from "./context/CommandContext";
 import { AppSidebar } from "./components/sidebar/AppSidebar";
 import "./theme/variables.css";
@@ -9,7 +9,7 @@ import "./theme/layout.css";
 
 function App() {
   return (
-    <ForgeProvider>
+    <CrucibleProvider>
       <CommandProvider>
         <main className="app-shell">
           <AppSidebar />
@@ -18,7 +18,7 @@ function App() {
           </div>
         </main>
       </CommandProvider>
-    </ForgeProvider>
+    </CrucibleProvider>
   );
 }
 

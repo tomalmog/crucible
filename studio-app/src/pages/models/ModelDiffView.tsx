@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { FormField } from "../../components/shared/FormField";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import type { ModelVersion } from "../../types/models";
@@ -10,7 +10,7 @@ interface ModelDiffViewProps {
 }
 
 export function ModelDiffView({ dataRoot, versions }: ModelDiffViewProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [versionA, setVersionA] = useState("");
   const [versionB, setVersionB] = useState("");
 

@@ -1,4 +1,4 @@
-"""Suggest command wiring for Forge CLI.
+"""Suggest command wiring for Crucible CLI.
 
 This module provides hardware-aware training configuration suggestions.
 """
@@ -9,7 +9,7 @@ import argparse
 
 from serve.gpu_profiles import list_gpu_profiles
 from serve.smart_config import suggest_training_config
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def _parse_model_size(value: str) -> float:
@@ -25,7 +25,7 @@ def _parse_model_size(value: str) -> float:
     return float(v)
 
 
-def run_suggest_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_suggest_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle suggest command invocation."""
     if args.list_gpus:
         profiles = list_gpu_profiles()

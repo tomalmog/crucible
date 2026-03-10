@@ -18,7 +18,7 @@ from core.constants import (
     DATASETS_DIR_NAME,
     INGEST_CHECKPOINT_DIR_NAME,
 )
-from core.errors import ForgeIngestError
+from core.errors import CrucibleIngestError
 from core.types import DataRecord, SourceTextRecord
 from store.record_payload import read_data_records_jsonl, write_data_records_jsonl
 
@@ -51,17 +51,17 @@ class IngestCheckpointStore:
             Checkpoint state for current run.
 
         Raises:
-            ForgeIngestError: If resume requested without matching checkpoint.
+            CrucibleIngestError: If resume requested without matching checkpoint.
         """
         if resume:
             state = self._read_state()
             if state is None:
-                raise ForgeIngestError(
+                raise CrucibleIngestError(
                     "Cannot resume ingest: checkpoint state not found. "
                     "Run ingest once without --resume to initialize checkpoints."
                 )
             if state.run_signature != run_signature:
-                raise ForgeIngestError(
+                raise CrucibleIngestError(
                     "Cannot resume ingest: checkpoint does not match current options/source. "
                     "Retry without --resume or use the same ingest parameters."
                 )
@@ -133,7 +133,7 @@ class IngestCheckpointStore:
                 stage=str(payload["stage"]),
             )
         except (json.JSONDecodeError, KeyError, TypeError) as error:
-            raise ForgeIngestError(
+            raise CrucibleIngestError(
                 f"Failed to read ingest checkpoint state at {state_path}: {error}. "
                 "Delete the checkpoint directory and retry ingest."
             ) from error
@@ -168,7 +168,7 @@ def _write_source_records(records_path: Path, records: list[SourceTextRecord]) -
 def _read_source_records(records_path: Path) -> list[SourceTextRecord]:
     """Read source text records from JSONL file."""
     if not records_path.exists():
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Missing ingest checkpoint file at {records_path}. "
             "Retry without --resume to rebuild checkpoints."
         )
@@ -186,14 +186,14 @@ def _parse_source_line(records_path: Path, line: str, line_number: int) -> dict[
     try:
         payload = json.loads(line)
     except json.JSONDecodeError as error:
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Failed to parse ingest checkpoint at {records_path}:{line_number}: {error.msg}. "
             "Retry without --resume to rebuild checkpoints."
         ) from error
     source_uri = payload.get("source_uri")
     text = payload.get("text")
     if not isinstance(source_uri, str) or not isinstance(text, str):
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Invalid ingest checkpoint payload at {records_path}:{line_number}. "
             "Retry without --resume to rebuild checkpoints."
         )
@@ -208,14 +208,14 @@ def _write_data_records(records_path: Path, records: list[DataRecord]) -> None:
 def _read_data_records(records_path: Path) -> list[DataRecord]:
     """Read DataRecord checkpoint payload."""
     if not records_path.exists():
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Missing ingest checkpoint file at {records_path}. "
             "Retry without --resume to rebuild checkpoints."
         )
     try:
         return read_data_records_jsonl(records_path)
     except (OSError, ValueError) as error:
-        raise ForgeIngestError(
+        raise CrucibleIngestError(
             f"Failed to load ingest checkpoint data at {records_path}: {error}. "
             "Retry without --resume to rebuild checkpoints."
         ) from error

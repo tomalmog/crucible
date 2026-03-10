@@ -28,10 +28,10 @@ function parseKeyValueOutput(stdout: string): Record<string, string> {
   return result;
 }
 
-function extractForgeError(stderr: string): string | null {
+function extractCrucibleError(stderr: string): string | null {
   const lines = stderr.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
-    const match = lines[i].match(/Forge\w+Error:\s*(.+)/);
+    const match = lines[i].match(/Crucible\w+Error:\s*(.+)/);
     if (match) return match[1].trim();
   }
   return null;
@@ -98,7 +98,7 @@ function BackButton({ onBack }: { onBack: () => void }) {
 }
 
 function FailedJobView({ job, onBack }: JobResultDetailProps) {
-  const error = extractForgeError(job.stderr);
+  const error = extractCrucibleError(job.stderr);
   return (
     <div className="panel stack-lg">
       <BackButton onBack={onBack} />

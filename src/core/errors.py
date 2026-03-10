@@ -1,4 +1,4 @@
-"""Forge exception hierarchy.
+"""Crucible exception hierarchy.
 
 This module defines traceable domain errors with clear boundaries.
 Each subsystem raises a specific error type for debuggability.
@@ -7,161 +7,161 @@ Each subsystem raises a specific error type for debuggability.
 from __future__ import annotations
 
 
-class ForgeError(Exception):
-    """Base exception for all Forge failures."""
+class CrucibleError(Exception):
+    """Base exception for all Crucible failures."""
 
 
-class ForgeConfigError(ForgeError):
+class CrucibleConfigError(CrucibleError):
     """Raised for invalid runtime configuration."""
 
 
-class ForgeIngestError(ForgeError):
+class CrucibleIngestError(CrucibleError):
     """Raised for source parsing and ingest failures."""
 
 
-class ForgeTransformError(ForgeError):
+class CrucibleTransformError(CrucibleError):
     """Raised for transform pipeline failures."""
 
 
-class ForgeStoreError(ForgeError):
+class CrucibleStoreError(CrucibleError):
     """Raised for dataset store and versioning failures."""
 
 
-class ForgeServeError(ForgeError):
+class CrucibleServeError(CrucibleError):
     """Raised for training data serving failures."""
 
 
-class ForgeTrainingDivergedError(ForgeServeError):
+class CrucibleTrainingDivergedError(CrucibleServeError):
     """Raised when training loss becomes NaN or Inf."""
 
 
-class ForgeDependencyError(ForgeError):
+class CrucibleDependencyError(CrucibleError):
     """Raised when an optional runtime dependency is missing."""
 
 
-class ForgeRunSpecError(ForgeError):
+class CrucibleRunSpecError(CrucibleError):
     """Raised for invalid or unsupported run-spec configuration."""
 
 
-class ForgeVerificationError(ForgeError):
+class CrucibleVerificationError(CrucibleError):
     """Raised when automated verification checks fail."""
 
 
-class ForgeSftError(ForgeError):
+class CrucibleSftError(CrucibleError):
     """Raised for SFT training failures."""
 
 
-class ForgeDpoError(ForgeError):
+class CrucibleDpoError(CrucibleError):
     """Raised for DPO training failures."""
 
 
-class ForgeLoraError(ForgeError):
+class CrucibleLoraError(CrucibleError):
     """Raised for LoRA adapter failures."""
 
 
-class ForgeQloraError(ForgeError):
+class CrucibleQloraError(CrucibleError):
     """Raised for QLoRA quantized training failures."""
 
 
-class ForgeRlhfError(ForgeError):
+class CrucibleRlhfError(CrucibleError):
     """Raised for RLHF training failures."""
 
 
-class ForgeDistillationError(ForgeError):
+class CrucibleDistillationError(CrucibleError):
     """Raised for knowledge distillation failures."""
 
 
-class ForgeDistributedError(ForgeError):
+class CrucibleDistributedError(CrucibleError):
     """Raised for distributed training failures."""
 
 
-class ForgeSweepError(ForgeError):
+class CrucibleSweepError(CrucibleError):
     """Raised for hyperparameter sweep failures."""
 
 
-class ForgeBenchmarkError(ForgeError):
+class CrucibleBenchmarkError(CrucibleError):
     """Raised for benchmark evaluation failures."""
 
 
-class ForgeSafetyError(ForgeError):
+class CrucibleSafetyError(CrucibleError):
     """Raised for safety evaluation failures."""
 
 
-class ForgeDeployError(ForgeError):
+class CrucibleDeployError(CrucibleError):
     """Raised for deployment packaging failures."""
 
 
-class ForgeComputeError(ForgeError):
+class CrucibleComputeError(CrucibleError):
     """Raised for compute connectivity failures."""
 
 
-class ForgeServerError(ForgeError):
+class CrucibleServerError(CrucibleError):
     """Raised for collaboration server failures."""
 
 
-class ForgeModelRegistryError(ForgeError):
+class CrucibleModelRegistryError(CrucibleError):
     """Raised for model registry failures."""
 
 
-class ForgeGrpoError(ForgeError):
+class CrucibleGrpoError(CrucibleError):
     """Raised for GRPO training failures."""
 
 
-class ForgeKtoError(ForgeError):
+class CrucibleKtoError(CrucibleError):
     """Raised for KTO training failures."""
 
 
-class ForgeOrpoError(ForgeError):
+class CrucibleOrpoError(CrucibleError):
     """Raised for ORPO training failures."""
 
 
-class ForgeMultimodalError(ForgeError):
+class CrucibleMultimodalError(CrucibleError):
     """Raised for multimodal training failures."""
 
 
-class ForgeRlvrError(ForgeError):
+class CrucibleRlvrError(CrucibleError):
     """Raised for RLVR training failures."""
 
 
-class ForgeExperimentError(ForgeError):
+class CrucibleExperimentError(CrucibleError):
     """Raised for experiment tracking failures."""
 
 
-class ForgeHubError(ForgeError):
+class CrucibleHubError(CrucibleError):
     """Raised for HuggingFace Hub operation failures."""
 
 
-class ForgeEvalError(ForgeError):
+class CrucibleEvalError(CrucibleError):
     """Raised for evaluation harness failures."""
 
 
-class ForgeCurateError(ForgeError):
+class CrucibleCurateError(CrucibleError):
     """Raised for dataset curation failures."""
 
 
-class ForgeMergeError(ForgeError):
+class CrucibleMergeError(CrucibleError):
     """Raised for model merging failures."""
 
 
-class ForgeCloudError(ForgeError):
+class CrucibleCloudError(CrucibleError):
     """Raised for cloud burst operation failures."""
 
 
-class ForgeCostError(ForgeError):
+class CrucibleCostError(CrucibleError):
     """Raised for cost tracking failures."""
 
 
-class ForgeSyntheticError(ForgeError):
+class CrucibleSyntheticError(CrucibleError):
     """Raised for synthetic data generation failures."""
 
 
-class ForgeRecipeError(ForgeError):
+class CrucibleRecipeError(CrucibleError):
     """Raised for training recipe failures."""
 
 
-class ForgeJudgeError(ForgeError):
+class CrucibleJudgeError(CrucibleError):
     """Raised for LLM-as-judge evaluation failures."""
 
 
-class ForgeRemoteError(ForgeError):
+class CrucibleRemoteError(CrucibleError):
     """Raised for remote Slurm cluster operation failures."""

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
-import { useForge } from "../../context/ForgeContext";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucible } from "../../context/CrucibleContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { listClusters } from "../../api/remoteApi";
 import type { ClusterConfig } from "../../types/remote";
 import type { ModelGroup, ModelVersion } from "../../types/models";
@@ -24,8 +24,8 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
     selectedModel,
     setSelectedModel,
     refreshModels,
-  } = useForge();
-  const command = useForgeCommand();
+  } = useCrucible();
+  const command = useCrucibleCommand();
 
   const [listTab, setListTab] = useState<ListTab>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);

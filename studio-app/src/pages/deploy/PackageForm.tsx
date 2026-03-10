@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { FormField } from "../../components/shared/FormField";
 import { StatusConsole } from "../../components/shared/StatusConsole";
 import { CommandProgress } from "../../components/shared/CommandProgress";
@@ -9,7 +9,7 @@ interface PackageFormProps {
 }
 
 export function PackageForm({ dataRoot }: PackageFormProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [outputPath, setOutputPath] = useState("");
   const [format, setFormat] = useState("onnx");

@@ -1,6 +1,6 @@
 """Toxicity scoring for text samples.
 
-Scores text for toxicity using detoxify. Raises ForgeDependencyError
+Scores text for toxicity using detoxify. Raises CrucibleDependencyError
 if detoxify is not installed.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.safety_types import ToxicityScore
 
 _DEFAULT_THRESHOLD: float = 0.5
@@ -21,13 +21,13 @@ def _load_detoxify() -> Any:
         A Detoxify model instance.
 
     Raises:
-        ForgeDependencyError: If detoxify is not installed.
+        CrucibleDependencyError: If detoxify is not installed.
     """
     try:
         from detoxify import Detoxify  # type: ignore[import-untyped]
         return Detoxify("original")
     except ImportError:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "detoxify is required for toxicity scoring. "
             "Install it with: pip install detoxify"
         )
@@ -43,7 +43,7 @@ def score_text_toxicity(text: str) -> float:
         Toxicity score in [0, 1].
 
     Raises:
-        ForgeDependencyError: If detoxify is not installed.
+        CrucibleDependencyError: If detoxify is not installed.
     """
     model = _load_detoxify()
     results = model.predict(text)
@@ -64,7 +64,7 @@ def score_batch_toxicity(
         List of ToxicityScore results.
 
     Raises:
-        ForgeDependencyError: If detoxify is not installed.
+        CrucibleDependencyError: If detoxify is not installed.
     """
     model = _load_detoxify()
     results: list[ToxicityScore] = []

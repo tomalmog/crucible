@@ -1,6 +1,6 @@
 """Shared model loading utilities for evaluation benchmarks.
 
-Loads a trained Forge model and tokenizer from disk for inference,
+Loads a trained Crucible model and tokenizer from disk for inference,
 providing helpers for logit computation, perplexity, and text generation.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeBenchmarkError, ForgeDependencyError
+from core.errors import CrucibleBenchmarkError, CrucibleDependencyError
 
 
 @dataclass
@@ -24,7 +24,7 @@ class EvalModel:
 
 
 def load_eval_model(model_path: str) -> EvalModel:
-    """Load a trained Forge model for evaluation.
+    """Load a trained Crucible model for evaluation.
 
     Args:
         model_path: Path to the model checkpoint (.pt file).
@@ -51,7 +51,7 @@ def load_eval_model(model_path: str) -> EvalModel:
 
     tokenizer = load_tokenizer(model_path)
     if tokenizer is None:
-        raise ForgeBenchmarkError(
+        raise CrucibleBenchmarkError(
             f"No tokenizer found beside model at {model_path}. "
             "Ensure vocab.json exists in the model directory."
         )
@@ -162,6 +162,6 @@ def _import_torch() -> Any:
         import torch
         return torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Evaluation benchmarks require torch. Install torch to run evaluations."
         ) from error

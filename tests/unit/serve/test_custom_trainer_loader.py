@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.custom_trainer_loader import load_custom_trainer
 
 
@@ -28,7 +28,7 @@ def test_load_valid_trainer_class(tmp_path: Path) -> None:
 
 
 def test_load_trainer_missing_train_method(tmp_path: Path) -> None:
-    """Trainer class without train() method should raise ForgeServeError."""
+    """Trainer class without train() method should raise CrucibleServeError."""
     trainer_file = tmp_path / "bad_trainer.py"
     trainer_file.write_text(
         "class Trainer:\n"
@@ -37,18 +37,18 @@ def test_load_trainer_missing_train_method(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeServeError, match="missing a callable 'train' method"):
+    with pytest.raises(CrucibleServeError, match="missing a callable 'train' method"):
         load_custom_trainer(str(trainer_file))
 
 
 def test_load_trainer_missing_file() -> None:
-    """Non-existent path should raise ForgeServeError."""
-    with pytest.raises(ForgeServeError, match="Trainer file not found"):
+    """Non-existent path should raise CrucibleServeError."""
+    with pytest.raises(CrucibleServeError, match="Trainer file not found"):
         load_custom_trainer("/tmp/does_not_exist_trainer_abc123.py")
 
 
 def test_load_trainer_no_class(tmp_path: Path) -> None:
-    """File without Trainer class should raise ForgeServeError."""
+    """File without Trainer class should raise CrucibleServeError."""
     trainer_file = tmp_path / "no_class.py"
     trainer_file.write_text(
         "def some_function():\n"
@@ -56,5 +56,5 @@ def test_load_trainer_no_class(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ForgeServeError, match="missing class 'Trainer'"):
+    with pytest.raises(CrucibleServeError, match="missing class 'Trainer'"):
         load_custom_trainer(str(trainer_file))

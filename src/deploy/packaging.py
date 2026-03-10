@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.deployment_types import DeploymentPackage
-from core.errors import ForgeDeployError
+from core.errors import CrucibleDeployError
 
 
 @dataclass(frozen=True)
@@ -51,10 +51,10 @@ def build_deployment_package(
         DeploymentPackage describing the built artifact.
 
     Raises:
-        ForgeDeployError: If required files are missing.
+        CrucibleDeployError: If required files are missing.
     """
     if not os.path.isfile(config.model_path):
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Model file not found: {config.model_path}"
         )
 
@@ -111,12 +111,12 @@ def _copy_optional(src: str | None, pkg_dir: Path) -> str | None:
         Destination path or None if src was None.
 
     Raises:
-        ForgeDeployError: If the file does not exist.
+        CrucibleDeployError: If the file does not exist.
     """
     if src is None:
         return None
     if not os.path.isfile(src):
-        raise ForgeDeployError(f"File not found: {src}")
+        raise CrucibleDeployError(f"File not found: {src}")
     return _copy_to_package(src, pkg_dir)
 
 

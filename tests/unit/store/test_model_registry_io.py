@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from core.errors import ForgeModelRegistryError
+from core.errors import CrucibleModelRegistryError
 from core.model_registry_types import ModelTag, ModelVersion
 from store.model_registry_io import (
     load_model_group,
@@ -68,7 +68,7 @@ def test_load_model_version_raises_for_missing(tmp_path) -> None:
     """load_model_version should raise for nonexistent version."""
     models_root = tmp_path / "models"
     models_root.mkdir(parents=True)
-    with pytest.raises(ForgeModelRegistryError, match="Failed to load"):
+    with pytest.raises(CrucibleModelRegistryError, match="Failed to load"):
         load_model_version(models_root, "mv-doesnotexist")
 
 
@@ -92,7 +92,7 @@ def test_load_model_tag_raises_for_missing(tmp_path) -> None:
     """load_model_tag should raise for nonexistent tag."""
     models_root = tmp_path / "models"
     models_root.mkdir(parents=True)
-    with pytest.raises(ForgeModelRegistryError, match="Failed to load"):
+    with pytest.raises(CrucibleModelRegistryError, match="Failed to load"):
         load_model_tag(models_root, "nonexistent-tag")
 
 

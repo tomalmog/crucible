@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import replace
 
 from cli.main import main
-from core.config import ForgeConfig
+from core.config import CrucibleConfig
 
 
 def test_cli_ingest_creates_version(tmp_path, capsys) -> None:
     """CLI ingest should print the created version id."""
-    config = replace(ForgeConfig.from_env(), data_root=tmp_path)
+    config = replace(CrucibleConfig.from_env(), data_root=tmp_path)
     source_path = "tests/fixtures/raw/local_a.txt"
     args = [
         "--data-root",

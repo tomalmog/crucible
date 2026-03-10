@@ -19,7 +19,7 @@ def check_remote_job_state(
     """Check the current Slurm state of a remote job.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         job_id: Local job identifier.
 
     Returns:
@@ -71,8 +71,8 @@ def is_job_done(session: SshSession, slurm_job_id: str) -> bool:
     return any(s in terminal for s in states)
 
 
-def slurm_state_to_forge(slurm_state: str) -> RemoteJobState:
-    """Map a Slurm job state to a Forge RemoteJobState."""
+def slurm_state_to_crucible(slurm_state: str) -> RemoteJobState:
+    """Map a Slurm job state to a Crucible RemoteJobState."""
     mapping: dict[str, RemoteJobState] = {
         "COMPLETED": "completed",
         "FAILED": "failed",
@@ -103,28 +103,28 @@ def sync_final_state(
     slurm_state = parts[0].strip() if parts else ""
     slurm_exit = parts[1].strip() if len(parts) > 1 else ""
     slurm_reason = parts[2].strip() if len(parts) > 2 else ""
-    forge_state = slurm_state_to_forge(slurm_state)
+    crucible_state = slurm_state_to_crucible(slurm_state)
 
-    if forge_state != record.state:
+    if crucible_state != record.state:
         extra_fields = _build_state_transition_fields(
-            session, record, forge_state, data_root,
+            session, record, crucible_state, data_root,
             slurm_state, slurm_exit, slurm_reason,
         )
         update_remote_job_state(
-            data_root, record.job_id, forge_state, **extra_fields,
+            data_root, record.job_id, crucible_state, **extra_fields,
         )
-    elif forge_state == "completed" and record.model_path_remote:
+    elif crucible_state == "completed" and record.model_path_remote:
         if not is_model_registered(data_root, record):
             auto_register_remote_model(
                 data_root, record, record.model_path_remote,
             )
-    return forge_state
+    return crucible_state
 
 
 def _build_state_transition_fields(
     session: SshSession,
     record: RemoteJobRecord,
-    forge_state: RemoteJobState,
+    crucible_state: RemoteJobState,
     data_root: Path,
     slurm_state: str,
     slurm_exit: str,
@@ -134,14 +134,14 @@ def _build_state_transition_fields(
     extra_fields: dict[str, str] = {}
 
     # Check result.json — agent may have failed even if Slurm says COMPLETED
-    if forge_state == "completed":
+    if crucible_state == "completed":
         result_error = extract_result_error(session, record)
         if result_error:
-            forge_state = "failed"
+            crucible_state = "failed"
             extra_fields["submit_phase"] = f"Failed: {result_error}"
 
     # On completion, discover model path and auto-register
-    if forge_state == "completed" and not record.model_path_remote:
+    if crucible_state == "completed" and not record.model_path_remote:
         import time
         model_path = ""
         for _attempt in range(8):
@@ -154,7 +154,7 @@ def _build_state_transition_fields(
             auto_register_remote_model(data_root, record, model_path)
 
     # On failure, extract error from Slurm log tail or sacct
-    if forge_state == "failed":
+    if crucible_state == "failed":
         error_summary = extract_log_error(session, record)
         if not error_summary and slurm_reason and slurm_reason != "None":
             error_summary = (
@@ -211,7 +211,7 @@ def _scan_log_tail(session: SshSession, log_path: str) -> str:
 
     lines = tail.splitlines()
     error_patterns = (
-        "FORGE_AGENT_ERROR:", "Error:", "error:", "Exception:",
+        "CRUCIBLE_AGENT_ERROR:", "Error:", "error:", "Exception:",
         "FAILED", "Traceback", "Killed", "signal",
     )
     for line in reversed(lines):
@@ -223,8 +223,8 @@ def _scan_log_tail(session: SshSession, log_path: str) -> str:
 
     skip_patterns = (
         "CUDA pre-flight OK", "CUDA_VISIBLE_DEVICES=", "+-", "|",
-        "FORGE:", "Python ", "No running processes",
-        "FORGE_AGENT:", "Mem:", "Swap:", "total",
+        "CRUCIBLE:", "Python ", "No running processes",
+        "CRUCIBLE_AGENT:", "Mem:", "Swap:", "total",
     )
     for line in reversed(lines):
         stripped = line.strip()

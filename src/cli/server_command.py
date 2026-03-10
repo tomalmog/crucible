@@ -1,4 +1,4 @@
-"""Server command wiring for Forge CLI.
+"""Server command wiring for Crucible CLI.
 
 This module registers the 'server' subcommand and launches the
 collaboration server via uvicorn.
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import argparse
 
-from core.errors import ForgeDependencyError
-from store.dataset_sdk import ForgeClient
+from core.errors import CrucibleDependencyError
+from store.dataset_sdk import CrucibleClient
 
 
 def add_server_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -20,7 +20,7 @@ def add_server_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     """
     parser = subparsers.add_parser(
         "server",
-        help="Start the Forge collaboration server",
+        help="Start the Crucible collaboration server",
     )
     parser.add_argument(
         "--port", type=int, default=8080,
@@ -33,7 +33,7 @@ def add_server_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
 
 
 def run_server_command(
-    client: ForgeClient,
+    client: CrucibleClient,
     args: argparse.Namespace,
 ) -> int:
     """Launch the collaboration server.
@@ -46,12 +46,12 @@ def run_server_command(
         Exit code.
 
     Raises:
-        ForgeDependencyError: If uvicorn is not installed.
+        CrucibleDependencyError: If uvicorn is not installed.
     """
     try:
         import uvicorn
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "uvicorn is required to run the collaboration server. "
             "Install it with: pip install uvicorn"
         ) from exc

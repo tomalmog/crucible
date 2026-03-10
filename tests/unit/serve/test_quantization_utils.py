@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeQloraError
+from core.errors import CrucibleQloraError
 from serve.quantization_utils import (
     QuantizationConfig,
     estimate_quantized_memory,
@@ -20,13 +20,13 @@ def test_validate_valid_config() -> None:
 
 def test_validate_invalid_bits() -> None:
     """Invalid bit width raises error."""
-    with pytest.raises(ForgeQloraError, match="must be 4 or 8"):
+    with pytest.raises(CrucibleQloraError, match="must be 4 or 8"):
         validate_quantization_config(QuantizationConfig(bits=3))
 
 
 def test_validate_invalid_quant_type() -> None:
     """Invalid quantization type raises error."""
-    with pytest.raises(ForgeQloraError, match="must be 'nf4' or 'fp4'"):
+    with pytest.raises(CrucibleQloraError, match="must be 'nf4' or 'fp4'"):
         validate_quantization_config(QuantizationConfig(quant_type="int8"))
 
 

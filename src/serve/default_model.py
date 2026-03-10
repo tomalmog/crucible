@@ -42,7 +42,7 @@ def _build_default_model_class(
 
     functional = torch_module.nn.functional
 
-    class ForgeMultiHeadAttention(module_base):  # type: ignore[misc,valid-type]
+    class CrucibleMultiHeadAttention(module_base):  # type: ignore[misc,valid-type]
         """Multi-head attention using F.scaled_dot_product_attention."""
 
         def __init__(self, d_model: int, nhead: int, dropout: float) -> None:
@@ -66,13 +66,13 @@ def _build_default_model_class(
             attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, -1)
             return self.out_proj(attn_out)
 
-    class ForgeTransformerBlock(module_base):  # type: ignore[misc,valid-type]
+    class CrucibleTransformerBlock(module_base):  # type: ignore[misc,valid-type]
         """Pre-norm transformer block with SDPA-based attention."""
 
         def __init__(self, d_model: int, nhead: int, dim_ff: int, dropout: float) -> None:
             super().__init__()
             self.norm1 = torch_nn.LayerNorm(d_model)
-            self.attn = ForgeMultiHeadAttention(d_model, nhead, dropout)
+            self.attn = CrucibleMultiHeadAttention(d_model, nhead, dropout)
             self.norm2 = torch_nn.LayerNorm(d_model)
             self.ffn = torch_nn.Sequential(
                 torch_nn.Linear(d_model, dim_ff),
@@ -109,7 +109,7 @@ def _build_default_model_class(
                     persistent=False,
                 )
             self.blocks = torch_nn.ModuleList([
-                ForgeTransformerBlock(
+                CrucibleTransformerBlock(
                     d_model=options.hidden_dim,
                     nhead=options.attention_heads,
                     dim_ff=options.mlp_hidden_dim,

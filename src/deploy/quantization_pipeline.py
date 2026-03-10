@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 from core.deployment_types import QuantizationConfig
-from core.errors import ForgeDeployError, ForgeDependencyError
+from core.errors import CrucibleDeployError, CrucibleDependencyError
 
 _VALID_QUANTIZATION_TYPES = ("dynamic", "static")
 
@@ -23,19 +23,19 @@ def validate_quantization_config(config: QuantizationConfig) -> None:
         config: Quantization configuration to validate.
 
     Raises:
-        ForgeDeployError: If model path does not exist or type is invalid.
+        CrucibleDeployError: If model path does not exist or type is invalid.
     """
     if not os.path.isfile(config.model_path):
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Model file not found: {config.model_path}"
         )
     if not config.model_path.endswith(".onnx"):
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Quantization requires an ONNX model, got '{config.model_path}'. "
-            "Export your PyTorch model to ONNX first with: forge deploy package --format onnx"
+            "Export your PyTorch model to ONNX first with: crucible deploy package --format onnx"
         )
     if config.quantization_type not in _VALID_QUANTIZATION_TYPES:
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Invalid quantization type '{config.quantization_type}'. "
             f"Must be one of: {_VALID_QUANTIZATION_TYPES}"
         )
@@ -44,7 +44,7 @@ def validate_quantization_config(config: QuantizationConfig) -> None:
         and config.calibration_data_path is not None
         and not os.path.exists(config.calibration_data_path)
     ):
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Calibration data not found: {config.calibration_data_path}"
         )
 
@@ -59,8 +59,8 @@ def run_quantization(config: QuantizationConfig) -> str:
         Path to the quantized model file.
 
     Raises:
-        ForgeDeployError: If validation fails or quantization errors.
-        ForgeDependencyError: If onnxruntime is not installed.
+        CrucibleDeployError: If validation fails or quantization errors.
+        CrucibleDependencyError: If onnxruntime is not installed.
     """
     validate_quantization_config(config)
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
@@ -93,8 +93,8 @@ def _run_dynamic_quantization(
         Path to the quantized model file.
 
     Raises:
-        ForgeDependencyError: If onnxruntime is not available.
-        ForgeDeployError: If quantization fails.
+        CrucibleDependencyError: If onnxruntime is not available.
+        CrucibleDeployError: If quantization fails.
     """
     try:
         from onnxruntime.quantization import (  # type: ignore[import-untyped]
@@ -102,7 +102,7 @@ def _run_dynamic_quantization(
             quantize_dynamic,
         )
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "onnxruntime is required for quantization. "
             "Install with: pip install onnxruntime"
         ) from exc
@@ -114,7 +114,7 @@ def _run_dynamic_quantization(
             weight_type=QuantType.QUInt8,
         )
     except Exception as exc:
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Dynamic quantization failed: {exc}"
         ) from exc
 
@@ -137,8 +137,8 @@ def _run_static_quantization(
         Path to the quantized model file.
 
     Raises:
-        ForgeDependencyError: If onnxruntime is not available.
-        ForgeDeployError: If quantization fails.
+        CrucibleDependencyError: If onnxruntime is not available.
+        CrucibleDeployError: If quantization fails.
     """
     try:
         from onnxruntime.quantization import (  # type: ignore[import-untyped]
@@ -146,7 +146,7 @@ def _run_static_quantization(
             quantize_static,
         )
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "onnxruntime is required for quantization. "
             "Install with: pip install onnxruntime"
         ) from exc
@@ -159,7 +159,7 @@ def _run_static_quantization(
             quant_format=QuantType.QUInt8,
         )
     except Exception as exc:
-        raise ForgeDeployError(
+        raise CrucibleDeployError(
             f"Static quantization failed: {exc}"
         ) from exc
 

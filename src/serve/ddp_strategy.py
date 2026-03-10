@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 from serve.distributed_setup import get_rank
 
 
@@ -20,12 +20,12 @@ def _import_torch() -> Any:
         The torch module.
 
     Raises:
-        ForgeDependencyError: If torch is not installed.
+        CrucibleDependencyError: If torch is not installed.
     """
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "DDP strategy requires torch. "
             "Install torch to use distributed training."
         ) from error
@@ -50,18 +50,18 @@ class DdpStrategy:
             The DDP-wrapped model.
 
         Raises:
-            ForgeDistributedError: If DDP is unavailable.
+            CrucibleDistributedError: If DDP is unavailable.
         """
         torch_module = _import_torch()
         model = model.to(device)
         nn_parallel = getattr(torch_module.nn, "parallel", None)
         if nn_parallel is None:
-            raise ForgeDistributedError(
+            raise CrucibleDistributedError(
                 "torch.nn.parallel is unavailable for DDP wrapping."
             )
         ddp_class = getattr(nn_parallel, "DistributedDataParallel", None)
         if ddp_class is None:
-            raise ForgeDistributedError(
+            raise CrucibleDistributedError(
                 "DistributedDataParallel is not available."
             )
         device_id = _extract_device_index(device)

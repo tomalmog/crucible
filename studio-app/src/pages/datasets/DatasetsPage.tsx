@@ -5,7 +5,7 @@ import { DatasetDashboard } from "./DatasetDashboard";
 import { SampleInspector } from "./SampleInspector";
 import { IngestForm } from "./IngestForm";
 import { FilterForm } from "./FilterForm";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 
 type Tab = "overview" | "samples" | "ingest" | "filter";
 
@@ -13,7 +13,7 @@ export function DatasetsPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { selectedDataset, setSelectedDataset, refreshDatasets } = useForge();
+  const { selectedDataset, setSelectedDataset, refreshDatasets } = useCrucible();
 
   function handleSelectDataset(ds: string) {
     setSelectedDataset(ds);

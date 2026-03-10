@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { useRemoteJobs } from "../../hooks/useRemoteJobs";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { CommandTaskStatus } from "../../types";
 import { syncRemoteJobStatus } from "../../api/remoteApi";
 import { Activity, Loader2 } from "lucide-react";
@@ -35,10 +35,10 @@ export function statusBadgeClass(status: string): string {
   }
 }
 
-export function extractForgeError(stderr: string): string | null {
+export function extractCrucibleError(stderr: string): string | null {
   const lines = stderr.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
-    const match = lines[i].match(/Forge\w+Error:\s*(.+)/);
+    const match = lines[i].match(/Crucible\w+Error:\s*(.+)/);
     if (match) return match[1].trim();
   }
   return null;
@@ -46,7 +46,7 @@ export function extractForgeError(stderr: string): string | null {
 
 export function JobsPage() {
   const { jobs, kill, rename, remove } = useJobs();
-  const { dataRoot, refreshModels } = useForge();
+  const { dataRoot, refreshModels } = useCrucible();
   const { jobs: remoteJobs, isLoading: isRemoteLoading, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

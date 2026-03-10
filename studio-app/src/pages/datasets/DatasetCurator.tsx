@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 
 export function DatasetCurator() {
-  const { dataRoot, selectedDataset } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot, selectedDataset } = useCrucible();
+  const command = useCrucibleCommand();
   const [dataset, setDataset] = useState(selectedDataset ?? "");
   const [scoreResults, setScoreResults] = useState("");
   const [statsResults, setStatsResults] = useState("");

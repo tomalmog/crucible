@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from core.chat_types import ChatOptions
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import DataRecord, RecordMetadata, TrainingOptions
 from serve.chat_option_resolver import resolve_chat_tokenizer, resolve_chat_training_options
 from serve.tokenization import VocabularyTokenizer
@@ -111,5 +111,5 @@ def test_resolve_chat_tokenizer_raises_when_no_source_available(tmp_path: Path) 
     options = ChatOptions(model_path=str(model_path), prompt="hello")
     training_options = TrainingOptions(dataset_name="", output_dir=str(tmp_path))
 
-    with pytest.raises(ForgeServeError, match="No tokenizer found"):
+    with pytest.raises(CrucibleServeError, match="No tokenizer found"):
         resolve_chat_tokenizer(None, options, training_options)

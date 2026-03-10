@@ -11,7 +11,7 @@ from server.auth import (
     validate_api_key,
 )
 from server.database import DatabaseConfig, create_engine_from_config, create_session_factory, init_database
-from core.errors import ForgeServerError
+from core.errors import CrucibleServerError
 
 
 @pytest.fixture()
@@ -42,8 +42,8 @@ def test_validate_api_key_returns_none_for_unknown(db_session) -> None:
 
 
 def test_require_api_key_raises_for_invalid(db_session) -> None:
-    """require_api_key should raise ForgeServerError for invalid key."""
-    with pytest.raises(ForgeServerError, match="Invalid API key"):
+    """require_api_key should raise CrucibleServerError for invalid key."""
+    with pytest.raises(CrucibleServerError, match="Invalid API key"):
         require_api_key("bad-key", db_session)
 
 

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 
 export function CostSummary() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
 

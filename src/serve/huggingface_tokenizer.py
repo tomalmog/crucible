@@ -1,7 +1,7 @@
 """HuggingFace tokenizer wrapper for chat inference.
 
 This module wraps the ``tokenizers`` library to provide the same
-encode/decode/vocabulary interface that Forge chat runners expect,
+encode/decode/vocabulary interface that Crucible chat runners expect,
 enabling inference against externally trained models.
 """
 
@@ -9,14 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 
 
 class HuggingFaceTokenizer:
     """Wrapper around a HuggingFace ``tokenizers.Tokenizer`` instance.
 
     Exposes the same ``encode``, ``decode``, and ``vocabulary`` interface
-    used by Forge chat runners so it can substitute for VocabularyTokenizer.
+    used by Crucible chat runners so it can substitute for VocabularyTokenizer.
     """
 
     def __init__(self, tokenizer_instance: Any) -> None:
@@ -61,14 +61,14 @@ def load_huggingface_tokenizer(tokenizer_path: str) -> HuggingFaceTokenizer:
         Wrapped tokenizer instance.
 
     Raises:
-        ForgeDependencyError: If the ``tokenizers`` library is not installed.
-        ForgeServeError: If the tokenizer file cannot be loaded.
+        CrucibleDependencyError: If the ``tokenizers`` library is not installed.
+        CrucibleServeError: If the tokenizer file cannot be loaded.
     """
     tokenizers_module = _import_tokenizers()
     try:
         instance = tokenizers_module.Tokenizer.from_file(tokenizer_path)
     except Exception as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load HuggingFace tokenizer from {tokenizer_path}: {error}. "
             "Verify the file is a valid tokenizer.json."
         ) from error
@@ -80,7 +80,7 @@ def _import_tokenizers() -> Any:
     try:
         import tokenizers
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "HuggingFace tokenizer support requires the tokenizers library. "
             "Install with: pip install tokenizers"
         ) from error

@@ -6,7 +6,7 @@ import pytest
 
 from cli.main import build_parser, main
 from core.types import TrainingRunResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def test_sft_command_registers_in_parser() -> None:

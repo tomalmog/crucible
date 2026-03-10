@@ -1,4 +1,4 @@
-const SESSION_STORAGE_KEY = "forge_studio_session_v3";
+const SESSION_STORAGE_KEY = "crucible_studio_session_v4";
 
 export interface StudioSessionState {
   data_root: string;
@@ -9,7 +9,7 @@ export interface StudioSessionState {
 }
 
 export const DEFAULT_SESSION_STATE: StudioSessionState = {
-  data_root: ".forge",
+  data_root: ".crucible",
   selected_dataset: null,
   selected_model_name: null,
   selected_model_version_id: null,

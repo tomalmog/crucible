@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Download, ChevronDown } from "lucide-react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { DownloadModal } from "../../components/shared/DownloadModal";
 import { HubDatasetDetail as DatasetDetail, HubFileEntry } from "./hubTypes";
 import { formatBytes, formatCount, formatDate } from "./hubUtils";
@@ -47,8 +47,8 @@ function FileList({ files, visibleCount, onShowMore }: {
 }
 
 export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
-  const { dataRoot, refreshDatasets } = useForge();
-  const infoCmd = useForgeCommand();
+  const { dataRoot, refreshDatasets } = useCrucible();
+  const infoCmd = useCrucibleCommand();
   const [detail, setDetail] = useState<DatasetDetail | null>(null);
   const [showDownload, setShowDownload] = useState(false);
   const [fileCount, setFileCount] = useState(PAGE_SIZE);

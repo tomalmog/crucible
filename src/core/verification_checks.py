@@ -1,4 +1,4 @@
-"""Verification check implementations for Forge."""
+"""Verification check implementations for Crucible."""
 
 from __future__ import annotations
 
@@ -7,18 +7,18 @@ from pathlib import Path
 from typing import Callable
 
 from core.chat_types import ChatOptions
-from core.errors import ForgeVerificationError
+from core.errors import CrucibleVerificationError
 from core.types import IngestOptions, TrainingOptions, TrainingRunResult
 from core.verification_types import VerificationMode, VerificationRuntime
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 CheckCallable = Callable[[VerificationRuntime], str]
 CheckRow = tuple[str, str, CheckCallable]
 
 
-def build_runtime(client: ForgeClient, source_path: str) -> VerificationRuntime:
+def build_runtime(client: CrucibleClient, source_path: str) -> VerificationRuntime:
     """Build runtime state used by verification checks."""
-    data_root = Path(tempfile.mkdtemp(prefix="forge-verify-")).resolve()
+    data_root = Path(tempfile.mkdtemp(prefix="crucible-verify-")).resolve()
     resolved_source = _resolve_source_path(source_path)
     run_spec_path = _write_runtime_run_spec(data_root, resolved_source)
     return VerificationRuntime(
@@ -56,7 +56,7 @@ def check_hardware_profile(runtime: VerificationRuntime) -> str:
     required = {"accelerator", "gpu_count", "recommended_precision_mode"}
     missing = sorted(required - set(profile))
     if missing:
-        raise ForgeVerificationError(
+        raise CrucibleVerificationError(
             f"Hardware profile missing required fields: {', '.join(missing)}."
         )
     return (
@@ -77,7 +77,7 @@ def check_ingest_dataset(runtime: VerificationRuntime) -> str:
     )
     _, records = runtime.client.dataset(runtime.dataset_name).load_records()
     if not records:
-        raise ForgeVerificationError("Ingest produced zero records.")
+        raise CrucibleVerificationError("Ingest produced zero records.")
     return f"dataset={dataset_name} records={len(records)}"
 
 
@@ -85,7 +85,7 @@ def check_run_spec(runtime: VerificationRuntime) -> str:
     """Verify run-spec execution path."""
     output_lines = runtime.client.run_spec(str(runtime.run_spec_path))
     if len(output_lines) < 2:
-        raise ForgeVerificationError("Run-spec execution returned insufficient output lines.")
+        raise CrucibleVerificationError("Run-spec execution returned insufficient output lines.")
     return f"output_lines={len(output_lines)}"
 
 
@@ -112,11 +112,11 @@ def check_training_artifacts(runtime: VerificationRuntime) -> str:
 def check_lifecycle_lineage(runtime: VerificationRuntime) -> str:
     """Verify lifecycle state and lineage edge materialization."""
     if runtime.train_result is None or runtime.train_result.run_id is None:
-        raise ForgeVerificationError("Training result missing; cannot verify lifecycle.")
+        raise CrucibleVerificationError("Training result missing; cannot verify lifecycle.")
     run_id = runtime.train_result.run_id
     run_record = runtime.client.get_training_run(run_id)
     if run_record.state != "completed":
-        raise ForgeVerificationError(f"Expected run state completed, got {run_record.state}.")
+        raise CrucibleVerificationError(f"Expected run state completed, got {run_record.state}.")
     lineage = runtime.client.get_lineage_graph()
     _verify_lineage_produced_edge(lineage, run_id, runtime.train_result.model_path)
     return f"run_state={run_record.state} run_id={run_id}"
@@ -131,14 +131,14 @@ def check_export_training(runtime: VerificationRuntime) -> str:
     )
     manifest = Path(manifest_path)
     if not manifest.exists():
-        raise ForgeVerificationError(f"Training export manifest missing at {manifest_path}.")
+        raise CrucibleVerificationError(f"Training export manifest missing at {manifest_path}.")
     return f"manifest={manifest_path}"
 
 
 def check_chat(runtime: VerificationRuntime) -> str:
     """Verify chat inference path with trained model."""
     if runtime.train_result is None:
-        raise ForgeVerificationError("Training result missing; cannot run chat verification.")
+        raise CrucibleVerificationError("Training result missing; cannot run chat verification.")
     response = runtime.client.chat(
         ChatOptions(
             dataset_name=runtime.dataset_name,
@@ -152,7 +152,7 @@ def check_chat(runtime: VerificationRuntime) -> str:
     )
     preview = response.response_text.strip()
     if not preview:
-        raise ForgeVerificationError("Chat response was empty.")
+        raise CrucibleVerificationError("Chat response was empty.")
     runtime.chat_preview = preview[:80]
     return f"response_preview={runtime.chat_preview}"
 
@@ -172,7 +172,7 @@ def check_hooks_extension(runtime: VerificationRuntime) -> str:
         )
     )
     if not runtime.hooks_marker_path.exists():
-        raise ForgeVerificationError("Hooks marker file was not created by on_run_end hook.")
+        raise CrucibleVerificationError("Hooks marker file was not created by on_run_end hook.")
     return f"hooks_marker={runtime.hooks_marker_path}"
 
 
@@ -182,7 +182,7 @@ def _resolve_source_path(source_path: str) -> Path:
         source = Path.cwd() / source
     source = source.resolve()
     if not source.exists():
-        raise ForgeVerificationError(
+        raise CrucibleVerificationError(
             f"Verification source path does not exist at {source}. "
             "Provide --source with an existing file or directory."
         )
@@ -218,11 +218,11 @@ def _verify_training_output_files(result: TrainingRunResult) -> None:
     missing = [path for path in required_paths if path is None or not Path(path).exists()]
     if missing:
         missing_rows = ", ".join(path if path is not None else "<none>" for path in missing)
-        raise ForgeVerificationError(
+        raise CrucibleVerificationError(
             f"Training artifact verification failed. Missing files: {missing_rows}."
         )
     if not result.run_id:
-        raise ForgeVerificationError("Training result missing run_id.")
+        raise CrucibleVerificationError("Training result missing run_id.")
 
 
 def _verify_lineage_produced_edge(
@@ -232,10 +232,10 @@ def _verify_lineage_produced_edge(
 ) -> None:
     edges = lineage_payload.get("edges")
     if not isinstance(edges, list):
-        raise ForgeVerificationError("Lineage payload missing edges list.")
+        raise CrucibleVerificationError("Lineage payload missing edges list.")
     expected_edge = {"from": f"run:{run_id}", "to": f"model:{model_path}", "type": "produced"}
     if expected_edge not in edges:
-        raise ForgeVerificationError("Lineage graph missing produced model edge.")
+        raise CrucibleVerificationError("Lineage graph missing produced model edge.")
 
 
 def _write_runtime_hooks_file(runtime: VerificationRuntime) -> Path:

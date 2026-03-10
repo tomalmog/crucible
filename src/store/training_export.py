@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
-from core.errors import ForgeStoreError
+from core.errors import CrucibleStoreError
 from core.types import DataRecord, DatasetManifest, TrainingExportRequest
 from store.record_payload import data_record_to_payload
 
@@ -31,7 +31,7 @@ def export_training_shards(
         Path to generated export manifest file.
 
     Raises:
-        ForgeStoreError: If export options are invalid.
+        CrucibleStoreError: If export options are invalid.
     """
     _validate_shard_size(request.shard_size)
     export_dir = _build_export_dir(request.output_dir, manifest)
@@ -43,7 +43,7 @@ def export_training_shards(
 def _validate_shard_size(shard_size: int) -> None:
     """Validate shard size input."""
     if shard_size < 1:
-        raise ForgeStoreError(
+        raise CrucibleStoreError(
             f"Invalid shard size {shard_size}: expected value >= 1. "
             "Use --shard-size with a positive integer."
         )

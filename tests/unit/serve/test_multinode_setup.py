@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 from serve.multinode_setup import (
     build_multinode_env,
     build_torchrun_multinode_args,
@@ -40,13 +40,13 @@ def test_validate_valid_config() -> None:
 
 def test_validate_invalid_port_raises() -> None:
     """validate_multinode_config should raise for out-of-range ports."""
-    with pytest.raises(ForgeDistributedError, match="master_port"):
+    with pytest.raises(CrucibleDistributedError, match="master_port"):
         validate_multinode_config(
             master_addr="10.0.0.1",
             master_port=0,
             num_nodes=2,
         )
-    with pytest.raises(ForgeDistributedError, match="master_port"):
+    with pytest.raises(CrucibleDistributedError, match="master_port"):
         validate_multinode_config(
             master_addr="10.0.0.1",
             master_port=70000,
@@ -56,7 +56,7 @@ def test_validate_invalid_port_raises() -> None:
 
 def test_validate_zero_nodes_raises() -> None:
     """validate_multinode_config should raise when num_nodes < 1."""
-    with pytest.raises(ForgeDistributedError, match="num_nodes"):
+    with pytest.raises(CrucibleDistributedError, match="num_nodes"):
         validate_multinode_config(
             master_addr="10.0.0.1",
             master_port=29500,

@@ -18,7 +18,7 @@ from core.constants import (
     RUN_STATE_FILE_NAME,
     RUNS_DIR_NAME,
 )
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.training_run_io import read_json_file, write_json_file
 from serve.training_run_types import (
     TrainingRunEvent,
@@ -113,7 +113,7 @@ class TrainingRunRegistry:
         index_path = self._runs_root / RUN_INDEX_FILE_NAME
         payload = read_json_file(index_path, default_value={"runs": []})
         if not isinstance(payload, dict) or not isinstance(payload.get("runs"), list):
-            raise ForgeServeError(f"Invalid run index format at {index_path}: expected runs list.")
+            raise CrucibleServeError(f"Invalid run index format at {index_path}: expected runs list.")
         return tuple(str(item) for item in payload["runs"])
 
     def load_lineage_graph(self) -> dict[str, object]:
@@ -132,14 +132,14 @@ class TrainingRunRegistry:
         state_path = self._runs_root / run_id / RUN_STATE_FILE_NAME
         payload = read_json_file(state_path)
         if not isinstance(payload, dict):
-            raise ForgeServeError(f"Invalid run state payload at {state_path}: expected object.")
+            raise CrucibleServeError(f"Invalid run state payload at {state_path}: expected object.")
         return run_record_from_payload(payload, state_path)
 
     def _append_index_row(self, run_id: str) -> None:
         index_path = self._runs_root / RUN_INDEX_FILE_NAME
         payload = read_json_file(index_path, default_value={"runs": []})
         if not isinstance(payload, dict) or not isinstance(payload.get("runs"), list):
-            raise ForgeServeError(f"Invalid run index format at {index_path}: expected runs list.")
+            raise CrucibleServeError(f"Invalid run index format at {index_path}: expected runs list.")
         run_ids = payload["runs"]
         if run_id not in run_ids:
             run_ids.append(run_id)
@@ -196,11 +196,11 @@ class TrainingRunRegistry:
         graph_path = self._lineage_root / LINEAGE_GRAPH_FILE_NAME
         payload = read_json_file(graph_path, default_value={"runs": {}, "edges": []})
         if not isinstance(payload, dict):
-            raise ForgeServeError(f"Invalid lineage graph at {graph_path}: expected object.")
+            raise CrucibleServeError(f"Invalid lineage graph at {graph_path}: expected object.")
         runs_payload = payload.get("runs")
         edges_payload = payload.get("edges")
         if not isinstance(runs_payload, dict) or not isinstance(edges_payload, list):
-            raise ForgeServeError(f"Invalid lineage graph at {graph_path}: expected runs/edges.")
+            raise CrucibleServeError(f"Invalid lineage graph at {graph_path}: expected runs/edges.")
         normalized_runs: dict[str, dict[str, object]] = {}
         for run_id, run_payload in runs_payload.items():
             if isinstance(run_id, str) and isinstance(run_payload, dict):

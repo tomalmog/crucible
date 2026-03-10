@@ -11,7 +11,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeGrpoError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleGrpoError, CrucibleServeError
 from core.grpo_types import GrpoOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -84,7 +84,7 @@ def run_grpo_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -113,7 +113,7 @@ def _build_grpo_runtime_context(
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     prompts = _load_grpo_prompts(options.grpo_data_path)
     if not prompts:
-        raise ForgeGrpoError(
+        raise CrucibleGrpoError(
             "No prompts loaded for GRPO training. "
             "Check the grpo_data_path file content."
         )
@@ -134,7 +134,7 @@ def _build_grpo_runtime_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -165,7 +165,7 @@ def _load_grpo_prompts(data_path: str) -> list[str]:
     """Load prompts from a JSONL file for GRPO group sampling."""
     path = Path(data_path)
     if not path.exists():
-        raise ForgeGrpoError(f"GRPO data file not found: {data_path}")
+        raise CrucibleGrpoError(f"GRPO data file not found: {data_path}")
     prompts: list[str] = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -332,8 +332,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "GRPO training requires torch, but it is not installed. "
-            "Install torch to run forge grpo-train."
+            "Install torch to run crucible grpo-train."
         ) from error
     return torch

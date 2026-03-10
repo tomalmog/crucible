@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Mapping
 
 from core.constants import DEFAULT_REPRODUCIBILITY_BUNDLE_FILE_NAME
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 
 def save_reproducibility_bundle(
@@ -39,7 +39,7 @@ def save_reproducibility_bundle(
     try:
         bundle_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     except OSError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to write reproducibility bundle at {bundle_path}: {error}. "
             "Check output directory permissions and retry."
         ) from error

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 
 _MIN_PORT = 1
 _MAX_PORT = 65535
@@ -28,19 +28,19 @@ def validate_multinode_config(
         num_nodes: Total number of nodes in the cluster.
 
     Raises:
-        ForgeDistributedError: If any parameter is invalid.
+        CrucibleDistributedError: If any parameter is invalid.
     """
     if not master_addr or not master_addr.strip():
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             "master_addr must be a non-empty string."
         )
     if master_port < _MIN_PORT or master_port > _MAX_PORT:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"master_port must be between {_MIN_PORT} and {_MAX_PORT}, "
             f"got {master_port}."
         )
     if num_nodes < _MIN_NODES:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"num_nodes must be at least {_MIN_NODES}, got {num_nodes}."
         )
 
@@ -66,11 +66,11 @@ def build_multinode_env(
         Dictionary of environment variable name-value pairs.
 
     Raises:
-        ForgeDistributedError: If configuration is invalid.
+        CrucibleDistributedError: If configuration is invalid.
     """
     validate_multinode_config(master_addr, master_port, num_nodes)
     if node_rank < 0 or node_rank >= num_nodes:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"node_rank must be between 0 and {num_nodes - 1}, "
             f"got {node_rank}."
         )
@@ -104,11 +104,11 @@ def build_torchrun_multinode_args(
         List of command-line arguments for subprocess.run.
 
     Raises:
-        ForgeDistributedError: If configuration is invalid.
+        CrucibleDistributedError: If configuration is invalid.
     """
     validate_multinode_config(master_addr, master_port, num_nodes)
     if nproc_per_node < 1:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"nproc_per_node must be at least 1, got {nproc_per_node}."
         )
     return [

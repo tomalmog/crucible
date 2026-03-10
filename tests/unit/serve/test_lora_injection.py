@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeLoraError
+from core.errors import CrucibleLoraError
 from core.lora_types import LoraConfig
 from serve.lora_injection import freeze_base_parameters, collect_lora_parameters
 

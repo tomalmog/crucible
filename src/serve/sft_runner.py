@@ -10,7 +10,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError, ForgeSftError
+from core.errors import CrucibleDependencyError, CrucibleServeError, CrucibleSftError
 from core.sft_types import SftOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -81,7 +81,7 @@ def run_sft_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -117,7 +117,7 @@ def _build_sft_runtime_context(
     if options.packing_enabled:
         sft_sequences = pack_sft_sequences(sft_sequences, options.max_token_length)
     if not sft_sequences:
-        raise ForgeSftError(
+        raise CrucibleSftError(
             "No trainable SFT sequences were generated. "
             "Check SFT data content and max token length."
         )
@@ -127,7 +127,7 @@ def _build_sft_runtime_context(
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -186,8 +186,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "SFT training requires torch, but it is not installed. "
-            "Install torch to run forge sft."
+            "Install torch to run crucible sft."
         ) from error
     return torch

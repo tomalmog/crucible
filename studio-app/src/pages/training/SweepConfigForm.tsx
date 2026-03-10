@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
@@ -72,9 +72,9 @@ function parseBestModelPath(output: string): string | null {
 }
 
 export function SweepConfigForm() {
-  const { dataRoot, refreshModels } = useForge();
-  const command = useForgeCommand();
-  const registerCommand = useForgeCommand();
+  const { dataRoot, refreshModels } = useCrucible();
+  const command = useCrucibleCommand();
+  const registerCommand = useCrucibleCommand();
   const [method, setMethod] = useState<TrainingMethod>("train");
   const [dataset, setDataset] = useState("");
   const [outputDir, setOutputDir] = useState("./outputs/sweep");
@@ -87,7 +87,6 @@ export function SweepConfigForm() {
   ]);
   const [methodArgs, setMethodArgs] = useState<Record<string, string>>({});
   const [results, setResults] = useState<string>("");
-  const [registerModel, setRegisterModel] = useState(false);
   const [modelName, setModelName] = useState("My-Model-0");
   const [registered, setRegistered] = useState(false);
 
@@ -147,7 +146,7 @@ export function SweepConfigForm() {
     const status = await command.run(dataRoot, args);
     if (status.status === "completed" && status.stdout) {
       setResults(status.stdout);
-      if (registerModel && modelName.trim() && dataRoot) {
+      if (modelName.trim() && dataRoot) {
         const bestPath = parseBestModelPath(status.stdout);
         if (bestPath) {
           const regStatus = await registerCommand.run(dataRoot, [
@@ -166,6 +165,7 @@ export function SweepConfigForm() {
     const m: string[] = [];
     if (!dataset.trim()) m.push("dataset");
     if (!outputDir.trim()) m.push("output directory");
+    if (!modelName.trim()) m.push("model name");
     if (params.length === 0) m.push("parameters");
     const hasEmptyValues = params.some(
       (p) => p.values.split(",").map((v) => parseFloat(v.trim())).filter((v) => !isNaN(v)).length === 0,
@@ -179,7 +179,7 @@ export function SweepConfigForm() {
       }
     }
     return m;
-  }, [dataset, outputDir, params, metric, requiredMethodFields, methodArgs]);
+  }, [dataset, outputDir, modelName, params, metric, requiredMethodFields, methodArgs]);
 
   if (results) {
     return (
@@ -297,23 +297,13 @@ export function SweepConfigForm() {
         </FormField>
       </div>
 
-      <FormField label="Register best model">
+      <FormField label="Model Name" required>
         <input
-          type="checkbox"
-          checked={registerModel}
-          onChange={(e) => setRegisterModel(e.target.checked)}
-          style={{ width: "auto" }}
+          value={modelName}
+          onChange={(e) => setModelName(e.currentTarget.value)}
+          placeholder="My-Model-0"
         />
       </FormField>
-      {registerModel && (
-        <FormField label="Model Name" required>
-          <input
-            value={modelName}
-            onChange={(e) => setModelName(e.currentTarget.value)}
-            placeholder="My-Model-0"
-          />
-        </FormField>
-      )}
     </CommandFormPanel>
   );
 }

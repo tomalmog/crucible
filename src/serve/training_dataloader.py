@@ -1,4 +1,4 @@
-"""PyTorch DataLoader integration for Forge snapshots.
+"""PyTorch DataLoader integration for Crucible snapshots.
 
 This module turns stored text records into tokenized training batches.
 It provides deterministic shuffling and optional PyTorch DataLoader wiring.
@@ -15,7 +15,7 @@ from core.constants import (
     DEFAULT_MAX_TOKEN_LENGTH,
     DEFAULT_SHUFFLE_BUFFER_SIZE,
 )
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataLoaderOptions, DataRecord
 
 
@@ -103,12 +103,12 @@ def create_pytorch_dataloader(
         torch.utils.data.DataLoader instance.
 
     Raises:
-        ForgeDependencyError: If torch is unavailable.
+        CrucibleDependencyError: If torch is unavailable.
     """
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "PyTorch DataLoader integration requires torch, but it is not installed. "
             "Install torch to use training streaming."
         ) from error

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { PackageForm } from "./PackageForm";
 import { QuantizeForm } from "./QuantizeForm";
 import { LatencyProfileForm } from "./LatencyProfileForm";
@@ -9,7 +9,7 @@ import { ReadinessChecklist } from "./ReadinessChecklist";
 type Tab = "package" | "quantize" | "profile" | "checklist";
 
 export function DeployPage() {
-  const { dataRoot } = useForge();
+  const { dataRoot } = useCrucible();
   const [tab, setTab] = useState<Tab>("package");
 
   return (

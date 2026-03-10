@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import serve.architecture_loader as architecture_loader
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from core.types import TrainingOptions
 from serve.architecture_loader import load_training_model
 
@@ -27,7 +27,7 @@ def test_load_training_model_raises_for_missing_architecture_file(tmp_path: Path
         architecture_path=str(tmp_path / "missing.py"),
     )
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_training_model(_FakeTorch(), options, vocab_size=10)
 
     assert True

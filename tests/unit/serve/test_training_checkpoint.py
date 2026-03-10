@@ -8,7 +8,7 @@ from typing import Mapping
 
 import pytest
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.training_checkpoint import (
     ensure_checkpoint_dir,
     load_resume_checkpoint,
@@ -127,7 +127,7 @@ def test_load_resume_checkpoint_restores_model_and_optimizer(tmp_path: Path) -> 
 
 def test_load_resume_checkpoint_raises_for_missing_file(tmp_path: Path) -> None:
     """Resume loading should fail with a clear error for missing files."""
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_resume_checkpoint(
             checkpoint_path=str(tmp_path / "missing.pt"),
             torch_module=_FakeTorch(),
@@ -145,7 +145,7 @@ def test_load_resume_checkpoint_raises_for_invalid_payload(tmp_path: Path) -> No
     checkpoint_path = tmp_path / "invalid.pt"
     _FakeTorch().save(payload={"epoch": "bad"}, path=str(checkpoint_path))
 
-    with pytest.raises(ForgeServeError):
+    with pytest.raises(CrucibleServeError):
         load_resume_checkpoint(
             checkpoint_path=str(checkpoint_path),
             torch_module=_FakeTorch(),

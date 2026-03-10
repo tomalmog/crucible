@@ -1,11 +1,11 @@
-"""Verification command wiring for Forge CLI."""
+"""Verification command wiring for Crucible CLI."""
 
 from __future__ import annotations
 
 import argparse
 from typing import cast
 
-from core.errors import ForgeVerificationError
+from core.errors import CrucibleVerificationError
 from core.verification import (
     VerificationMode,
     VerificationOptions,
@@ -13,7 +13,7 @@ from core.verification import (
     run_verification,
     save_verification_report,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_verify_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -45,7 +45,7 @@ def add_verify_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     )
 
 
-def run_verify_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_verify_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute verification workflow and print check report."""
     options = VerificationOptions(
         mode=cast(VerificationMode, args.mode),
@@ -55,7 +55,7 @@ def run_verify_command(client: ForgeClient, args: argparse.Namespace) -> int:
     )
     try:
         report = run_verification(client, options)
-    except ForgeVerificationError as error:
+    except CrucibleVerificationError as error:
         print(f"verification_error={error}")
         return 1
     report_path = save_verification_report(report)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useForge } from "../context/ForgeContext";
+import { useCrucible } from "../context/CrucibleContext";
 import { listClusters } from "../api/remoteApi";
 import type { ClusterConfig } from "../types/remote";
 import type { TrainingMethod } from "../types/training";
@@ -24,7 +24,7 @@ export function useTrainingLocation(
   setRemoteEnabled: (enabled: boolean) => void,
   setClusterConfig: React.Dispatch<React.SetStateAction<ClusterSubmitConfig>>,
 ): { clusterMode: ClusterMode } {
-  const { modelGroups, dataRoot } = useForge();
+  const { modelGroups, dataRoot } = useCrucible();
   const isAutoMethod = AUTO_LOCATION_METHODS.has(method);
   const primaryKey = PRIMARY_MODEL_KEY[method];
   const clustersRef = useRef<ClusterConfig[]>([]);

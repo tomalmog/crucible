@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from core.distillation_types import DistillationOptions
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataRecord, RecordMetadata, TrainingRunResult
 from serve.distillation_runner import run_distillation
 from serve.training_run_registry import TrainingRunRegistry
@@ -47,7 +47,7 @@ def test_run_distillation_raises_without_torch(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(builtins, "__import__", _patched_import)
     options = _build_options(tmp_path)
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         run_distillation(
             _build_records(), options, random_seed=1,
             data_root=tmp_path,

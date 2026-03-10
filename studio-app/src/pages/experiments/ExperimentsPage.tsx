@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { RunTable } from "./RunTable";
 import { ExperimentDetail } from "./ExperimentDetail";
@@ -12,8 +12,8 @@ import { CostSummary } from "./CostSummary";
 type View = "list" | "detail" | "compare" | "eval" | "judge" | "cost";
 
 export function ExperimentsPage() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [view, setView] = useState<View>("list");
   const [runs, setRuns] = useState<{ run_id: string; loss: string }[]>([]);
   const [selectedRun, setSelectedRun] = useState<string>("");

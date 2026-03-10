@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 
 
 @runtime_checkable
@@ -101,7 +101,7 @@ def resolve_parallelism_strategy(
         An instance implementing the ParallelismStrategy protocol.
 
     Raises:
-        ForgeDistributedError: If the strategy name is unknown.
+        CrucibleDistributedError: If the strategy name is unknown.
     """
     name = strategy_name.lower().strip()
     if name == "ddp":
@@ -116,7 +116,7 @@ def resolve_parallelism_strategy(
     if name == "tpu":
         from serve.tpu_strategy import TpuStrategy
         return TpuStrategy()
-    raise ForgeDistributedError(
+    raise CrucibleDistributedError(
         f"Unknown parallelism strategy '{strategy_name}'. "
         f"Supported strategies: {sorted(_STRATEGY_REGISTRY.keys())}."
     )

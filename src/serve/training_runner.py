@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.types import BatchLossMetric, DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.attention_backend import apply_attention_backend, select_attention_backend
@@ -103,7 +103,7 @@ def run_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         for adapter in adapters:
             adapter.finish()
@@ -132,7 +132,7 @@ def _build_runtime_context(
     tokenizer = fit_training_tokenizer(records, options)
     sequences = build_training_sequences(records, tokenizer, options.max_token_length)
     if not sequences:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             "No trainable sequences were generated from dataset records. "
             "Check dataset content and max token length."
         )
@@ -262,8 +262,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
-            "Training requires torch, but it is not installed. Install torch to run forge train."
+        raise CrucibleDependencyError(
+            "Training requires torch, but it is not installed. Install torch to run crucible train."
         ) from error
     return torch
 
@@ -290,7 +290,7 @@ def _try_save_plot(
     """Save training plot unless plotting dependency is unavailable."""
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
-    except ForgeDependencyError:
+    except CrucibleDependencyError:
         return None
 
 

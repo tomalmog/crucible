@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 
 
 def _make_mock_torch() -> MagicMock:
@@ -100,7 +100,7 @@ class TestTpuStrategy:
         strategy = self._build_strategy(xla_mock=xla)
         model = _make_mock_model()
         optimizer = MagicMock()
-        with pytest.raises(ForgeDistributedError, match="Failed to save TPU checkpoint"):
+        with pytest.raises(CrucibleDistributedError, match="Failed to save TPU checkpoint"):
             strategy.save_checkpoint(model, optimizer, "/tmp/ckpt.pt")
 
     def test_load_checkpoint_loads_state(self) -> None:
@@ -126,5 +126,5 @@ class TestTpuStrategy:
         model = _make_mock_model()
         optimizer = MagicMock()
         with patch("serve.tpu_strategy.resolve_tpu_device", return_value="xla:0"):
-            with pytest.raises(ForgeDistributedError, match="Failed to load TPU checkpoint"):
+            with pytest.raises(CrucibleDistributedError, match="Failed to load TPU checkpoint"):
                 strategy.load_checkpoint(model, optimizer, "/tmp/ckpt.pt")

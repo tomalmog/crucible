@@ -1,4 +1,4 @@
-"""Cloud burst command wiring for Forge CLI."""
+"""Cloud burst command wiring for Crucible CLI."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from serve.cloud_burst import (
     submit_cloud_job,
     sync_cloud_results,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_cloud_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_cloud_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle cloud subcommand dispatch."""
     subcmd = args.cloud_subcommand
     if subcmd == "estimate":
@@ -52,7 +52,7 @@ def _run_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_sync(client: ForgeClient, args: argparse.Namespace) -> int:
+def _run_sync(client: CrucibleClient, args: argparse.Namespace) -> int:
     path = sync_cloud_results(args.job_id, args.provider, client._config.data_root)
     print(f"synced_to={path}")
     return 0

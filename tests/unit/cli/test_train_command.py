@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from cli.main import main
 from core.types import TrainingRunResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def test_cli_train_prints_training_artifact_paths(monkeypatch, tmp_path, capsys) -> None:
@@ -24,7 +24,7 @@ def test_cli_train_prints_training_artifact_paths(monkeypatch, tmp_path, capsys)
             epochs_completed=2,
         )
 
-    monkeypatch.setattr(ForgeClient, "train", _fake_train)
+    monkeypatch.setattr(CrucibleClient, "train", _fake_train)
     args = [
         "train",
         "--dataset",
@@ -80,7 +80,7 @@ def test_cli_train_passes_checkpoint_options(monkeypatch, tmp_path, capsys) -> N
             epochs_completed=1,
         )
 
-    monkeypatch.setattr(ForgeClient, "train", _fake_train)
+    monkeypatch.setattr(CrucibleClient, "train", _fake_train)
     resume_path = tmp_path / "epoch-0002.pt"
     exit_code = main(
         [

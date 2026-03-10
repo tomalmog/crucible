@@ -1,4 +1,4 @@
-"""Core constants used across Forge modules.
+"""Core constants used across Crucible modules.
 
 This module centralizes non-domain-specific constants.
 Keeping values here avoids magic literals in business logic.
@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-DEFAULT_DATA_ROOT = Path(".forge")
+DEFAULT_DATA_ROOT = Path(".crucible")
 DATASETS_DIR_NAME = "datasets"
 MANIFEST_FILE_NAME = "manifest.json"
 RECORDS_FILE_NAME = "records.jsonl"

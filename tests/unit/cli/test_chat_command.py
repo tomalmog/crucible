@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from cli.main import main
 from core.chat_types import ChatResult
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def test_cli_chat_prints_response_text(monkeypatch, capsys) -> None:
@@ -16,7 +16,7 @@ def test_cli_chat_prints_response_text(monkeypatch, capsys) -> None:
         captured["stream"] = options.stream
         return ChatResult(response_text="hello from model")
 
-    monkeypatch.setattr(ForgeClient, "chat", _fake_chat)
+    monkeypatch.setattr(CrucibleClient, "chat", _fake_chat)
     args = [
         "chat",
         "--dataset",
@@ -48,7 +48,7 @@ def test_cli_chat_without_dataset_passes_none(monkeypatch, capsys) -> None:
         captured["tokenizer_path"] = options.tokenizer_path
         return ChatResult(response_text="no dataset response")
 
-    monkeypatch.setattr(ForgeClient, "chat", _fake_chat)
+    monkeypatch.setattr(CrucibleClient, "chat", _fake_chat)
     args = [
         "chat",
         "--model-path",

@@ -19,7 +19,7 @@ from core.constants import (
     MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
 )
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.ssh_connection import SshSession
 from store.catalog_io import read_manifest_file
@@ -81,13 +81,15 @@ def push_dataset(
     dataset_dir = data_root / DATASETS_DIR_NAME / dataset_name
     records_path = dataset_dir / RECORDS_FILE_NAME
     if not records_path.exists():
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Records file not found: {records_path}"
         )
 
     source_path = _find_source_file(dataset_dir)
 
     size_bytes = records_path.stat().st_size
+    if source_path and source_path.exists():
+        size_bytes += source_path.stat().st_size
     metadata = _build_metadata(dataset_name, size_bytes)
     if source_path:
         metadata["has_source"] = True
@@ -135,7 +137,7 @@ def _upload_tar(
     )
     stdout, stderr, code = session.execute(extract_cmd)
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Remote tar extraction failed (exit {code}): {stderr}"
         )
 
@@ -171,12 +173,12 @@ def _read_remote_metadata(
         return None
     try:
         data = json.loads(stdout)
-        # Prefer size_bytes from metadata; fall back to du on remote
-        size_bytes = data.get("size_bytes")
-        if size_bytes is None:
-            size_bytes = _get_remote_dir_size(
-                session, f"{datasets_dir}/{name}",
-            )
+        # Use actual remote directory size (includes source.jsonl + records)
+        size_bytes = _get_remote_dir_size(
+            session, f"{datasets_dir}/{name}",
+        )
+        if size_bytes == 0:
+            size_bytes = data.get("size_bytes", 0)
         return RemoteDatasetInfo(
             name=str(data["name"]),
             size_bytes=int(size_bytes),
@@ -205,7 +207,7 @@ def delete_remote_dataset(
     remote_dir = f"{_remote_datasets_dir(cluster)}/{dataset_name}"
     _, stderr, code = session.execute(f"rm -rf {remote_dir}")
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to delete remote dataset '{dataset_name}': {stderr}"
         )
 
@@ -216,24 +218,58 @@ def pull_remote_dataset(
     dataset_name: str,
     data_root: Path,
 ) -> Path:
-    """Download a remote dataset's records to local cache.
+    """Download a remote dataset and register it locally.
 
-    Returns the local path to the downloaded records.jsonl.
+    Downloads records.jsonl (and source.jsonl if present) into the
+    local datasets directory and creates a manifest so the dataset
+    appears in the registry.
+
+    Returns the local dataset directory path.
     """
     datasets_dir = _remote_datasets_dir(cluster)
-    remote_records = (
-        f"{datasets_dir}/{dataset_name}/{RECORDS_FILE_NAME}"
-    )
+    remote_dir = f"{datasets_dir}/{dataset_name}"
+    remote_records = f"{remote_dir}/{RECORDS_FILE_NAME}"
 
     _, _, code = session.execute(f"test -f {remote_records}")
     if code != 0:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Remote records not found: {remote_records}"
         )
 
-    local_dir = data_root / "cache" / "remote-pulls" / dataset_name
+    local_dir = data_root / DATASETS_DIR_NAME / dataset_name
     local_dir.mkdir(parents=True, exist_ok=True)
-    local_path = local_dir / RECORDS_FILE_NAME
 
-    session.download(remote_records, local_path)
-    return local_path
+    # Download records
+    session.download(remote_records, local_dir / RECORDS_FILE_NAME)
+
+    # Download source data file if available
+    remote_source = f"{remote_dir}/{SOURCE_DATA_FILE_NAME}"
+    _, _, src_code = session.execute(
+        f"test -f {remote_source}", timeout=10,
+    )
+    source_uri: str | None = None
+    if src_code == 0:
+        local_source = local_dir / SOURCE_DATA_FILE_NAME
+        session.download(remote_source, local_source)
+        source_uri = str(local_source)
+
+    # Count records for manifest
+    records_path = local_dir / RECORDS_FILE_NAME
+    record_count = sum(
+        1 for line in records_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    )
+
+    # Write manifest so the dataset appears in the local registry
+    from core.types import DatasetManifest
+    from store.catalog_io import write_manifest_file
+
+    manifest = DatasetManifest(
+        dataset_name=dataset_name,
+        created_at=datetime.now(timezone.utc),
+        record_count=record_count,
+        source_uri=source_uri,
+    )
+    write_manifest_file(local_dir, manifest, lance_written=False)
+
+    return local_dir

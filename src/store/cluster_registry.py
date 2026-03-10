@@ -1,13 +1,13 @@
 """CRUD operations for Slurm cluster configurations.
 
-Persists ClusterConfig records as JSON files under .forge/clusters/.
+Persists ClusterConfig records as JSON files under .crucible/clusters/.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.training_run_io import read_json_file, write_json_file
 
@@ -56,7 +56,7 @@ def _dict_to_cluster(raw: dict[str, object]) -> ClusterConfig:
         gpu_types=tuple(raw.get("gpu_types", ())),  # type: ignore[arg-type]
         module_loads=tuple(raw.get("module_loads", ())),  # type: ignore[arg-type]
         python_path=str(raw.get("python_path", "python3")),
-        remote_workspace=str(raw.get("remote_workspace", "/tmp/forge-jobs")),
+        remote_workspace=str(raw.get("remote_workspace", "~/crucible-jobs")),
         exclude_nodes=str(raw.get("exclude_nodes", "")),
         validated_at=str(raw.get("validated_at", "")),
     )
@@ -66,7 +66,7 @@ def save_cluster(data_root: Path, cluster: ClusterConfig) -> Path:
     """Persist a cluster configuration to disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         cluster: Cluster configuration to save.
 
     Returns:
@@ -76,7 +76,7 @@ def save_cluster(data_root: Path, cluster: ClusterConfig) -> Path:
     try:
         write_json_file(target, _cluster_to_dict(cluster))
     except Exception as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to save cluster {cluster.name}: {error}."
         ) from error
     return target
@@ -86,26 +86,26 @@ def load_cluster(data_root: Path, name: str) -> ClusterConfig:
     """Load a cluster configuration from disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         name: Cluster name to load.
 
     Returns:
         Loaded ClusterConfig instance.
 
     Raises:
-        ForgeRemoteError: If the cluster file does not exist or is invalid.
+        CrucibleRemoteError: If the cluster file does not exist or is invalid.
     """
     target = _cluster_path(data_root, name)
     if not target.exists():
-        raise ForgeRemoteError(f"Cluster '{name}' not found.")
+        raise CrucibleRemoteError(f"Cluster '{name}' not found.")
     try:
         raw = read_json_file(target)
     except Exception as error:
-        raise ForgeRemoteError(
+        raise CrucibleRemoteError(
             f"Failed to load cluster {name}: {error}."
         ) from error
     if not isinstance(raw, dict):
-        raise ForgeRemoteError(f"Invalid cluster data for {name}.")
+        raise CrucibleRemoteError(f"Invalid cluster data for {name}.")
     return _dict_to_cluster(raw)
 
 
@@ -113,7 +113,7 @@ def list_clusters(data_root: Path) -> tuple[ClusterConfig, ...]:
     """List all registered cluster configurations.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
 
     Returns:
         Tuple of ClusterConfig records sorted by name.
@@ -134,13 +134,13 @@ def remove_cluster(data_root: Path, name: str) -> None:
     """Remove a cluster configuration from disk.
 
     Args:
-        data_root: Root .forge directory.
+        data_root: Root .crucible directory.
         name: Cluster name to remove.
 
     Raises:
-        ForgeRemoteError: If the cluster file does not exist.
+        CrucibleRemoteError: If the cluster file does not exist.
     """
     target = _cluster_path(data_root, name)
     if not target.exists():
-        raise ForgeRemoteError(f"Cluster '{name}' not found.")
+        raise CrucibleRemoteError(f"Cluster '{name}' not found.")
     target.unlink()

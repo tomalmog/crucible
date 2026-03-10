@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from core.distillation_types import DistillationOptions
-from core.errors import ForgeDependencyError, ForgeDistillationError
+from core.errors import CrucibleDependencyError, CrucibleDistillationError
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
@@ -50,14 +50,14 @@ def run_distillation(
         records: Dataset records used for tokenizer fitting.
         options: Distillation training options.
         random_seed: Seed for reproducibility.
-        data_root: Forge data root path.
+        data_root: Crucible data root path.
 
     Returns:
         Training run artifact summary.
 
     Raises:
-        ForgeDistillationError: If distillation training fails.
-        ForgeDependencyError: If torch is not installed.
+        CrucibleDistillationError: If distillation training fails.
+        CrucibleDependencyError: If torch is not installed.
     """
     torch_module = _import_torch()
     training_options = _to_training_options(options)
@@ -169,12 +169,12 @@ def _infer_teacher_vocab_size(
         Teacher model vocabulary size.
 
     Raises:
-        ForgeDistillationError: If embedding shape cannot be determined.
+        CrucibleDistillationError: If embedding shape cannot be determined.
     """
     state_dict = read_model_state_dict(torch_module, teacher_model_path, device)
     embedding_weight = state_dict.get("embedding.weight")
     if embedding_weight is None or not hasattr(embedding_weight, "shape"):
-        raise ForgeDistillationError(
+        raise CrucibleDistillationError(
             f"Cannot infer vocabulary size from teacher checkpoint at "
             f"{teacher_model_path}: missing embedding.weight tensor."
         )
@@ -193,7 +193,7 @@ def _load_teacher_model(
     teacher = build_or_load_model(
         torch_module=torch_module,
         base_model=options.teacher_model_path if use_hf_teacher else None,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
     )
     if not use_hf_teacher:
@@ -221,7 +221,7 @@ def _load_student_model(
     student = build_or_load_model(
         torch_module=torch_module,
         base_model=options.student_model_path if use_hf_student else None,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, vocab_size),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
     )
     if not use_hf_student and options.student_model_path is not None:
@@ -496,8 +496,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Distillation training requires torch, but it is not installed. "
-            "Install torch to run forge distill."
+            "Install torch to run crucible distill."
         ) from error
     return torch

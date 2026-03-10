@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, Dispatch, SetStateAction } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useForge } from "../../context/ForgeContext";
-import { getForgeCommandStatus, startForgeCommand } from "../../api/studioApi";
+import { useCrucible } from "../../context/CrucibleContext";
+import { getCrucibleCommandStatus, startCrucibleCommand } from "../../api/studioApi";
 import { listClusters } from "../../api/remoteApi";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { FormField } from "../../components/shared/FormField";
@@ -23,7 +23,7 @@ const SAMPLING_PRESETS = {
 type SamplingPreset = keyof typeof SAMPLING_PRESETS | "custom";
 
 export function ChatPage() {
-  const { dataRoot, selectedDataset, modelGroups } = useForge();
+  const { dataRoot, selectedDataset, modelGroups } = useCrucible();
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
@@ -102,7 +102,7 @@ export function ChatPage() {
         args = buildChatArgs(datasetName, tokenizerPath, modelPath, prompt, maxNewTokens, temperature, topK, maxTokenLength, positionEmbeddingType, weightsPath);
       }
       setMessages((c) => [...c, { role: "assistant", content: "" }]);
-      const taskStart = await startForgeCommand(dataRoot, args);
+      const taskStart = await startCrucibleCommand(dataRoot, args);
       const taskStatus = await streamChatTask(taskStart.task_id, setMessages);
       if (taskStatus.status !== "completed" || taskStatus.exit_code !== 0) {
         throw new Error(taskStatus.stderr || "Chat command failed.");
@@ -227,7 +227,7 @@ export function ChatPage() {
 
 async function streamChatTask(taskId: string, setMessages: Dispatch<SetStateAction<ChatMessage[]>>) {
   while (true) {
-    const status = await getForgeCommandStatus(taskId);
+    const status = await getCrucibleCommandStatus(taskId);
     const partial = status.stdout.trim();
     if (partial.length > 0) {
       setMessages((c) => {

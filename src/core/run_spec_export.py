@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import TrainingOptions
 
 
@@ -26,7 +26,7 @@ def export_training_options_to_yaml(options: TrainingOptions) -> str:
         Valid YAML string representing the run-spec.
 
     Raises:
-        ForgeDependencyError: If PyYAML is unavailable.
+        CrucibleDependencyError: If PyYAML is unavailable.
     """
     yaml_module = _import_yaml()
     spec = _build_run_spec_dict(options)
@@ -127,7 +127,7 @@ def _import_yaml() -> Any:
     try:
         import yaml  # type: ignore[import-untyped]
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "YAML export requires PyYAML. Install with pip install pyyaml."
         ) from error
     return yaml

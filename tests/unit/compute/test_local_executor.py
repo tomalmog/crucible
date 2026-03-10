@@ -8,7 +8,7 @@ import pytest
 
 from compute.local_executor import LocalExecutor
 from core.compute_types import ComputeTarget, JobSubmission
-from core.errors import ForgeComputeError
+from core.errors import CrucibleComputeError
 
 
 def _make_submission(command: str, args: tuple[str, ...] = ()) -> JobSubmission:
@@ -51,7 +51,7 @@ def test_cancel_running_job() -> None:
 
 
 def test_status_unknown_job_raises() -> None:
-    """status() should raise ForgeComputeError for unknown job ids."""
+    """status() should raise CrucibleComputeError for unknown job ids."""
     executor = LocalExecutor()
-    with pytest.raises(ForgeComputeError, match="Unknown job id"):
+    with pytest.raises(CrucibleComputeError, match="Unknown job id"):
         executor.status("nonexistent-id")

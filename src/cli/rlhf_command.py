@@ -1,4 +1,4 @@
-"""RLHF command wiring for Forge CLI.
+"""RLHF command wiring for Crucible CLI.
 
 This module isolates RLHF command parser and execution logic,
 mapping CLI arguments to RlhfOptions for reinforcement learning
@@ -31,10 +31,10 @@ from core.constants import (
 )
 from core.rlhf_types import PpoConfig, RewardModelConfig, RlhfOptions
 from core.training_types import OptimizerType, PrecisionMode
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_rlhf_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_rlhf_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle RLHF command invocation.
 
     Args:

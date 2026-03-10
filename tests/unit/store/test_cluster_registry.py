@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from store.cluster_registry import (
     list_clusters,
@@ -25,7 +25,7 @@ def _make_cluster(name: str = "test-hpc", host: str = "hpc.example.com") -> Clus
         gpu_types=("a100", "v100"),
         module_loads=("module load cuda/12.1",),
         python_path="python3",
-        remote_workspace="/scratch/forge",
+        remote_workspace="/scratch/crucible",
     )
 
 
@@ -42,12 +42,12 @@ def test_save_and_load_cluster(tmp_path: object) -> None:
     assert loaded.partitions == ("gpu", "cpu")
     assert loaded.gpu_types == ("a100", "v100")
     assert loaded.module_loads == ("module load cuda/12.1",)
-    assert loaded.remote_workspace == "/scratch/forge"
+    assert loaded.remote_workspace == "/scratch/crucible"
 
 
 def test_load_missing_cluster_raises(tmp_path: object) -> None:
-    """load_cluster should raise ForgeRemoteError for nonexistent cluster."""
-    with pytest.raises(ForgeRemoteError, match="not found"):
+    """load_cluster should raise CrucibleRemoteError for nonexistent cluster."""
+    with pytest.raises(CrucibleRemoteError, match="not found"):
         load_cluster(tmp_path, "nonexistent")  # type: ignore[arg-type]
 
 
@@ -71,13 +71,13 @@ def test_remove_cluster(tmp_path: object) -> None:
     """remove_cluster should delete the cluster file."""
     save_cluster(tmp_path, _make_cluster())  # type: ignore[arg-type]
     remove_cluster(tmp_path, "test-hpc")  # type: ignore[arg-type]
-    with pytest.raises(ForgeRemoteError, match="not found"):
+    with pytest.raises(CrucibleRemoteError, match="not found"):
         load_cluster(tmp_path, "test-hpc")  # type: ignore[arg-type]
 
 
 def test_remove_missing_cluster_raises(tmp_path: object) -> None:
-    """remove_cluster should raise ForgeRemoteError for nonexistent cluster."""
-    with pytest.raises(ForgeRemoteError, match="not found"):
+    """remove_cluster should raise CrucibleRemoteError for nonexistent cluster."""
+    with pytest.raises(CrucibleRemoteError, match="not found"):
         remove_cluster(tmp_path, "nonexistent")  # type: ignore[arg-type]
 
 
@@ -95,6 +95,6 @@ def test_cluster_defaults(tmp_path: object) -> None:
     save_cluster(tmp_path, cluster)  # type: ignore[arg-type]
     loaded = load_cluster(tmp_path, "minimal")  # type: ignore[arg-type]
     assert loaded.python_path == "python3"
-    assert loaded.remote_workspace == "/tmp/forge-jobs"
+    assert loaded.remote_workspace == "~/crucible-jobs"
     assert loaded.partitions == ()
     assert loaded.gpu_types == ()

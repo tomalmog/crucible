@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 
 interface Recipe {
   name: string;
@@ -9,8 +9,8 @@ interface Recipe {
 }
 
 export function RecipeLibrary() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [recipeDetail, setRecipeDetail] = useState("");
 

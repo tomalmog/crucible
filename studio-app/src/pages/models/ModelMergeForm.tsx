@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
 import { PathInput } from "../../components/shared/PathInput";
 
 export function ModelMergeForm() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [model1, setModel1] = useState("");
   const [model2, setModel2] = useState("");
   const [method, setMethod] = useState("average");

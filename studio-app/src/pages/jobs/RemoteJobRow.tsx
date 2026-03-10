@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import type { RemoteJobRecord } from "../../types/remote";
-import { startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 import { getRemoteJobLogs } from "../../api/remoteApi";
 import { statusBadgeClass } from "./JobsPage";
 import {
@@ -17,15 +17,19 @@ import {
   XCircle,
 } from "lucide-react";
 
+const ACTIVE_STATES = new Set(["running", "pending"]);
+
 export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void }) {
-  const { dataRoot, refreshModels } = useForge();
+  const { dataRoot, refreshModels } = useCrucible();
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepArraySize} trials)` : "";
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamTaskRef = useRef<string | null>(null);
+  const streamPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // One-shot fetch for completed/failed jobs
   const fetchLogs = useCallback(async (bypassCache?: boolean) => {
     if (!dataRoot) return;
     setLoading(true);
@@ -39,26 +43,76 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
     }
   }, [dataRoot, job.jobId, job.state]);
 
+  // Start streaming logs via background task for active jobs
+  const startLogStream = useCallback(async () => {
+    if (!dataRoot || streamTaskRef.current) return;
+    setLoading(true);
+    try {
+      const { task_id } = await startCrucibleCommand(dataRoot, [
+        "remote", "logs", "--job-id", job.jobId, "--follow", "--tail", "200",
+      ]);
+      streamTaskRef.current = task_id;
+      // Poll the task's stdout for incremental output
+      streamPollRef.current = setInterval(async () => {
+        try {
+          const status = await getCrucibleCommandStatus(task_id);
+          const stdout = status.stdout || "";
+          if (stdout) {
+            setLogs(stdout.trim());
+            setLoading(false);
+          }
+          if (status.status !== "running") {
+            if (streamPollRef.current) clearInterval(streamPollRef.current);
+            streamPollRef.current = null;
+            streamTaskRef.current = null;
+            setLoading(false);
+            // Stream ended — fetch full logs to capture anything missed
+            fetchLogs(true);
+          }
+        } catch {
+          if (streamPollRef.current) clearInterval(streamPollRef.current);
+          streamPollRef.current = null;
+          streamTaskRef.current = null;
+          setLoading(false);
+        }
+      }, 2_000);
+    } catch (err) {
+      setLogs(`Error starting log stream: ${err}`);
+      setLoading(false);
+    }
+  }, [dataRoot, job.jobId, fetchLogs]);
+
+  const stopLogStream = useCallback(() => {
+    if (streamPollRef.current) {
+      clearInterval(streamPollRef.current);
+      streamPollRef.current = null;
+    }
+    streamTaskRef.current = null;
+  }, []);
+
   const toggleLogs = useCallback(() => {
     const next = !showLogs;
     setShowLogs(next);
     if (next && !logs) {
-      fetchLogs();
+      if (ACTIVE_STATES.has(job.state)) {
+        startLogStream();
+      } else {
+        fetchLogs();
+      }
     }
-  }, [showLogs, logs, fetchLogs]);
+    if (!next) stopLogStream();
+  }, [showLogs, logs, fetchLogs, startLogStream, stopLogStream, job.state]);
 
-  // Auto-refresh logs for running jobs
+  // Clean up stream on unmount or when job completes
   useEffect(() => {
-    if (showLogs && job.state === "running") {
-      pollRef.current = setInterval(fetchLogs, 10_000);
-      return () => {
-        if (pollRef.current) clearInterval(pollRef.current);
-      };
+    if (!ACTIVE_STATES.has(job.state) && streamTaskRef.current) {
+      stopLogStream();
+      // Job finished — do a final one-shot fetch for complete logs
+      fetchLogs(true);
     }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [showLogs, job.state, fetchLogs]);
+  }, [job.state, stopLogStream, fetchLogs]);
+
+  useEffect(() => () => stopLogStream(), [stopLogStream]);
 
   // Auto-scroll log container to bottom (without moving the page)
   useEffect(() => {
@@ -84,14 +138,14 @@ export function RemoteJobRow({ job, onDelete, onCancel }: { job: RemoteJobRecord
       if (job.modelName) {
         pullArgs.push("--model-name", job.modelName);
       }
-      const task = await startForgeCommand(dataRoot, pullArgs);
+      const task = await startCrucibleCommand(dataRoot, pullArgs);
       const poll = setInterval(async () => {
         try {
-          const status = await getForgeCommandStatus(task.task_id);
+          const status = await getCrucibleCommandStatus(task.task_id);
           const lines = (status.stdout || "")
             .split("\n")
-            .filter((l: string) => l.startsWith("FORGE_PULL_PROGRESS: "))
-            .map((l: string) => l.replace("FORGE_PULL_PROGRESS: ", ""));
+            .filter((l: string) => l.startsWith("CRUCIBLE_PULL_PROGRESS: "))
+            .map((l: string) => l.replace("CRUCIBLE_PULL_PROGRESS: ", ""));
           if (lines.length > 0) setPullProgress(lines);
           if (status.status !== "running") {
             clearInterval(poll);

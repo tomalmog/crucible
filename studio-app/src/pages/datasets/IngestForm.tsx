@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useForge } from "../../context/ForgeContext";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucible } from "../../context/CrucibleContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { buildIngestArgs } from "../../api/commandArgs";
 import { FormField } from "../../components/shared/FormField";
 import { PathInput } from "../../components/shared/PathInput";
@@ -8,8 +8,8 @@ import { StatusConsole } from "../../components/shared/StatusConsole";
 import { CommandProgress } from "../../components/shared/CommandProgress";
 
 export function IngestForm() {
-  const { dataRoot, refreshDatasets } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot, refreshDatasets } = useCrucible();
+  const command = useCrucibleCommand();
   const [source, setSource] = useState("");
   const [dataset, setDataset] = useState("");
 

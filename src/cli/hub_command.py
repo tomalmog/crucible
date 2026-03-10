@@ -1,4 +1,4 @@
-"""HuggingFace Hub command wiring for Forge CLI.
+"""HuggingFace Hub command wiring for Crucible CLI.
 
 This module provides commands for searching, downloading, and
 pushing models and datasets to the HuggingFace Hub.
@@ -18,10 +18,10 @@ from serve.huggingface_hub import (
     search_datasets,
     search_models,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_hub_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_hub_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle hub subcommand dispatch."""
     subcmd = args.hub_subcommand
     if subcmd == "search-models":
@@ -111,7 +111,7 @@ def _run_model_info(repo_id: str, json_output: bool = False) -> int:
 
 
 def _run_download_model(
-    client: ForgeClient, repo_id: str, target_dir: str, revision: str | None,
+    client: CrucibleClient, repo_id: str, target_dir: str, revision: str | None,
     *, register: bool = False, model_name: str = "",
 ) -> int:
     """Download a model from HuggingFace Hub."""
@@ -128,7 +128,7 @@ def _run_download_model(
 
 
 def _run_download_model_remote(
-    client: ForgeClient, repo_id: str, cluster: str,
+    client: CrucibleClient, repo_id: str, cluster: str,
     model_name: str, revision: str | None, *, register: bool = False,
 ) -> int:
     """Download a model to a remote cluster."""
@@ -180,7 +180,7 @@ def _run_dataset_info(repo_id: str, json_output: bool = False) -> int:
 
 
 def _run_download_dataset(
-    client: ForgeClient, repo_id: str, target_dir: str, revision: str | None,
+    client: CrucibleClient, repo_id: str, target_dir: str, revision: str | None,
     *, register: bool = False, dataset_name: str = "",
 ) -> int:
     """Download a dataset from HuggingFace Hub."""
@@ -192,7 +192,7 @@ def _run_download_dataset(
 
 
 def _run_download_dataset_remote(
-    client: ForgeClient, repo_id: str, cluster: str, revision: str | None,
+    client: CrucibleClient, repo_id: str, cluster: str, revision: str | None,
 ) -> int:
     """Download a dataset to a remote cluster.
 
@@ -208,9 +208,9 @@ def _run_download_dataset_remote(
 
 
 def _register_downloaded_dataset(
-    client: ForgeClient, source_path: str, dataset_name: str,
+    client: CrucibleClient, source_path: str, dataset_name: str,
 ) -> None:
-    """Ingest a downloaded dataset into the Forge dataset registry."""
+    """Ingest a downloaded dataset into the Crucible dataset registry."""
     from core.types import IngestOptions
     try:
         name = client.ingest(IngestOptions(dataset_name=dataset_name, source_uri=source_path))
@@ -289,5 +289,5 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     push = sub.add_parser("push", help="Push model to Hub")
     push.add_argument("model_path", help="Local model path")
     push.add_argument("repo_id", help="Target repository ID")
-    push.add_argument("--message", default="Upload model via Forge", help="Commit message")
+    push.add_argument("--message", default="Upload model via Crucible", help="Commit message")
     push.add_argument("--private", action="store_true", help="Create private repo")

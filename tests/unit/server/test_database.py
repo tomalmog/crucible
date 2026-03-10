@@ -19,7 +19,7 @@ def test_database_config_is_frozen() -> None:
 def test_database_config_default_url() -> None:
     """DatabaseConfig should default to SQLite file URL."""
     config = DatabaseConfig()
-    assert config.database_url == "sqlite:///forge_server.db"
+    assert config.database_url == "sqlite:///crucible_server.db"
 
 
 def test_create_engine_returns_engine() -> None:

@@ -1,4 +1,4 @@
-"""API key authentication for Forge collaboration server.
+"""API key authentication for Crucible collaboration server.
 
 This module handles API key generation, validation, and user
 creation for the server authentication layer.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServerError
+from core.errors import CrucibleDependencyError, CrucibleServerError
 
 
 def _import_sqlalchemy() -> Any:
@@ -18,7 +18,7 @@ def _import_sqlalchemy() -> Any:
         import sqlalchemy  # noqa: F811
         return sqlalchemy
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "sqlalchemy is required for the collaboration server. "
             "Install it with: pip install sqlalchemy"
         ) from exc
@@ -61,11 +61,11 @@ def require_api_key(api_key: str, session: Any) -> Any:
         The authenticated UserModel instance.
 
     Raises:
-        ForgeServerError: If the API key is invalid.
+        CrucibleServerError: If the API key is invalid.
     """
     user = validate_api_key(api_key, session)
     if user is None:
-        raise ForgeServerError(
+        raise CrucibleServerError(
             "Invalid API key: authentication failed"
         )
     return user
@@ -82,7 +82,7 @@ def create_user(username: str, session: Any) -> tuple[Any, str]:
         Tuple of (UserModel instance, api_key string).
 
     Raises:
-        ForgeServerError: If user creation fails.
+        CrucibleServerError: If user creation fails.
     """
     _import_sqlalchemy()
     from server.models import UserModel
@@ -94,7 +94,7 @@ def create_user(username: str, session: Any) -> tuple[Any, str]:
         session.refresh(user)
     except Exception as exc:
         session.rollback()
-        raise ForgeServerError(
+        raise CrucibleServerError(
             f"Failed to create user '{username}': {exc}"
         ) from exc
     return user, api_key

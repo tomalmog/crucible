@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.errors import ForgeDependencyError, ForgeIngestError
+from core.errors import CrucibleDependencyError, CrucibleIngestError
 from core.types import SourceTextRecord
 
 # Column names tried (in order) when extracting text from parquet rows.
@@ -32,13 +32,13 @@ def read_parquet_records(file_path: Path) -> list[SourceTextRecord]:
         Source records extracted from parquet rows.
 
     Raises:
-        ForgeDependencyError: If pyarrow is not installed.
-        ForgeIngestError: If no text column can be identified.
+        CrucibleDependencyError: If pyarrow is not installed.
+        CrucibleIngestError: If no text column can be identified.
     """
     try:
         import pyarrow.parquet as pq
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "Parquet support requires pyarrow, but it is not installed. "
             "Install pyarrow to ingest .parquet files."
         ) from error
@@ -57,7 +57,7 @@ def read_parquet_records(file_path: Path) -> list[SourceTextRecord]:
             file_path, table, prompt_col, response_col,
         )
 
-    raise ForgeIngestError(
+    raise CrucibleIngestError(
         f"Cannot identify a text column in {file_path}. "
         f"Columns found: {table.column_names}. "
         "Expected one of: text, content, sentence, document, "

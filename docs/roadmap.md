@@ -1,10 +1,10 @@
-# Forge — Development Roadmap
+# Crucible — Development Roadmap
 
-What needs to be built to make Forge the best end-to-end LLM training platform for research labs, companies, and individuals.
+What needs to be built to make Crucible the best end-to-end LLM training platform for research labs, companies, and individuals.
 
 ## Competitive Context
 
-Forge is the only desktop-native LLM training application. Cloud platforms (Together AI, SageMaker) require subscriptions. CLI tools (Axolotl, Unsloth, LLaMA-Factory) require terminal expertise. W&B/MLflow only track experiments. Forge is the one app that does ingest → train → evaluate → deploy, locally or on remote Slurm clusters.
+Crucible is the only desktop-native LLM training application. Cloud platforms (Together AI, SageMaker) require subscriptions. CLI tools (Axolotl, Unsloth, LLaMA-Factory) require terminal expertise. W&B/MLflow only track experiments. Crucible is the one app that does ingest → train → evaluate → deploy, locally or on remote Slurm clusters.
 
 ---
 
@@ -135,7 +135,7 @@ Phase 2: ~~**Experiment Tracking + HuggingFace Hub**~~ → Both ✓ done.
 Phase 3: ~~**Eval Harness + Sweep UI + Smart Hardware Config**~~ → Eval ✓, Sweep UI ✓. Smart hardware config remaining.
 
 Phase 4: **Dataset Curator + Recipes + Multi-Cluster**
-Lean into desktop-native advantages. After this, Forge does things no CLI or cloud tool can match.
+Lean into desktop-native advantages. After this, Crucible does things no CLI or cloud tool can match.
 
 Phase 5: **Full GRPO/Multimodal/RLVR + Team Features + Advanced PEFT**
 Complete the advanced training methods and expand to team workflows.

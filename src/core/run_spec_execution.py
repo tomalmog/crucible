@@ -26,7 +26,7 @@ from core.constants import (
 from core.distillation_types import DistillationOptions
 from core.domain_adaptation_types import DomainAdaptationOptions
 from core.dpo_types import DpoOptions
-from core.errors import ForgeRunSpecError
+from core.errors import CrucibleRunSpecError
 from core.run_spec import RunSpec, RunSpecStep, load_run_spec
 from core.run_spec_fields import (
     float_with_default,
@@ -137,7 +137,7 @@ def _execute_step(context: RunSpecExecutionContext, step: RunSpecStep) -> tuple[
         return (_execute_chat_step(context, step),)
     if step.command == "hardware-profile":
         return _execute_hardware_profile_step(context)
-    raise ForgeRunSpecError(f"Unsupported run-spec command '{step.command}'.")
+    raise CrucibleRunSpecError(f"Unsupported run-spec command '{step.command}'.")
 
 
 def _execute_ingest_step(context: RunSpecExecutionContext, step: RunSpecStep) -> str:
@@ -223,7 +223,7 @@ def _resolve_dataset_name(context: RunSpecExecutionContext, step: RunSpecStep) -
         return dataset_name
     if context.default_dataset_name:
         return context.default_dataset_name
-    raise ForgeRunSpecError(
+    raise CrucibleRunSpecError(
         f"Run-spec command '{step.command}' requires dataset. "
         "Set 'dataset' on the step or in top-level defaults."
     )

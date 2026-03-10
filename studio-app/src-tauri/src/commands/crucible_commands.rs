@@ -1,6 +1,6 @@
-//! Forge command execution helpers for Studio.
+//! Crucible command execution helpers for Studio.
 
-use crate::commands::forge_task_store::CommandTaskStore;
+use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
@@ -54,7 +54,7 @@ const ALLOWED_COMMANDS: [&str; 46] = [
 ];
 
 #[tauri::command]
-pub fn start_forge_command(
+pub fn start_crucible_command(
     data_root: String,
     args: Vec<String>,
     task_store: State<'_, CommandTaskStore>,
@@ -64,7 +64,7 @@ pub fn start_forge_command(
 }
 
 #[tauri::command]
-pub fn get_forge_command_status(
+pub fn get_crucible_command_status(
     task_id: String,
     task_store: State<'_, CommandTaskStore>,
 ) -> Result<CommandTaskStatus, String> {
@@ -72,14 +72,14 @@ pub fn get_forge_command_status(
 }
 
 #[tauri::command]
-pub fn list_forge_tasks(
+pub fn list_crucible_tasks(
     task_store: State<'_, CommandTaskStore>,
 ) -> Vec<CommandTaskStatus> {
     task_store.list_all_tasks()
 }
 
 #[tauri::command]
-pub fn kill_forge_task(
+pub fn kill_crucible_task(
     task_id: String,
     task_store: State<'_, CommandTaskStore>,
 ) -> Result<(), String> {
@@ -87,7 +87,7 @@ pub fn kill_forge_task(
 }
 
 #[tauri::command]
-pub fn rename_forge_task(
+pub fn rename_crucible_task(
     task_id: String,
     label: String,
     task_store: State<'_, CommandTaskStore>,
@@ -96,7 +96,7 @@ pub fn rename_forge_task(
 }
 
 #[tauri::command]
-pub fn delete_forge_task(
+pub fn delete_crucible_task(
     task_id: String,
     task_store: State<'_, CommandTaskStore>,
 ) -> Result<(), String> {
@@ -105,7 +105,7 @@ pub fn delete_forge_task(
 
 fn validate_args(args: &[String]) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Forge args must include a command".to_string());
+        return Err("Crucible args must include a command".to_string());
     }
     let command = args[0].as_str();
     if ALLOWED_COMMANDS.contains(&command) {

@@ -1,10 +1,10 @@
-# Forge Studio
+# Crucible Studio
 
-Desktop UI for Forge, built with Tauri 2 + React 19 + TypeScript.
+Desktop UI for Crucible, built with Tauri 2 + React 19 + TypeScript.
 
 ## What It Does
 
-Forge Studio is a native desktop application that provides a visual interface for the entire Forge ML training workflow. It calls the Python CLI under the hood — every CLI feature is accessible from the UI.
+Crucible Studio is a native desktop application that provides a visual interface for the entire Crucible ML training workflow. It calls the Python CLI under the hood — every CLI feature is accessible from the UI.
 
 ### Pages (12)
 
@@ -26,13 +26,13 @@ Forge Studio is a native desktop application that provides a visual interface fo
 
 - **Frontend:** React 19 with react-router v7 (hash routing), TypeScript strict mode, plain CSS with design tokens
 - **Backend:** Tauri 2 (Rust) — shuttles JSON between TypeScript and disk, runs Python CLI as subprocess
-- **State:** React Context (ForgeContext for app state, CommandContext for command execution) + custom hooks
+- **State:** React Context (CrucibleContext for app state, CommandContext for command execution) + custom hooks
 - **Styling:** CSS custom properties in `src/theme/` (variables.css, components.css, layout.css, reset.css). Dark/light themes. No Tailwind or CSS-in-JS.
 - **Icons:** lucide-react
 
 ### Key Frontend Patterns
 
-- `useForgeCommand` hook wraps all CLI invocations with progress tracking and error handling
+- `useCrucibleCommand` hook wraps all CLI invocations with progress tracking and error handling
 - `useRemoteJobs` hook polls remote job JSON files every 2 seconds for live status
 - Training config drafts auto-save to localStorage and merge with defaults on load
 - `DatasetSelect` component shared across all 13 training forms

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeQloraError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleQloraError, CrucibleServeError
 from core.lora_types import LoraConfig
 from core.qlora_types import QloraOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
@@ -97,7 +97,7 @@ def run_qlora_training(
                     context,
                     str(error),
                 )
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(
             run_record.run_id, "failed", message=str(error),
@@ -183,7 +183,7 @@ def _load_qlora_base_model(
 
     Supports HuggingFace model IDs (e.g. 'gpt2') and local checkpoints.
     HuggingFace models are wrapped so forward() returns raw logits,
-    compatible with the standard Forge training loop.
+    compatible with the standard Crucible training loop.
     """
     if is_huggingface_model_id(options.base_model_path):
         hf_model = load_huggingface_model(
@@ -210,7 +210,7 @@ def _load_qlora_base_model(
 class _HfLogitsWrapper:
     """Wraps a HuggingFace causal LM so forward returns raw logits.
 
-    The Forge training loop calls model(inputs) and expects a plain
+    The Crucible training loop calls model(inputs) and expects a plain
     tensor of logits. HuggingFace models return dataclass-like objects
     with a .logits attribute. This thin wrapper bridges the two.
     """
@@ -334,7 +334,7 @@ def _build_qlora_batches(
         mask_prompt_tokens=True,
     )
     if not sequences:
-        raise ForgeQloraError(
+        raise CrucibleQloraError(
             "No trainable sequences from QLoRA data. "
             "Check data content and max token length."
         )
@@ -456,8 +456,8 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "QLoRA training requires torch. "
-            "Install torch to run forge qlora-train."
+            "Install torch to run crucible qlora-train."
         ) from error
     return torch

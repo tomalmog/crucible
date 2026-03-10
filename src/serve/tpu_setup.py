@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 
 
 @dataclass(frozen=True)
@@ -44,17 +44,17 @@ def resolve_tpu_device(xla_module: Any) -> Any:
         XLA device for the current process.
 
     Raises:
-        ForgeDistributedError: If no TPU device is available.
+        CrucibleDistributedError: If no TPU device is available.
     """
     try:
         device = xla_module.xla_device()
     except Exception as error:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Failed to resolve TPU device: {error}. "
             "Check TPU configuration and torch_xla installation."
         ) from error
     if device is None:
-        raise ForgeDistributedError("No TPU device available.")
+        raise CrucibleDistributedError("No TPU device available.")
     return device
 
 
@@ -83,23 +83,23 @@ def init_xla_mesh(xla_module: Any) -> None:
         xla_module: Imported torch_xla module.
 
     Raises:
-        ForgeDistributedError: If mesh initialization fails.
+        CrucibleDistributedError: If mesh initialization fails.
     """
     try:
         runtime = getattr(xla_module, "runtime", None)
         if runtime is not None and hasattr(runtime, "initialize_cache"):
             runtime.initialize_cache("/tmp/xla_cache", readonly=False)
     except Exception as error:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Failed to initialize XLA mesh: {error}."
         ) from error
 
 
 def import_xla() -> Any:
-    """Import torch_xla or raise ForgeDependencyError."""
+    """Import torch_xla or raise CrucibleDependencyError."""
     xla = _try_import_xla()
     if xla is None:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "TPU support requires torch_xla. "
             "Install with 'pip install torch_xla'."
         )

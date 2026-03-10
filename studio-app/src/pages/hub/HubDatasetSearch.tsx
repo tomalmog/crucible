@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { ArrowDownToLine, Download, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { PathInput } from "../../components/shared/PathInput";
 import { FormField } from "../../components/shared/FormField";
 import { DownloadModal } from "../../components/shared/DownloadModal";
@@ -35,8 +35,8 @@ const SORT_OPTIONS = [
 const LOCAL_SORTS = new Set(["size-desc", "size-asc"]);
 
 export function HubDatasetSearch() {
-  const { dataRoot, refreshDatasets } = useForge();
-  const searchCmd = useForgeCommand();
+  const { dataRoot, refreshDatasets } = useCrucible();
+  const searchCmd = useCrucibleCommand();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DatasetResult[]>([]);
   const [page, setPage] = useState(0);

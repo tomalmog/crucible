@@ -1,14 +1,14 @@
-"""A/B chat comparison command wiring for Forge CLI."""
+"""A/B chat comparison command wiring for Crucible CLI."""
 
 from __future__ import annotations
 
 import argparse
 
 from serve.ab_chat import AbComparison, export_preferences_as_dpo, generate_ab_responses
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_ab_chat_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_ab_chat_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle ab-chat command invocation."""
     prompts = ["Hello, how are you?", "Explain quantum computing.", "Write a haiku."]
     comparisons: list[AbComparison] = []

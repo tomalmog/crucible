@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 from serve.tpu_setup import import_xla, init_xla_mesh, resolve_tpu_device
 
 
@@ -67,7 +67,7 @@ class TpuStrategy:
             path: File path for the checkpoint.
 
         Raises:
-            ForgeDistributedError: If checkpoint save fails.
+            CrucibleDistributedError: If checkpoint save fails.
         """
         try:
             xm = self._xla
@@ -78,7 +78,7 @@ class TpuStrategy:
             }
             _xla_save(xm, self._torch, state, path)
         except Exception as error:
-            raise ForgeDistributedError(
+            raise CrucibleDistributedError(
                 f"Failed to save TPU checkpoint: {error}."
             ) from error
 
@@ -93,7 +93,7 @@ class TpuStrategy:
             path: File path of the checkpoint.
 
         Raises:
-            ForgeDistributedError: If checkpoint load fails.
+            CrucibleDistributedError: If checkpoint load fails.
         """
         try:
             xla_device = resolve_tpu_device(self._xla)
@@ -103,7 +103,7 @@ class TpuStrategy:
             model.load_state_dict(state["model_state_dict"])
             optimizer.load_state_dict(state["optimizer_state_dict"])
         except Exception as error:
-            raise ForgeDistributedError(
+            raise CrucibleDistributedError(
                 f"Failed to load TPU checkpoint: {error}."
             ) from error
 
@@ -133,7 +133,7 @@ def _import_torch() -> Any:
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "TPU strategy requires torch. "
             "Install torch to use TPU training."
         ) from error

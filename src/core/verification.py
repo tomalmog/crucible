@@ -17,7 +17,7 @@ from core.verification_types import (
     VerificationRuntime,
     VerificationStatus,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 __all__ = [
     "VerificationCheckResult",
@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 
-def run_verification(client: ForgeClient, options: VerificationOptions) -> VerificationReport:
+def run_verification(client: CrucibleClient, options: VerificationOptions) -> VerificationReport:
     """Run verification checks and return structured report."""
     runtime = build_runtime(client, options.source_path)
     checks = build_checks(options.mode)

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeDistributedError
+from core.errors import CrucibleDependencyError, CrucibleDistributedError
 from serve.distributed_setup import get_rank
 
 _VALID_SHARDING_STRATEGIES = frozenset({
@@ -42,12 +42,12 @@ def _import_torch() -> Any:
         The torch module.
 
     Raises:
-        ForgeDependencyError: If torch is not installed.
+        CrucibleDependencyError: If torch is not installed.
     """
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "FSDP strategy requires torch. "
             "Install torch to use FSDP training."
         ) from error
@@ -64,7 +64,7 @@ def _import_fsdp(torch_module: Any) -> Any:
         The FSDP class.
 
     Raises:
-        ForgeDependencyError: If FSDP is not available.
+        CrucibleDependencyError: If FSDP is not available.
     """
     try:
         fsdp_mod = torch_module.distributed.fsdp
@@ -74,7 +74,7 @@ def _import_fsdp(torch_module: Any) -> Any:
     except AttributeError:
         fsdp_class = None
     if fsdp_class is None:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "FSDP is not available in this PyTorch build. "
             "Upgrade to PyTorch >= 1.12 for FSDP support."
         )
@@ -94,10 +94,10 @@ def _resolve_sharding_strategy(
         The ShardingStrategy enum value.
 
     Raises:
-        ForgeDistributedError: If the name is invalid.
+        CrucibleDistributedError: If the name is invalid.
     """
     if name not in _VALID_SHARDING_STRATEGIES:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Invalid sharding strategy '{name}'. "
             f"Supported: {sorted(_VALID_SHARDING_STRATEGIES)}."
         )
@@ -110,7 +110,7 @@ def _resolve_sharding_strategy(
         strategy_enum = torch_module.distributed.fsdp.ShardingStrategy
         return getattr(strategy_enum, mapping[name])
     except AttributeError:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"ShardingStrategy.{mapping[name]} is not available."
         )
 

@@ -1,4 +1,4 @@
-"""Experiment tracking command wiring for Forge CLI.
+"""Experiment tracking command wiring for Crucible CLI.
 
 This module provides commands for listing, viewing, comparing,
 and deleting experiment run metrics.
@@ -10,10 +10,10 @@ import argparse
 import json
 
 from serve.experiment_tracker import ExperimentTracker
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_experiment_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_experiment_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle experiment subcommand dispatch."""
     tracker = ExperimentTracker(client._config.data_root)
     subcmd = args.experiment_subcommand

@@ -1,4 +1,4 @@
-"""Distributed train command wiring for Forge CLI.
+"""Distributed train command wiring for Crucible CLI.
 
 This module isolates the distributed-train subcommand parser and execution
 logic. It launches torchrun as a subprocess to coordinate multi-GPU DDP
@@ -12,8 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from core.errors import ForgeDistributedError
-from store.dataset_sdk import ForgeClient
+from core.errors import CrucibleDistributedError
+from store.dataset_sdk import CrucibleClient
 
 
 def add_distributed_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -63,7 +63,7 @@ def add_distributed_train_command(subparsers: argparse._SubParsersAction[argpars
 
 
 def run_distributed_train_command(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Handle distributed-train command invocation.
 

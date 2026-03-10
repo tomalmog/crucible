@@ -7,7 +7,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServeError
+from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.rlvr_types import RlvrOptions
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
@@ -56,7 +56,7 @@ def run_rlvr_training(
         if context is not None:
             try:
                 invoke_hook("on_run_error", context.hooks.on_run_error, context, str(error))
-            except ForgeServeError:
+            except CrucibleServeError:
                 pass
         run_registry.transition(run_record.run_id, "failed", message=str(error))
         raise
@@ -75,14 +75,14 @@ def _build_rlvr_context(records, options, training_options, random_seed, run_id,
     tokenizer = fit_training_tokenizer(records, training_options, base_model=options.base_model)
     data = _load_rlvr_data(options.rlvr_data_path)
     if not data:
-        raise ForgeServeError("No RLVR data loaded.")
+        raise CrucibleServeError("No RLVR data loaded.")
     random.Random(random_seed).shuffle(data)
     train_batches, val_batches = _build_rlvr_batches(data, tokenizer, options)
     device = resolve_execution_device(torch_module)
     model = build_or_load_model(
         torch_module=torch_module,
         base_model=options.base_model,
-        build_forge_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
+        build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
     )
     if not options.base_model:
@@ -104,7 +104,7 @@ def _build_rlvr_context(records, options, training_options, random_seed, run_id,
 def _load_rlvr_data(data_path):
     path = Path(data_path)
     if not path.exists():
-        raise ForgeServeError(f"RLVR data not found: {data_path}")
+        raise CrucibleServeError(f"RLVR data not found: {data_path}")
     data = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -206,5 +206,5 @@ def _import_torch():
     try:
         import torch
     except ImportError as error:
-        raise ForgeDependencyError("RLVR training requires torch.") from error
+        raise CrucibleDependencyError("RLVR training requires torch.") from error
     return torch

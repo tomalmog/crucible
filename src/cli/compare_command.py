@@ -1,4 +1,4 @@
-"""Compare command wiring for Forge CLI.
+"""Compare command wiring for Crucible CLI.
 
 This module isolates the training run comparison command parser and
 execution logic, mapping CLI arguments to the model comparison module.
@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import argparse
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 from serve.model_comparison import (
     compare_training_runs,
     format_comparison_report,
 )
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def add_compare_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -38,7 +38,7 @@ def add_compare_command(subparsers: argparse._SubParsersAction[argparse.Argument
     )
 
 
-def run_compare_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_compare_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle compare command invocation.
 
     Args:

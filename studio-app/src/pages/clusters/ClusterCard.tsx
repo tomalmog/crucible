@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, XCircle, Trash2, RefreshCw, RotateCcw, Loader } from "lucide-react";
+import { CheckCircle, XCircle, Trash2, RefreshCw, RotateCcw, Loader, Pencil } from "lucide-react";
 import type { ClusterConfig } from "../../types/remote";
 
 interface ClusterCardProps {
@@ -7,9 +7,10 @@ interface ClusterCardProps {
   onRemove: () => void;
   onValidate: () => Promise<void>;
   onResetEnv: () => Promise<void>;
+  onEdit: () => void;
 }
 
-export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv }: ClusterCardProps) {
+export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit }: ClusterCardProps) {
   const isValidated = !!cluster.validatedAt;
   const [validating, setValidating] = useState(false);
   const [validateResult, setValidateResult] = useState<"success" | "error" | null>(null);
@@ -64,9 +65,12 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv }: Clust
             {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
             {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
           </button>
-          <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting} title="Remove and rebuild forge conda env on next job">
+          <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting} title="Remove and rebuild crucible conda env on next job">
             {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
             {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Edit cluster">
+            <Pencil size={12} />
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onRemove} title="Remove cluster">
             <Trash2 size={12} />

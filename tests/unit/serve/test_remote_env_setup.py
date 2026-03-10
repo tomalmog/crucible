@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from core.errors import ForgeRemoteError
+from core.errors import CrucibleRemoteError
 from serve.remote_env_setup import ensure_remote_env
 
 
@@ -22,7 +22,7 @@ class TestEnvExists:
 
     def test_skips_creation_when_env_present(self) -> None:
         session = _make_session([
-            ("forge                    /home/user/.conda/envs/forge\n", "", 0),
+            ("crucible                    /home/user/.conda/envs/crucible\n", "", 0),
             ("torch=2.6.0\n", "", 0),  # torch check
         ])
         ensure_remote_env(session)
@@ -33,7 +33,7 @@ class TestEnvExists:
     def test_detects_env_among_multiple(self) -> None:
         output = (
             "base                  *  /opt/conda\n"
-            "forge                    /opt/conda/envs/forge\n"
+            "crucible                    /opt/conda/envs/crucible\n"
             "other                    /opt/conda/envs/other\n"
         )
         session = _make_session([
@@ -58,7 +58,7 @@ class TestEnvCreation:
         ])
         ensure_remote_env(session)
         calls = session.execute.call_args_list
-        assert "conda create -n forge python=3.11 -y" in calls[1].args[0]
+        assert "conda create -n crucible python=3.11 -y" in calls[1].args[0]
         torch_call = next(c for c in calls if "torch" in c.args[0] and "pip" in c.args[0])
         assert "cu124" in torch_call.args[0]
         pip_call = next(c for c in calls if "pyyaml" in c.args[0])
@@ -102,7 +102,7 @@ class TestErrors:
         session = _make_session([
             ("", "conda: command not found", 127),
         ])
-        with pytest.raises(ForgeRemoteError, match="conda is not available"):
+        with pytest.raises(CrucibleRemoteError, match="conda is not available"):
             ensure_remote_env(session)
 
     def test_raises_when_create_fails(self) -> None:
@@ -112,7 +112,7 @@ class TestErrors:
             ("", "", 0),                                # _remove_env (retry)
             ("", "PackagesNotFoundError", 1),           # conda create FAILS (2nd)
         ])
-        with pytest.raises(ForgeRemoteError, match="conda create failed"):
+        with pytest.raises(CrucibleRemoteError, match="conda create failed"):
             ensure_remote_env(session)
 
     def test_raises_when_torch_install_fails(self) -> None:
@@ -128,7 +128,7 @@ class TestErrors:
             ("", "", 1),                                # srun nvidia-smi (2nd)
             ("", "ERROR: No matching distribution", 1), # torch install FAILS (2nd)
         ])
-        with pytest.raises(ForgeRemoteError, match="torch install failed"):
+        with pytest.raises(CrucibleRemoteError, match="torch install failed"):
             ensure_remote_env(session)
 
     def test_raises_when_pip_install_fails(self) -> None:
@@ -146,5 +146,5 @@ class TestErrors:
             ("", "", 0),                                # torch install OK (2nd)
             ("", "ERROR: No matching distribution", 1), # pip install FAILS (2nd)
         ])
-        with pytest.raises(ForgeRemoteError, match="pip install failed"):
+        with pytest.raises(CrucibleRemoteError, match="pip install failed"):
             ensure_remote_env(session)

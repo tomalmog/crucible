@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 
 interface ComparisonEntry {
   run_id: string;
@@ -13,7 +13,7 @@ interface ExperimentCompareProps {
 }
 
 export function ExperimentCompare({ runIds, dataRoot }: ExperimentCompareProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [comparisons, setComparisons] = useState<ComparisonEntry[]>([]);
   const [loading, setLoading] = useState(true);
 

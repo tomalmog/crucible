@@ -1,6 +1,6 @@
 """CLI subcommand for remote Slurm cluster operations.
 
-Provides ``forge remote`` with sub-subcommands for cluster management,
+Provides ``crucible remote`` with sub-subcommands for cluster management,
 job submission, status monitoring, log streaming, and model pulling.
 """
 
@@ -9,14 +9,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from core.errors import ForgeRemoteError
-from store.dataset_sdk import ForgeClient
+from core.errors import CrucibleRemoteError
+from store.dataset_sdk import CrucibleClient
 
 
 def add_remote_command(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the ``forge remote`` command and its sub-subcommands."""
+    """Register the ``crucible remote`` command and its sub-subcommands."""
     remote = subparsers.add_parser("remote", help="Remote Slurm cluster operations")
     sub = remote.add_subparsers(dest="remote_action", required=True)
 
@@ -29,7 +29,7 @@ def add_remote_command(
     reg.add_argument("--password", default="", help="SSH password")
     reg.add_argument("--partition", default="", help="Default Slurm partition")
     reg.add_argument("--module-loads", default="", help="Comma-separated module load commands")
-    reg.add_argument("--remote-workspace", default="/tmp/forge-jobs", help="Remote workspace path")
+    reg.add_argument("--remote-workspace", default="~/crucible-jobs", help="Remote workspace path")
     reg.add_argument("--python-path", default="python3", help="Remote Python path")
     reg.add_argument("--validate", action="store_true", help="Validate after registration")
 
@@ -45,7 +45,7 @@ def add_remote_command(
     rc.add_argument("--cluster", required=True, help="Cluster name")
 
     # reset-env
-    re_ = sub.add_parser("reset-env", help="Remove forge conda env on a cluster")
+    re_ = sub.add_parser("reset-env", help="Remove crucible conda env on a cluster")
     re_.add_argument("--cluster", required=True, help="Cluster name")
 
     # submit
@@ -128,7 +128,7 @@ def _add_submit_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model-name", default="", help="Name to register model under in registry")
 
 
-def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Dispatch to the appropriate remote sub-subcommand handler."""
     from cli.remote_command_handlers import (
         _handle_cancel,
@@ -177,6 +177,6 @@ def run_remote_command(client: ForgeClient, args: argparse.Namespace) -> int:
         return 2
     try:
         return handler(client, args)  # type: ignore[operator]
-    except ForgeRemoteError as error:
+    except CrucibleRemoteError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

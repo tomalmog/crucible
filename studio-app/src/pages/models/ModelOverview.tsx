@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getModelArchitecture, startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
-import { useForge } from "../../context/ForgeContext";
+import { getModelArchitecture, startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
+import { useCrucible } from "../../context/CrucibleContext";
 import type { ModelVersion } from "../../types/models";
 import { Download, CheckCircle, Loader } from "lucide-react";
 
@@ -8,7 +8,7 @@ interface ModelOverviewProps {
   version: ModelVersion;
 }
 
-// Each entry can have multiple keys (Forge name, HuggingFace name) — first match wins
+// Each entry can have multiple keys (Crucible name, HuggingFace name) — first match wins
 const ARCH_FIELDS: { keys: string[]; label: string }[] = [
   { keys: ["architectures"], label: "Architecture" },
   { keys: ["model_type"], label: "Model Type" },
@@ -42,7 +42,7 @@ function resolveField(config: Record<string, unknown>, keys: string[]): unknown 
 }
 
 export function ModelOverview({ version }: ModelOverviewProps) {
-  const { dataRoot, refreshModels } = useForge();
+  const { dataRoot, refreshModels } = useCrucible();
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<string[]>([]);
@@ -65,7 +65,7 @@ export function ModelOverview({ version }: ModelOverviewProps) {
     setPullError(null);
     setPullDone(false);
     try {
-      const task = await startForgeCommand(dataRoot, [
+      const task = await startCrucibleCommand(dataRoot, [
         "remote", "pull-model",
         "--job-id", version.runId,
         "--model-name", version.modelName,
@@ -73,12 +73,12 @@ export function ModelOverview({ version }: ModelOverviewProps) {
       // Poll for progress
       pollRef.current = setInterval(async () => {
         try {
-          const status = await getForgeCommandStatus(task.task_id);
+          const status = await getCrucibleCommandStatus(task.task_id);
           // Extract progress lines from stdout
           const lines = (status.stdout || "")
             .split("\n")
-            .filter((l: string) => l.startsWith("FORGE_PULL_PROGRESS: "))
-            .map((l: string) => l.replace("FORGE_PULL_PROGRESS: ", ""));
+            .filter((l: string) => l.startsWith("CRUCIBLE_PULL_PROGRESS: "))
+            .map((l: string) => l.replace("CRUCIBLE_PULL_PROGRESS: ", ""));
           if (lines.length > 0) setPullProgress(lines);
           if (status.status !== "running") {
             if (pollRef.current) clearInterval(pollRef.current);

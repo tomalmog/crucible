@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listForgeTasks, killForgeTask, renameForgeTask, deleteForgeTask } from "../api/studioApi";
+import { listCrucibleTasks, killCrucibleTask, renameCrucibleTask, deleteCrucibleTask } from "../api/studioApi";
 import { CommandTaskStatus } from "../types";
 
 const POLL_INTERVAL_MS = 2000;
@@ -10,7 +10,7 @@ export function useJobs() {
 
   const refresh = useCallback(async () => {
     try {
-      const result = await listForgeTasks();
+      const result = await listCrucibleTasks();
       setJobs(result);
     } catch (err) {
       console.warn("[useJobs] polling error:", err);
@@ -19,7 +19,7 @@ export function useJobs() {
 
   const kill = useCallback(
     async (taskId: string) => {
-      await killForgeTask(taskId);
+      await killCrucibleTask(taskId);
       await refresh();
     },
     [refresh],
@@ -27,7 +27,7 @@ export function useJobs() {
 
   const rename = useCallback(
     async (taskId: string, label: string) => {
-      await renameForgeTask(taskId, label);
+      await renameCrucibleTask(taskId, label);
       await refresh();
     },
     [refresh],
@@ -35,7 +35,7 @@ export function useJobs() {
 
   const remove = useCallback(
     async (taskId: string) => {
-      await deleteForgeTask(taskId);
+      await deleteCrucibleTask(taskId);
       await refresh();
     },
     [refresh],

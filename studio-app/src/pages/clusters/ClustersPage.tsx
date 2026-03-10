@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucible } from "../../context/CrucibleContext";
 import { listClusters } from "../../api/remoteApi";
-import { startForgeCommand, getForgeCommandStatus } from "../../api/studioApi";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 import type { ClusterConfig } from "../../types/remote";
 import { ClusterCard } from "./ClusterCard";
 import { ClusterRegisterForm } from "./ClusterRegisterForm";
 import { Loader2, Plus, Server } from "lucide-react";
 
-type View = "list" | "register";
+type View = "list" | "register" | "edit";
 
 export function ClustersPage() {
-  const { dataRoot } = useForge();
+  const { dataRoot } = useCrucible();
   const [view, setView] = useState<View>("list");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingCluster, setEditingCluster] = useState<ClusterConfig | null>(null);
 
   const refresh = useCallback(() => {
     if (!dataRoot) return;
@@ -30,28 +31,28 @@ export function ClustersPage() {
   }, [refresh]);
 
   async function waitForTask(taskId: string) {
-    let status = await getForgeCommandStatus(taskId);
+    let status = await getCrucibleCommandStatus(taskId);
     while (status.status === "running") {
       await new Promise((r) => setTimeout(r, 500));
-      status = await getForgeCommandStatus(taskId);
+      status = await getCrucibleCommandStatus(taskId);
     }
   }
 
   function handleRemove(name: string) {
-    startForgeCommand(dataRoot, ["remote", "remove-cluster", "--cluster", name])
+    startCrucibleCommand(dataRoot, ["remote", "remove-cluster", "--cluster", name])
       .then(({ task_id }) => waitForTask(task_id))
       .then(() => refresh())
       .catch(() => {});
   }
 
   async function handleValidate(name: string) {
-    const { task_id } = await startForgeCommand(dataRoot, ["remote", "validate-cluster", "--cluster", name]);
+    const { task_id } = await startCrucibleCommand(dataRoot, ["remote", "validate-cluster", "--cluster", name]);
     await waitForTask(task_id);
     refresh();
   }
 
   async function handleResetEnv(name: string) {
-    const { task_id } = await startForgeCommand(dataRoot, ["remote", "reset-env", "--cluster", name]);
+    const { task_id } = await startCrucibleCommand(dataRoot, ["remote", "reset-env", "--cluster", name]);
     await waitForTask(task_id);
   }
 
@@ -64,6 +65,22 @@ export function ClustersPage() {
           </button>
         </PageHeader>
         <ClusterRegisterForm onRegistered={() => { refresh(); setView("list"); }} />
+      </>
+    );
+  }
+
+  if (view === "edit" && editingCluster) {
+    return (
+      <>
+        <PageHeader title="Edit Cluster">
+          <button className="btn btn-sm" onClick={() => { setEditingCluster(null); setView("list"); }}>
+            Back to List
+          </button>
+        </PageHeader>
+        <ClusterRegisterForm
+          editCluster={editingCluster}
+          onRegistered={() => { refresh(); setEditingCluster(null); setView("list"); }}
+        />
       </>
     );
   }
@@ -97,6 +114,7 @@ export function ClustersPage() {
               onRemove={() => handleRemove(c.name)}
               onValidate={() => handleValidate(c.name)}
               onResetEnv={() => handleResetEnv(c.name)}
+              onEdit={() => { setEditingCluster(c); setView("edit"); }}
             />
           ))}
         </div>

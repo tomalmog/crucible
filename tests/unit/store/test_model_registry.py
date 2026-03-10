@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeModelRegistryError
+from core.errors import CrucibleModelRegistryError
 from store.model_registry import ModelRegistry
 
 
@@ -65,9 +65,9 @@ def test_get_version_returns_correct(tmp_path) -> None:
 
 
 def test_get_version_raises_for_missing(tmp_path) -> None:
-    """get_version should raise ForgeModelRegistryError for unknown ID."""
+    """get_version should raise CrucibleModelRegistryError for unknown ID."""
     registry = ModelRegistry(tmp_path)
-    with pytest.raises(ForgeModelRegistryError, match="not found"):
+    with pytest.raises(CrucibleModelRegistryError, match="not found"):
         registry.get_version("mv-nonexistent")
 
 

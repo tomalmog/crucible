@@ -7,7 +7,7 @@ import builtins
 import pytest
 
 from core.chat_types import ChatOptions
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 from core.types import DataRecord, RecordMetadata
 from serve.chat_runner import run_chat
 
@@ -38,7 +38,7 @@ def test_run_chat_raises_without_torch(monkeypatch) -> None:
         dataset_name="demo",
     )
 
-    with pytest.raises(ForgeDependencyError):
+    with pytest.raises(CrucibleDependencyError):
         run_chat(_build_records(), options)
 
     assert True

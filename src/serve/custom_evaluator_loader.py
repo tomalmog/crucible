@@ -11,7 +11,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any, Callable
 
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 EVALUATOR_FUNCTION_NAME = "evaluate"
 
@@ -26,11 +26,11 @@ def load_custom_evaluator(evaluator_path: str) -> Callable[..., dict[str, float]
         The validated evaluate callable.
 
     Raises:
-        ForgeServeError: If path is invalid, function is missing, or validation fails.
+        CrucibleServeError: If path is invalid, function is missing, or validation fails.
     """
     resolved_path = Path(evaluator_path).expanduser().resolve()
     if not resolved_path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Evaluator file not found at {resolved_path}. "
             "Provide a valid --evaluator-file path."
         )
@@ -47,10 +47,10 @@ def validate_evaluator_callable(evaluator_fn: Any) -> None:
         evaluator_fn: The object to validate as callable.
 
     Raises:
-        ForgeServeError: If the evaluator is not callable.
+        CrucibleServeError: If the evaluator is not callable.
     """
     if not callable(evaluator_fn):
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"'{EVALUATOR_FUNCTION_NAME}' in evaluator file is not callable."
         )
 
@@ -61,7 +61,7 @@ def _find_evaluator_function(
     """Find a function named evaluate in the loaded module."""
     evaluator_fn = getattr(module, EVALUATOR_FUNCTION_NAME, None)
     if evaluator_fn is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Invalid evaluator file at {source_path}: "
             f"missing function '{EVALUATOR_FUNCTION_NAME}'."
         )
@@ -71,10 +71,10 @@ def _find_evaluator_function(
 def _load_python_module(module_path: Path) -> Any:
     """Load Python module from file path."""
     spec = importlib.util.spec_from_file_location(
-        "forge_user_custom_evaluator", str(module_path)
+        "crucible_user_custom_evaluator", str(module_path)
     )
     if spec is None or spec.loader is None:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load evaluator module at {module_path}. "
             "Verify the file path and syntax."
         )

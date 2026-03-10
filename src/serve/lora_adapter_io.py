@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeLoraError
+from core.errors import CrucibleLoraError
 from core.lora_types import LoraAdapterInfo, LoraConfig
 from core.logging_config import get_logger
 
@@ -37,7 +37,7 @@ def save_lora_adapter(
     """
     adapter_state = _extract_lora_state_dict(model)
     if not adapter_state:
-        raise ForgeLoraError("No LoRA parameters found in model to save.")
+        raise CrucibleLoraError("No LoRA parameters found in model to save.")
     weights_path = output_dir / _ADAPTER_WEIGHTS_FILE
     torch_module.save(adapter_state, str(weights_path))
     config_payload = {
@@ -72,11 +72,11 @@ def load_lora_adapter(
     The model must already have LoRA layers injected before loading.
 
     Raises:
-        ForgeLoraError: If adapter file is missing or incompatible.
+        CrucibleLoraError: If adapter file is missing or incompatible.
     """
     path = Path(adapter_path)
     if not path.exists():
-        raise ForgeLoraError(f"Adapter weights not found at {adapter_path}.")
+        raise CrucibleLoraError(f"Adapter weights not found at {adapter_path}.")
     adapter_state = torch_module.load(str(path), map_location=device)
     model_state = model.state_dict()
     matched = 0
@@ -85,7 +85,7 @@ def load_lora_adapter(
             model_state[key] = value
             matched += 1
     if matched == 0:
-        raise ForgeLoraError(
+        raise CrucibleLoraError(
             "No adapter keys matched model state. Ensure LoRA layers are injected."
         )
     model.load_state_dict(model_state)
@@ -107,7 +107,7 @@ def merge_lora_into_base(
     """
     merged_count = _merge_lora_layers(torch_module, model)
     if merged_count == 0:
-        raise ForgeLoraError("No LoRA layers found in model to merge.")
+        raise CrucibleLoraError("No LoRA layers found in model to merge.")
     resolved_path = Path(output_path).expanduser().resolve()
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     torch_module.save(model.state_dict(), str(resolved_path))

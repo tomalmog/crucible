@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 
 MergeMethod = Literal["slerp", "ties", "dare", "average"]
 
@@ -178,6 +178,6 @@ def _import_torch() -> Any:
         import torch
         return torch
     except ImportError as error:
-        raise ForgeDependencyError(
-            "Model merging requires torch. Install torch to run forge merge."
+        raise CrucibleDependencyError(
+            "Model merging requires torch. Install torch to run crucible merge."
         ) from error

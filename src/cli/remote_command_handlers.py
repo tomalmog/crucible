@@ -10,11 +10,11 @@ from __future__ import annotations
 import argparse
 import json
 
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
 def _handle_register_cluster(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     from dataclasses import replace as dc_replace
 
@@ -22,20 +22,32 @@ def _handle_register_cluster(
     from serve.cluster_validator import update_cluster_validated, validate_cluster
     from store.cluster_registry import save_cluster
 
+    from store.cluster_registry import load_cluster as _load_cluster
+
     module_loads = tuple(
         m.strip() for m in args.module_loads.split(",") if m.strip()
     ) if args.module_loads else ()
+
+    # If cluster already exists, merge to preserve sensitive/validated fields
+    existing: ClusterConfig | None = None
+    try:
+        existing = _load_cluster(client._config.data_root, args.name)
+    except Exception:
+        pass
 
     cluster = ClusterConfig(
         name=args.name,
         host=args.host,
         user=args.user,
-        ssh_key_path=args.ssh_key,
-        password=args.password,
+        ssh_key_path=args.ssh_key or (existing.ssh_key_path if existing else ""),
+        password=args.password or (existing.password if existing else ""),
         default_partition=args.partition,
         module_loads=module_loads,
         remote_workspace=args.remote_workspace,
         python_path=args.python_path,
+        partitions=existing.partitions if existing else (),
+        gpu_types=existing.gpu_types if existing else (),
+        validated_at=existing.validated_at if existing else "",
     )
 
     if args.validate:
@@ -58,7 +70,7 @@ def _handle_register_cluster(
 
 
 def _handle_list_clusters(
-    client: ForgeClient, _args: argparse.Namespace,
+    client: CrucibleClient, _args: argparse.Namespace,
 ) -> int:
     from store.cluster_registry import list_clusters
 
@@ -73,7 +85,7 @@ def _handle_list_clusters(
 
 
 def _handle_validate_cluster(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     from serve.cluster_validator import update_cluster_validated, validate_cluster
     from store.cluster_registry import load_cluster, save_cluster
@@ -90,7 +102,7 @@ def _handle_validate_cluster(
 
 
 def _handle_remove_cluster(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     from store.cluster_registry import remove_cluster
     remove_cluster(client._config.data_root, args.cluster)
@@ -99,7 +111,7 @@ def _handle_remove_cluster(
 
 
 def _handle_reset_env(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     from serve.remote_env_setup import reset_remote_env
     from serve.ssh_connection import SshSession
@@ -111,7 +123,7 @@ def _handle_reset_env(
     return 0
 
 
-def _handle_submit(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_job_submitter import submit_remote_job
 
     method_args = json.loads(args.method_args)
@@ -129,7 +141,7 @@ def _handle_submit(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_submit_sweep(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_submit_sweep(client: CrucibleClient, args: argparse.Namespace) -> int:
     import yaml
 
     from serve.remote_job_submitter import submit_remote_sweep
@@ -159,7 +171,7 @@ def _handle_submit_sweep(client: ForgeClient, args: argparse.Namespace) -> int:
 
 
 def _handle_list_jobs(
-    client: ForgeClient, _args: argparse.Namespace,
+    client: CrucibleClient, _args: argparse.Namespace,
 ) -> int:
     from store.remote_job_store import list_remote_jobs
 
@@ -176,7 +188,7 @@ def _handle_list_jobs(
     return 0
 
 
-def _handle_status(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_status(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_job_state import check_remote_job_state
     from store.remote_job_store import load_remote_job
 
@@ -193,7 +205,7 @@ def _handle_status(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_logs(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_logs(client: CrucibleClient, args: argparse.Namespace) -> int:
     if args.follow:
         from serve.remote_log_streamer import stream_remote_logs
         for line in stream_remote_logs(
@@ -209,14 +221,14 @@ def _handle_logs(client: ForgeClient, args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_cancel(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_cancel(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_model_puller import cancel_remote_job
     record = cancel_remote_job(client._config.data_root, args.job_id)
     print(f"Cancelled job {record.job_id}.")
     return 0
 
 
-def _handle_pull_model(client: ForgeClient, args: argparse.Namespace) -> int:
+def _handle_pull_model(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_model_puller import pull_remote_model
     record = pull_remote_model(
         client._config.data_root, args.job_id, args.model_name,
@@ -227,7 +239,7 @@ def _handle_pull_model(client: ForgeClient, args: argparse.Namespace) -> int:
 
 
 def _handle_remote_chat(
-    client: ForgeClient, args: argparse.Namespace,
+    client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
     """Stream chat inference from a remote cluster model."""
     import sys

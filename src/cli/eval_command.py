@@ -1,4 +1,4 @@
-"""Evaluation command wiring for Forge CLI.
+"""Evaluation command wiring for Crucible CLI.
 
 This module provides the eval command for running standardized
 benchmarks against trained models.
@@ -11,10 +11,10 @@ import json
 
 from eval.evaluation_harness import EvaluationHarness
 from eval.benchmark_runner import AVAILABLE_BENCHMARKS
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_eval_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_eval_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle eval command invocation."""
     harness = EvaluationHarness(client._config.data_root)
     benchmarks = args.benchmarks.split(",") if args.benchmarks else None

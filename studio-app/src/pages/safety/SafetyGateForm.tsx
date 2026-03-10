@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { buildSafetyGateArgs } from "../../api/commandArgs";
 import { FormField } from "../../components/shared/FormField";
 import { CommandProgress } from "../../components/shared/CommandProgress";
@@ -10,7 +10,7 @@ interface SafetyGateFormProps {
 }
 
 export function SafetyGateForm({ dataRoot, onResult }: SafetyGateFormProps) {
-  const command = useForgeCommand();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [minScore, setMinScore] = useState("0.8");
   const [maxToxicity, setMaxToxicity] = useState("0.1");

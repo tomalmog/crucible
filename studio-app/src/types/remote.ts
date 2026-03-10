@@ -5,6 +5,7 @@ export interface ClusterConfig {
   defaultPartition: string;
   partitions: string[];
   gpuTypes: string[];
+  moduleLoads: string[];
   pythonPath: string;
   remoteWorkspace: string;
   validatedAt: string;

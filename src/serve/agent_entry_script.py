@@ -1,10 +1,10 @@
 """String constant containing the remote agent entry point script.
 
-This is embedded into the agent tarball as forge_agent_entry.py
+This is embedded into the agent tarball as crucible_agent_entry.py
 and executed on the remote Slurm node.
 """
 
-ENTRY_SCRIPT = '''"""Forge remote agent entry point.
+ENTRY_SCRIPT = '''"""Crucible remote agent entry point.
 
 Reads a JSON training config, sets up sys.path, and dispatches training.
 """
@@ -14,7 +14,7 @@ import signal
 import sys
 
 # Immediate output to confirm Python started
-print("FORGE_AGENT: Python process started", flush=True)
+print("CRUCIBLE_AGENT: Python process started", flush=True)
 
 import argparse
 import json
@@ -29,13 +29,13 @@ def _log_memory(label: str) -> None:
         rss_mb = rss_kb / 1024 / 1024
     else:
         rss_mb = rss_kb / 1024
-    print(f"FORGE_AGENT: [{label}] RSS={rss_mb:.0f}MB", flush=True)
+    print(f"CRUCIBLE_AGENT: [{label}] RSS={rss_mb:.0f}MB", flush=True)
 
 
 def _signal_handler(signum, frame):
     """Log signal before exit (catches SIGTERM from Slurm)."""
     name = signal.Signals(signum).name if hasattr(signal, "Signals") else str(signum)
-    print(f"FORGE_AGENT_ERROR: Received signal {name} ({signum})", flush=True)
+    print(f"CRUCIBLE_AGENT_ERROR: Received signal {name} ({signum})", flush=True)
     _log_memory("on-signal")
     sys.exit(128 + signum)
 
@@ -94,7 +94,7 @@ def _hydrate_nested_configs(method_args: dict, method: str) -> None:
 
 
 def _ingest_raw_data(client, method_args: dict) -> None:
-    """Ingest a raw JSONL file into a forge dataset for record-based methods.
+    """Ingest a raw JSONL file into a crucible dataset for record-based methods.
 
     If ``raw_data_path`` is present in *method_args*, ingest it as a
     temporary dataset so methods like train/distill/domain-adapt can
@@ -106,14 +106,14 @@ def _ingest_raw_data(client, method_args: dict) -> None:
     from core.ingest_types import IngestOptions
     ds_name = method_args.get("dataset_name", "remote-dataset")
     opts = IngestOptions(dataset_name=ds_name, source_uri=raw_path)
-    print(f"FORGE_AGENT: Ingesting {raw_path} as dataset '{ds_name}'...")
+    print(f"CRUCIBLE_AGENT: Ingesting {raw_path} as dataset '{ds_name}'...")
     client.ingest(opts)
     method_args["dataset_name"] = ds_name
-    print(f"FORGE_AGENT: Ingestion complete.")
+    print(f"CRUCIBLE_AGENT: Ingestion complete.")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Forge remote agent")
+    parser = argparse.ArgumentParser(description="Crucible remote agent")
     parser.add_argument("--config", required=True, help="Path to training config JSON")
     args = parser.parse_args()
 
@@ -125,18 +125,18 @@ def main() -> None:
     output_path = config.get("result_output", "result.json")
 
     _log_memory("before-imports")
-    print("FORGE_AGENT: Loading forge modules...", flush=True)
-    from core.config import ForgeConfig
+    print("CRUCIBLE_AGENT: Loading crucible modules...", flush=True)
+    from core.config import CrucibleConfig
     from core.training_methods import dispatch_training
-    from store.dataset_sdk import ForgeClient
+    from store.dataset_sdk import CrucibleClient
     _log_memory("after-imports")
 
-    print("FORGE_AGENT: Initializing client...", flush=True)
-    forge_config = ForgeConfig.from_env()
-    print(f"FORGE_AGENT: data_root={forge_config.data_root}", flush=True)
-    client = ForgeClient(forge_config)
+    print("CRUCIBLE_AGENT: Initializing client...", flush=True)
+    crucible_config = CrucibleConfig.from_env()
+    print(f"CRUCIBLE_AGENT: data_root={crucible_config.data_root}", flush=True)
+    client = CrucibleClient(crucible_config)
     _log_memory("after-client-init")
-    print("FORGE_AGENT: Client ready", flush=True)
+    print("CRUCIBLE_AGENT: Client ready", flush=True)
 
     # Ensure output_dir and dataset_name are set
     _ensure_output_dir(method_args)
@@ -147,16 +147,16 @@ def main() -> None:
     if method in _RECORD_BASED_METHODS:
         _ingest_raw_data(client, method_args)
 
-    print(f"FORGE_AGENT: Dispatching {method}...", flush=True)
-    print(f"FORGE_AGENT: Config keys: {list(method_args.keys())}", flush=True)
+    print(f"CRUCIBLE_AGENT: Dispatching {method}...", flush=True)
+    print(f"CRUCIBLE_AGENT: Config keys: {list(method_args.keys())}", flush=True)
     _log_memory("before-dispatch")
 
     # Pre-flight: import torch before dispatch to isolate import crashes
-    print("FORGE_AGENT: Importing torch...", flush=True)
+    print("CRUCIBLE_AGENT: Importing torch...", flush=True)
     import torch
-    print(f"FORGE_AGENT: torch {torch.__version__}, CUDA: {torch.cuda.is_available()}", flush=True)
+    print(f"CRUCIBLE_AGENT: torch {torch.__version__}, CUDA: {torch.cuda.is_available()}", flush=True)
     if torch.cuda.is_available():
-        print(f"FORGE_AGENT: GPU: {torch.cuda.get_device_name(0)}, "
+        print(f"CRUCIBLE_AGENT: GPU: {torch.cuda.get_device_name(0)}, "
               f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB", flush=True)
     _log_memory("after-torch")
 
@@ -182,16 +182,16 @@ def main() -> None:
         json.dump(result_data, f, indent=2)
 
     if result_data["status"] == "failed":
-        print(f"FORGE_AGENT_ERROR: {result_data['error']}", file=sys.stderr)
+        print(f"CRUCIBLE_AGENT_ERROR: {result_data['error']}", file=sys.stderr)
         sys.exit(1)
-    print("FORGE_AGENT_COMPLETE")
+    print("CRUCIBLE_AGENT_COMPLETE")
 
 
 if __name__ == "__main__":
     try:
         main()
     except BaseException as exc:
-        print(f"FORGE_AGENT_ERROR: Unhandled {type(exc).__name__}: {exc}",
+        print(f"CRUCIBLE_AGENT_ERROR: Unhandled {type(exc).__name__}: {exc}",
               file=sys.stderr, flush=True)
         _log_memory("on-crash")
         raise

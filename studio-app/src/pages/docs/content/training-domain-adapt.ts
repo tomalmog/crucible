@@ -8,7 +8,7 @@ export const trainingDomainAdapt: DocEntry = {
 Adapt a pre-trained model to a new domain by continuing training on domain-specific data, with optional drift detection to prevent catastrophic forgetting.
 
 **Required:**
-- \`--dataset\` — Forge dataset name (domain-specific data)
+- \`--dataset\` — Crucible dataset name (domain-specific data)
 - \`--base-model-path\` — Pre-trained model to adapt
 - \`--output-dir\` — Directory for output artifacts
 

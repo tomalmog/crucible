@@ -1,4 +1,4 @@
-"""Recipe command wiring for Forge CLI."""
+"""Recipe command wiring for Crucible CLI."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ import argparse
 import json
 
 from serve.recipe_manager import RecipeManager
-from store.dataset_sdk import ForgeClient
+from store.dataset_sdk import CrucibleClient
 
 
-def run_recipe_command(client: ForgeClient, args: argparse.Namespace) -> int:
+def run_recipe_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle recipe subcommand dispatch."""
     manager = RecipeManager(client._config.data_root)
     subcmd = args.recipe_subcommand

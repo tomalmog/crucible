@@ -18,7 +18,7 @@ def _make_cluster() -> ClusterConfig:
         default_partition="gpu",
         module_loads=("module load cuda/12.1", "module load python/3.11"),
         python_path="python3",
-        remote_workspace="/scratch/forge",
+        remote_workspace="/scratch/crucible",
     )
 
 
@@ -54,7 +54,7 @@ def test_single_node_script_sbatch_directives() -> None:
     assert "#SBATCH --cpus-per-task=8" in script
     assert "#SBATCH --mem=64G" in script
     assert "#SBATCH --time=24:00:00" in script
-    assert "#SBATCH --output=/scratch/forge/rj-test123/slurm-%j.out" in script
+    assert "#SBATCH --output=/scratch/crucible/rj-test123/slurm-%j.out" in script
 
 
 def test_single_node_script_job_name() -> None:
@@ -62,7 +62,7 @@ def test_single_node_script_job_name() -> None:
     script = generate_single_node_script(
         _make_cluster(), _make_resources(), "rj-test123", "sft",
     )
-    assert "#SBATCH --job-name=forge-sft-" in script
+    assert "#SBATCH --job-name=crucible-sft-" in script
 
 
 def test_single_node_script_module_loads() -> None:
@@ -79,9 +79,9 @@ def test_single_node_script_execution() -> None:
     script = generate_single_node_script(
         _make_cluster(), _make_resources(), "rj-test123", "sft",
     )
-    assert "cd /scratch/forge/rj-test123" in script
-    assert "tar xzf forge-agent.tar.gz" in script
-    assert "python3 forge_agent_entry.py --config training_config.json" in script
+    assert "cd /scratch/crucible/rj-test123" in script
+    assert "tar xzf crucible-agent.tar.gz" in script
+    assert "python3 crucible_agent_entry.py --config training_config.json" in script
 
 
 def test_single_node_script_no_partition_when_empty() -> None:

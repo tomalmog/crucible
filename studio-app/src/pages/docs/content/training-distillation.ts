@@ -8,7 +8,7 @@ export const trainingDistillation: DocEntry = {
 Transfer knowledge from a large teacher model to a smaller student model. The student learns to match the teacher's output distribution.
 
 **Required:**
-- \`--dataset\` — Forge dataset name (used as training data)
+- \`--dataset\` — Crucible dataset name (used as training data)
 - \`--teacher-model-path\` — Path to the teacher model
 - \`--output-dir\` — Directory for output artifacts
 

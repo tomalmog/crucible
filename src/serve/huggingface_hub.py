@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.errors import ForgeDependencyError
+from core.errors import CrucibleDependencyError
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ def _import_huggingface_hub() -> Any:
         import huggingface_hub
         return huggingface_hub
     except ImportError as error:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "HuggingFace Hub operations require the huggingface_hub package. "
             "Install it with: pip install huggingface_hub"
         ) from error
@@ -284,7 +284,7 @@ def get_dataset_info(repo_id: str) -> dict[str, Any]:
 def push_model(
     model_path: str,
     repo_id: str,
-    commit_message: str = "Upload model via Forge",
+    commit_message: str = "Upload model via Crucible",
     private: bool = False,
 ) -> str:
     """Push a trained model to HuggingFace Hub."""

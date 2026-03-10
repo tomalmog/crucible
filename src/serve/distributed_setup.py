@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 
 
 def init_distributed(torch_module: Any, backend: str = "nccl") -> None:
@@ -23,7 +23,7 @@ def init_distributed(torch_module: Any, backend: str = "nccl") -> None:
         backend: Communication backend (nccl, gloo, etc.).
 
     Raises:
-        ForgeDistributedError: If torch.distributed is unavailable.
+        CrucibleDistributedError: If torch.distributed is unavailable.
     """
     dist = _get_dist_module(torch_module)
     if dist.is_initialized():
@@ -31,7 +31,7 @@ def init_distributed(torch_module: Any, backend: str = "nccl") -> None:
     try:
         dist.init_process_group(backend=backend)
     except Exception as error:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             f"Failed to initialize distributed process group with backend '{backend}': {error}. "
             "Ensure torchrun sets RANK, WORLD_SIZE, MASTER_ADDR, MASTER_PORT."
         ) from error
@@ -117,11 +117,11 @@ def _get_dist_module(torch_module: Any) -> Any:
         The torch.distributed module.
 
     Raises:
-        ForgeDistributedError: If torch.distributed is unavailable.
+        CrucibleDistributedError: If torch.distributed is unavailable.
     """
     dist = getattr(torch_module, "distributed", None)
     if dist is None:
-        raise ForgeDistributedError(
+        raise CrucibleDistributedError(
             "torch.distributed is not available. "
             "Ensure PyTorch is built with distributed support."
         )

@@ -14,7 +14,7 @@ from core.constants import (
     DEFAULT_TRAIN_BEST_CHECKPOINT_FILE_NAME,
     DEFAULT_TRAIN_CHECKPOINT_DIR_NAME,
 )
-from core.errors import ForgeServeError
+from core.errors import CrucibleServeError
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,7 @@ def prune_epoch_checkpoints(checkpoint_dir: Path, max_files: int | None) -> None
         try:
             stale_path.unlink()
         except OSError as error:
-            raise ForgeServeError(
+            raise CrucibleServeError(
                 f"Failed to remove old checkpoint {stale_path}: {error}. "
                 "Check output directory permissions and retry."
             ) from error
@@ -152,7 +152,7 @@ def _save_checkpoint_payload(torch_module: Any, checkpoint_path: Path, payload: 
     try:
         torch_module.save(payload, str(checkpoint_path))
     except (OSError, RuntimeError) as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to save checkpoint at {checkpoint_path}: {error}. "
             "Check available disk space and directory permissions."
         ) from error
@@ -162,20 +162,20 @@ def _read_checkpoint_payload(
     resolved_path: Path, torch_module: Any, device: Any
 ) -> Mapping[str, object]:
     if not resolved_path.exists():
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Resume checkpoint not found at {resolved_path}. "
             "Provide a valid --resume-checkpoint-path value."
         )
     try:
         payload = torch_module.load(str(resolved_path), map_location=device)
     except (OSError, RuntimeError) as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to load checkpoint at {resolved_path}: {error}. "
             "Verify checkpoint file integrity and compatibility."
         ) from error
     if isinstance(payload, Mapping):
         return payload
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint format at {resolved_path}: expected mapping payload."
     )
 
@@ -186,7 +186,7 @@ def _read_mapping(
     value = payload.get(key)
     if isinstance(value, Mapping):
         return value
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint at {checkpoint_path}: missing mapping field '{key}'."
     )
 
@@ -195,7 +195,7 @@ def _read_epoch(payload: Mapping[str, object], checkpoint_path: Path) -> int:
     raw_epoch = payload.get("epoch")
     if isinstance(raw_epoch, int) and raw_epoch >= 1:
         return raw_epoch
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint at {checkpoint_path}: field 'epoch' must be integer >= 1."
     )
 
@@ -204,7 +204,7 @@ def _read_global_step(payload: Mapping[str, object], checkpoint_path: Path) -> i
     raw_global_step = payload.get("global_step")
     if isinstance(raw_global_step, int) and raw_global_step >= 0:
         return raw_global_step
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint at {checkpoint_path}: field 'global_step' must be integer >= 0."
     )
 
@@ -219,7 +219,7 @@ def _read_optional_float(
         return None
     if isinstance(raw_value, (float, int)):
         return float(raw_value)
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint at {checkpoint_path}: field '{key}' must be numeric."
     )
 
@@ -234,7 +234,7 @@ def _read_optional_mapping(
         return None
     if isinstance(raw_value, Mapping):
         return raw_value
-    raise ForgeServeError(
+    raise CrucibleServeError(
         f"Invalid checkpoint at {checkpoint_path}: field '{key}' must be a mapping."
     )
 
@@ -245,7 +245,7 @@ def _apply_state_dict(
     try:
         target.load_state_dict(state)
     except RuntimeError as error:
-        raise ForgeServeError(
+        raise CrucibleServeError(
             f"Failed to apply {target_name} state from {checkpoint_path}: {error}. "
             "Use a checkpoint created for the same model and optimizer setup."
         ) from error

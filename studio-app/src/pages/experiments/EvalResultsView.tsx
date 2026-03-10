@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
-import { useForgeCommand } from "../../hooks/useForgeCommand";
-import { useForge } from "../../context/ForgeContext";
+import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { PathInput } from "../../components/shared/PathInput";
 
 export function EvalResultsView() {
-  const { dataRoot } = useForge();
-  const command = useForgeCommand();
+  const { dataRoot } = useCrucible();
+  const command = useCrucibleCommand();
   const [modelPath, setModelPath] = useState("");
   const [baseModelPath, setBaseModelPath] = useState("");
   const [benchmarks, setBenchmarks] = useState("mmlu,gsm8k,hellaswag,arc");

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.constants import MANIFEST_FILE_NAME
-from core.errors import ForgeStoreError
+from core.errors import CrucibleStoreError
 from core.types import DatasetManifest
 
 
@@ -44,21 +44,21 @@ def read_manifest_file(manifest_path: Path) -> DatasetManifest:
         Typed dataset manifest.
 
     Raises:
-        ForgeStoreError: If manifest is missing or invalid.
+        CrucibleStoreError: If manifest is missing or invalid.
     """
     if not manifest_path.exists():
-        raise ForgeStoreError(
+        raise CrucibleStoreError(
             f"Dataset manifest not found at {manifest_path}. "
             "Ingest data before requesting dataset info."
         )
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ForgeStoreError(
+        raise CrucibleStoreError(
             f"Failed to parse dataset manifest at {manifest_path}: {error.msg}."
         ) from error
     if not isinstance(payload, dict):
-        raise ForgeStoreError(
+        raise CrucibleStoreError(
             f"Failed to parse dataset manifest at {manifest_path}: "
             "expected JSON object at top level."
         )

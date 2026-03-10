@@ -1,7 +1,7 @@
 """Runtime context passed to custom training loops.
 
 This module defines the context object that user-defined loops receive.
-It allows custom loops to reuse Forge-prepared datasets and model state.
+It allows custom loops to reuse Crucible-prepared datasets and model state.
 """
 
 from __future__ import annotations

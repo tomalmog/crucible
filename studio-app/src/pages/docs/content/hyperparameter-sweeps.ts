@@ -13,14 +13,14 @@ A sweep automates trying different hyperparameter combinations so you can find t
 
 1. Define which parameters to vary and their candidate values
 2. Choose a search strategy (grid or random)
-3. Forge runs one training trial per parameter combination
+3. Crucible runs one training trial per parameter combination
 4. Results are ranked by a metric you choose (e.g. validation loss)
 5. The best trial and its parameters are reported
 
 ### CLI Usage
 
 \`\`\`bash
-forge sweep \\
+crucible sweep \\
   --dataset my-dataset \\
   --output-dir ./outputs/sweep \\
   --params '{"parameters": [{"name": "learning_rate", "values": [0.001, 0.01, 0.1]}]}' \\
@@ -41,7 +41,7 @@ parameters:
 \`\`\`
 
 \`\`\`bash
-forge sweep --dataset my-dataset --output-dir ./outputs/sweep --config-file sweep_config.yaml
+crucible sweep --dataset my-dataset --output-dir ./outputs/sweep --config-file sweep_config.yaml
 \`\`\`
 
 ### Options

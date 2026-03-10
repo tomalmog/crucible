@@ -2,7 +2,7 @@
 
 ## Training Tokenizer Improvements
 
-Forge currently uses a whitespace-splitting tokenizer (`VocabularyTokenizer`) for training. This works for proof-of-concept models but limits quality for real workloads.
+Crucible currently uses a whitespace-splitting tokenizer (`VocabularyTokenizer`) for training. This works for proof-of-concept models but limits quality for real workloads.
 
 ### BPE / SentencePiece for Training
 
@@ -32,7 +32,7 @@ Forge currently uses a whitespace-splitting tokenizer (`VocabularyTokenizer`) fo
 
 ### PyTorch Chat with External Models
 
-- **What**: The PyTorch chat runner (`chat_runner.py`) currently only loads Forge-trained models. Supporting HuggingFace `.pt`/`.bin` checkpoints would broaden usability.
+- **What**: The PyTorch chat runner (`chat_runner.py`) currently only loads Crucible-trained models. Supporting HuggingFace `.pt`/`.bin` checkpoints would broaden usability.
 - **Why**: Users may want to fine-tune or evaluate models from the HuggingFace ecosystem.
 - **Consideration**: Architecture detection and weight mapping are the main challenges. The `architecture_loader.py` module would need extension.
 
@@ -44,5 +44,5 @@ Forge currently uses a whitespace-splitting tokenizer (`VocabularyTokenizer`) fo
 
 ## Dependency Notes
 
-- The `tokenizers` library is now an optional dependency (`pip install -e .[tokenizers]`). It is only imported when a HuggingFace tokenizer.json is detected — Forge-trained models work without it.
+- The `tokenizers` library is now an optional dependency (`pip install -e .[tokenizers]`). It is only imported when a HuggingFace tokenizer.json is detected — Crucible-trained models work without it.
 - If BPE training support is added to the training pipeline, `tokenizers` may become a core dependency or part of the `serve` extra.

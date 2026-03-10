@@ -105,17 +105,24 @@ pub fn get_lineage_graph(data_root: String) -> Result<LineageGraphSummary, Strin
 #[tauri::command]
 pub fn get_hardware_profile(data_root: String) -> Result<BTreeMap<String, String>, String> {
     let resolved_data_root = resolve_data_root_path(&data_root);
-    let output = Command::new("forge")
-        .current_dir(workspace_root_dir())
+    let workspace_root = workspace_root_dir();
+    let venv_binary = workspace_root.join(".venv/bin/crucible");
+    let crucible_bin = if venv_binary.exists() {
+        venv_binary
+    } else {
+        PathBuf::from("crucible")
+    };
+    let output = Command::new(&crucible_bin)
+        .current_dir(&workspace_root)
         .arg("--data-root")
         .arg(resolved_data_root.as_os_str())
         .arg("hardware-profile")
         .output()
-        .map_err(|error| format!("Failed to run forge hardware-profile: {error}"))?;
+        .map_err(|error| format!("Failed to run crucible hardware-profile: {error}"))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(format!(
-            "forge hardware-profile failed with status {}: {}",
+            "crucible hardware-profile failed with status {}: {}",
             output.status.code().unwrap_or(-1),
             stderr
         ));
@@ -235,14 +242,14 @@ mod tests {
 
     #[test]
     fn resolve_data_root_path_keeps_absolute_paths() {
-        let absolute_path = resolve_data_root_path("/tmp/forge-data-root");
-        assert_eq!(absolute_path, Path::new("/tmp/forge-data-root"));
+        let absolute_path = resolve_data_root_path("/tmp/crucible-data-root");
+        assert_eq!(absolute_path, Path::new("/tmp/crucible-data-root"));
     }
 
     #[test]
     fn resolve_data_root_path_anchors_relative_paths_to_workspace_root() {
-        let relative_path = resolve_data_root_path(".forge");
-        assert!(relative_path.ends_with(Path::new(".forge")));
+        let relative_path = resolve_data_root_path(".crucible");
+        assert!(relative_path.ends_with(Path::new(".crucible")));
         assert!(relative_path.is_absolute());
     }
 }

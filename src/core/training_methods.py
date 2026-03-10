@@ -102,7 +102,7 @@ def dispatch_training(
     """Build method-specific options and call the correct client method.
 
     Args:
-        client: ForgeClient instance.
+        client: CrucibleClient instance.
         method: Training method identifier.
         kwargs: Keyword arguments for the options dataclass.
 

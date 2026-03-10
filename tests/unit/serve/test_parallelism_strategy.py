@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.errors import ForgeDistributedError
+from core.errors import CrucibleDistributedError
 from serve.parallelism_strategy import (
     ParallelismStrategy,
     resolve_parallelism_strategy,
@@ -21,7 +21,7 @@ def test_resolve_ddp_strategy() -> None:
 
 def test_resolve_unknown_raises() -> None:
     """resolve_parallelism_strategy with unknown name should raise."""
-    with pytest.raises(ForgeDistributedError, match="Unknown parallelism"):
+    with pytest.raises(CrucibleDistributedError, match="Unknown parallelism"):
         resolve_parallelism_strategy("nonexistent_strategy")
 
 

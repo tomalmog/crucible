@@ -1,4 +1,4 @@
-"""Run CRUD endpoints for Forge collaboration server.
+"""Run CRUD endpoints for Crucible collaboration server.
 
 This module defines FastAPI routes for listing, retrieving,
 and creating training run records.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.errors import ForgeDependencyError, ForgeServerError
+from core.errors import CrucibleDependencyError, CrucibleServerError
 
 
 def _import_fastapi() -> Any:
@@ -17,7 +17,7 @@ def _import_fastapi() -> Any:
         import fastapi
         return fastapi
     except ImportError as exc:
-        raise ForgeDependencyError(
+        raise CrucibleDependencyError(
             "fastapi is required for the collaboration server. "
             "Install it with: pip install fastapi"
         ) from exc
@@ -90,7 +90,7 @@ def create_runs_router(session_factory: Any) -> Any:
             )
         except Exception as exc:
             session.rollback()
-            raise ForgeServerError(
+            raise CrucibleServerError(
                 f"Failed to create run: {exc}"
             ) from exc
         finally:

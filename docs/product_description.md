@@ -1,4 +1,4 @@
-# Forge — Product Description
+# Crucible — Product Description
 
 *For use in outreach emails, pitch decks, and conversations with researchers.*
 
@@ -6,7 +6,7 @@
 
 ## One-Line Summary
 
-Forge is an open-source, end-to-end ML training platform that takes researchers from raw data to deployed model in a single tool — with 13 training algorithms, experiment tracking, evaluation benchmarks, remote cluster support, and a desktop GUI.
+Crucible is an open-source, end-to-end ML training platform that takes researchers from raw data to deployed model in a single tool — with 13 training algorithms, experiment tracking, evaluation benchmarks, remote cluster support, and a desktop GUI.
 
 ---
 
@@ -18,9 +18,9 @@ This fragmentation disproportionately affects individual researchers, small labs
 
 ---
 
-## What Forge Does
+## What Crucible Does
 
-Forge is a single platform that handles the entire ML training lifecycle:
+Crucible is a single platform that handles the entire ML training lifecycle:
 
 **Data Management** — Ingest raw data from local files or S3, apply built-in transforms (deduplication, language detection, quality scoring), and manage immutable versioned dataset snapshots with full lineage tracking. Every dataset operation is recorded and reproducible.
 
@@ -53,7 +53,7 @@ All methods include gradient clipping, NaN detection, mixed precision support (f
 
 **HuggingFace Hub Integration** — Search, download, and push models and datasets directly from the CLI or desktop app. Downloaded models are auto-registered in the local model registry.
 
-**Remote Training** — Submit training jobs to Slurm clusters via SSH. Forge auto-provisions the remote environment with the correct PyTorch + CUDA build, uploads datasets, and generates sbatch scripts. Monitor jobs in real-time from the desktop app — jobs appear the instant you click submit with live phase updates through provisioning, upload, and submission. Cancel pending jobs, stream logs, and pull trained models back to your local machine.
+**Remote Training** — Submit training jobs to Slurm clusters via SSH. Crucible auto-provisions the remote environment with the correct PyTorch + CUDA build, uploads datasets, and generates sbatch scripts. Monitor jobs in real-time from the desktop app — jobs appear the instant you click submit with live phase updates through provisioning, upload, and submission. Cancel pending jobs, stream logs, and pull trained models back to your local machine.
 
 ---
 
@@ -64,14 +64,14 @@ All methods include gradient clipping, NaN detection, mixed precision support (f
 Every feature is available as a CLI command. Commands compose into declarative YAML pipelines for reproducible multi-step workflows:
 
 ```bash
-forge ingest ./data --dataset papers
-forge filter --dataset papers --language en --min-quality 0.3
-forge lora-train --dataset papers --model-path meta-llama/Llama-2-7b --output-dir ./outputs
-forge eval --model-path ./outputs/model.pt --benchmark hellaswag
-forge deploy package --model-path ./outputs/model.pt --output-dir ./deploy
+crucible ingest ./data --dataset papers
+crucible filter --dataset papers --language en --min-quality 0.3
+crucible lora-train --dataset papers --model-path meta-llama/Llama-2-7b --output-dir ./outputs
+crucible eval --model-path ./outputs/model.pt --benchmark hellaswag
+crucible deploy package --model-path ./outputs/model.pt --output-dir ./deploy
 ```
 
-### Desktop App (Forge Studio)
+### Desktop App (Crucible Studio)
 
 A native desktop application built with Tauri (12 pages) that provides a visual interface for the entire workflow. Researchers who prefer GUIs get a first-class experience: a training method picker for all 13 algorithms, a configuration wizard that auto-saves drafts between sessions, live training progress with loss curves, dataset inspection with sample browsing, A/B model comparison with DPO data export, one-click deployment packaging, and a Jobs page that tracks local and remote training jobs in real-time.
 
@@ -85,7 +85,7 @@ The desktop app calls the same Python CLI under the hood — there is no feature
 - **PyTorch 2.6** for all training algorithms, with optional ONNX export
 - **Lance 1.2** for efficient vector storage of datasets
 - **Tauri 2** desktop runtime (Rust backend, React 19 frontend)
-- **Reproducibility** — every run emits a reproducibility bundle containing the config hash, training parameters, and environment snapshot. `forge replay` recreates any previous run exactly.
+- **Reproducibility** — every run emits a reproducibility bundle containing the config hash, training parameters, and environment snapshot. `crucible replay` recreates any previous run exactly.
 - **Extensibility** — custom model architectures (load a .py file), custom training loops, lifecycle hooks (run/epoch/batch/checkpoint callbacks), and custom loss functions
 - **Distributed training** via torchrun for multi-GPU DDP
 - **Remote Slurm clusters** — submit jobs via SSH with auto-provisioning, CUDA detection, and live monitoring
@@ -93,7 +93,7 @@ The desktop app calls the same Python CLI under the hood — there is no feature
 
 ---
 
-## Who Is Forge For
+## Who Is Crucible For
 
 - **ML researchers** who want to iterate faster by eliminating tool-switching overhead
 - **Small ML teams** who need experiment tracking, model versioning, and deployment tooling without setting up separate infrastructure for each
@@ -103,13 +103,13 @@ The desktop app calls the same Python CLI under the hood — there is no feature
 
 ---
 
-## What Makes Forge Different
+## What Makes Crucible Different
 
 1. **One tool, not ten.** Data prep, training, tracking, evaluation, and deployment in a single CLI. No glue code between tools.
 2. **13 training algorithms in one interface.** Switch between SFT, DPO, LoRA, RLHF, GRPO, distillation, and more by changing one flag. Same data format, same evaluation pipeline, same deployment flow.
-3. **Local to cluster in one click.** Train on your machine or submit to a Slurm cluster — same config, same monitoring, same model registry. Forge auto-provisions the remote environment and detects CUDA.
+3. **Local to cluster in one click.** Train on your machine or submit to a Slurm cluster — same config, same monitoring, same model registry. Crucible auto-provisions the remote environment and detects CUDA.
 4. **Reproducibility by default.** Every run produces a replay bundle. Every dataset version is immutable. Every model has lineage back to its training data.
-5. **Desktop app included.** Not everyone wants to live in the terminal. Forge Studio provides a visual interface that covers the full workflow, with live progress streaming and auto-saved configuration.
+5. **Desktop app included.** Not everyone wants to live in the terminal. Crucible Studio provides a visual interface that covers the full workflow, with live progress streaming and auto-saved configuration.
 6. **Works on consumer hardware.** QLoRA support means researchers can fine-tune 7B+ parameter models on a single GPU. Mixed precision and gradient accumulation make efficient use of available memory.
 
 ---

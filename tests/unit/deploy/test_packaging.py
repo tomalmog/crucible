@@ -8,7 +8,7 @@ import tempfile
 
 import pytest
 
-from core.errors import ForgeDeployError
+from core.errors import CrucibleDeployError
 from deploy.packaging import (
     PackageConfig,
     _compute_file_checksum,
@@ -53,10 +53,10 @@ def test_build_deployment_package_creates_manifest() -> None:
 
 
 def test_build_deployment_package_rejects_missing_model() -> None:
-    """Package build should raise ForgeDeployError for missing model."""
+    """Package build should raise CrucibleDeployError for missing model."""
     config = PackageConfig(
         model_path="/nonexistent/model.onnx",
         output_dir="/tmp/out",
     )
-    with pytest.raises(ForgeDeployError, match="Model file not found"):
+    with pytest.raises(CrucibleDeployError, match="Model file not found"):
         build_deployment_package(config)
