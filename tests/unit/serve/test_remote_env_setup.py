@@ -24,9 +24,10 @@ class TestEnvExists:
         session = _make_session([
             ("crucible                    /home/user/.conda/envs/crucible\n", "", 0),
             ("torch=2.6.0\n", "", 0),  # torch check
+            ("", "", 0),  # package import check
         ])
         ensure_remote_env(session)
-        assert session.execute.call_count == 2
+        assert session.execute.call_count == 3
         cmd = session.execute.call_args_list[0].args[0]
         assert "conda env list" in cmd
 
@@ -39,9 +40,10 @@ class TestEnvExists:
         session = _make_session([
             (output, "", 0),
             ("torch=2.6.0\n", "", 0),  # torch check
+            ("", "", 0),  # package import check
         ])
         ensure_remote_env(session)
-        assert session.execute.call_count == 2
+        assert session.execute.call_count == 3
 
 
 class TestEnvCreation:

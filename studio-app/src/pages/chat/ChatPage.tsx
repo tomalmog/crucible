@@ -49,6 +49,12 @@ window.addEventListener("beforeunload", () => {
 });
 
 const CHAT_POLL_MS = 100;
+
+/** Extract the last CRUCIBLE_ status line from stderr for progress display. */
+function extractStatusLine(stderr: string): string {
+  const lines = stderr.split("\n").filter((l) => l.startsWith("CRUCIBLE_"));
+  return lines.length > 0 ? lines[lines.length - 1].replace(/^CRUCIBLE_\w+:\s*/, "") : "";
+}
 const SAMPLING_PRESETS = {
   deterministic: { maxNewTokens: "80", temperature: "0", topK: "0" },
   balanced: { maxNewTokens: "120", temperature: "0.7", topK: "40" },
@@ -72,6 +78,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(loadSessionMessages);
   const [isSending, setIsSending] = useState(() => sessionStorage.getItem(SESSION_SENDING_KEY) === "1");
   const [chatError, setChatError] = useState<string | null>(null);
+  const [statusLine, setStatusLine] = useState("");
   const chatThreadRef = useRef<HTMLDivElement>(null);
 
   // On mount: if there's an in-flight task from before navigation, resume polling.
@@ -118,6 +125,7 @@ export function ChatPage() {
               return updated;
             });
           }
+          setStatusLine(extractStatusLine(status.stderr));
           if (status.status !== "running") {
             if (status.status !== "completed" || status.exit_code !== 0) {
               setChatError(status.stderr || "Chat command failed.");
@@ -143,6 +151,7 @@ export function ChatPage() {
     function clearActiveChat() {
       setActiveTask(null);
       setIsSending(false);
+      setStatusLine("");
       sessionStorage.removeItem(SESSION_SENDING_KEY);
     }
 
@@ -233,6 +242,7 @@ export function ChatPage() {
             return updated;
           });
         }
+        setStatusLine(extractStatusLine(status.stderr));
         if (status.status !== "running") {
           if (status.status !== "completed" || status.exit_code !== 0) {
             throw new Error(status.stderr || "Chat command failed.");
@@ -253,6 +263,7 @@ export function ChatPage() {
     } finally {
       setActiveTask(null);
       setIsSending(false);
+      setStatusLine("");
       sessionStorage.removeItem(SESSION_SENDING_KEY);
     }
   }
@@ -346,6 +357,9 @@ export function ChatPage() {
           )}
         </div>
 
+        {isSending && statusLine && (
+          <p className="chat-status">{statusLine}</p>
+        )}
         {chatError && <p className="chat-error">{chatError}</p>}
 
         <form className="chat-input-row" onSubmit={onSendMessage}>
@@ -357,6 +371,7 @@ export function ChatPage() {
             if (_activeTaskId) killCrucibleTask(_activeTaskId).catch(() => {});
             setActiveTask(null);
             setIsSending(false);
+            setStatusLine("");
             sessionStorage.removeItem(SESSION_SENDING_KEY);
             setChatError(null);
             setMessages([]);

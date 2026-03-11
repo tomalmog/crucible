@@ -128,23 +128,15 @@ def _remove_legacy_forge_env(session: SshSession) -> None:
 
 
 def _ensure_torch_installed(session: SshSession) -> None:
-    """Check that torch is importable and CUDA-compatible in the crucible env.
+    """Check that torch is importable in the crucible env.
 
-    Verifies:
-    1. torch is importable
-    2. torch.cuda.is_available() returns True
-    3. All required pip packages are importable
-
-    If torch exists but CUDA fails, the env is considered broken and
-    will be rebuilt by the caller.
+    Only checks that torch can be imported — we cannot verify CUDA
+    availability here because this runs on the login node which
+    typically has no GPU.  CUDA compatibility is ensured at env
+    creation time by matching the torch build to the detected CUDA
+    version.
     """
-    # Check torch + CUDA in one shot
-    check_script = (
-        "import torch; "
-        "cuda = torch.cuda.is_available(); "
-        "print('torch=' + torch.__version__); "
-        "print('cuda=' + str(cuda))"
-    )
+    check_script = "import torch; print('torch=' + torch.__version__)"
     stdout, _, code = session.execute(
         conda_cmd(
             f'conda run -n {ENV_NAME} python -c "{check_script}"'
@@ -152,11 +144,6 @@ def _ensure_torch_installed(session: SshSession) -> None:
         timeout=30,
     )
     if code == 0 and "torch=" in stdout:
-        if "cuda=False" in stdout:
-            raise CrucibleRemoteError(
-                "torch is installed but CUDA is not available — "
-                "env needs rebuild with compatible torch version"
-            )
         # Verify required packages are present
         _ensure_packages_installed(session)
         return
