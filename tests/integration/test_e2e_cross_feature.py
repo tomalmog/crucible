@@ -5,11 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from serve.experiment_tracker import ExperimentTracker
-from serve.cost_tracker import CostTracker
-from serve.recipe_manager import RecipeManager
 from serve.dataset_curator import score_examples
 from eval.evaluation_harness import EvaluationHarness
 from serve.synthetic_data import (
@@ -17,58 +12,6 @@ from serve.synthetic_data import (
     filter_by_quality,
     export_synthetic_data,
 )
-
-
-def test_experiment_and_registry_coexist(tmp_path: Path) -> None:
-    """ExperimentTracker and CostTracker share data_root without conflict."""
-    tracker = ExperimentTracker(tmp_path)
-    tracker.log_metrics("run-1", 1, {"loss": 0.5})
-
-    cost = CostTracker(tmp_path)
-    cost.log_run_cost("run-1", 3600.0)
-
-    metrics = tracker.get_run_metrics("run-1")
-    run_cost = cost.get_run_cost("run-1")
-
-    assert len(metrics) == 1
-    assert run_cost is not None
-    assert run_cost.gpu_hours == pytest.approx(1.0)
-
-
-def test_cost_tracking_for_run(tmp_path: Path) -> None:
-    """Log cost for a run, retrieve by run_id, verify fields are correct."""
-    cost = CostTracker(tmp_path)
-    result = cost.log_run_cost(
-        "cost-run", 7200.0, gpu_type="a100", tdp_watts=400
-    )
-    loaded = cost.get_run_cost("cost-run")
-
-    assert loaded is not None
-    assert loaded.run_id == "cost-run"
-    assert loaded.gpu_hours == pytest.approx(2.0)
-    assert loaded.gpu_type == "a100"
-
-
-def test_recipe_round_trip(tmp_path: Path) -> None:
-    """Seed hyperparameters, export recipe, import, and verify round-trip."""
-    tracker = ExperimentTracker(tmp_path)
-    tracker.log_hyperparameters(
-        "recipe-run", {"learning_rate": 0.001, "batch_size": 32}
-    )
-
-    manager = RecipeManager(tmp_path)
-    export_path = str(tmp_path / "exported.json")
-    manager.export_recipe("recipe-run", export_path)
-    manager.import_recipe(export_path)
-
-    # Read the exported file to get the recipe name
-    with open(export_path) as f:
-        exported = json.load(f)
-    recipe_name = exported.get("name", "recipe-run")
-
-    recipe = manager.get_recipe(recipe_name)
-    assert recipe["hyperparameters"]["learning_rate"] == 0.001
-    assert recipe["hyperparameters"]["batch_size"] == 32
 
 
 def test_curate_identifies_quality() -> None:

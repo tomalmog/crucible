@@ -89,28 +89,6 @@ class RecipeManager:
         self._data_root = data_root
         self._recipes_dir = data_root / "recipes"
 
-    def export_recipe(
-        self,
-        run_id: str,
-        output_path: str,
-    ) -> str:
-        """Export a training run configuration as a recipe."""
-        from serve.experiment_tracker import ExperimentTracker
-        tracker = ExperimentTracker(self._data_root)
-        summary = tracker.get_run_summary(run_id)
-        recipe = {
-            "name": f"recipe_from_{run_id}",
-            "description": f"Recipe exported from run {run_id}",
-            "method": summary.get("method", "sft"),
-            "hyperparameters": summary.get("hyperparameters", {}),
-            "source_run_id": run_id,
-        }
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(recipe, fh, indent=2, default=str)
-        return str(path)
-
     def import_recipe(self, recipe_path: str) -> str:
         """Import a recipe file into the local recipes directory."""
         src = Path(recipe_path)

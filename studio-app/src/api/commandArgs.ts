@@ -119,14 +119,6 @@ export function buildModelArgs(subcommand: string, extra: Record<string, string>
   return args;
 }
 
-export function buildExperimentArgs(subcommand: string, extra: Record<string, string>): string[] {
-  const args = ["experiment", subcommand];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
 export function buildHubArgs(subcommand: string, extra: Record<string, string>): string[] {
   const args = ["hub", subcommand];
   for (const [key, value] of Object.entries(extra)) {
@@ -137,14 +129,6 @@ export function buildHubArgs(subcommand: string, extra: Record<string, string>):
 
 export function buildEvalArgs(extra: Record<string, string>): string[] {
   const args = ["eval"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
-export function buildJudgeArgs(extra: Record<string, string>): string[] {
-  const args = ["judge"];
   for (const [key, value] of Object.entries(extra)) {
     appendOptionalRaw(args, key, value);
   }
@@ -185,14 +169,6 @@ export function buildRecipeArgs(subcommand: string, extra: Record<string, string
 
 export function buildCloudArgs(subcommand: string, extra: Record<string, string>): string[] {
   const args = ["cloud", subcommand];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
-export function buildCostArgs(subcommand: string, extra: Record<string, string>): string[] {
-  const args = ["cost", subcommand];
   for (const [key, value] of Object.entries(extra)) {
     appendOptionalRaw(args, key, value);
   }

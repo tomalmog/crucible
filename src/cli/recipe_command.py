@@ -15,8 +15,6 @@ def run_recipe_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     subcmd = args.recipe_subcommand
     if subcmd == "list":
         return _run_list(manager)
-    if subcmd == "export":
-        return _run_export(manager, args.run_id, args.output)
     if subcmd == "import":
         return _run_import(manager, args.path)
     if subcmd == "apply":
@@ -30,12 +28,6 @@ def _run_list(manager: RecipeManager) -> int:
         print(f"{r['name']}  method={r['method']}  source={r['source']}")
     if not recipes:
         print("No recipes found.")
-    return 0
-
-
-def _run_export(manager: RecipeManager, run_id: str, output: str) -> int:
-    path = manager.export_recipe(run_id, output)
-    print(f"recipe_path={path}")
     return 0
 
 
@@ -59,9 +51,6 @@ def add_recipe_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     parser = subparsers.add_parser("recipe", help="Training recipe management")
     sub = parser.add_subparsers(dest="recipe_subcommand", required=True)
     sub.add_parser("list", help="List available recipes")
-    export_p = sub.add_parser("export", help="Export run config as recipe")
-    export_p.add_argument("--run-id", required=True, help="Training run ID")
-    export_p.add_argument("--output", required=True, help="Output file path")
     import_p = sub.add_parser("import", help="Import a recipe file")
     import_p.add_argument("path", help="Path to recipe JSON file")
     apply_p = sub.add_parser("apply", help="Show recipe configuration")

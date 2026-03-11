@@ -15,7 +15,6 @@ from cli.chat_command import add_chat_command, run_chat_command
 from cli.cloud_command import add_cloud_command, run_cloud_command
 from cli.compare_command import add_compare_command, run_compare_command
 from cli.compute_command import add_compute_command, run_compute_command
-from cli.cost_command import add_cost_command, run_cost_command
 from cli.curate_command import add_curate_command, run_curate_command
 from cli.data_commands import (
     add_export_training_command,
@@ -32,7 +31,6 @@ from cli.distributed_train_command import (
 from cli.domain_adapt_command import add_domain_adapt_command, run_domain_adapt_command
 from cli.dpo_command import add_dpo_command, run_dpo_command
 from cli.eval_command import add_eval_command, run_eval_command
-from cli.experiment_command import add_experiment_command, run_experiment_command
 from cli.export_spec_command import add_export_spec_command, run_export_spec_command
 from cli.grpo_command import add_grpo_command, run_grpo_command
 from cli.hardware_profile_command import (
@@ -40,7 +38,6 @@ from cli.hardware_profile_command import (
     run_hardware_profile_command,
 )
 from cli.hub_command import add_hub_command, run_hub_command
-from cli.judge_command import add_judge_command, run_judge_command
 from cli.kto_command import add_kto_command, run_kto_command
 from cli.lora_command import (
     add_lora_merge_command,
@@ -91,10 +88,10 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_compute_command, add_server_command,
     add_deploy_command,
     add_grpo_command, add_qlora_command, add_kto_command, add_orpo_command,
-    add_suggest_command, add_experiment_command, add_hub_command,
-    add_eval_command, add_judge_command, add_curate_command,
+    add_suggest_command, add_hub_command,
+    add_eval_command, add_curate_command,
     add_merge_command, add_ab_chat_command, add_recipe_command,
-    add_cloud_command, add_cost_command, add_multimodal_command,
+    add_cloud_command, add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
 )
 
@@ -133,16 +130,13 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "kto-train": run_kto_command,
         "orpo-train": run_orpo_command,
         "suggest": run_suggest_command,
-        "experiment": run_experiment_command,
         "hub": run_hub_command,
         "eval": run_eval_command,
-        "judge": run_judge_command,
         "curate": run_curate_command,
         "merge": run_merge_command,
         "ab-chat": run_ab_chat_command,
         "recipe": run_recipe_command,
         "cloud": run_cloud_command,
-        "cost": run_cost_command,
         "multimodal-train": run_multimodal_command,
         "synthetic": run_synthetic_command,
         "rlvr-train": run_rlvr_command,

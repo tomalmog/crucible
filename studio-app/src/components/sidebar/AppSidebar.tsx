@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { to: "/datasets", icon: <Database size={16} />, label: "Datasets" },
   { to: "/models", icon: <Box size={16} />, label: "Models" },
   { to: "/chat", icon: <MessageSquare size={16} />, label: "Chat" },
-  { to: "/experiments", icon: <FlaskConical size={16} />, label: "Experiments" },
+  { to: "/benchmarks", icon: <FlaskConical size={16} />, label: "Benchmarks" },
   { to: "/hub", icon: <Globe size={16} />, label: "Hub" },
 ];
 

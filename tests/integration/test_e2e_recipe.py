@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 
 from cli.main import main
-from serve.experiment_tracker import ExperimentTracker
 from serve.recipe_manager import RecipeManager
 
 
@@ -53,38 +52,6 @@ def test_import_and_list(tmp_path: Path) -> None:
     assert len(imported) >= 1
     names = [r["name"] for r in imported]
     assert "my_recipe" in names
-
-
-def test_export_from_run(tmp_path: Path) -> None:
-    """Exporting a recipe from a run should produce a JSON with hyperparameters."""
-    tracker = ExperimentTracker(tmp_path)
-    tracker.log_hyperparameters("run-1", {"learning_rate": 0.001, "epochs": 3})
-
-    manager = RecipeManager(tmp_path)
-    output = tmp_path / "exported_recipe.json"
-    manager.export_recipe("run-1", str(output))
-
-    assert output.exists()
-    data = json.loads(output.read_text())
-    assert "hyperparameters" in data
-
-
-def test_round_trip(tmp_path: Path) -> None:
-    """A recipe exported from a run and re-imported should retain hyperparameters."""
-    tracker = ExperimentTracker(tmp_path)
-    tracker.log_hyperparameters("run-rt", {"learning_rate": 0.001, "epochs": 3})
-
-    manager = RecipeManager(tmp_path)
-    exported_path = tmp_path / "rt_recipe.json"
-    manager.export_recipe("run-rt", str(exported_path))
-    manager.import_recipe(str(exported_path))
-
-    exported_data = json.loads(exported_path.read_text())
-    imported_name = exported_data["name"]
-    reimported = manager.get_recipe(imported_name)
-
-    assert reimported["hyperparameters"]["learning_rate"] == 0.001
-    assert reimported["hyperparameters"]["epochs"] == 3
 
 
 def test_cli_list(tmp_path: Path, capsys) -> None:
