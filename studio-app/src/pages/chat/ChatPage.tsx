@@ -1,7 +1,7 @@
-import { FormEvent, useEffect, useMemo, useRef, useState, Dispatch, SetStateAction } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useCrucible } from "../../context/CrucibleContext";
-import { getCrucibleCommandStatus, startCrucibleCommand } from "../../api/studioApi";
+import { getCrucibleCommandStatus, killCrucibleTask, startCrucibleCommand } from "../../api/studioApi";
 import { listClusters } from "../../api/remoteApi";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { FormField } from "../../components/shared/FormField";
@@ -15,6 +15,9 @@ interface ChatMessage {
 }
 
 const SESSION_CHAT_KEY = "crucible_chat_messages";
+const SESSION_MODEL_KEY = "crucible_chat_model";
+const SESSION_TASK_KEY = "crucible_chat_task";
+const SESSION_SENDING_KEY = "crucible_chat_sending";
 
 function loadSessionMessages(): ChatMessage[] {
   try {
@@ -29,6 +32,22 @@ function saveSessionMessages(msgs: ChatMessage[]): void {
   sessionStorage.setItem(SESSION_CHAT_KEY, JSON.stringify(msgs));
 }
 
+// Module-level active task — survives component unmount.
+let _activeTaskId: string | null = sessionStorage.getItem(SESSION_TASK_KEY) || null;
+
+function setActiveTask(id: string | null) {
+  _activeTaskId = id;
+  if (id) sessionStorage.setItem(SESSION_TASK_KEY, id);
+  else sessionStorage.removeItem(SESSION_TASK_KEY);
+}
+
+// Kill running chat task when the app window closes.
+window.addEventListener("beforeunload", () => {
+  if (_activeTaskId) {
+    killCrucibleTask(_activeTaskId).catch(() => {});
+  }
+});
+
 const CHAT_POLL_MS = 100;
 const SAMPLING_PRESETS = {
   deterministic: { maxNewTokens: "80", temperature: "0", topK: "0" },
@@ -42,7 +61,7 @@ export function ChatPage() {
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
-  const [modelPath, setModelPath] = useState("");
+  const [modelPath, setModelPath] = useState(() => sessionStorage.getItem(SESSION_MODEL_KEY) ?? "");
   const [maxNewTokens, setMaxNewTokens] = useState("120");
   const [temperature, setTemperature] = useState("0.7");
   const [topK, setTopK] = useState("40");
@@ -51,9 +70,85 @@ export function ChatPage() {
   const [samplingPreset, setSamplingPreset] = useState<SamplingPreset>("balanced");
   const [draftMessage, setDraftMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(loadSessionMessages);
-  const [isSending, setIsSending] = useState(false);
+  const [isSending, setIsSending] = useState(() => sessionStorage.getItem(SESSION_SENDING_KEY) === "1");
   const [chatError, setChatError] = useState<string | null>(null);
   const chatThreadRef = useRef<HTMLDivElement>(null);
+
+  // On mount: if there's an in-flight task from before navigation, resume polling.
+  useEffect(() => {
+    if (!_activeTaskId) {
+      // No task — clear any stale sending flag.
+      if (isSending) {
+        setIsSending(false);
+        sessionStorage.removeItem(SESSION_SENDING_KEY);
+      }
+      return;
+    }
+    let cancelled = false;
+
+    async function resumePoll() {
+      const taskId = _activeTaskId!;
+      try {
+        // Initial check — if the task is gone or already done, clear immediately.
+        const first = await getCrucibleCommandStatus(taskId);
+        if (first.status !== "running") {
+          if (first.status === "completed" && first.exit_code === 0) {
+            const text = first.stdout.trim();
+            setMessages((c) => {
+              const updated = [...c];
+              updated[updated.length - 1] = { role: "assistant", content: text || "(no response generated)" };
+              return updated;
+            });
+          } else if (first.stderr) {
+            setChatError(first.stderr);
+          }
+          clearActiveChat();
+          return;
+        }
+
+        // Still running — poll until done.
+        while (!cancelled) {
+          await new Promise((r) => setTimeout(r, CHAT_POLL_MS));
+          const status = await getCrucibleCommandStatus(taskId);
+          const partial = status.stdout.trim();
+          if (partial.length > 0) {
+            setMessages((c) => {
+              const updated = [...c];
+              updated[updated.length - 1] = { role: "assistant", content: partial };
+              return updated;
+            });
+          }
+          if (status.status !== "running") {
+            if (status.status !== "completed" || status.exit_code !== 0) {
+              setChatError(status.stderr || "Chat command failed.");
+              killCrucibleTask(taskId).catch(() => {});
+            } else {
+              const text = status.stdout.trim();
+              setMessages((c) => {
+                const updated = [...c];
+                updated[updated.length - 1] = { role: "assistant", content: text || "(no response generated)" };
+                return updated;
+              });
+            }
+            clearActiveChat();
+            return;
+          }
+        }
+      } catch {
+        // Task doesn't exist or status call failed — clear stale state.
+        if (!cancelled) clearActiveChat();
+      }
+    }
+
+    function clearActiveChat() {
+      setActiveTask(null);
+      setIsSending(false);
+      sessionStorage.removeItem(SESSION_SENDING_KEY);
+    }
+
+    resumePoll();
+    return () => { cancelled = true; };
+  }, []);
 
   // Detect whether the selected model is on a remote cluster
   const remoteHost = useMemo(() => {
@@ -69,10 +164,9 @@ export function ChatPage() {
     if (selectedDataset) setDatasetName(selectedDataset);
   }, [selectedDataset]);
 
-  // Persist messages to sessionStorage so they survive page navigation.
-  useEffect(() => {
-    saveSessionMessages(messages);
-  }, [messages]);
+  // Persist messages and model to sessionStorage so they survive page navigation.
+  useEffect(() => { saveSessionMessages(messages); }, [messages]);
+  useEffect(() => { sessionStorage.setItem(SESSION_MODEL_KEY, modelPath); }, [modelPath]);
 
   // Auto-scroll chat thread to bottom when new messages arrive
   useEffect(() => {
@@ -111,7 +205,9 @@ export function ChatPage() {
     setChatError(null);
     setMessages((c) => [...c, { role: "user", content: userText }]);
     setIsSending(true);
+    sessionStorage.setItem(SESSION_SENDING_KEY, "1");
 
+    let taskId: string | null = null;
     try {
       const prompt = buildPromptText(messages, userText);
       let args: string[];
@@ -123,20 +219,41 @@ export function ChatPage() {
       }
       setMessages((c) => [...c, { role: "assistant", content: "" }]);
       const taskStart = await startCrucibleCommand(dataRoot, args);
-      const taskStatus = await streamChatTask(taskStart.task_id, setMessages);
-      if (taskStatus.status !== "completed" || taskStatus.exit_code !== 0) {
-        throw new Error(taskStatus.stderr || "Chat command failed.");
+      taskId = taskStart.task_id;
+      setActiveTask(taskId);
+
+      // Poll until done
+      while (true) {
+        const status = await getCrucibleCommandStatus(taskId);
+        const partial = status.stdout.trim();
+        if (partial.length > 0) {
+          setMessages((c) => {
+            const updated = [...c];
+            updated[updated.length - 1] = { role: "assistant", content: partial };
+            return updated;
+          });
+        }
+        if (status.status !== "running") {
+          if (status.status !== "completed" || status.exit_code !== 0) {
+            throw new Error(status.stderr || "Chat command failed.");
+          }
+          const responseText = status.stdout.trim();
+          setMessages((c) => {
+            const updated = [...c];
+            updated[updated.length - 1] = { role: "assistant", content: responseText || "(no response generated)" };
+            return updated;
+          });
+          break;
+        }
+        await new Promise((r) => setTimeout(r, CHAT_POLL_MS));
       }
-      const responseText = taskStatus.stdout.trim();
-      setMessages((c) => {
-        const updated = [...c];
-        updated[updated.length - 1] = { role: "assistant", content: responseText || "(no response generated)" };
-        return updated;
-      });
     } catch (error) {
       setChatError(error instanceof Error ? error.message : String(error));
+      if (taskId) killCrucibleTask(taskId).catch(() => {});
     } finally {
+      setActiveTask(null);
       setIsSending(false);
+      sessionStorage.removeItem(SESSION_SENDING_KEY);
     }
   }
 
@@ -236,29 +353,20 @@ export function ChatPage() {
           <button className="btn btn-primary" type="submit" disabled={!canSend}>
             {isSending ? "Sending..." : "Send"}
           </button>
-          <button className="btn" type="button" disabled={isSending} onClick={() => setMessages([])}>
+          <button className="btn" type="button" onClick={() => {
+            if (_activeTaskId) killCrucibleTask(_activeTaskId).catch(() => {});
+            setActiveTask(null);
+            setIsSending(false);
+            sessionStorage.removeItem(SESSION_SENDING_KEY);
+            setChatError(null);
+            setMessages([]);
+          }}>
             Clear
           </button>
         </form>
       </div>
     </>
   );
-}
-
-async function streamChatTask(taskId: string, setMessages: Dispatch<SetStateAction<ChatMessage[]>>) {
-  while (true) {
-    const status = await getCrucibleCommandStatus(taskId);
-    const partial = status.stdout.trim();
-    if (partial.length > 0) {
-      setMessages((c) => {
-        const updated = [...c];
-        updated[updated.length - 1] = { role: "assistant", content: partial };
-        return updated;
-      });
-    }
-    if (status.status !== "running") return status;
-    await new Promise((r) => setTimeout(r, CHAT_POLL_MS));
-  }
 }
 
 function buildPromptText(_messages: ChatMessage[], currentText: string): string {

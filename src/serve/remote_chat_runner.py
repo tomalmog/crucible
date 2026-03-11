@@ -63,7 +63,9 @@ def stream_remote_chat(
         command = _build_srun_command(
             cluster.module_loads, bundle_dir, resources,
         )
-        yield from session.stream_command(command, timeout=600)
+        # Use a longer timeout: env setup can take minutes, then
+        # srun may queue before the model runs.
+        yield from session.stream_command(command, timeout=1800)
 
 
 def _sync_bundle(

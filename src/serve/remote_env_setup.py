@@ -128,8 +128,23 @@ def _remove_legacy_forge_env(session: SshSession) -> None:
 
 
 def _ensure_torch_installed(session: SshSession) -> None:
-    """Check that torch is importable in the crucible env."""
-    check_script = "import torch; print('torch=' + torch.__version__)"
+    """Check that torch is importable and CUDA-compatible in the crucible env.
+
+    Verifies:
+    1. torch is importable
+    2. torch.cuda.is_available() returns True
+    3. All required pip packages are importable
+
+    If torch exists but CUDA fails, the env is considered broken and
+    will be rebuilt by the caller.
+    """
+    # Check torch + CUDA in one shot
+    check_script = (
+        "import torch; "
+        "cuda = torch.cuda.is_available(); "
+        "print('torch=' + torch.__version__); "
+        "print('cuda=' + str(cuda))"
+    )
     stdout, _, code = session.execute(
         conda_cmd(
             f'conda run -n {ENV_NAME} python -c "{check_script}"'
@@ -137,6 +152,13 @@ def _ensure_torch_installed(session: SshSession) -> None:
         timeout=30,
     )
     if code == 0 and "torch=" in stdout:
+        if "cuda=False" in stdout:
+            raise CrucibleRemoteError(
+                "torch is installed but CUDA is not available — "
+                "env needs rebuild with compatible torch version"
+            )
+        # Verify required packages are present
+        _ensure_packages_installed(session)
         return
 
     print(
@@ -144,9 +166,7 @@ def _ensure_torch_installed(session: SshSession) -> None:
         flush=True,
     )
     cuda_tag = _detect_cuda_tag(session)
-    torch_install = (
-        f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
-    )
+    torch_install = _torch_install_spec(cuda_tag)
     _, stderr, code = session.execute(
         conda_cmd(
             f"conda run -n {ENV_NAME} pip install {torch_install}",
@@ -156,6 +176,34 @@ def _ensure_torch_installed(session: SshSession) -> None:
     if code != 0:
         raise CrucibleRemoteError(f"torch install failed: {stderr.strip()}")
     print("CRUCIBLE_ENV_SETUP: torch installed.", flush=True)
+    _ensure_packages_installed(session)
+
+
+def _ensure_packages_installed(session: SshSession) -> None:
+    """Install any missing pip packages into the crucible env."""
+    imports = " ".join(
+        f"__import__('{p.split('<')[0].split('>')[0].strip()}')"
+        for p in _PIP_PACKAGES
+    )
+    _, _, code = session.execute(
+        conda_cmd(
+            f'conda run -n {ENV_NAME} python -c "{imports}"'
+        ),
+        timeout=30,
+    )
+    if code == 0:
+        return
+    print(
+        "CRUCIBLE_ENV_SETUP: installing missing packages...",
+        flush=True,
+    )
+    pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
+    _, stderr, code = session.execute(
+        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
+        timeout=600,
+    )
+    if code != 0:
+        raise CrucibleRemoteError(f"pip install failed: {stderr.strip()}")
 
 
 def _remove_env(session: SshSession) -> None:
@@ -217,10 +265,9 @@ def _detect_cuda_tag(session: SshSession) -> str:
             match = re.search(r"CUDA Version:\s*(\d+)\.(\d+)", line)
             if match:
                 major, minor = int(match.group(1)), int(match.group(2))
-                if major >= 13:
-                    return "cu126"
-                if major == 12 and minor >= 8:
-                    return "cu126"
+                # CUDA 12.8+ supports Blackwell (sm_120) — needs cu128
+                if major >= 13 or (major == 12 and minor >= 8):
+                    return "cu128"
                 if major == 12 and minor >= 6:
                     return "cu126"
                 if major == 12 and minor >= 4:
@@ -229,6 +276,20 @@ def _detect_cuda_tag(session: SshSession) -> str:
                     return "cu121"
                 return "cu118"
     return "cu124"
+
+
+def _torch_install_spec(cuda_tag: str) -> str:
+    """Return the pip install spec for torch given a CUDA tag.
+
+    Tags like cu128 need the nightly index because stable PyTorch
+    wheels don't yet include Blackwell (sm_120) kernels.
+    """
+    if cuda_tag in ("cu128", "cu129"):
+        return (
+            f"torch --index-url "
+            f"https://download.pytorch.org/whl/nightly/{cuda_tag}"
+        )
+    return f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
 
 
 def _create_env(session: SshSession) -> None:
@@ -242,9 +303,7 @@ def _create_env(session: SshSession) -> None:
 
     # Detect CUDA version and install matching torch build.
     cuda_tag = _detect_cuda_tag(session)
-    torch_install = (
-        f"torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
-    )
+    torch_install = _torch_install_spec(cuda_tag)
     print(f"CRUCIBLE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
     _, stderr, code = session.execute(
         conda_cmd(
