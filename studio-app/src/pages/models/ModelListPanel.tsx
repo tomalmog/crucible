@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Trash2, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { listClusters } from "../../api/remoteApi";
@@ -31,7 +31,7 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
   const [isLoadingClusters, setIsLoadingClusters] = useState(true);
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<ModelGroup | null>(null);
 
   // Load clusters on mount and when refresh is triggered
   useEffect(() => {
@@ -47,15 +47,6 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
     });
   }, [dataRoot, refreshKey]);
 
-  function cancelDelete(): void {
-    setPendingDelete(null);
-  }
-
-  function switchTab(tab: ListTab): void {
-    setListTab(tab);
-    cancelDelete();
-  }
-
   /** Auto-determine delete scope from the model's locations. */
   function scopeForGroup(group: ModelGroup): DeleteScope {
     if (group.hasLocal && group.hasRemote) return "both";
@@ -63,13 +54,14 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
     return "local";
   }
 
-  async function confirmDelete(group: ModelGroup): Promise<void> {
-    const scope = scopeForGroup(group);
-    const args = ["model", "delete", "--name", group.modelName, "--yes"];
+  async function confirmDelete(): Promise<void> {
+    if (!pendingDeleteGroup) return;
+    const scope = scopeForGroup(pendingDeleteGroup);
+    const args = ["model", "delete", "--name", pendingDeleteGroup.modelName, "--yes"];
     if (scope === "local" || scope === "both") args.push("--delete-local");
     if (scope === "remote" || scope === "both") args.push("--include-remote");
     await command.run(dataRoot, args);
-    cancelDelete();
+    setPendingDeleteGroup(null);
     await refreshModels();
   }
 
@@ -102,13 +94,13 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
       <div className="tab-list">
         <button
           className={`tab-item ${listTab === "local" ? "active" : ""}`}
-          onClick={() => switchTab("local")}
+          onClick={() => setListTab("local")}
         >
           Local
         </button>
         <button
           className={`tab-item ${listTab === "remote" ? "active" : ""}`}
-          onClick={() => switchTab("remote")}
+          onClick={() => setListTab("remote")}
         >
           Remote
         </button>
@@ -148,21 +140,23 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
               isExpanded={group.modelName === selectedModelName}
               versions={filteredVersions}
               selectedModel={selectedModel}
-              pendingDelete={pendingDelete}
-              isDeleting={command.isRunning}
-              onToggle={() => {
-                setSelectedModelName(
-                  group.modelName === selectedModelName ? null : group.modelName,
-                );
-                cancelDelete();
-              }}
+              onToggle={() => setSelectedModelName(
+                group.modelName === selectedModelName ? null : group.modelName,
+              )}
               onSelectVersion={setSelectedModel}
-              onDeleteStart={() => setPendingDelete(group.modelName)}
-              onDeleteConfirm={() => confirmDelete(group).catch(console.error)}
-              onDeleteCancel={cancelDelete}
+              onDeleteStart={() => setPendingDeleteGroup(group)}
             />
           ))}
         </div>
+      )}
+
+      {pendingDeleteGroup && (
+        <DeleteModal
+          modelName={pendingDeleteGroup.modelName}
+          isDeleting={command.isRunning}
+          onConfirm={() => confirmDelete().catch(console.error)}
+          onCancel={() => setPendingDeleteGroup(null)}
+        />
       )}
     </div>
   );
@@ -175,22 +169,15 @@ interface ModelGroupRowProps {
   isExpanded: boolean;
   versions: ModelVersion[];
   selectedModel: ModelVersion | null;
-  pendingDelete: string | null;
-  isDeleting: boolean;
   onToggle: () => void;
   onSelectVersion: (v: ModelVersion) => void;
   onDeleteStart: () => void;
-  onDeleteConfirm: () => void;
-  onDeleteCancel: () => void;
 }
 
 function ModelGroupRow({
-  group, isExpanded, versions, selectedModel, pendingDelete,
-  isDeleting, onToggle, onSelectVersion,
-  onDeleteStart, onDeleteConfirm, onDeleteCancel,
+  group, isExpanded, versions, selectedModel,
+  onToggle, onSelectVersion, onDeleteStart,
 }: ModelGroupRowProps) {
-  const isDeleteTarget = pendingDelete === group.modelName;
-
   return (
     <div>
       <div className="flex-row" style={{ alignItems: "center" }}>
@@ -205,28 +192,17 @@ function ModelGroupRow({
           </span>
           <span className="badge">{group.versionCount}</span>
         </button>
-        {!isDeleteTarget && (
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            style={{ flexShrink: 0 }}
-            title="Delete model"
-            onClick={onDeleteStart}
-          >
-            <Trash2 size={12} />
-          </button>
-        )}
+        <button
+          className="btn btn-ghost btn-sm btn-icon"
+          style={{ flexShrink: 0 }}
+          title="Delete model"
+          onClick={onDeleteStart}
+        >
+          <Trash2 size={12} />
+        </button>
       </div>
 
-      {isDeleteTarget && (
-        <DeleteConfirmation
-          modelName={group.modelName}
-          isDeleting={isDeleting}
-          onConfirm={onDeleteConfirm}
-          onCancel={onDeleteCancel}
-        />
-      )}
-
-      {isExpanded && !isDeleteTarget && (
+      {isExpanded && (
         <div>
           {versions.map((v) => (
             <VersionRow
@@ -277,22 +253,43 @@ function VersionRow({ version, isSelected, onSelect }: {
   );
 }
 
-/* ---- Delete confirmation ---- */
+/* ---- Delete confirmation modal ---- */
 
-function DeleteConfirmation(p: {
+function DeleteModal(p: {
   modelName: string; isDeleting: boolean;
   onConfirm: () => void; onCancel: () => void;
 }) {
+  // Close on Escape
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === "Escape" && !p.isDeleting) p.onCancel();
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [p.isDeleting, p.onCancel]);
+
   return (
-    <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-      <span className="text-sm" style={{ color: "var(--error)" }}>
-        Delete &quot;{p.modelName}&quot;?
-      </span>
-      <div style={{ display: "flex", gap: 6 }}>
-        <button className="btn btn-sm btn-error" onClick={p.onConfirm} disabled={p.isDeleting}>
-          {p.isDeleting ? "Deleting..." : "Confirm"}
-        </button>
-        <button className="btn btn-sm" onClick={p.onCancel} disabled={p.isDeleting}>Cancel</button>
+    <div className="modal-backdrop" onClick={p.isDeleting ? undefined : p.onCancel}>
+      <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="confirm-modal-header">
+          <h3 className="confirm-modal-title">Delete Model</h3>
+          {!p.isDeleting && (
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={p.onCancel}>
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <div className="confirm-modal-body">
+          <p>Are you sure you want to delete <strong>{p.modelName}</strong>? This will remove all versions and associated files.</p>
+        </div>
+        <div className="confirm-modal-footer">
+          {!p.isDeleting && (
+            <button className="btn btn-sm" onClick={p.onCancel}>Cancel</button>
+          )}
+          <button className="btn btn-sm btn-error" onClick={p.onConfirm} disabled={p.isDeleting}>
+            {p.isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
       </div>
     </div>
   );
