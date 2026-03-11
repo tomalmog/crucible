@@ -6,7 +6,7 @@ import { listClusters } from "../../api/remoteApi";
 import type { ClusterConfig } from "../../types/remote";
 import type { ModelGroup, ModelVersion } from "../../types/models";
 
-type DeleteScope = "registry" | "local" | "remote" | "both";
+type DeleteScope = "local" | "remote" | "both";
 type ListTab = "local" | "remote";
 
 interface ModelListPanelProps {
@@ -32,7 +32,6 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
   const [selectedCluster, setSelectedCluster] = useState("");
   const [isLoadingClusters, setIsLoadingClusters] = useState(true);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [deleteScope, setDeleteScope] = useState<DeleteScope>("local");
 
   // Load clusters on mount and when refresh is triggered
   useEffect(() => {
@@ -50,7 +49,6 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
 
   function cancelDelete(): void {
     setPendingDelete(null);
-    setDeleteScope("local");
   }
 
   function switchTab(tab: ListTab): void {
@@ -58,11 +56,18 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
     cancelDelete();
   }
 
-  async function confirmDelete(modelName: string): Promise<void> {
-    const args = ["model", "delete", "--name", modelName, "--yes"];
-    if (deleteScope === "local" || deleteScope === "both") args.push("--delete-local");
-    if (deleteScope === "remote" || deleteScope === "both") args.push("--include-remote");
-    if (deleteScope === "remote") args.push("--keep-registry");
+  /** Auto-determine delete scope from the model's locations. */
+  function scopeForGroup(group: ModelGroup): DeleteScope {
+    if (group.hasLocal && group.hasRemote) return "both";
+    if (group.hasRemote) return "remote";
+    return "local";
+  }
+
+  async function confirmDelete(group: ModelGroup): Promise<void> {
+    const scope = scopeForGroup(group);
+    const args = ["model", "delete", "--name", group.modelName, "--yes"];
+    if (scope === "local" || scope === "both") args.push("--delete-local");
+    if (scope === "remote" || scope === "both") args.push("--include-remote");
     await command.run(dataRoot, args);
     cancelDelete();
     await refreshModels();
@@ -144,7 +149,6 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
               versions={filteredVersions}
               selectedModel={selectedModel}
               pendingDelete={pendingDelete}
-              deleteScope={deleteScope}
               isDeleting={command.isRunning}
               onToggle={() => {
                 setSelectedModelName(
@@ -154,9 +158,8 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
               }}
               onSelectVersion={setSelectedModel}
               onDeleteStart={() => setPendingDelete(group.modelName)}
-              onDeleteConfirm={() => confirmDelete(group.modelName).catch(console.error)}
+              onDeleteConfirm={() => confirmDelete(group).catch(console.error)}
               onDeleteCancel={cancelDelete}
-              onDeleteScopeChange={setDeleteScope}
             />
           ))}
         </div>
@@ -173,20 +176,18 @@ interface ModelGroupRowProps {
   versions: ModelVersion[];
   selectedModel: ModelVersion | null;
   pendingDelete: string | null;
-  deleteScope: DeleteScope;
   isDeleting: boolean;
   onToggle: () => void;
   onSelectVersion: (v: ModelVersion) => void;
   onDeleteStart: () => void;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
-  onDeleteScopeChange: (scope: DeleteScope) => void;
 }
 
 function ModelGroupRow({
   group, isExpanded, versions, selectedModel, pendingDelete,
-  deleteScope, isDeleting, onToggle, onSelectVersion,
-  onDeleteStart, onDeleteConfirm, onDeleteCancel, onDeleteScopeChange,
+  isDeleting, onToggle, onSelectVersion,
+  onDeleteStart, onDeleteConfirm, onDeleteCancel,
 }: ModelGroupRowProps) {
   const isDeleteTarget = pendingDelete === group.modelName;
 
@@ -219,9 +220,7 @@ function ModelGroupRow({
       {isDeleteTarget && (
         <DeleteConfirmation
           modelName={group.modelName}
-          deleteScope={deleteScope}
           isDeleting={isDeleting}
-          onScopeChange={onDeleteScopeChange}
           onConfirm={onDeleteConfirm}
           onCancel={onDeleteCancel}
         />
@@ -281,21 +280,14 @@ function VersionRow({ version, isSelected, onSelect }: {
 /* ---- Delete confirmation ---- */
 
 function DeleteConfirmation(p: {
-  modelName: string; deleteScope: DeleteScope; isDeleting: boolean;
-  onScopeChange: (s: DeleteScope) => void; onConfirm: () => void; onCancel: () => void;
+  modelName: string; isDeleting: boolean;
+  onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
       <span className="text-sm" style={{ color: "var(--error)" }}>
         Delete &quot;{p.modelName}&quot;?
       </span>
-      <select className="text-sm" value={p.deleteScope}
-        onChange={(e) => p.onScopeChange(e.currentTarget.value as DeleteScope)}>
-        <option value="registry">Registry only (keep files)</option>
-        <option value="local">Local files</option>
-        <option value="remote">Remote files</option>
-        <option value="both">Local + Remote</option>
-      </select>
       <div style={{ display: "flex", gap: 6 }}>
         <button className="btn btn-sm btn-error" onClick={p.onConfirm} disabled={p.isDeleting}>
           {p.isDeleting ? "Deleting..." : "Confirm"}
