@@ -651,7 +651,7 @@ label,
 .run-row {
     display: grid;
     gap: 3px;
-    padding: 10px 14px;
+    padding: 12px 14px;
     min-width: 0;
     overflow: hidden;
 }
@@ -1415,6 +1415,47 @@ label,
     font-size: 0.75rem;
 }
 
+.jobs-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-bottom: 16px;
+}
+
+.jobs-filters > .tab-list {
+    margin-bottom: 0;
+}
+
+.jobs-filters > .job-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--text-tertiary);
+    opacity: 0.4;
+    margin: 0 6px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.jobs-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+}
+
+.jobs-section-header:hover {
+    background: var(--bg-surface-hover);
+}
+
 .job-expanded {
     margin-top: 8px;
     display: grid;
@@ -1487,6 +1528,10 @@ label,
 .panel-flush {
     padding: 0;
     overflow: hidden;
+}
+
+.panel-flush > .section-divider:last-child {
+    border-bottom: none;
 }
 
 /* ─── Model Version List ─── */

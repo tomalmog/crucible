@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { useRemoteJobs } from "../../hooks/useRemoteJobs";
@@ -12,15 +12,28 @@ import { RemoteJobResultDetail } from "./RemoteJobResultDetail";
 import { JobRow } from "./JobRow";
 import { RemoteJobRow } from "./RemoteJobRow";
 
-type Filter = "all" | "running" | "completed" | "failed" | "remote";
+type StatusFilter = "all" | "running" | "completed" | "failed";
+type LocationFilter = "all" | "local" | "remote";
+type TaskTypeFilter = "all" | "training" | "eval" | "sweep";
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "running", label: "Running" },
-  { key: "completed", label: "Completed" },
-  { key: "failed", label: "Failed" },
-  { key: "remote", label: "Remote" },
-];
+const TRAINING_COMMANDS = new Set([
+  "train", "sft", "dpo-train", "rlhf-train", "lora-train", "lora-merge",
+  "distill", "domain-adapt", "distributed-train", "grpo-train",
+  "qlora-train", "kto-train", "orpo-train", "multimodal-train", "rlvr-train",
+]);
+
+function classifyLocalJob(command: string): TaskTypeFilter {
+  if (command === "sweep") return "sweep";
+  if (command === "eval") return "eval";
+  if (TRAINING_COMMANDS.has(command)) return "training";
+  return "training"; // default for unknown commands shown on jobs page
+}
+
+function classifyRemoteJob(job: RemoteJobRecord): TaskTypeFilter {
+  if (job.isSweep) return "sweep";
+  if (job.trainingMethod === "eval") return "eval";
+  return "training";
+}
 
 export function statusBadgeClass(status: string): string {
   switch (status) {
@@ -46,11 +59,24 @@ export function extractCrucibleError(stderr: string): string | null {
   return null;
 }
 
+/** Normalize a job's status to one of our filter values. */
+function normalizeStatus(status: string): StatusFilter {
+  if (status === "running" || status === "pending" || status === "submitting") return "running";
+  if (status === "completed") return "completed";
+  return "failed";
+}
+
+type UnifiedJob =
+  | { kind: "local"; job: CommandTaskStatus; sortKey: number }
+  | { kind: "remote"; job: RemoteJobRecord; sortKey: number };
+
 export function JobsPage() {
   const { jobs, kill, rename, remove } = useJobs();
   const { dataRoot, refreshModels } = useCrucible();
   const { jobs: remoteJobs, isLoading: isRemoteLoading, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TaskTypeFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
   const [viewingRemoteJob, setViewingRemoteJob] = useState<RemoteJobRecord | null>(null);
@@ -58,9 +84,7 @@ export function JobsPage() {
   const remoteJobsRef = useRef(remoteJobs);
   remoteJobsRef.current = remoteJobs;
 
-  // Auto-sync running remote job states via the CLI (bypasses task store).
-  // Runs once on mount + every 30s. Uses a ref so the interval always
-  // reads the latest remoteJobs list instead of a stale closure.
+  // Auto-sync running remote job states via the CLI.
   useEffect(() => {
     if (!dataRoot) return;
     const syncRunning = () => {
@@ -68,9 +92,6 @@ export function JobsPage() {
       const running = remoteJobsRef.current.filter(
         (j) =>
           ((j.state === "running" || j.state === "pending") ||
-           // Keep syncing recently-completed jobs without a model path
-           // so model discovery retries on NFS propagation delay.
-           // Stop after 2 minutes to avoid infinite polling.
            (j.state === "completed" && !j.modelPathRemote &&
             now - new Date(j.updatedAt).getTime() < 120_000)) &&
           !syncedRef.current.has(j.jobId),
@@ -92,12 +113,37 @@ export function JobsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataRoot]);
 
-  const filtered = filter === "remote"
-    ? []
-    : filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
-  const filteredRemote = filter === "all" || filter === "remote"
-    ? remoteJobs
-    : remoteJobs.filter((j) => j.state === filter);
+  // Build unified sorted list: most recent first
+  const unified = useMemo(() => {
+    const items: UnifiedJob[] = [];
+
+    if (locationFilter !== "remote") {
+      for (const j of jobs) {
+        if (statusFilter !== "all" && normalizeStatus(j.status) !== statusFilter) continue;
+        if (typeFilter !== "all" && classifyLocalJob(j.command) !== typeFilter) continue;
+        // Local jobs have sequential task IDs — higher = newer.
+        // Extract the numeric part for sorting.
+        const num = parseInt(j.task_id.replace(/\D/g, ""), 10) || 0;
+        items.push({ kind: "local", job: j, sortKey: num });
+      }
+    }
+
+    if (locationFilter !== "local") {
+      for (const j of remoteJobs) {
+        if (statusFilter !== "all" && normalizeStatus(j.state) !== statusFilter) continue;
+        if (typeFilter !== "all" && classifyRemoteJob(j) !== typeFilter) continue;
+        const ts = new Date(j.submittedAt).getTime() || 0;
+        items.push({ kind: "remote", job: j, sortKey: ts });
+      }
+    }
+
+    // Sort descending — most recent first
+    items.sort((a, b) => b.sortKey - a.sortKey);
+    return items;
+  }, [jobs, remoteJobs, statusFilter, locationFilter, typeFilter]);
+
+  const runningCount = jobs.filter((j) => j.status === "running").length
+    + remoteJobs.filter((j) => j.state === "running" || j.state === "pending" || j.state === "submitting").length;
 
   function toggleExpand(taskId: string) {
     setExpanded((prev) => {
@@ -107,8 +153,6 @@ export function JobsPage() {
       return next;
     });
   }
-
-  const runningCount = jobs.filter((j) => j.status === "running").length;
 
   if (viewingJob) {
     return <JobResultDetail job={viewingJob} onBack={() => setViewingJob(null)} />;
@@ -126,54 +170,81 @@ export function JobsPage() {
         )}
       </PageHeader>
 
-      <div className="tab-list">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            className={`tab-item ${filter === f.key ? "active" : ""}`}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="jobs-filters">
+        <div className="tab-list">
+          {(["all", "running", "completed", "failed"] as StatusFilter[]).map((f) => (
+            <button
+              key={f}
+              className={`tab-item ${statusFilter === f ? "active" : ""}`}
+              onClick={() => setStatusFilter(f)}
+            >
+              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="job-divider" />
+        <div className="tab-list">
+          {(["all", "local", "remote"] as LocationFilter[]).map((f) => (
+            <button
+              key={f}
+              className={`tab-item ${locationFilter === f ? "active" : ""}`}
+              onClick={() => setLocationFilter(f)}
+            >
+              {f === "all" ? "All" : f === "local" ? "Local" : "Remote"}
+            </button>
+          ))}
+        </div>
+        <div className="job-divider" />
+        <div className="tab-list">
+          {(["all", "training", "eval", "sweep"] as TaskTypeFilter[]).map((f) => (
+            <button
+              key={f}
+              className={`tab-item ${typeFilter === f ? "active" : ""}`}
+              onClick={() => setTypeFilter(f)}
+            >
+              {f === "all" ? "All Types" : f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {filtered.length === 0 && filteredRemote.length === 0 && !isRemoteLoading ? (
+      {unified.length === 0 && !isRemoteLoading ? (
         <div className="empty-state">
           <div className="empty-state-icon">
             <Activity />
           </div>
-          <h3>No {filter === "all" ? "" : filter} jobs</h3>
+          <h3>No jobs</h3>
           <p>Launch a training run from the Training page to see it here.</p>
         </div>
       ) : (
         <div className="panel panel-flush">
-          {filtered.map((job) => (
-            <JobRow
-              key={job.task_id}
-              job={job}
-              isExpanded={expanded.has(job.task_id)}
-              onToggle={() => toggleExpand(job.task_id)}
-              onKill={() => kill(job.task_id)}
-              onRename={(label) => rename(job.task_id, label)}
-              onDelete={() => remove(job.task_id)}
-              onView={() => setViewingJob(job)}
-            />
-          ))}
-          {isRemoteLoading && filteredRemote.length === 0 && (
+          {isRemoteLoading && unified.length === 0 && (
             <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
               <Loader2 size={20} className="spin" />
             </div>
           )}
-          {filteredRemote.map((rj) => (
-            <RemoteJobRow
-              key={rj.jobId}
-              job={rj}
-              onDelete={() => removeRemoteJob(rj.jobId)}
-              onCancel={() => cancelRemoteJob(rj.jobId).catch(console.error)}
-              onView={() => setViewingRemoteJob(rj)}
-            />
-          ))}
+          {unified.map((item) =>
+            item.kind === "local" ? (
+              <JobRow
+                key={item.job.task_id}
+                job={item.job}
+                isExpanded={expanded.has(item.job.task_id)}
+                onToggle={() => toggleExpand(item.job.task_id)}
+                onKill={() => kill(item.job.task_id)}
+                onRename={(label) => rename(item.job.task_id, label)}
+                onDelete={() => remove(item.job.task_id)}
+                onView={() => setViewingJob(item.job)}
+              />
+            ) : (
+              <RemoteJobRow
+                key={item.job.jobId}
+                job={item.job}
+                onDelete={() => removeRemoteJob(item.job.jobId)}
+                onCancel={() => cancelRemoteJob(item.job.jobId).catch(console.error)}
+                onView={() => setViewingRemoteJob(item.job)}
+              />
+            ),
+          )}
         </div>
       )}
     </>
