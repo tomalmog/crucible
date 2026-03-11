@@ -24,15 +24,56 @@ class EvalModel:
 
 
 def load_eval_model(model_path: str) -> EvalModel:
-    """Load a trained Crucible model for evaluation.
+    """Load a model for evaluation.
+
+    Supports both Crucible checkpoints (.pt) and HuggingFace model directories.
 
     Args:
-        model_path: Path to the model checkpoint (.pt file).
+        model_path: Path to model checkpoint or HuggingFace model directory.
 
     Returns:
         EvalModel with model in eval mode.
     """
     torch_module = _import_torch()
+    from serve.hf_model_loader import is_huggingface_model_id
+
+    if is_huggingface_model_id(model_path):
+        return _load_hf_eval_model(torch_module, model_path)
+    return _load_crucible_eval_model(torch_module, model_path)
+
+
+def _load_hf_eval_model(torch_module: Any, model_path: str) -> EvalModel:
+    """Load a HuggingFace model for evaluation."""
+    from serve.device_selection import resolve_execution_device
+    from serve.hf_model_loader import (
+        load_huggingface_model,
+        load_huggingface_tokenizer,
+        _make_logits_wrapper,
+    )
+
+    device = resolve_execution_device(torch_module)
+    hf_model = load_huggingface_model(model_path, device=device)
+    model = _make_logits_wrapper(hf_model)
+    model.eval()
+
+    hf_tokenizer = load_huggingface_tokenizer(model_path)
+    tokenizer = _HfTokenizerAdapter(hf_tokenizer)
+
+    max_token_length = getattr(hf_tokenizer, "model_max_length", 1024)
+    if max_token_length > 100_000:
+        max_token_length = 1024
+
+    return EvalModel(
+        model=model,
+        tokenizer=tokenizer,
+        torch_module=torch_module,
+        device=device,
+        max_token_length=max_token_length,
+    )
+
+
+def _load_crucible_eval_model(torch_module: Any, model_path: str) -> EvalModel:
+    """Load a Crucible checkpoint model for evaluation."""
     from serve.chat_option_resolver import (
         resolve_chat_model_vocab_size,
         resolve_chat_training_options,
@@ -141,6 +182,8 @@ def generate_text(
     context_ids = eval_model.tokenizer.encode(prompt, eval_model.max_token_length)
     generated: list[int] = []
 
+    eos_id = getattr(eval_model.tokenizer, "eos_token_id", 0)
+
     for _ in range(max_new_tokens):
         window = context_ids[-(eval_model.max_token_length):]
         tensor = torch.tensor([window], dtype=torch.long).to(eval_model.device)
@@ -148,12 +191,30 @@ def generate_text(
             output = eval_model.model(tensor)
         logits = output.logits if hasattr(output, "logits") else output
         next_id = int(logits[0, -1, :].argmax().item())
-        if next_id == 0:
+        if next_id == 0 or next_id == eos_id:
             break
         context_ids.append(next_id)
         generated.append(next_id)
 
     return eval_model.tokenizer.decode(generated)
+
+
+class _HfTokenizerAdapter:
+    """Adapt a HuggingFace AutoTokenizer to the ChatTokenizer protocol."""
+
+    def __init__(self, hf_tokenizer: Any) -> None:
+        self._tokenizer = hf_tokenizer
+        self.vocabulary: dict[str, int] = dict(hf_tokenizer.get_vocab())
+        self.eos_token_id: int = hf_tokenizer.eos_token_id or 0
+
+    def encode(self, text: str, max_token_length: int) -> list[int]:
+        ids: list[int] = self._tokenizer.encode(text)
+        if len(ids) > max_token_length:
+            return ids[:max_token_length]
+        return ids
+
+    def decode(self, token_ids: list[int]) -> str:
+        return str(self._tokenizer.decode(token_ids))
 
 
 def _import_torch() -> Any:
