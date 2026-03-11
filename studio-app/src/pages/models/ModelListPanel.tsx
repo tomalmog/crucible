@@ -1,12 +1,17 @@
-import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Loader2, Trash2, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
-import { listClusters } from "../../api/remoteApi";
+import {
+  listClusters,
+  getRemoteModelSizes,
+} from "../../api/remoteApi";
 import type { ClusterConfig } from "../../types/remote";
-import type { ModelGroup, ModelVersion } from "../../types/models";
+import type { ModelEntry } from "../../types/models";
+import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
+import { RegistryRow, type RowItem } from "../../components/shared/RegistryRow";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 
-type DeleteScope = "local" | "remote" | "both";
 type ListTab = "local" | "remote";
 
 interface ModelListPanelProps {
@@ -17,10 +22,7 @@ interface ModelListPanelProps {
 export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPanelProps) {
   const {
     dataRoot,
-    modelGroups,
-    selectedModelName,
-    setSelectedModelName,
-    modelVersions,
+    models,
     selectedModel,
     setSelectedModel,
     refreshModels,
@@ -30,62 +32,144 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
   const [listTab, setListTab] = useState<ListTab>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
-  const [isLoadingClusters, setIsLoadingClusters] = useState(true);
-  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<ModelGroup | null>(null);
+  const [remoteSizes, setRemoteSizes] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
+  const [pulling, setPulling] = useState<string | null>(null);
+  const [pushing, setPushing] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ModelEntry | null>(null);
+  const [pushTarget, setPushTarget] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load clusters on mount and when refresh is triggered
   useEffect(() => {
-    setIsLoadingClusters(true);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  useEffect(() => {
     listClusters(dataRoot).then((c) => {
       setClusters(c);
-      if (c.length > 0 && !selectedCluster) setSelectedCluster(c[0].name);
-    })
-    .catch(console.error)
-    .finally(() => {
-      setIsLoadingClusters(false);
-      onRefreshingChange?.(false);
-    });
-  }, [dataRoot, refreshKey]);
+      if (c.length > 0) setSelectedCluster(c[0].name);
+    }).catch(console.error);
+  }, [dataRoot]);
 
-  /** Auto-determine delete scope from the model's locations. */
-  function scopeForGroup(group: ModelGroup): DeleteScope {
-    if (group.hasLocal && group.hasRemote) return "both";
-    if (group.hasRemote) return "remote";
-    return "local";
-  }
+  const fetchRemoteModels = useCallback(async (bypassCache?: boolean) => {
+    if (!selectedCluster) return;
+    setLoading(true);
+    onRefreshingChange?.(true);
+    try {
+      const sizes = await getRemoteModelSizes(dataRoot, selectedCluster, bypassCache);
+      setRemoteSizes(sizes);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      onRefreshingChange?.(false);
+    }
+  }, [dataRoot, selectedCluster, onRefreshingChange]);
+
+  // Track whether refreshKey changed (user clicked Refresh) to bypass cache
+  const prevRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    const userTriggered = refreshKey !== prevRefreshKey.current;
+    prevRefreshKey.current = refreshKey;
+    if (listTab === "remote" && selectedCluster) {
+      fetchRemoteModels(userTriggered).catch(console.error);
+    } else {
+      onRefreshingChange?.(false);
+    }
+  }, [listTab, selectedCluster, refreshKey, fetchRemoteModels]);
 
   async function confirmDelete(): Promise<void> {
-    if (!pendingDeleteGroup) return;
-    const scope = scopeForGroup(pendingDeleteGroup);
-    const args = ["model", "delete", "--name", pendingDeleteGroup.modelName, "--yes"];
-    if (scope === "local" || scope === "both") args.push("--delete-local");
-    if (scope === "remote" || scope === "both") args.push("--include-remote");
+    if (!pendingDelete) return;
+    const args = ["model", "delete", "--name", pendingDelete.modelName, "--yes"];
+    if (pendingDelete.hasLocal) args.push("--delete-local");
+    if (pendingDelete.hasRemote) args.push("--include-remote");
     await command.run(dataRoot, args);
-    setPendingDeleteGroup(null);
+    setPendingDelete(null);
     await refreshModels();
+  }
+
+  function handlePushClick(entry: ModelEntry) {
+    if (clusters.length === 0) return;
+    if (clusters.length === 1) {
+      doPush(entry, clusters[0].name);
+    } else {
+      setPushTarget(pushTarget === entry.modelName ? null : entry.modelName);
+    }
+  }
+
+  async function doPush(entry: ModelEntry, cluster: string): Promise<void> {
+    setPushTarget(null);
+    setPushing(entry.modelName);
+    try {
+      const task = await startCrucibleCommand(dataRoot, [
+        "remote", "push-model",
+        "--cluster", cluster,
+        "--name", entry.modelName,
+      ]);
+      await pollUntilDone(task.task_id);
+      await refreshModels();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPushing(null);
+    }
+  }
+
+  async function handlePull(entry: ModelEntry): Promise<void> {
+    setPulling(entry.modelName);
+    try {
+      const task = await startCrucibleCommand(dataRoot, [
+        "model", "pull", "--name", entry.modelName,
+      ]);
+      await pollUntilDone(task.task_id);
+      await refreshModels();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPulling(null);
+    }
+  }
+
+  function pollUntilDone(taskId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      pollRef.current = setInterval(async () => {
+        try {
+          const status = await getCrucibleCommandStatus(taskId);
+          if (status.status !== "running") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            if (status.status === "completed") resolve();
+            else reject(new Error(status.stderr || "Command failed"));
+          }
+        } catch (err) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          reject(err);
+        }
+      }, 2000);
+    });
   }
 
   const isLocal = listTab === "local";
 
-  // Filter groups by tab: local shows groups with local versions, remote shows groups with remote
-  const filteredGroups = useMemo(() =>
-    modelGroups.filter((g) => isLocal ? g.hasLocal : g.hasRemote),
-    [modelGroups, isLocal],
-  );
+  // Build unified row data — same pattern as DatasetListPanel
+  const clusterHost = clusters.find((c) => c.name === selectedCluster)?.host ?? selectedCluster;
 
-  // For remote tab, filter versions to only remote/both for the selected cluster
-  const filteredVersions = useMemo(() => {
-    if (isLocal) return modelVersions;
-    return modelVersions.filter((v) => {
-      const isRemoteVersion = v.locationType === "remote" || v.locationType === "both";
-      if (!selectedCluster) return isRemoteVersion;
-      return isRemoteVersion && v.remoteHost === selectedCluster;
-    });
-  }, [modelVersions, isLocal, selectedCluster]);
+  const localRows: RowItem[] = models
+    .filter((m) => m.hasLocal)
+    .map((m) => ({ name: m.modelName, sizeBytes: m.sizeBytes }));
 
+  const remoteRows: RowItem[] = models
+    .filter((m) => m.hasRemote && (!selectedCluster || m.remoteHost === clusterHost))
+    .map((m) => ({ name: m.modelName, sizeBytes: remoteSizes[m.modelName] ?? 0 }));
+
+  const rows = isLocal ? localRows : remoteRows;
   const emptyMsg = isLocal
     ? "No local models registered yet."
     : "No remote models found.";
+
+  // Lookup ModelEntry by name for actions
+  const entryByName = new Map(models.map((m) => [m.modelName, m]));
 
   return (
     <div className="panel overflow-auto">
@@ -106,12 +190,7 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
         </button>
       </div>
 
-      {!isLocal && isLoadingClusters && (
-        <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
-          <Loader2 size={20} className="spin" />
-        </div>
-      )}
-      {!isLocal && !isLoadingClusters && clusters.length === 0 && (
+      {!isLocal && clusters.length === 0 && (
         <p className="text-tertiary">No clusters registered.</p>
       )}
 
@@ -122,175 +201,72 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
           onChange={(e) => setSelectedCluster(e.target.value)}
           style={{ marginBottom: 8, width: "100%" }}
         >
-          <option value="">All clusters</option>
           {clusters.map((c) => (
             <option key={c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
       )}
 
-      {filteredGroups.length === 0 ? (
+      {!isLocal && loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+          <Loader2 size={20} className="spin" />
+        </div>
+      ) : rows.length === 0 ? (
         <p className="text-tertiary">{emptyMsg}</p>
       ) : (
         <div>
-          {filteredGroups.map((group) => (
-            <ModelGroupRow
-              key={group.modelName}
-              group={group}
-              isExpanded={group.modelName === selectedModelName}
-              versions={filteredVersions}
-              selectedModel={selectedModel}
-              onToggle={() => setSelectedModelName(
-                group.modelName === selectedModelName ? null : group.modelName,
-              )}
-              onSelectVersion={setSelectedModel}
-              onDeleteStart={() => setPendingDeleteGroup(group)}
-            />
-          ))}
+          {rows.map((row) => {
+            const entry = entryByName.get(row.name);
+            return (
+              <div key={row.name}>
+                <RegistryRow
+                  name={row.name}
+                  sizeBytes={row.sizeBytes}
+                  selected={row.name === selectedModel?.modelName}
+                  transferBusy={isLocal ? pushing === row.name : pulling === row.name}
+                  transferIcon={isLocal ? "upload" : "download"}
+                  showTransfer={isLocal ? clusters.length > 0 : true}
+                  onSelect={() => {
+                    if (entry) setSelectedModel(entry);
+                    setPushTarget(null);
+                  }}
+                  onTransfer={() => {
+                    if (!entry) return;
+                    if (isLocal) handlePushClick(entry);
+                    else handlePull(entry).catch(console.error);
+                  }}
+                  onDelete={() => { if (entry) setPendingDelete(entry); }}
+                />
+                {isLocal && pushTarget === row.name && clusters.length > 1 && (
+                  <div style={{ padding: "4px 8px 8px", display: "flex", gap: 4, alignItems: "center" }}>
+                    <span className="text-xs text-tertiary">Push to:</span>
+                    {clusters.map((c) => (
+                      <button
+                        key={c.name}
+                        className="btn btn-sm"
+                        onClick={() => { if (entry) doPush(entry, c.name).catch(console.error); }}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {pendingDeleteGroup && (
-        <DeleteModal
-          modelName={pendingDeleteGroup.modelName}
+      {pendingDelete && (
+        <ConfirmDeleteModal
+          title="Delete Model"
+          itemName={pendingDelete.modelName}
+          description="This will remove the model and associated files."
           isDeleting={command.isRunning}
           onConfirm={() => confirmDelete().catch(console.error)}
-          onCancel={() => setPendingDeleteGroup(null)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
-    </div>
-  );
-}
-
-/* ---- Model group with expandable versions ---- */
-
-interface ModelGroupRowProps {
-  group: ModelGroup;
-  isExpanded: boolean;
-  versions: ModelVersion[];
-  selectedModel: ModelVersion | null;
-  onToggle: () => void;
-  onSelectVersion: (v: ModelVersion) => void;
-  onDeleteStart: () => void;
-}
-
-function ModelGroupRow({
-  group, isExpanded, versions, selectedModel,
-  onToggle, onSelectVersion, onDeleteStart,
-}: ModelGroupRowProps) {
-  return (
-    <div>
-      <div className="flex-row" style={{ alignItems: "center" }}>
-        <button
-          className={`nav-item ${isExpanded ? "active" : ""}`}
-          style={{ flex: 1 }}
-          onClick={onToggle}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
-            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span>{group.modelName}</span>
-          </span>
-          <span className="badge">{group.versionCount}</span>
-        </button>
-        <button
-          className="btn btn-ghost btn-sm btn-icon"
-          style={{ flexShrink: 0 }}
-          title="Delete model"
-          onClick={onDeleteStart}
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-
-      {isExpanded && (
-        <div>
-          {versions.map((v) => (
-            <VersionRow
-              key={v.versionId}
-              version={v}
-              isSelected={v.versionId === selectedModel?.versionId}
-              onSelect={() => onSelectVersion(v)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---- Version row ---- */
-
-function VersionRow({ version, isSelected, onSelect }: {
-  version: ModelVersion;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  const locationBadge = version.locationType === "remote" ? "remote"
-    : version.locationType === "both" ? "local + remote" : null;
-
-  return (
-    <button
-      className={`nav-item nav-item-nested ${isSelected ? "active" : ""}`}
-      onClick={onSelect}
-    >
-      <div className="model-version-row">
-        <span className="text-mono text-sm">
-          {version.versionId.slice(0, 16)}...
-        </span>
-        <span className="model-version-meta">
-          <span className="text-xs text-tertiary">
-            {version.createdAt}
-          </span>
-          {version.isActive && (
-            <span className="badge badge-accent">active</span>
-          )}
-          {locationBadge && (
-            <span className="badge">{locationBadge}</span>
-          )}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-/* ---- Delete confirmation modal ---- */
-
-function DeleteModal(p: {
-  modelName: string; isDeleting: boolean;
-  onConfirm: () => void; onCancel: () => void;
-}) {
-  // Close on Escape
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === "Escape" && !p.isDeleting) p.onCancel();
-    }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [p.isDeleting, p.onCancel]);
-
-  return (
-    <div className="modal-backdrop" onClick={p.isDeleting ? undefined : p.onCancel}>
-      <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-modal-header">
-          <h3 className="confirm-modal-title">Delete Model</h3>
-          {!p.isDeleting && (
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={p.onCancel}>
-              <X size={16} />
-            </button>
-          )}
-        </div>
-        <div className="confirm-modal-body">
-          <p>Are you sure you want to delete <strong>{p.modelName}</strong>? This will remove all versions and associated files.</p>
-        </div>
-        <div className="confirm-modal-footer">
-          {!p.isDeleting && (
-            <button className="btn btn-sm" onClick={p.onCancel}>Cancel</button>
-          )}
-          <button className="btn btn-sm btn-error" onClick={p.onConfirm} disabled={p.isDeleting}>
-            {p.isDeleting ? "Deleting..." : "Delete"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

@@ -63,13 +63,13 @@ def download_model_to_cluster(
 
         effective_name = model_name or repo_id
         registry = ModelRegistry(data_root)
-        version = registry.register_remote_model(
+        entry = registry.register_remote_model(
             model_name=effective_name,
             remote_host=cluster.host,
             remote_path=remote_path,
         )
         _progress(f"Registered as {effective_name}")
-        print(f"version_id={version.version_id}", flush=True)
+        print(f"model_name={entry.model_name}", flush=True)
 
     return remote_path
 

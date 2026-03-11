@@ -17,25 +17,24 @@ interface ModelOption {
 /**
  * Searchable dropdown for selecting a registered model.
  * Shows local and remote models in grouped sections.
- * Local models pass activeModelPath; remote models pass activeRemotePath.
  */
 export function ModelSelect({ value, onChange, placeholder = "select a registered model", remoteOnly = false }: ModelSelectProps) {
-  const { modelGroups } = useCrucible();
+  const { models } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const pathToName = useMemo(() => {
     const map = new Map<string, string>();
-    for (const g of modelGroups) {
-      if (g.activeModelPath) map.set(g.activeModelPath, g.modelName);
-      if (g.activeRemotePath) {
-        const host = g.activeRemoteHost.split(".")[0];
-        map.set(g.activeRemotePath, `${g.modelName} (${host})`);
+    for (const m of models) {
+      if (m.modelPath) map.set(m.modelPath, m.modelName);
+      if (m.remotePath) {
+        const host = m.remoteHost.split(".")[0];
+        map.set(m.remotePath, `${m.modelName} (${host})`);
       }
     }
     return map;
-  }, [modelGroups]);
+  }, [models]);
 
   const displayValue = value ? (pathToName.get(value) ?? value) : "";
 
@@ -43,18 +42,18 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
   const options = useMemo(() => {
     const result: ModelOption[] = [];
     const lowerQuery = query.toLowerCase();
-    for (const g of modelGroups) {
-      if (!g.modelName.toLowerCase().includes(lowerQuery)) continue;
-      if (!remoteOnly && g.hasLocal && g.activeModelPath) {
-        result.push({ label: g.modelName, value: g.activeModelPath, section: "local" });
+    for (const m of models) {
+      if (!m.modelName.toLowerCase().includes(lowerQuery)) continue;
+      if (!remoteOnly && m.hasLocal && m.modelPath) {
+        result.push({ label: m.modelName, value: m.modelPath, section: "local" });
       }
-      if (g.hasRemote && g.activeRemotePath) {
-        const host = g.activeRemoteHost.split(".")[0];
-        result.push({ label: `${g.modelName} (${host})`, value: g.activeRemotePath, section: "remote" });
+      if (m.hasRemote && m.remotePath) {
+        const host = m.remoteHost.split(".")[0];
+        result.push({ label: `${m.modelName} (${host})`, value: m.remotePath, section: "remote" });
       }
     }
     return result;
-  }, [modelGroups, query, remoteOnly]);
+  }, [models, query, remoteOnly]);
 
   const localOptions = options.filter((o) => o.section === "local");
   const remoteOptions = options.filter((o) => o.section === "remote");

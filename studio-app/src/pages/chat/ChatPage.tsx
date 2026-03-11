@@ -63,7 +63,7 @@ const SAMPLING_PRESETS = {
 type SamplingPreset = keyof typeof SAMPLING_PRESETS | "custom";
 
 export function ChatPage() {
-  const { dataRoot, selectedDataset, modelGroups } = useCrucible();
+  const { dataRoot, selectedDataset, models } = useCrucible();
   const [datasetName, setDatasetName] = useState(selectedDataset ?? "");
   const [tokenizerPath, setTokenizerPath] = useState("");
   const [weightsPath, setWeightsPath] = useState("");
@@ -162,9 +162,9 @@ export function ChatPage() {
   // Detect whether the selected model is on a remote cluster
   const remoteHost = useMemo(() => {
     if (!modelPath) return "";
-    const group = modelGroups.find((g) => g.activeRemotePath === modelPath);
-    return group ? group.activeRemoteHost : "";
-  }, [modelPath, modelGroups]);
+    const match = models.find((m) => m.remotePath === modelPath);
+    return match ? match.remoteHost : "";
+  }, [modelPath, models]);
   const isRemoteModel = remoteHost.length > 0;
   const remote = useRemoteChatConfig(dataRoot, remoteHost, isRemoteModel);
 

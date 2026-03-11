@@ -9,14 +9,10 @@ import {
   TrainingRunSummary,
   TrainingHistory,
 } from "../types";
-import type { ModelGroup, ModelVersion } from "../types/models";
+import type { ModelEntry } from "../types/models";
 
-export async function listModelGroups(dataRoot: string): Promise<ModelGroup[]> {
-  return invoke<ModelGroup[]>("list_model_groups", { dataRoot });
-}
-
-export async function listModelVersions(dataRoot: string, modelName: string): Promise<ModelVersion[]> {
-  return invoke<ModelVersion[]>("list_model_versions", { dataRoot, modelName });
+export async function listModels(dataRoot: string): Promise<ModelEntry[]> {
+  return invoke<ModelEntry[]>("list_models", { dataRoot });
 }
 
 export async function getModelArchitecture(modelPath: string): Promise<Record<string, unknown> | null> {

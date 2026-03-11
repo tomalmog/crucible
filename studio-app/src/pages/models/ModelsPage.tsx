@@ -4,19 +4,17 @@ import { useCrucible } from "../../context/CrucibleContext";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ModelListPanel } from "./ModelListPanel";
 import { ModelOverview } from "./ModelOverview";
-import { ModelDiffView } from "./ModelDiffView";
-import { ModelActions } from "./ModelActions";
 import { ModelMergeForm } from "./ModelMergeForm";
 
-type Tab = "overview" | "diff" | "actions" | "merge";
+type Tab = "overview" | "merge";
 
 export function ModelsPage() {
-  const { dataRoot, modelVersions, selectedModel, selectedModelName, refreshModels } = useCrucible();
+  const { selectedModel, refreshModels } = useCrucible();
   const [tab, setTab] = useState<Tab>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  async function handleRefresh() {
+  async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
     setRefreshKey((k) => k + 1);
     await refreshModels();
@@ -26,7 +24,7 @@ export function ModelsPage() {
     <>
       <PageHeader title="Model Registry">
         <button className="btn" onClick={() => handleRefresh().catch(console.error)} disabled={isRefreshing}>
-          {isRefreshing ? "Loading..." : "Refresh"}
+          {isRefreshing ? "Refreshing..." : "Refresh"}
         </button>
       </PageHeader>
 
@@ -34,7 +32,7 @@ export function ModelsPage() {
         <ModelListPanel refreshKey={refreshKey} onRefreshingChange={setIsRefreshing} />
         <div>
           <div className="tab-list">
-            {(["overview", "diff", "actions", "merge"] as Tab[]).map((t) => (
+            {(["overview", "merge"] as Tab[]).map((t) => (
               <button key={t} className={`tab-item ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -43,11 +41,9 @@ export function ModelsPage() {
 
           {tab === "overview" && (
             selectedModel
-              ? <ModelOverview version={selectedModel} />
-              : <EmptyState title="No model selected" description="Select a model version from the list." />
+              ? <ModelOverview entry={selectedModel} />
+              : <EmptyState title="No model selected" description="Select a model from the list." />
           )}
-          {tab === "diff" && <ModelDiffView dataRoot={dataRoot} versions={modelVersions} />}
-          {tab === "actions" && <ModelActions dataRoot={dataRoot} versions={modelVersions} modelName={selectedModelName} />}
           {tab === "merge" && <ModelMergeForm />}
         </div>
       </div>

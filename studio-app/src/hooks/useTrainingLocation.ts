@@ -24,23 +24,23 @@ export function useTrainingLocation(
   setRemoteEnabled: (enabled: boolean) => void,
   setClusterConfig: React.Dispatch<React.SetStateAction<ClusterSubmitConfig>>,
 ): { clusterMode: ClusterMode } {
-  const { modelGroups, dataRoot } = useCrucible();
+  const { models, dataRoot } = useCrucible();
   const isAutoMethod = AUTO_LOCATION_METHODS.has(method);
   const primaryKey = PRIMARY_MODEL_KEY[method];
   const clustersRef = useRef<ClusterConfig[]>([]);
 
   const pathLocationMap = useMemo(() => {
     const map = new Map<string, ModelLocationInfo>();
-    for (const g of modelGroups) {
-      if (g.activeModelPath) {
-        map.set(g.activeModelPath, { locationType: "local", remoteHost: "" });
+    for (const m of models) {
+      if (m.modelPath) {
+        map.set(m.modelPath, { locationType: "local", remoteHost: "" });
       }
-      if (g.activeRemotePath) {
-        map.set(g.activeRemotePath, { locationType: "remote", remoteHost: g.activeRemoteHost });
+      if (m.remotePath) {
+        map.set(m.remotePath, { locationType: "remote", remoteHost: m.remoteHost });
       }
     }
     return map;
-  }, [modelGroups]);
+  }, [models]);
 
   // Pre-fetch clusters so we can auto-select the matching one
   useEffect(() => {

@@ -99,7 +99,6 @@ class RemoteJobRecord:
         remote_log_path: Path to Slurm log file on remote.
         model_path_remote: Path to trained model on remote.
         model_path_local: Local path after pull (empty if not pulled).
-        local_version_id: Model registry version ID after pull.
         is_sweep: Whether this is a sweep job array.
         sweep_array_size: Number of trials if sweep.
     """
@@ -115,7 +114,6 @@ class RemoteJobRecord:
     remote_log_path: str = ""
     model_path_remote: str = ""
     model_path_local: str = ""
-    local_version_id: str = ""
     model_name: str = ""
     is_sweep: bool = False
     sweep_array_size: int = 0

@@ -106,31 +106,17 @@ pub struct LineageEdge {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ModelGroupSummary {
-    pub model_name: String,
-    pub version_count: u64,
-    pub active_version_id: Option<String>,
-    pub created_at: String,
-    pub has_local: bool,
-    pub has_remote: bool,
-    pub active_model_path: String,
-    pub active_remote_host: String,
-    pub active_remote_path: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelVersionSummary {
-    pub version_id: String,
+pub struct ModelEntrySummary {
     pub model_name: String,
     pub model_path: String,
     pub run_id: Option<String>,
-    pub parent_version_id: Option<String>,
     pub created_at: String,
-    pub is_active: bool,
     pub location_type: String,
+    pub has_local: bool,
+    pub has_remote: bool,
     pub remote_host: String,
     pub remote_path: String,
+    pub size_bytes: u64,
 }
 
 #[derive(Debug, Serialize)]

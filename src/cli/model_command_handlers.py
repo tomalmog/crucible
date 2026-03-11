@@ -11,119 +11,27 @@ import subprocess
 
 from core.errors import CrucibleModelRegistryError
 from store.dataset_sdk import CrucibleClient
-from store.model_diff import format_model_diff
 
 
 def _run_list(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Execute the model list subcommand.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
+    """Execute the model list subcommand."""
     registry = client.model_registry()
-
-    if args.name:
-        # List versions of a specific model
-        versions = registry.list_versions_for_model(args.name)
-        if not versions:
-            print(f"No versions registered for model '{args.name}'.")
-            return 0
-        active_id = registry.get_active_version_id_for_model(args.name)
-        for v in versions:
-            marker = " [active]" if v.version_id == active_id else ""
-            run_info = v.run_id or "-"
-            parent = v.parent_version_id or "-"
-            print(
-                f"{v.version_id}\t{v.model_path}\t"
-                f"{run_info}\t{parent}\t{v.created_at}{marker}"
-            )
-        return 0
-
-    # List all model names with version counts
-    names = registry.list_model_names()
-    if not names:
+    models = registry.list_models()
+    if not models:
         print("No models registered.")
         return 0
-    for name in names:
-        versions = registry.list_versions_for_model(name)
-        active_id = registry.get_active_version_id_for_model(name)
-        active_label = f" (active: {active_id})" if active_id else ""
-        print(f"{name}\t{len(versions)} version(s){active_label}")
+    for entry in models:
+        run_info = entry.run_id or "-"
+        loc = entry.location_type
+        print(f"{entry.model_name}\t{entry.model_path}\t{run_info}\t{loc}\t{entry.created_at}")
     return 0
 
 
 def _run_register(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Execute the model register subcommand.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
+    """Execute the model register subcommand."""
     registry = client.model_registry()
-    version = registry.register_model(args.name, args.model_path)
-    if args.tag:
-        registry.tag_version(version.version_id, args.tag)
-        print(f"version_id={version.version_id}")
-        print(f"tag={args.tag}")
-    else:
-        print(f"version_id={version.version_id}")
-    return 0
-
-
-def _run_tag(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Execute the model tag subcommand.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    registry = client.model_registry()
-    tag = registry.tag_version(args.version_id, args.tag)
-    print(f"Tagged {tag.version_id} as '{tag.tag_name}'")
-    return 0
-
-
-def _run_diff(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Execute the model diff subcommand.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    registry = client.model_registry()
-    diff = registry.diff_versions(args.version_a, args.version_b)
-    lines = format_model_diff(diff)
-    for line in lines:
-        print(line)
-    return 0
-
-
-def _run_rollback(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Execute the model rollback subcommand.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    registry = client.model_registry()
-    version = registry.rollback_to_version(args.name, args.version_id)
-    print(f"Rolled back to version {version.version_id}")
+    entry = registry.register_model(args.name, args.model_path)
+    print(f"model_name={entry.model_name}")
     return 0
 
 
@@ -131,20 +39,12 @@ def _run_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Execute the model delete subcommand."""
     registry = client.model_registry()
 
-    if args.version_id:
-        try:
-            version = registry.get_version(args.version_id)
-        except CrucibleModelRegistryError as exc:
-            print(f"Error: {exc}")
-            return 1
-        versions = [version]
-    else:
-        versions = list(registry.list_versions_for_model(args.name))
-        if not versions:
-            print(f"No versions found for model '{args.name}'.")
-            return 1
+    try:
+        entry = registry.get_model(args.name)
+    except CrucibleModelRegistryError as exc:
+        print(f"Error: {exc}")
+        return 1
 
-    scope = f"version {args.version_id}" if args.version_id else f"model '{args.name}' ({len(versions)} version(s))"
     parts: list[str] = []
     if not args.keep_registry:
         parts.append("registry")
@@ -152,15 +52,12 @@ def _run_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
         parts.append("local files")
     if args.include_remote:
         parts.append("remote files")
-    print(f"Will delete {scope} ({', '.join(parts)}):")
-    for v in versions:
-        path_info = v.model_path or "(no local path)"
-        local_tag = " [will delete]" if args.delete_local and v.model_path else ""
-        print(f"  {v.version_id}  {path_info}{local_tag}")
-    if args.include_remote:
-        for v in versions:
-            if v.remote_path:
-                print(f"  [remote] {v.remote_host}:{v.remote_path}")
+    print(f"Will delete model '{args.name}' ({', '.join(parts)}):")
+    path_info = entry.model_path or "(no local path)"
+    local_tag = " [will delete]" if args.delete_local and entry.model_path else ""
+    print(f"  {path_info}{local_tag}")
+    if args.include_remote and entry.remote_path:
+        print(f"  [remote] {entry.remote_host}:{entry.remote_path}")
 
     if not args.yes:
         answer = input("Delete? [y/N] ").strip().lower()
@@ -169,13 +66,8 @@ def _run_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
             return 0
 
     if not args.keep_registry:
-        if args.version_id:
-            result = registry.delete_version(
-                args.name, args.version_id, delete_local=args.delete_local,
-            )
-        else:
-            result = registry.delete_model(args.name, delete_local=args.delete_local)
-        print(f"Removed {result.versions_removed} version(s).")
+        result = registry.delete_model(args.name, delete_local=args.delete_local)
+        print(f"Removed {result.entries_removed} model(s).")
         if result.local_paths_deleted:
             for p in result.local_paths_deleted:
                 print(f"  Deleted: {p}")
@@ -186,28 +78,103 @@ def _run_delete(client: CrucibleClient, args: argparse.Namespace) -> int:
             print(f"  Warning: {err}")
 
     if args.include_remote:
-        _delete_remote_paths(versions)
+        _delete_remote_paths(entry)
 
     return 0
 
 
-def _delete_remote_paths(versions: list[object]) -> None:
-    """Delete remote model files via SSH for eligible versions."""
-    from core.model_registry_types import ModelVersion
+def _run_remote_sizes(client: CrucibleClient, args: argparse.Namespace) -> int:
+    """Get sizes of remote models on a cluster via SSH."""
+    import json as json_mod
 
-    for v in versions:
-        if not isinstance(v, ModelVersion):
-            continue
-        if not v.remote_host or not v.remote_path:
-            continue
-        if "/crucible-jobs/rj-" not in v.remote_path:
-            print(f"  Skipped remote (not a crucible job path): {v.remote_path}")
-            continue
-        try:
-            subprocess.run(
-                ["ssh", v.remote_host, "rm", "-rf", v.remote_path],
-                check=True, timeout=30,
-            )
-            print(f"  Deleted remote: {v.remote_host}:{v.remote_path}")
-        except Exception as exc:
-            print(f"  Failed remote delete {v.remote_host}:{v.remote_path}: {exc}")
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    registry = client.model_registry()
+    models = registry.list_models()
+
+    # Collect remote models on this cluster
+    remote_models = [
+        m for m in models
+        if m.remote_host == cluster.host and m.remote_path
+    ]
+    if not remote_models:
+        print("CRUCIBLE_JSON:" + json_mod.dumps({}))
+        return 0
+
+    # Build a single du command for all paths
+    paths = [m.remote_path for m in remote_models]
+    du_args = " ".join(f"'{p}'" for p in paths)
+
+    with SshSession(cluster) as session:
+        stdout, _, _ = session.execute(
+            f"du -sb {du_args} 2>/dev/null || true", timeout=30,
+        )
+
+    size_map: dict[str, int] = {}
+    for line in stdout.strip().splitlines():
+        parts = line.split("\t", 1)
+        if len(parts) == 2 and parts[0].strip().isdigit():
+            size_map[parts[1].strip()] = int(parts[0].strip())
+
+    result: dict[str, int] = {}
+    for m in remote_models:
+        if m.remote_path in size_map:
+            result[m.model_name] = size_map[m.remote_path]
+
+    print("CRUCIBLE_JSON:" + json_mod.dumps(result))
+    return 0
+
+
+def _run_pull(client: CrucibleClient, args: argparse.Namespace) -> int:
+    """Execute the model pull subcommand."""
+    registry = client.model_registry()
+
+    try:
+        entry = registry.get_model(args.name)
+    except CrucibleModelRegistryError as exc:
+        print(f"Error: {exc}")
+        return 1
+
+    if entry.location_type not in ("remote", "both"):
+        print(f"Model '{args.name}' is local-only, nothing to pull.")
+        return 0
+
+    if entry.run_id:
+        # Job-based pull via remote pull-model
+        from serve.remote_model_puller import pull_remote_model
+        pull_remote_model(
+            client._config.data_root, entry.run_id, entry.model_name,
+        )
+    else:
+        # Direct pull via host + path
+        from serve.remote_model_puller import pull_remote_model_direct
+        pull_remote_model_direct(
+            client._config.data_root,
+            entry.model_name,
+            entry.remote_host,
+            entry.remote_path,
+        )
+    return 0
+
+
+def _delete_remote_paths(entry: object) -> None:
+    """Delete remote model files via SSH for eligible entries."""
+    from core.model_registry_types import ModelEntry
+
+    if not isinstance(entry, ModelEntry):
+        return
+    if not entry.remote_host or not entry.remote_path:
+        return
+    if "/crucible-jobs/rj-" not in entry.remote_path:
+        print(f"  Skipped remote (not a crucible job path): {entry.remote_path}")
+        return
+    try:
+        subprocess.run(
+            ["ssh", entry.remote_host, "rm", "-rf", entry.remote_path],
+            check=True, timeout=30,
+        )
+        print(f"  Deleted remote: {entry.remote_host}:{entry.remote_path}")
+    except Exception as exc:
+        print(f"  Failed remote delete {entry.remote_host}:{entry.remote_path}: {exc}")

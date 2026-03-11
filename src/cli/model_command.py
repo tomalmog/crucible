@@ -12,14 +12,10 @@ from store.dataset_sdk import CrucibleClient
 
 
 def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register model subcommand with sub-subcommands.
-
-    Args:
-        subparsers: Argparse subparsers object.
-    """
+    """Register model subcommand with sub-subcommands."""
     model_parser = subparsers.add_parser(
         "model",
-        help="Model versioning and registry operations",
+        help="Model registry operations",
     )
     model_subs = model_parser.add_subparsers(
         dest="model_action",
@@ -27,29 +23,19 @@ def add_model_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     )
     _add_list_subcommand(model_subs)
     _add_register_subcommand(model_subs)
-    _add_tag_subcommand(model_subs)
-    _add_diff_subcommand(model_subs)
-    _add_rollback_subcommand(model_subs)
     _add_delete_subcommand(model_subs)
+    _add_pull_subcommand(model_subs)
+    _add_remote_sizes_subcommand(model_subs)
 
 
 def run_model_command(client: CrucibleClient, args: argparse.Namespace) -> int:
-    """Dispatch model sub-subcommand execution.
-
-    Args:
-        client: SDK client instance.
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
+    """Dispatch model sub-subcommand execution."""
     from cli.model_command_handlers import (
         _run_delete,
-        _run_diff,
         _run_list,
+        _run_pull,
         _run_register,
-        _run_rollback,
-        _run_tag,
+        _run_remote_sizes,
     )
 
     action = args.model_action
@@ -57,112 +43,35 @@ def run_model_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         return _run_list(client, args)
     if action == "register":
         return _run_register(client, args)
-    if action == "tag":
-        return _run_tag(client, args)
-    if action == "diff":
-        return _run_diff(client, args)
-    if action == "rollback":
-        return _run_rollback(client, args)
     if action == "delete":
         return _run_delete(client, args)
+    if action == "pull":
+        return _run_pull(client, args)
+    if action == "remote-sizes":
+        return _run_remote_sizes(client, args)
     return 2
 
 
 def _add_list_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the list sub-subcommand."""
-    list_parser = model_subs.add_parser("list", help="List models or model versions")
-    list_parser.add_argument(
-        "--name",
-        default=None,
-        help="List versions of a specific model (omit to list all model names)",
-    )
+    model_subs.add_parser("list", help="List registered models")
 
 
 def _add_register_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the register sub-subcommand."""
-    reg_parser = model_subs.add_parser("register", help="Register a model version")
+    reg_parser = model_subs.add_parser("register", help="Register a model")
     reg_parser.add_argument(
-        "--name",
-        required=True,
-        help="Model name to register version under",
+        "--name", required=True, help="Model name to register",
     )
     reg_parser.add_argument(
-        "--model-path",
-        required=True,
-        help="Path to model artifact",
-    )
-    reg_parser.add_argument(
-        "--tag",
-        default=None,
-        help="Tag name for the registered version",
-    )
-
-
-def _add_tag_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the tag sub-subcommand."""
-    tag_parser = model_subs.add_parser("tag", help="Tag a model version")
-    tag_parser.add_argument(
-        "--version-id",
-        required=True,
-        help="Model version ID to tag",
-    )
-    tag_parser.add_argument(
-        "--tag",
-        required=True,
-        help="Tag name to assign",
-    )
-
-
-def _add_diff_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the diff sub-subcommand."""
-    diff_parser = model_subs.add_parser(
-        "diff",
-        help="Compare two model versions",
-    )
-    diff_parser.add_argument(
-        "--version-a",
-        required=True,
-        help="First model version ID",
-    )
-    diff_parser.add_argument(
-        "--version-b",
-        required=True,
-        help="Second model version ID",
-    )
-
-
-def _add_rollback_subcommand(model_subs: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the rollback sub-subcommand."""
-    rb_parser = model_subs.add_parser(
-        "rollback",
-        help="Rollback to a model version",
-    )
-    rb_parser.add_argument(
-        "--name",
-        required=True,
-        help="Model name to rollback within",
-    )
-    rb_parser.add_argument(
-        "--version-id",
-        required=True,
-        help="Model version ID to roll back to",
+        "--model-path", required=True, help="Path to model artifact",
     )
 
 
 def _add_delete_subcommand(
     model_subs: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the delete sub-subcommand."""
-    del_parser = model_subs.add_parser(
-        "delete",
-        help="Delete a model or a single version",
-    )
+    del_parser = model_subs.add_parser("delete", help="Delete a model")
     del_parser.add_argument(
         "--name", required=True, help="Model name to delete",
-    )
-    del_parser.add_argument(
-        "--version-id", default=None,
-        help="Delete only this version (omit to delete entire model)",
     )
     del_parser.add_argument(
         "--delete-local", action="store_true",
@@ -179,4 +88,26 @@ def _add_delete_subcommand(
     del_parser.add_argument(
         "--yes", action="store_true",
         help="Skip interactive confirmation",
+    )
+
+
+def _add_pull_subcommand(
+    model_subs: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    pull_parser = model_subs.add_parser(
+        "pull", help="Pull a remote model to local storage",
+    )
+    pull_parser.add_argument(
+        "--name", required=True, help="Model name to pull",
+    )
+
+
+def _add_remote_sizes_subcommand(
+    model_subs: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    sizes_parser = model_subs.add_parser(
+        "remote-sizes", help="Get sizes of remote models on a cluster",
+    )
+    sizes_parser.add_argument(
+        "--cluster", required=True, help="Cluster name",
     )

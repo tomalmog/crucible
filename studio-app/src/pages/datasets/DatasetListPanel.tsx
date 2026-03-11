@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Trash2, Upload, Download, Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { deleteDataset } from "../../api/studioApi";
 import {
@@ -10,17 +10,8 @@ import {
   deleteRemoteDataset,
 } from "../../api/remoteApi";
 import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = bytes;
-  for (const unit of units) {
-    size /= 1024;
-    if (size < 1024) return `${size.toFixed(1)} ${unit}`;
-  }
-  return `${size.toFixed(1)} PB`;
-}
+import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
+import { RegistryRow, type RowItem } from "../../components/shared/RegistryRow";
 
 interface DatasetListPanelProps {
   onSelect?: (dataset: string) => void;
@@ -193,7 +184,7 @@ export function DatasetListPanel({ onSelect, refreshKey, onRefreshingChange }: D
         <div>
           {rows.map((row) => (
             <div key={row.name}>
-              <DatasetRow
+              <RegistryRow
                 name={row.name}
                 sizeBytes={row.sizeBytes}
                 selected={isLocal && row.name === selectedDataset}
@@ -237,115 +228,14 @@ export function DatasetListPanel({ onSelect, refreshKey, onRefreshingChange }: D
       )}
 
       {pendingDelete && (
-        <DeleteDatasetModal
-          datasetName={pendingDelete}
+        <ConfirmDeleteModal
+          title="Delete Dataset"
+          itemName={pendingDelete}
           isDeleting={deleting}
           onConfirm={() => confirmDelete().catch(console.error)}
           onCancel={() => setPendingDelete(null)}
         />
       )}
-    </div>
-  );
-}
-
-/* ---- Delete confirmation modal ---- */
-
-function DeleteDatasetModal(p: {
-  datasetName: string; isDeleting: boolean;
-  onConfirm: () => void; onCancel: () => void;
-}) {
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === "Escape" && !p.isDeleting) p.onCancel();
-    }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [p.isDeleting, p.onCancel]);
-
-  return (
-    <div className="modal-backdrop" onClick={p.isDeleting ? undefined : p.onCancel}>
-      <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-modal-header">
-          <h3 className="confirm-modal-title">Delete Dataset</h3>
-          {!p.isDeleting && (
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={p.onCancel}>
-              <X size={16} />
-            </button>
-          )}
-        </div>
-        <div className="confirm-modal-body">
-          <p>Are you sure you want to delete <strong>{p.datasetName}</strong>?</p>
-        </div>
-        <div className="confirm-modal-footer">
-          {!p.isDeleting && (
-            <button className="btn btn-sm" onClick={p.onCancel}>Cancel</button>
-          )}
-          <button className="btn btn-sm btn-error" onClick={p.onConfirm} disabled={p.isDeleting}>
-            {p.isDeleting ? "Deleting..." : "Delete"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---- Shared dataset row ---- */
-
-interface RowItem {
-  name: string;
-  sizeBytes: number;
-}
-
-function DatasetRow({ name, sizeBytes, selected, transferBusy, transferIcon, showTransfer, onSelect, onTransfer, onDelete }: {
-  name: string;
-  sizeBytes: number;
-  selected?: boolean;
-  transferBusy: boolean;
-  transferIcon: "upload" | "download";
-  showTransfer: boolean;
-  onSelect?: () => void;
-  onTransfer: () => void;
-  onDelete: () => void;
-}) {
-  const TransferIcon = transferIcon === "upload" ? Upload : Download;
-  const transferTitle = transferIcon === "upload" ? "Push to cluster" : "Pull to local";
-
-  return (
-    <div
-      className={`flex-row${selected ? " active" : ""}`}
-      style={{ alignItems: "center", padding: "4px 8px", gap: 8, cursor: onSelect ? "pointer" : undefined }}
-      onClick={onSelect}
-    >
-      <span
-        className="text-sm"
-        style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-      >
-        {name}
-      </span>
-      <span className="text-xs text-tertiary" style={{ flexShrink: 0 }}>
-        {formatSize(sizeBytes)}
-      </span>
-      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-        {showTransfer && (
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            onClick={(e) => { e.stopPropagation(); onTransfer(); }}
-            title={transferTitle}
-            disabled={transferBusy}
-          >
-            {transferBusy
-              ? <Loader2 size={12} className="spin" />
-              : <TransferIcon size={12} />}
-          </button>
-        )}
-        <button
-          className="btn btn-ghost btn-sm btn-icon"
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          title="Delete dataset"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
     </div>
   );
 }

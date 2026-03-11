@@ -4,66 +4,44 @@ from __future__ import annotations
 
 import pytest
 
-from core.model_registry_types import ModelGroup, ModelTag, ModelVersion
+from core.model_registry_types import DeleteResult, ModelEntry
 
 
-def test_model_version_is_frozen() -> None:
-    """ModelVersion should be immutable after construction."""
-    version = ModelVersion(
-        version_id="mv-abc123",
+def test_model_entry_is_frozen() -> None:
+    """ModelEntry should be immutable after construction."""
+    entry = ModelEntry(
         model_name="test-model",
         model_path="/tmp/model.pt",
         run_id="run-001",
     )
     with pytest.raises(AttributeError):
-        version.version_id = "mv-changed"  # type: ignore[misc]
+        entry.model_name = "changed"  # type: ignore[misc]
 
 
-def test_model_version_fields_present() -> None:
-    """ModelVersion should expose all expected fields with defaults."""
-    version = ModelVersion(
-        version_id="mv-abc123",
+def test_model_entry_fields_present() -> None:
+    """ModelEntry should expose all expected fields with defaults."""
+    entry = ModelEntry(
         model_name="my-model",
         model_path="/tmp/model.pt",
         run_id=None,
-        tags=("prod", "v1"),
-        created_at="2026-01-01T00:00:00+00:00",
-        parent_version_id="mv-parent",
-    )
-    assert version.version_id == "mv-abc123"
-    assert version.model_name == "my-model"
-    assert version.model_path == "/tmp/model.pt"
-    assert version.run_id is None
-    assert version.tags == ("prod", "v1")
-    assert version.created_at == "2026-01-01T00:00:00+00:00"
-    assert version.parent_version_id == "mv-parent"
-
-
-def test_model_tag_is_frozen() -> None:
-    """ModelTag should be immutable after construction."""
-    tag = ModelTag(
-        tag_name="production",
-        version_id="mv-abc123",
         created_at="2026-01-01T00:00:00+00:00",
     )
-    with pytest.raises(AttributeError):
-        tag.tag_name = "staging"  # type: ignore[misc]
-    assert tag.tag_name == "production"
-    assert tag.version_id == "mv-abc123"
-    assert tag.created_at == "2026-01-01T00:00:00+00:00"
+    assert entry.model_name == "my-model"
+    assert entry.model_path == "/tmp/model.pt"
+    assert entry.run_id is None
+    assert entry.created_at == "2026-01-01T00:00:00+00:00"
+    assert entry.location_type == "local"
+    assert entry.remote_host == ""
+    assert entry.remote_path == ""
 
 
-def test_model_group_is_frozen() -> None:
-    """ModelGroup should be immutable after construction."""
-    group = ModelGroup(
-        model_name="my-model",
-        version_ids=("mv-aaa", "mv-bbb"),
-        active_version_id="mv-aaa",
-        created_at="2026-01-01T00:00:00+00:00",
+def test_delete_result_is_frozen() -> None:
+    """DeleteResult should be immutable after construction."""
+    result = DeleteResult(
+        entries_removed=1,
+        local_paths_deleted=("/tmp/model.pt",),
+        local_paths_skipped=(),
+        errors=(),
     )
     with pytest.raises(AttributeError):
-        group.model_name = "other"  # type: ignore[misc]
-    assert group.model_name == "my-model"
-    assert group.version_ids == ("mv-aaa", "mv-bbb")
-    assert group.active_version_id == "mv-aaa"
-    assert group.created_at == "2026-01-01T00:00:00+00:00"
+        result.entries_removed = 2  # type: ignore[misc]

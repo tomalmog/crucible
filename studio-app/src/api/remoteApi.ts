@@ -94,6 +94,18 @@ export async function pullDatasetFromCluster(dataRoot: string, cluster: string, 
   return result;
 }
 
+export async function getRemoteModelSizes(
+  dataRoot: string,
+  cluster: string,
+  bypassCache?: boolean,
+): Promise<Record<string, number>> {
+  const key = `modelSizes:${dataRoot}:${cluster}`;
+  if (bypassCache) invalidate(key);
+  return cached(key, 30_000, () =>
+    sshLimited(() => invoke<Record<string, number>>("get_remote_model_sizes", { dataRoot, cluster })),
+  );
+}
+
 export async function deleteRemoteDataset(dataRoot: string, cluster: string, dataset: string): Promise<void> {
   const result = await sshLimited(() => invoke<void>("delete_remote_dataset_cmd", { dataRoot, cluster, dataset }));
   invalidate(`datasets:${dataRoot}:${cluster}`);

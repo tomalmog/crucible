@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import {
   listDatasets,
-  listModelGroups,
-  listModelVersions,
+  listModels,
   getDatasetDashboard,
   sampleRecords,
   getHardwareProfile,
@@ -13,7 +12,7 @@ import {
   DatasetEntry,
   RecordSample,
 } from "../types";
-import type { ModelGroup, ModelVersion } from "../types/models";
+import type { ModelEntry } from "../types/models";
 import { loadSessionState, saveSessionState } from "../session_state";
 
 interface CrucibleContextValue {
@@ -24,12 +23,9 @@ interface CrucibleContextValue {
   setSelectedDataset: (name: string | null) => void;
   dashboard: DatasetDashboard | null;
   samples: RecordSample[];
-  modelGroups: ModelGroup[];
-  selectedModelName: string | null;
-  setSelectedModelName: (name: string | null) => void;
-  modelVersions: ModelVersion[];
-  selectedModel: ModelVersion | null;
-  setSelectedModel: (version: ModelVersion | null) => void;
+  models: ModelEntry[];
+  selectedModel: ModelEntry | null;
+  setSelectedModel: (entry: ModelEntry | null) => void;
   refreshModels: () => Promise<void>;
   hardwareProfile: Record<string, string> | null;
   refreshDatasets: () => Promise<void>;
@@ -54,58 +50,27 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
   );
   const [dashboard, setDashboard] = useState<DatasetDashboard | null>(null);
   const [samples, setSamples] = useState<RecordSample[]>([]);
-  const [modelGroups, setModelGroups] = useState<ModelGroup[]>([]);
-  const [selectedModelName, setSelectedModelName] = useState<string | null>(
-    INITIAL.selected_model_name,
-  );
-  const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
-  const [selectedModel, setSelectedModel] = useState<ModelVersion | null>(null);
+  const [models, setModels] = useState<ModelEntry[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelEntry | null>(null);
   const [hardwareProfile, setHardwareProfile] = useState<Record<string, string> | null>(null);
 
   const refreshModels = useCallback(async () => {
-    const groups = await listModelGroups(dataRoot);
-    setModelGroups(groups);
-    if (groups.length === 0) {
-      setSelectedModelName(null);
-      setModelVersions([]);
+    const entries = await listModels(dataRoot);
+    setModels(entries);
+    if (entries.length === 0) {
       setSelectedModel(null);
       return;
     }
-    // Auto-select model name if none selected or current no longer exists
-    setSelectedModelName((current) => {
-      if (current && groups.some((g) => g.modelName === current)) {
-        return current;
+    setSelectedModel((current) => {
+      if (current && entries.some((e) => e.modelName === current.modelName)) {
+        // Update to latest data for the current selection
+        return entries.find((e) => e.modelName === current.modelName) ?? null;
       }
       const saved = INITIAL.selected_model_name;
-      const found = saved ? groups.find((g) => g.modelName === saved) : null;
-      return found ? found.modelName : groups[0].modelName;
+      const found = saved ? entries.find((e) => e.modelName === saved) : null;
+      return found ?? entries[0];
     });
   }, [dataRoot]);
-
-  // Fetch versions when selectedModelName changes
-  useEffect(() => {
-    if (!selectedModelName) {
-      setModelVersions([]);
-      setSelectedModel(null);
-      return;
-    }
-    let cancelled = false;
-    listModelVersions(dataRoot, selectedModelName)
-      .then((rows) => {
-        if (cancelled) return;
-        setModelVersions(rows);
-        setSelectedModel((current) => {
-          if (current && rows.some((r) => r.versionId === current.versionId)) {
-            return current;
-          }
-          const savedId = INITIAL.selected_model_version_id;
-          const saved = savedId ? rows.find((r) => r.versionId === savedId) : null;
-          return saved ?? rows[0] ?? null;
-        });
-      })
-      .catch(console.error);
-    return () => { cancelled = true; };
-  }, [dataRoot, selectedModelName]);
 
   const refreshDatasets = useCallback(async () => {
     const rows = await listDatasets(dataRoot);
@@ -173,11 +138,10 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
     saveSessionState({
       data_root: dataRoot,
       selected_dataset: selectedDataset,
-      selected_model_name: selectedModelName,
-      selected_model_version_id: selectedModel?.versionId ?? null,
+      selected_model_name: selectedModel?.modelName ?? null,
       last_route: window.location.hash,
     });
-  }, [dataRoot, selectedDataset, selectedModelName, selectedModel]);
+  }, [dataRoot, selectedDataset, selectedModel]);
 
   return (
     <CrucibleCtx.Provider
@@ -189,10 +153,7 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
         setSelectedDataset,
         dashboard,
         samples,
-        modelGroups,
-        selectedModelName,
-        setSelectedModelName,
-        modelVersions,
+        models,
         selectedModel,
         setSelectedModel,
         refreshModels,

@@ -166,6 +166,34 @@ pub async fn delete_remote_dataset_cmd(
     .map_err(|e| format!("Task join error: {e}"))?
 }
 
+/// Get sizes of remote models on a cluster.
+///
+/// Returns a JSON map of { model_name: size_bytes }.
+#[tauri::command]
+pub async fn get_remote_model_sizes(
+    data_root: String,
+    cluster: String,
+) -> Result<std::collections::HashMap<String, u64>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let stdout = run_crucible_cli(
+            &data_root,
+            &["model", "remote-sizes", "--cluster", &cluster],
+        )
+        .map_err(|e| format!("remote-sizes failed: {e}"))?;
+        for line in stdout.lines() {
+            if let Some(json_str) = line.strip_prefix("CRUCIBLE_JSON:") {
+                let map: std::collections::HashMap<String, u64> =
+                    serde_json::from_str(json_str)
+                        .map_err(|e| format!("Failed to parse remote-sizes JSON: {e}"))?;
+                return Ok(map);
+            }
+        }
+        Err("No CRUCIBLE_JSON line found in remote-sizes output".to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))?
+}
+
 /// Run a crucible CLI subprocess and return stdout on success, stderr on error.
 fn run_crucible_cli(data_root: &str, args: &[&str]) -> Result<String, String> {
     let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");

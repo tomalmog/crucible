@@ -272,7 +272,6 @@ def _handle_pull_model(client: CrucibleClient, args: argparse.Namespace) -> int:
         client._config.data_root, args.job_id, args.model_name,
     )
     print(f"Model pulled to {record.model_path_local}")
-    print(f"Registered as {record.local_version_id}")
     return 0
 
 

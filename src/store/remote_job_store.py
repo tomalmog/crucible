@@ -50,7 +50,6 @@ def _record_to_dict(record: RemoteJobRecord) -> dict[str, object]:
         "remote_log_path": record.remote_log_path,
         "model_path_remote": record.model_path_remote,
         "model_path_local": record.model_path_local,
-        "local_version_id": record.local_version_id,
         "model_name": record.model_name,
         "is_sweep": record.is_sweep,
         "sweep_array_size": record.sweep_array_size,
@@ -76,7 +75,6 @@ def _dict_to_record(raw: dict[str, object]) -> RemoteJobRecord:
         remote_log_path=str(raw.get("remote_log_path", "")),
         model_path_remote=str(raw.get("model_path_remote", "")),
         model_path_local=str(raw.get("model_path_local", "")),
-        local_version_id=str(raw.get("local_version_id", "")),
         model_name=str(raw.get("model_name", "")),
         is_sweep=bool(raw.get("is_sweep", False)),
         sweep_array_size=int(raw.get("sweep_array_size", 0)),  # type: ignore[arg-type]

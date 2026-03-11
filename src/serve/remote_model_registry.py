@@ -50,7 +50,7 @@ def is_model_registered(data_root: Path, record: RemoteJobRecord) -> bool:
             record.model_name
             or f"remote-{record.training_method}-{record.job_id[:16]}"
         )
-        versions = registry.list_versions_for_model(model_name)
-        return any(v.run_id == record.job_id for v in versions)
+        entry = registry.get_model(model_name)
+        return entry.run_id == record.job_id
     except Exception:
         return False

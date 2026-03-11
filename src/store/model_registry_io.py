@@ -1,7 +1,7 @@
 """Persistence helpers for model registry storage.
 
-This module handles reading and writing model version, tag, group,
-and index JSON files under the .crucible/models/ directory tree.
+This module handles reading and writing model entry and index JSON
+files under the .crucible/models/ directory tree.
 """
 
 from __future__ import annotations
@@ -9,110 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.errors import CrucibleModelRegistryError
-from core.model_registry_types import ModelTag, ModelVersion
+from core.model_registry_types import ModelEntry
 from serve.training_run_io import read_json_file, write_json_file
-
-
-def save_model_version(models_root: Path, version: ModelVersion) -> Path:
-    """Persist a model version record to disk.
-
-    Args:
-        models_root: Root path for model registry storage.
-        version: Model version to save.
-
-    Returns:
-        Path to the written JSON file.
-    """
-    versions_dir = models_root / "versions"
-    versions_dir.mkdir(parents=True, exist_ok=True)
-    payload = _version_to_dict(version)
-    target = versions_dir / f"{version.version_id}.json"
-    try:
-        write_json_file(target, payload)
-    except Exception as error:
-        raise CrucibleModelRegistryError(
-            f"Failed to save model version {version.version_id}: {error}."
-        ) from error
-    return target
-
-
-def load_model_version(models_root: Path, version_id: str) -> ModelVersion:
-    """Load a model version record from disk.
-
-    Args:
-        models_root: Root path for model registry storage.
-        version_id: Identifier of the version to load.
-
-    Returns:
-        Loaded ModelVersion instance.
-    """
-    target = models_root / "versions" / f"{version_id}.json"
-    try:
-        raw = read_json_file(target)
-    except Exception as error:
-        raise CrucibleModelRegistryError(
-            f"Failed to load model version {version_id}: {error}."
-        ) from error
-    if not isinstance(raw, dict):
-        raise CrucibleModelRegistryError(
-            f"Invalid version data for {version_id}."
-        )
-    return _dict_to_version(raw)
-
-
-def save_model_tag(models_root: Path, tag: ModelTag) -> Path:
-    """Persist a model tag record to disk.
-
-    Args:
-        models_root: Root path for model registry storage.
-        tag: Model tag to save.
-
-    Returns:
-        Path to the written JSON file.
-    """
-    tags_dir = models_root / "tags"
-    tags_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "tag_name": tag.tag_name,
-        "version_id": tag.version_id,
-        "created_at": tag.created_at,
-    }
-    target = tags_dir / f"{tag.tag_name}.json"
-    try:
-        write_json_file(target, payload)
-    except Exception as error:
-        raise CrucibleModelRegistryError(
-            f"Failed to save model tag {tag.tag_name}: {error}."
-        ) from error
-    return target
-
-
-def load_model_tag(models_root: Path, tag_name: str) -> ModelTag:
-    """Load a model tag record from disk.
-
-    Args:
-        models_root: Root path for model registry storage.
-        tag_name: Name of the tag to load.
-
-    Returns:
-        Loaded ModelTag instance.
-    """
-    target = models_root / "tags" / f"{tag_name}.json"
-    try:
-        raw = read_json_file(target)
-    except Exception as error:
-        raise CrucibleModelRegistryError(
-            f"Failed to load model tag {tag_name}: {error}."
-        ) from error
-    if not isinstance(raw, dict):
-        raise CrucibleModelRegistryError(
-            f"Invalid tag data for {tag_name}."
-        )
-    return ModelTag(
-        tag_name=raw["tag_name"],
-        version_id=raw["version_id"],
-        created_at=raw.get("created_at", ""),
-    )
 
 
 def _safe_filename(name: str) -> str:
@@ -120,50 +18,63 @@ def _safe_filename(name: str) -> str:
     return name.replace("/", "--")
 
 
-def save_model_group(models_root: Path, model_name: str, group_data: dict[str, object]) -> Path:
-    """Persist a model group index to disk.
+def save_model_entry(models_root: Path, entry: ModelEntry) -> Path:
+    """Persist a model entry record to disk.
 
     Args:
         models_root: Root path for model registry storage.
-        model_name: Name of the model group.
-        group_data: Group dictionary with version_ids and active_version_id.
+        entry: Model entry to save.
 
     Returns:
         Path to the written JSON file.
     """
-    groups_dir = models_root / "groups"
-    groups_dir.mkdir(parents=True, exist_ok=True)
-    target = groups_dir / f"{_safe_filename(model_name)}.json"
+    entries_dir = models_root / "entries"
+    entries_dir.mkdir(parents=True, exist_ok=True)
+    payload = _entry_to_dict(entry)
+    target = entries_dir / f"{_safe_filename(entry.model_name)}.json"
     try:
-        write_json_file(target, group_data)
+        write_json_file(target, payload)
     except Exception as error:
         raise CrucibleModelRegistryError(
-            f"Failed to save model group {model_name}: {error}."
+            f"Failed to save model entry {entry.model_name}: {error}."
         ) from error
     return target
 
 
-def load_model_group(models_root: Path, model_name: str) -> dict[str, object]:
-    """Load a model group index from disk.
+def load_model_entry(models_root: Path, model_name: str) -> ModelEntry:
+    """Load a model entry record from disk.
 
     Args:
         models_root: Root path for model registry storage.
-        model_name: Name of the model group to load.
+        model_name: Name of the model to load.
 
     Returns:
-        Group dictionary with version_ids and active_version_id.
+        Loaded ModelEntry instance.
     """
-    target = models_root / "groups" / f"{_safe_filename(model_name)}.json"
-    default: dict[str, object] = {"version_ids": [], "active_version_id": None}
+    target = models_root / "entries" / f"{_safe_filename(model_name)}.json"
     try:
-        raw = read_json_file(target, default_value=default)
+        raw = read_json_file(target)
     except Exception as error:
         raise CrucibleModelRegistryError(
-            f"Failed to load model group {model_name}: {error}."
+            f"Failed to load model entry {model_name}: {error}."
         ) from error
     if not isinstance(raw, dict):
-        return dict(default)
-    return dict(raw)
+        raise CrucibleModelRegistryError(
+            f"Invalid entry data for {model_name}."
+        )
+    return _dict_to_entry(raw)
+
+
+def delete_model_entry_file(models_root: Path, model_name: str) -> None:
+    """Remove a model entry JSON file from disk.
+
+    Args:
+        models_root: Root path for model registry storage.
+        model_name: Name of the model to delete.
+    """
+    target = models_root / "entries" / f"{_safe_filename(model_name)}.json"
+    if target.exists():
+        target.unlink()
 
 
 def save_registry_index(models_root: Path, index: dict[str, object]) -> Path:
@@ -209,37 +120,16 @@ def load_registry_index(models_root: Path) -> dict[str, object]:
     return dict(raw)
 
 
-def delete_model_version_file(models_root: Path, version_id: str) -> None:
-    """Remove a model version JSON file from disk.
+def migrate_versioned_to_flat(models_root: Path) -> None:
+    """One-time migration from versioned/grouped format to flat entries.
 
-    Args:
-        models_root: Root path for model registry storage.
-        version_id: Identifier of the version to delete.
+    For each model name in the old index, reads the group's active
+    version (or the last version) and creates a flat entry from it.
+    Removes old ``groups/``, ``versions/``, and ``tags/`` directories.
+    Also handles the oldest flat format (``version_ids`` in index).
     """
-    target = models_root / "versions" / f"{version_id}.json"
-    if target.exists():
-        target.unlink()
+    import shutil
 
-
-def delete_model_group_file(models_root: Path, model_name: str) -> None:
-    """Remove a model group JSON file from disk.
-
-    Args:
-        models_root: Root path for model registry storage.
-        model_name: Name of the model group to delete.
-    """
-    target = models_root / "groups" / f"{_safe_filename(model_name)}.json"
-    if target.exists():
-        target.unlink()
-
-
-def migrate_flat_to_grouped(models_root: Path) -> None:
-    """One-time migration from flat version list to per-model groups.
-
-    Detects the old index format (has ``version_ids`` key) and migrates
-    all existing versions into a ``default`` model group. Backfills
-    ``model_name`` into each version JSON and rewrites the global index.
-    """
     index_path = models_root / "index.json"
     if not index_path.exists():
         return
@@ -248,65 +138,104 @@ def migrate_flat_to_grouped(models_root: Path) -> None:
     if not isinstance(raw, dict):
         return
 
-    # Already migrated — new format uses model_names
-    if "model_names" in raw:
-        return
-    # Old format has version_ids
-    if "version_ids" not in raw:
+    # Check if entries/ dir already exists — already migrated
+    entries_dir = models_root / "entries"
+    if entries_dir.is_dir() and any(entries_dir.glob("*.json")):
         return
 
-    version_ids = list(raw.get("version_ids", []))
-    active_version_id = raw.get("active_version_id")
-
-    # Backfill model_name into each version JSON
     versions_dir = models_root / "versions"
-    for vid in version_ids:
-        version_path = versions_dir / f"{vid}.json"
-        if not version_path.exists():
-            continue
-        version_data = read_json_file(version_path)
-        if isinstance(version_data, dict) and "model_name" not in version_data:
-            version_data["model_name"] = "default"
-            write_json_file(version_path, version_data)
+    groups_dir = models_root / "groups"
+    tags_dir = models_root / "tags"
 
-    # Create group file for default model
-    group_data: dict[str, object] = {
-        "version_ids": version_ids,
-        "active_version_id": active_version_id,
-    }
-    save_model_group(models_root, "default", group_data)
+    # New grouped format: model_names key
+    if "model_names" in raw:
+        model_names = list(raw.get("model_names", []))
+        entries_dir.mkdir(parents=True, exist_ok=True)
+        for name in model_names:
+            group_path = groups_dir / f"{_safe_filename(str(name))}.json"
+            active_vid = None
+            version_ids: list[str] = []
+            if group_path.exists():
+                group_data = read_json_file(group_path, default_value={})
+                if isinstance(group_data, dict):
+                    active_vid = group_data.get("active_version_id")
+                    version_ids = list(group_data.get("version_ids", []))
 
-    # Rewrite global index
-    new_index: dict[str, object] = {"model_names": ["default"] if version_ids else []}
-    save_registry_index(models_root, new_index)
+            # Pick active version, or last, or first
+            vid = active_vid or (version_ids[-1] if version_ids else None)
+            if vid and versions_dir.is_dir():
+                vpath = versions_dir / f"{vid}.json"
+                if vpath.exists():
+                    vdata = read_json_file(vpath, default_value={})
+                    if isinstance(vdata, dict):
+                        entry = ModelEntry(
+                            model_name=str(name),
+                            model_path=str(vdata.get("model_path", "")),
+                            run_id=vdata.get("run_id") if vdata.get("run_id") is not None else None,
+                            created_at=str(vdata.get("created_at", "")),
+                            location_type=str(vdata.get("location_type", "local")),
+                            remote_host=str(vdata.get("remote_host", "")),
+                            remote_path=str(vdata.get("remote_path", "")),
+                        )
+                        save_model_entry(models_root, entry)
+                        continue
+            # No version data found — create stub entry
+            entry = ModelEntry(model_name=str(name), model_path="")
+            save_model_entry(models_root, entry)
+
+    # Old flat format: version_ids key
+    elif "version_ids" in raw:
+        version_ids_raw = list(raw.get("version_ids", []))
+        active_vid = raw.get("active_version_id")
+        vid = active_vid or (version_ids_raw[-1] if version_ids_raw else None)
+        if vid and versions_dir.is_dir():
+            vpath = versions_dir / f"{vid}.json"
+            if vpath.exists():
+                vdata = read_json_file(vpath, default_value={})
+                if isinstance(vdata, dict):
+                    entries_dir.mkdir(parents=True, exist_ok=True)
+                    entry = ModelEntry(
+                        model_name="default",
+                        model_path=str(vdata.get("model_path", "")),
+                        run_id=vdata.get("run_id") if vdata.get("run_id") is not None else None,
+                        created_at=str(vdata.get("created_at", "")),
+                        location_type=str(vdata.get("location_type", "local")),
+                        remote_host=str(vdata.get("remote_host", "")),
+                        remote_path=str(vdata.get("remote_path", "")),
+                    )
+                    save_model_entry(models_root, entry)
+                    model_names = ["default"]
+                    new_index: dict[str, object] = {"model_names": model_names}
+                    save_registry_index(models_root, new_index)
+    else:
+        return
+
+    # Clean up old directories
+    for old_dir in (versions_dir, groups_dir, tags_dir):
+        if old_dir.is_dir():
+            shutil.rmtree(old_dir)
 
 
-def _version_to_dict(version: ModelVersion) -> dict[str, object]:
-    """Convert a ModelVersion to a serializable dictionary."""
+def _entry_to_dict(entry: ModelEntry) -> dict[str, object]:
+    """Convert a ModelEntry to a serializable dictionary."""
     return {
-        "version_id": version.version_id,
-        "model_name": version.model_name,
-        "model_path": version.model_path,
-        "run_id": version.run_id,
-        "tags": list(version.tags),
-        "created_at": version.created_at,
-        "parent_version_id": version.parent_version_id,
-        "location_type": version.location_type,
-        "remote_host": version.remote_host,
-        "remote_path": version.remote_path,
+        "model_name": entry.model_name,
+        "model_path": entry.model_path,
+        "run_id": entry.run_id,
+        "created_at": entry.created_at,
+        "location_type": entry.location_type,
+        "remote_host": entry.remote_host,
+        "remote_path": entry.remote_path,
     }
 
 
-def _dict_to_version(raw: dict[str, object]) -> ModelVersion:
-    """Reconstruct a ModelVersion from a dictionary."""
-    return ModelVersion(
-        version_id=str(raw["version_id"]),
+def _dict_to_entry(raw: dict[str, object]) -> ModelEntry:
+    """Reconstruct a ModelEntry from a dictionary."""
+    return ModelEntry(
         model_name=str(raw.get("model_name", "default")),
-        model_path=str(raw["model_path"]),
-        run_id=raw.get("run_id") if raw.get("run_id") is not None else None,  # type: ignore[arg-type]
-        tags=tuple(raw.get("tags", ())),  # type: ignore[arg-type]
+        model_path=str(raw.get("model_path", "")),
+        run_id=str(raw["run_id"]) if raw.get("run_id") is not None else None,
         created_at=str(raw.get("created_at", "")),
-        parent_version_id=raw.get("parent_version_id") if raw.get("parent_version_id") is not None else None,  # type: ignore[arg-type]
         location_type=str(raw.get("location_type", "local")),
         remote_host=str(raw.get("remote_host", "")),
         remote_path=str(raw.get("remote_path", "")),

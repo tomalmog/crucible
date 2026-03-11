@@ -120,8 +120,8 @@ def _run_download_model(
     if register:
         try:
             registry = client.model_registry()
-            version = registry.register_model(model_name or repo_id, path)
-            print(f"version_id={version.version_id}")
+            entry = registry.register_model(model_name or repo_id, path)
+            print(f"model_name={entry.model_name}")
         except Exception as exc:
             print(f"warning: registration failed: {exc}", file=sys.stderr)
     return 0

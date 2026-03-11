@@ -1,7 +1,7 @@
-"""Typed models for model versioning and registry.
+"""Typed models for model registry.
 
 This module defines immutable data models used by the model registry
-to track model versions, tags, and groups.
+to track registered models.
 """
 
 from __future__ import annotations
@@ -10,75 +10,40 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class ModelVersion:
-    """Immutable record of a registered model version.
+class ModelEntry:
+    """Immutable record of a registered model.
 
     Attributes:
-        version_id: Unique identifier for this model version.
-        model_name: Name of the model this version belongs to.
+        model_name: Human-readable model name (unique key).
         model_path: Filesystem path to the model artifact.
         run_id: Optional training run that produced this model.
-        tags: Descriptive tags associated with this version.
         created_at: ISO-8601 UTC creation timestamp.
-        parent_version_id: Previous version this was derived from.
+        location_type: One of "local", "remote", or "both".
+        remote_host: Hostname of remote cluster (if remote).
+        remote_path: Path on remote cluster (if remote).
     """
 
-    version_id: str
     model_name: str
     model_path: str
-    run_id: str | None
-    tags: tuple[str, ...] = ()
+    run_id: str | None = None
     created_at: str = ""
-    parent_version_id: str | None = None
     location_type: str = "local"
     remote_host: str = ""
     remote_path: str = ""
 
 
 @dataclass(frozen=True)
-class ModelTag:
-    """Named pointer to a specific model version.
-
-    Attributes:
-        tag_name: Human-readable tag identifier.
-        version_id: Model version this tag points to.
-        created_at: ISO-8601 UTC creation timestamp.
-    """
-
-    tag_name: str
-    version_id: str
-    created_at: str
-
-
-@dataclass(frozen=True)
 class DeleteResult:
-    """Result of a model or version deletion operation.
+    """Result of a model deletion operation.
 
     Attributes:
-        versions_removed: Number of version records removed.
+        entries_removed: Number of model entries removed.
         local_paths_deleted: Paths successfully deleted from disk.
         local_paths_skipped: Paths skipped (outside safe zone).
         errors: Any errors encountered during deletion.
     """
 
-    versions_removed: int
+    entries_removed: int
     local_paths_deleted: tuple[str, ...]
     local_paths_skipped: tuple[str, ...]
     errors: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ModelGroup:
-    """Summary of a named model with its version history.
-
-    Attributes:
-        model_name: Human-readable model name.
-        version_ids: Ordered tuple of version identifiers.
-        active_version_id: Currently active version, or None.
-        created_at: ISO-8601 UTC timestamp of first version.
-    """
-
-    model_name: str
-    version_ids: tuple[str, ...]
-    active_version_id: str | None
-    created_at: str

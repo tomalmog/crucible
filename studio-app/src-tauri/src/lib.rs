@@ -26,8 +26,7 @@ pub fn run() {
             commands::runtime_queries::list_training_runs,
             commands::runtime_queries::get_lineage_graph,
             commands::runtime_queries::get_hardware_profile,
-            commands::model_queries::list_model_groups,
-            commands::model_queries::list_model_versions,
+            commands::model_queries::list_models,
             commands::model_queries::get_model_architecture,
             commands::model_queries::get_model_index_mtime,
             commands::config_store::load_training_config,
@@ -43,7 +42,8 @@ pub fn run() {
             commands::remote_cli_ops::list_remote_datasets,
             commands::remote_cli_ops::push_dataset_to_cluster,
             commands::remote_cli_ops::pull_dataset_from_cluster,
-            commands::remote_cli_ops::delete_remote_dataset_cmd
+            commands::remote_cli_ops::delete_remote_dataset_cmd,
+            commands::remote_cli_ops::get_remote_model_sizes
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

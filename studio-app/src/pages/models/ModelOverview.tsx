@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getModelArchitecture, startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 import { useCrucible } from "../../context/CrucibleContext";
-import type { ModelVersion } from "../../types/models";
+import type { ModelEntry } from "../../types/models";
 import { Download, CheckCircle, Loader } from "lucide-react";
 
 interface ModelOverviewProps {
-  version: ModelVersion;
+  entry: ModelEntry;
 }
 
-// Each entry can have multiple keys (Crucible name, HuggingFace name) — first match wins
 const ARCH_FIELDS: { keys: string[]; label: string }[] = [
   { keys: ["architectures"], label: "Architecture" },
   { keys: ["model_type"], label: "Model Type" },
@@ -41,7 +40,7 @@ function resolveField(config: Record<string, unknown>, keys: string[]): unknown 
   return undefined;
 }
 
-export function ModelOverview({ version }: ModelOverviewProps) {
+export function ModelOverview({ entry }: ModelOverviewProps) {
   const { dataRoot, refreshModels } = useCrucible();
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [pulling, setPulling] = useState(false);
@@ -52,29 +51,30 @@ export function ModelOverview({ version }: ModelOverviewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getModelArchitecture(version.modelPath)
-      .then((data) => { if (!cancelled) setConfig(data); })
-      .catch(() => { if (!cancelled) setConfig(null); });
+    if (entry.modelPath) {
+      getModelArchitecture(entry.modelPath)
+        .then((data) => { if (!cancelled) setConfig(data); })
+        .catch(() => { if (!cancelled) setConfig(null); });
+    } else {
+      setConfig(null);
+    }
     return () => { cancelled = true; };
-  }, [version.modelPath]);
+  }, [entry.modelPath]);
 
   const handlePull = useCallback(async () => {
-    if (!dataRoot || !version.runId) return;
+    if (!dataRoot) return;
     setPulling(true);
     setPullProgress([]);
     setPullError(null);
     setPullDone(false);
     try {
       const task = await startCrucibleCommand(dataRoot, [
-        "remote", "pull-model",
-        "--job-id", version.runId,
-        "--model-name", version.modelName,
+        "model", "pull",
+        "--name", entry.modelName,
       ]);
-      // Poll for progress
       pollRef.current = setInterval(async () => {
         try {
           const status = await getCrucibleCommandStatus(task.task_id);
-          // Extract progress lines from stdout
           const lines = (status.stdout || "")
             .split("\n")
             .filter((l: string) => l.startsWith("CRUCIBLE_PULL_PROGRESS: "))
@@ -100,32 +100,29 @@ export function ModelOverview({ version }: ModelOverviewProps) {
       setPulling(false);
       setPullError(`Failed to start pull: ${err}`);
     }
-  }, [dataRoot, version.runId, version.modelName, refreshModels]);
+  }, [dataRoot, entry.modelName, refreshModels]);
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  const isRemoteOnly = version.locationType === "remote";
-  const locationLabel = version.locationType === "both" ? "Local + Remote"
-    : version.locationType === "remote" ? "Remote" : "Local";
+  const isRemoteOnly = entry.locationType === "remote";
+  const locationLabel = entry.locationType === "both" ? "Local + Remote"
+    : entry.locationType === "remote" ? "Remote" : "Local";
 
   const infoFields = [
-    { label: "Model Name", value: version.modelName },
-    { label: "Version ID", value: version.versionId },
+    { label: "Model Name", value: entry.modelName },
     { label: "Location", value: locationLabel },
-    { label: "Model Path", value: version.modelPath || "\u2014" },
-    ...(version.remoteHost ? [{ label: "Remote", value: `${version.remoteHost}:${version.remotePath}` }] : []),
-    { label: "Training Run", value: version.runId ?? "\u2014" },
-    { label: "Parent Version", value: version.parentVersionId ?? "\u2014" },
-    { label: "Created", value: version.createdAt || "\u2014" },
-    { label: "Status", value: version.isActive ? "Active" : "Inactive" },
+    { label: "Model Path", value: entry.modelPath || "\u2014" },
+    ...(entry.remoteHost ? [{ label: "Remote", value: `${entry.remoteHost}:${entry.remotePath}` }] : []),
+    { label: "Training Run", value: entry.runId ?? "\u2014" },
+    { label: "Created", value: entry.createdAt || "\u2014" },
   ];
 
   return (
     <div className="stack-lg">
       <div className="panel">
-        <h3 className="panel-title">Version Info</h3>
+        <h3 className="panel-title">Model Info</h3>
         <table className="overview-table">
           <tbody>
             {infoFields.map((f) => (
@@ -137,7 +134,7 @@ export function ModelOverview({ version }: ModelOverviewProps) {
           </tbody>
         </table>
 
-        {isRemoteOnly && version.runId && (
+        {isRemoteOnly && (
           <div className="gap-top-md">
             {!pulling && !pullDone && (
               <button className="btn btn-primary" onClick={handlePull}>
