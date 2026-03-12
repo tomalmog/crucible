@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Download, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { TabBar } from "../../components/shared/TabBar";
 import { DetailPage } from "../../components/shared/DetailPage";
@@ -13,7 +13,7 @@ import { SampleInspector } from "./SampleInspector";
 import { FilterForm } from "./FilterForm";
 import { useCrucible } from "../../context/CrucibleContext";
 import { deleteDataset } from "../../api/studioApi";
-import { listClusters, listRemoteDatasets, deleteRemoteDataset } from "../../api/remoteApi";
+import { listClusters, listRemoteDatasets, deleteRemoteDataset, pushDatasetToCluster, pullDatasetFromCluster } from "../../api/remoteApi";
 import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
 
 type DetailTab = "overview" | "samples" | "filter";
@@ -30,6 +30,7 @@ export function DatasetsPage() {
   const [showIngest, setShowIngest] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [transferring, setTransferring] = useState<Set<string>>(new Set());
 
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
@@ -101,6 +102,34 @@ export function DatasetsPage() {
     setIsRefreshing(false);
   }
 
+  async function handlePushDataset(name: string): Promise<void> {
+    setTransferring((prev) => new Set(prev).add(name));
+    try {
+      await pushDatasetToCluster(dataRoot, selectedCluster, name);
+      await Promise.all([refreshDatasets(), fetchRemote()]);
+    } finally {
+      setTransferring((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
+  }
+
+  async function handlePullDataset(name: string): Promise<void> {
+    setTransferring((prev) => new Set(prev).add(name));
+    try {
+      await pullDatasetFromCluster(dataRoot, selectedCluster, name);
+      await refreshDatasets();
+    } finally {
+      setTransferring((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
+  }
+
   if (detailName) {
     return (
       <DetailPage title={detailName} onBack={handleBack}>
@@ -166,13 +195,34 @@ export function DatasetsPage() {
               name={d.name}
               meta={<span>{formatSize(d.sizeBytes)}</span>}
               actions={
-                <button
-                  className="btn btn-ghost btn-sm btn-icon"
-                  title="Delete dataset"
-                  onClick={() => setPendingDelete(d.name)}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <>
+                  {isLocal ? (
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      title="Push to remote cluster"
+                      disabled={clusters.length === 0 || transferring.has(d.name)}
+                      onClick={(e) => { e.stopPropagation(); handlePushDataset(d.name).catch(console.error); }}
+                    >
+                      {transferring.has(d.name) ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      title="Pull to local"
+                      disabled={transferring.has(d.name)}
+                      onClick={(e) => { e.stopPropagation(); handlePullDataset(d.name).catch(console.error); }}
+                    >
+                      {transferring.has(d.name) ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    title="Delete dataset"
+                    onClick={() => setPendingDelete(d.name)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
               }
               onClick={() => handleSelect(d.name)}
             />

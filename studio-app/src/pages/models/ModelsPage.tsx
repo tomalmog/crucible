@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Download, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { TabBar } from "../../components/shared/TabBar";
 import { DetailPage } from "../../components/shared/DetailPage";
@@ -10,14 +10,19 @@ import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { formatSize } from "../../components/shared/RegistryRow";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
+import { listClusters } from "../../api/remoteApi";
 import { ModelOverview } from "./ModelOverview";
 import { ModelMergeForm } from "./ModelMergeForm";
 import type { ModelEntry } from "../../types/models";
+import type { ClusterConfig } from "../../types/remote";
 
 type DetailTab = "overview" | "merge";
 type LocationTab = "local" | "remote";
 const DETAIL_TABS = ["overview", "merge"] as const;
 const LOCATION_TABS = ["local", "remote"] as const;
+
+const POLL_MS = 400;
 
 export function ModelsPage() {
   const { dataRoot, models, setSelectedModel, refreshModels } = useCrucible();
@@ -28,6 +33,55 @@ export function ModelsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ModelEntry | null>(null);
+
+  const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+  const [selectedCluster, setSelectedCluster] = useState("");
+  const [transferring, setTransferring] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    listClusters(dataRoot)
+      .then((c) => {
+        setClusters(c);
+        if (c.length > 0) setSelectedCluster(c[0].name);
+      })
+      .catch(console.error);
+  }, [dataRoot]);
+
+  const pollUntilDone = useCallback(async (taskId: string) => {
+    while (true) {
+      const s = await getCrucibleCommandStatus(taskId);
+      if (s.status !== "running") return s;
+      await new Promise((r) => setTimeout(r, POLL_MS));
+    }
+  }, []);
+
+  async function handlePushModel(entry: ModelEntry): Promise<void> {
+    const name = entry.modelName;
+    setTransferring((prev) => new Set(prev).add(name));
+    try {
+      const { task_id } = await startCrucibleCommand(dataRoot, [
+        "remote", "push-model", "--cluster", selectedCluster, "--name", name,
+      ]);
+      await pollUntilDone(task_id);
+      await refreshModels();
+    } finally {
+      setTransferring((prev) => { const n = new Set(prev); n.delete(name); return n; });
+    }
+  }
+
+  async function handlePullModel(entry: ModelEntry): Promise<void> {
+    const name = entry.modelName;
+    setTransferring((prev) => new Set(prev).add(name));
+    try {
+      const { task_id } = await startCrucibleCommand(dataRoot, [
+        "model", "pull", "--name", name,
+      ]);
+      await pollUntilDone(task_id);
+      await refreshModels();
+    } finally {
+      setTransferring((prev) => { const n = new Set(prev); n.delete(name); return n; });
+    }
+  }
 
   function handleSelect(entry: ModelEntry) {
     setSelectedModel(entry);
@@ -93,6 +147,18 @@ export function ModelsPage() {
         format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
       />
 
+      {locationTab === "remote" && clusters.length > 1 && (
+        <select
+          value={selectedCluster}
+          onChange={(e) => setSelectedCluster(e.target.value)}
+          style={{ marginBottom: 12, width: "100%" }}
+        >
+          {clusters.map((c) => (
+            <option key={c.name} value={c.name}>{c.name}</option>
+          ))}
+        </select>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState title="No models" description={emptyMsg} />
       ) : (
@@ -111,13 +177,34 @@ export function ModelsPage() {
                 </>
               }
               actions={
-                <button
-                  className="btn btn-ghost btn-sm btn-icon"
-                  title="Delete model"
-                  onClick={() => setPendingDelete(m)}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <>
+                  {locationTab === "local" ? (
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      title="Push to remote cluster"
+                      disabled={clusters.length === 0 || transferring.has(m.modelName)}
+                      onClick={(e) => { e.stopPropagation(); handlePushModel(m).catch(console.error); }}
+                    >
+                      {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      title="Pull to local"
+                      disabled={transferring.has(m.modelName)}
+                      onClick={(e) => { e.stopPropagation(); handlePullModel(m).catch(console.error); }}
+                    >
+                      {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    title="Delete model"
+                    onClick={() => setPendingDelete(m)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
               }
               onClick={() => handleSelect(m)}
             />

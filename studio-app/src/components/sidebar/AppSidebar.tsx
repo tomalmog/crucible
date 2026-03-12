@@ -52,6 +52,21 @@ export function AppSidebar() {
     navigate(histRef.current.stack[histRef.current.index]);
   }
 
+  // Sync Cmd+Left / Cmd+Right (and Cmd+[ / Cmd+]) with the sidebar arrows
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!e.metaKey && !e.ctrlKey) return;
+      const back = e.key === "ArrowLeft" || e.key === "[";
+      const forward = e.key === "ArrowRight" || e.key === "]";
+      if (!back && !forward) return;
+      e.preventDefault();
+      if (back) goBack();
+      else goForward();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   function toggleCollapsed() {
     const next = !collapsed;
     setCollapsed(next);
