@@ -470,9 +470,12 @@ fn workspace_root_dir() -> PathBuf {
 }
 
 fn resolve_crucible_binary(workspace_root: &Path) -> PathBuf {
-    let venv_binary = workspace_root.join(".venv/bin/crucible");
-    if venv_binary.exists() {
-        return venv_binary;
+    // Try both names — the binary may be called "crucible" or "forge"
+    for name in ["crucible", "forge"] {
+        let venv_binary = workspace_root.join(format!(".venv/bin/{name}"));
+        if venv_binary.exists() {
+            return venv_binary;
+        }
     }
     PathBuf::from("crucible")
 }

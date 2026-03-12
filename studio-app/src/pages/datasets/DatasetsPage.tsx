@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { TabBar } from "../../components/shared/TabBar";
 import { DetailPage } from "../../components/shared/DetailPage";
 import { ListRow } from "../../components/shared/ListRow";
 import { EmptyState } from "../../components/shared/EmptyState";
+import { IngestModal } from "../../components/shared/IngestModal";
+import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { formatSize } from "../../components/shared/RegistryRow";
 import { DatasetDashboard } from "./DatasetDashboard";
 import { SampleInspector } from "./SampleInspector";
-import { IngestForm } from "./IngestForm";
 import { FilterForm } from "./FilterForm";
 import { useCrucible } from "../../context/CrucibleContext";
-import { listClusters, listRemoteDatasets } from "../../api/remoteApi";
+import { deleteDataset } from "../../api/studioApi";
+import { listClusters, listRemoteDatasets, deleteRemoteDataset } from "../../api/remoteApi";
 import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
 
-type DetailTab = "overview" | "samples" | "ingest" | "filter";
+type DetailTab = "overview" | "samples" | "filter";
 type LocationTab = "local" | "remote";
-const DETAIL_TABS = ["overview", "samples", "ingest", "filter"] as const;
+const DETAIL_TABS = ["overview", "samples", "filter"] as const;
 const LOCATION_TABS = ["local", "remote"] as const;
 
 export function DatasetsPage() {
@@ -24,6 +27,9 @@ export function DatasetsPage() {
   const [tab, setTab] = useState<DetailTab>("overview");
   const [locationTab, setLocationTab] = useState<LocationTab>("local");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showIngest, setShowIngest] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
@@ -67,6 +73,24 @@ export function DatasetsPage() {
     setDetailName(null);
   }
 
+  async function handleDeleteDataset(): Promise<void> {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      if (isLocal) {
+        await deleteDataset(dataRoot, pendingDelete);
+        await refreshDatasets();
+      } else {
+        await deleteRemoteDataset(dataRoot, selectedCluster, pendingDelete);
+        await fetchRemote();
+      }
+      if (detailName === pendingDelete) setDetailName(null);
+    } finally {
+      setPendingDelete(null);
+      setDeleting(false);
+    }
+  }
+
   async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
     if (locationTab === "remote") {
@@ -83,7 +107,6 @@ export function DatasetsPage() {
         <TabBar tabs={DETAIL_TABS} active={tab} onChange={setTab} />
         {tab === "overview" && <DatasetDashboard />}
         {tab === "samples" && <SampleInspector />}
-        {tab === "ingest" && <IngestForm />}
         {tab === "filter" && <FilterForm />}
       </DetailPage>
     );
@@ -142,10 +165,40 @@ export function DatasetsPage() {
               key={d.name}
               name={d.name}
               meta={<span>{formatSize(d.sizeBytes)}</span>}
+              actions={
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  title="Delete dataset"
+                  onClick={() => setPendingDelete(d.name)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              }
               onClick={() => handleSelect(d.name)}
             />
           ))}
         </div>
+      )}
+
+      <button className="fab-add" onClick={() => setShowIngest(true)} title="Ingest dataset">
+        <Plus size={22} />
+      </button>
+
+      {showIngest && (
+        <IngestModal
+          onComplete={() => setShowIngest(false)}
+          onClose={() => setShowIngest(false)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDeleteModal
+          title="Delete Dataset"
+          itemName={pendingDelete}
+          isDeleting={deleting}
+          onConfirm={() => handleDeleteDataset().catch(console.error)}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </>
   );
