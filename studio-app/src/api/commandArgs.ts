@@ -191,13 +191,6 @@ export function buildSyntheticArgs(extra: Record<string, string>): string[] {
   return args;
 }
 
-export function buildAbChatArgs(extra: Record<string, string>): string[] {
-  const args = ["ab-chat"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
 
 /** Flag-to-dataclass-field mapping for extra (method-specific) flags. */
 const EXTRA_FLAG_TO_FIELD: Record<string, string> = {

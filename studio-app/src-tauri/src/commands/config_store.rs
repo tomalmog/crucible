@@ -46,3 +46,16 @@ pub fn save_training_config(
         format!("Failed to write config {}: {e}", path.display())
     })
 }
+
+#[tauri::command]
+pub fn write_text_file(file_path: String, contents: String) -> Result<(), String> {
+    let path = std::path::Path::new(&file_path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!("Failed to create directory {}: {e}", parent.display())
+        })?;
+    }
+    fs::write(path, contents).map_err(|e| {
+        format!("Failed to write file {}: {e}", path.display())
+    })
+}

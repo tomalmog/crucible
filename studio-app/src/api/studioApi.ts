@@ -122,3 +122,7 @@ export async function saveTrainingConfig(
 export async function getModelIndexMtime(dataRoot: string): Promise<string> {
   return invoke<string>("get_model_index_mtime", { dataRoot });
 }
+
+export async function writeTextFile(filePath: string, contents: string): Promise<void> {
+  return invoke<void>("write_text_file", { filePath, contents });
+}

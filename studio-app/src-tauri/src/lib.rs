@@ -31,6 +31,7 @@ pub fn run() {
             commands::model_queries::get_model_index_mtime,
             commands::config_store::load_training_config,
             commands::config_store::save_training_config,
+            commands::config_store::write_text_file,
             commands::remote_queries::list_clusters,
             commands::remote_queries::list_remote_jobs,
             commands::remote_queries::get_remote_job,
