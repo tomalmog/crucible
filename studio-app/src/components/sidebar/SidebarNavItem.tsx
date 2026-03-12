@@ -14,7 +14,8 @@ export function SidebarNavItem({ to, icon, label }: SidebarNavItemProps) {
       className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
     >
       <span className="nav-item-icon">{icon}</span>
-      {label}
+      <span className="nav-item-label">{label}</span>
+      <span className="nav-item-tooltip">{label}</span>
     </NavLink>
   );
 }

@@ -1,48 +1,61 @@
-import { NavLink } from "react-router";
+import { useState } from "react";
 import { SidebarNavItem } from "./SidebarNavItem";
-import { Zap, Database, Box, MessageSquare, Settings, FlaskConical, Globe, GitCompare, Activity, BookOpen, Server } from "lucide-react";
+import {
+  Zap, Database, Box, MessageSquare, FlaskConical, Globe,
+  Activity, Server, GitCompare, BookOpen, Settings,
+  PanelLeftClose, PanelLeftOpen,
+} from "lucide-react";
 
-const NAV_ITEMS = [
-  { to: "/training", icon: <Zap size={16} />, label: "Training" },
-  { to: "/datasets", icon: <Database size={16} />, label: "Datasets" },
-  { to: "/models", icon: <Box size={16} />, label: "Models" },
-  { to: "/chat", icon: <MessageSquare size={16} />, label: "Chat" },
-  { to: "/benchmarks", icon: <FlaskConical size={16} />, label: "Benchmarks" },
-  { to: "/hub", icon: <Globe size={16} />, label: "Hub" },
-];
+const SIDEBAR_KEY = "crucible_sidebar_collapsed";
 
-const TOOLS_ITEMS = [
-  { to: "/jobs", icon: <Activity size={16} />, label: "Jobs" },
-  { to: "/clusters", icon: <Server size={16} />, label: "Clusters" },
-  { to: "/compare-chat", icon: <GitCompare size={16} />, label: "A/B Compare" },
-  { to: "/docs", icon: <BookOpen size={16} />, label: "Docs" },
-  { to: "/settings", icon: <Settings size={16} />, label: "Settings" },
-];
+function getInitialCollapsed(): boolean {
+  return localStorage.getItem(SIDEBAR_KEY) === "true";
+}
 
 export function AppSidebar() {
+  const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem(SIDEBAR_KEY, String(next));
+    window.dispatchEvent(new CustomEvent("sidebar-toggle", { detail: next }));
+  }
+
   return (
     <aside className="app-sidebar">
       <div className="sidebar-brand">
         <h2>
           <span className="brand-icon">C</span>
-          Crucible
+          <span>Crucible</span>
         </h2>
       </div>
+
       <nav className="sidebar-nav">
-        <div className="sidebar-section-label">Workspace</div>
-        {NAV_ITEMS.map((item) => (
-          <SidebarNavItem key={item.to} {...item} />
-        ))}
-        <div className="sidebar-section-label">Tools</div>
-        {TOOLS_ITEMS.map((item) => (
-          <SidebarNavItem key={item.to} {...item} />
-        ))}
+        <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
+        <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
+        <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
+        <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
+        <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Benchmarks" />
+        <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
+
+        <div className="sidebar-divider" />
+
+        <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
+        <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
+        <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
+        <SidebarNavItem to="/docs" icon={<BookOpen size={16} />} label="Docs" />
+        <SidebarNavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
       </nav>
+
       <div className="sidebar-footer">
-        <NavLink to="/settings" className="nav-item">
-          <span className="nav-item-icon"><Settings size={16} /></span>
-          Settings
-        </NavLink>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        </button>
       </div>
     </aside>
   );

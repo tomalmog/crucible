@@ -170,42 +170,24 @@ export function JobsPage() {
         )}
       </PageHeader>
 
-      <div className="jobs-filters">
-        <div className="tab-list">
-          {(["all", "running", "completed", "failed"] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              className={`tab-item ${statusFilter === f ? "active" : ""}`}
-              onClick={() => setStatusFilter(f)}
-            >
-              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="job-divider" />
-        <div className="tab-list">
-          {(["all", "local", "remote"] as LocationFilter[]).map((f) => (
-            <button
-              key={f}
-              className={`tab-item ${locationFilter === f ? "active" : ""}`}
-              onClick={() => setLocationFilter(f)}
-            >
-              {f === "all" ? "All" : f === "local" ? "Local" : "Remote"}
-            </button>
-          ))}
-        </div>
-        <div className="job-divider" />
-        <div className="tab-list">
-          {(["all", "training", "eval", "sweep"] as TaskTypeFilter[]).map((f) => (
-            <button
-              key={f}
-              className={`tab-item ${typeFilter === f ? "active" : ""}`}
-              onClick={() => setTypeFilter(f)}
-            >
-              {f === "all" ? "All Types" : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+      <div className="filter-bar">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
+          <option value="all">All Status</option>
+          <option value="running">Running</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+        </select>
+        <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value as LocationFilter)}>
+          <option value="all">All Locations</option>
+          <option value="local">Local</option>
+          <option value="remote">Remote</option>
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TaskTypeFilter)}>
+          <option value="all">All Types</option>
+          <option value="training">Training</option>
+          <option value="eval">Eval</option>
+          <option value="sweep">Sweep</option>
+        </select>
       </div>
 
       {unified.length === 0 && !isRemoteLoading ? (

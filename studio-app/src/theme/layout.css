@@ -10,7 +10,11 @@
 .page-content {
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 24px 28px;
+    padding: 20px;
+}
+
+.app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
 }
 
 /* ─── Sidebar ─── */
@@ -22,11 +26,19 @@
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    width: var(--sidebar-width);
+}
+
+.sidebar-collapsed .app-sidebar {
+    width: var(--sidebar-collapsed-width);
 }
 
 .sidebar-brand {
-    padding: 16px 14px;
+    padding: 12px 10px;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .sidebar-brand h2 {
@@ -72,6 +84,29 @@
 .sidebar-footer {
     padding: 8px 6px;
     border-top: 1px solid var(--border);
+}
+
+.sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.sidebar-collapse-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 6px 8px;
 }
 
 /* ─── Nav Items ─── */
@@ -125,17 +160,54 @@
     stroke-width: 1.5;
 }
 
+.nav-item-tooltip {
+    display: none;
+    position: absolute;
+    left: calc(var(--sidebar-collapsed-width) + 4px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    font-size: 0.6875rem;
+    color: var(--text);
+    white-space: nowrap;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding: 8px;
+    position: relative;
+}
+
+.sidebar-collapsed .nav-item:hover .nav-item-tooltip {
+    display: block;
+}
+
+.sidebar-collapsed .nav-item-label {
+    display: none;
+}
+
+.sidebar-collapsed .sidebar-brand h2 span {
+    display: none;
+}
+
+.sidebar-collapsed .sidebar-section-label {
+    display: none;
+}
+
 /* ─── Page Structure ─── */
 
 .page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .page-header h1 {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 500;
     letter-spacing: -0.025em;
 }

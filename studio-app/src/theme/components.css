@@ -4,7 +4,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 16px;
+    padding: 12px;
 }
 
 .panel-header {
@@ -12,7 +12,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .panel-header h3 {
@@ -36,7 +36,7 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     font-family: var(--font-body);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 500;
     cursor: pointer;
     transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
@@ -353,22 +353,25 @@ label,
 
 .tab-list {
     display: flex;
-    gap: 0;
-    border-bottom: 1px solid var(--border);
+    gap: 2px;
+    padding: 2px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
     margin-bottom: 16px;
+    width: fit-content;
 }
 
 .tab-item {
-    padding: 6px 12px;
+    padding: 4px 10px;
     background: transparent;
     border: none;
-    border-bottom: 1px solid transparent;
+    border-radius: var(--radius-sm);
     color: var(--text-tertiary);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 500;
     cursor: pointer;
-    transition: color var(--transition-fast), border-color var(--transition-fast);
-    margin-bottom: -1px;
+    transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .tab-item:hover {
@@ -376,8 +379,9 @@ label,
 }
 
 .tab-item.active {
+    background: var(--bg-base);
     color: var(--text);
-    border-bottom-color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
 /* ─── Sample Cards ─── */
@@ -498,76 +502,88 @@ label,
 
 /* ─── Method List ─── */
 
-.method-list {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
+/* ─── Method Card Grid ─── */
+
+.method-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
 }
 
-.method-item-row {
+.method-card {
     display: flex;
-    align-items: center;
-    border-top: 1px solid var(--border);
+    flex-direction: column;
+    padding: 16px 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: border-color var(--transition-normal), background var(--transition-normal);
 }
 
-.method-item-row:first-child {
-    border-top: none;
-}
-
-.method-item-row:hover {
+.method-card:hover {
+    border-color: var(--border-hover);
     background: var(--bg-hover);
 }
 
-.method-item {
+.method-card-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-align: left;
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-body);
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
 }
 
-.method-info-btn {
-    flex-shrink: 0;
-    margin-right: 8px;
-    color: var(--text-tertiary);
-    opacity: 0;
-    transition: opacity var(--transition-fast), color var(--transition-fast);
-}
-
-.method-item-row:hover .method-info-btn {
-    opacity: 1;
-}
-
-.method-info-btn:hover {
-    color: var(--accent);
-}
-
-.method-item-name {
+.method-card-name {
     font-size: 0.8125rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text);
-    min-width: 140px;
 }
 
-.method-item-description {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    line-height: 1.4;
-}
-
-.method-category-header {
-    padding: 12px 12px 4px;
-    font-size: 0.6875rem;
+.method-card-tag {
+    font-size: 0.5625rem;
     font-weight: 500;
     color: var(--text-tertiary);
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 9999px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.method-card-description {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex: 1;
+}
+
+.method-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-light);
+}
+
+.method-card-docs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color var(--transition-fast);
+}
+
+.method-card-docs:hover {
+    color: var(--accent);
 }
 
 /* ─── Wizard Steps ─── */
@@ -1787,4 +1803,94 @@ label,
     gap: 8px;
     padding: 16px 20px;
     border-top: 1px solid var(--border);
+}
+
+/* ─── List Row ─── */
+
+.list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.list-row:last-child {
+    border-bottom: none;
+}
+
+.list-row:hover {
+    background: var(--bg-hover);
+}
+
+.list-row-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.list-row-meta span {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+}
+
+.list-row-chevron {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.list-row-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+/* ─── Detail Page ─── */
+
+.detail-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 12px;
+    transition: color var(--transition-fast);
+}
+
+.detail-back:hover {
+    color: var(--text);
+}
+
+/* ─── Filter Bar ─── */
+
+.filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.filter-bar select {
+    width: auto;
+    min-width: 100px;
+    padding: 4px 8px;
+    font-size: 0.6875rem;
 }

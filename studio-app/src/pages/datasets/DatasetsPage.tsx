@@ -1,67 +1,79 @@
 import { useState } from "react";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { DatasetListPanel } from "./DatasetListPanel";
+import { TabBar } from "../../components/shared/TabBar";
+import { DetailPage } from "../../components/shared/DetailPage";
+import { ListRow } from "../../components/shared/ListRow";
+import { EmptyState } from "../../components/shared/EmptyState";
+import { formatSize } from "../../components/shared/RegistryRow";
 import { DatasetDashboard } from "./DatasetDashboard";
 import { SampleInspector } from "./SampleInspector";
 import { IngestForm } from "./IngestForm";
 import { FilterForm } from "./FilterForm";
 import { useCrucible } from "../../context/CrucibleContext";
 
-type Tab = "overview" | "samples" | "ingest" | "filter";
+type DetailTab = "overview" | "samples" | "ingest" | "filter";
+const DETAIL_TABS = ["overview", "samples", "ingest", "filter"] as const;
 
 export function DatasetsPage() {
-  const [tab, setTab] = useState<Tab>("overview");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { datasets, setSelectedDataset, refreshDatasets } = useCrucible();
+  const [detailName, setDetailName] = useState<string | null>(null);
+  const [tab, setTab] = useState<DetailTab>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { selectedDataset, setSelectedDataset, refreshDatasets } = useCrucible();
 
-  function handleSelectDataset(ds: string) {
-    setSelectedDataset(ds);
+  function handleSelect(name: string) {
+    setSelectedDataset(name);
+    setDetailName(name);
     setTab("overview");
+  }
+
+  function handleBack() {
+    setDetailName(null);
   }
 
   async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
-    setRefreshKey((k) => k + 1);
     await refreshDatasets();
+    setIsRefreshing(false);
+  }
+
+  if (detailName) {
+    return (
+      <DetailPage title={detailName} onBack={handleBack}>
+        <TabBar tabs={DETAIL_TABS} active={tab} onChange={setTab} />
+        {tab === "overview" && <DatasetDashboard />}
+        {tab === "samples" && <SampleInspector />}
+        {tab === "ingest" && <IngestForm />}
+        {tab === "filter" && <FilterForm />}
+      </DetailPage>
+    );
   }
 
   return (
     <>
       <PageHeader title="Datasets">
-        <button className="btn" onClick={() => handleRefresh().catch(console.error)} disabled={isRefreshing}>
+        <button
+          className="btn"
+          onClick={() => handleRefresh().catch(console.error)}
+          disabled={isRefreshing}
+        >
           {isRefreshing ? "Refreshing..." : "Refresh"}
         </button>
       </PageHeader>
 
-      <div className="two-column">
-        <DatasetListPanel
-          onSelect={handleSelectDataset}
-          refreshKey={refreshKey}
-          onRefreshingChange={setIsRefreshing}
-        />
-        <div>
-          <div className="tab-list">
-            {(["overview", "samples", "ingest", "filter"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                className={`tab-item ${tab === t ? "active" : ""}`}
-                onClick={() => setTab(t)}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {tab === "overview" && <DatasetDashboard />}
-          {tab === "samples" && <SampleInspector />}
-          {tab === "ingest" && <IngestForm />}
-          {tab === "filter" && selectedDataset && <FilterForm />}
-          {tab === "filter" && !selectedDataset && (
-            <p className="text-tertiary">Select a dataset first.</p>
-          )}
+      {datasets.length === 0 ? (
+        <EmptyState title="No datasets" description="Ingest data from the Training page or CLI." />
+      ) : (
+        <div className="panel panel-flush">
+          {datasets.map((ds) => (
+            <ListRow
+              key={ds.name}
+              name={ds.name}
+              meta={<span>{formatSize(ds.sizeBytes)}</span>}
+              onClick={() => handleSelect(ds.name)}
+            />
+          ))}
         </div>
-      </div>
+      )}
     </>
   );
 }

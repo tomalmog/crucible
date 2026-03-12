@@ -1,29 +1,42 @@
+/*
+ * Color Palette — change these 4 values to re-theme the entire app.
+ *
+ * Light: background → surface → card → accent
+ * Dark:  background → surface → card → accent
+ */
+
 :root {
+    /* ── Core palette (edit these to change the color scheme) ── */
+    --palette-bg: #FCF8F8;
+    --palette-surface: #FBEFEF;
+    --palette-card: #F9DFDF;
+    --palette-accent: #F5AFAF;
+
     /* Surfaces */
-    --bg-base: #F7FBFC;
-    --bg-surface: #ffffff;
-    --bg-elevated: #D6E6F2;
-    --bg-hover: #D6E6F2;
-    --bg-active: #B9D7EA;
-    --bg-input: #ffffff;
+    --bg-base: var(--palette-bg);
+    --bg-surface: var(--palette-surface);
+    --bg-elevated: var(--palette-card);
+    --bg-hover: var(--palette-card);
+    --bg-active: color-mix(in srgb, var(--palette-accent) 35%, var(--palette-surface));
+    --bg-input: white;
 
     /* Borders */
-    --border: #B9D7EA;
-    --border-light: #D6E6F2;
-    --border-focus: #769FCD;
-    --border-hover: #769FCD;
+    --border: color-mix(in srgb, var(--palette-accent) 40%, var(--palette-surface));
+    --border-light: var(--palette-card);
+    --border-focus: var(--palette-accent);
+    --border-hover: var(--palette-accent);
 
     /* Text */
-    --text: #1a2a3a;
-    --text-secondary: #4a6277;
-    --text-tertiary: #7a9bb5;
-    --text-inverse: #F7FBFC;
+    --text: #2a1e1e;
+    --text-secondary: #6b4f4f;
+    --text-tertiary: #a08080;
+    --text-inverse: var(--palette-bg);
 
     /* Accent */
-    --accent: #769FCD;
-    --accent-hover: #5e8bbf;
-    --accent-muted: rgba(118, 159, 205, 0.12);
-    --accent-text: #5e8bbf;
+    --accent: color-mix(in srgb, var(--palette-accent) 80%, #a03030);
+    --accent-hover: color-mix(in srgb, var(--palette-accent) 65%, #a03030);
+    --accent-muted: color-mix(in srgb, var(--palette-accent) 18%, transparent);
+    --accent-text: color-mix(in srgb, var(--palette-accent) 55%, #701010);
 
     /* Semantic */
     --success: #059669;
@@ -34,20 +47,21 @@
     --error-muted: rgba(220, 38, 38, 0.08);
 
     /* Chart palette */
-    --chart-1: #769FCD;
+    --chart-1: var(--accent);
     --chart-2: #d97706;
 
     /* Radii */
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
 
     /* Fonts */
-    --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: "JetBrains Mono", "SF Mono", monospace;
 
     /* Layout */
-    --sidebar-width: 220px;
+    --sidebar-width: 180px;
+    --sidebar-collapsed-width: 48px;
 
     /* Transitions */
     --transition-fast: 100ms ease;
@@ -55,28 +69,39 @@
 }
 
 [data-theme="dark"] {
-    --bg-base: #0f1419;
-    --bg-surface: #1a2332;
-    --bg-elevated: #243044;
-    --bg-hover: #2a3a52;
-    --bg-active: #354862;
-    --bg-input: #1a2332;
+    /* ── Core palette (dark mode) ── */
+    --palette-bg: #141111;
+    --palette-surface: #1D1616;
+    --palette-card: #2A1E1E;
+    --palette-accent: #D46A6A;
 
-    --border: #2a3a52;
-    --border-light: #243044;
-    --border-focus: #769FCD;
-    --border-hover: #769FCD;
+    /* Surfaces */
+    --bg-base: var(--palette-bg);
+    --bg-surface: var(--palette-surface);
+    --bg-elevated: var(--palette-card);
+    --bg-hover: color-mix(in srgb, var(--palette-card) 80%, var(--palette-accent));
+    --bg-active: color-mix(in srgb, var(--palette-accent) 25%, var(--palette-card));
+    --bg-input: var(--palette-surface);
 
-    --text: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --text-tertiary: #64748b;
-    --text-inverse: #0f1419;
+    /* Borders */
+    --border: color-mix(in srgb, var(--palette-accent) 20%, var(--palette-card));
+    --border-light: var(--palette-card);
+    --border-focus: var(--palette-accent);
+    --border-hover: var(--palette-accent);
 
-    --accent: #769FCD;
-    --accent-hover: #8fb3d9;
-    --accent-muted: rgba(118, 159, 205, 0.15);
-    --accent-text: #8fb3d9;
+    /* Text */
+    --text: #f0e4e4;
+    --text-secondary: #b89a9a;
+    --text-tertiary: #7a5c5c;
+    --text-inverse: var(--palette-bg);
 
+    /* Accent */
+    --accent: var(--palette-accent);
+    --accent-hover: color-mix(in srgb, var(--palette-accent) 80%, white);
+    --accent-muted: color-mix(in srgb, var(--palette-accent) 15%, transparent);
+    --accent-text: color-mix(in srgb, var(--palette-accent) 75%, white);
+
+    /* Semantic */
     --success: #34d399;
     --success-muted: rgba(52, 211, 153, 0.1);
     --warning: #fbbf24;
@@ -84,6 +109,7 @@
     --error: #f87171;
     --error-muted: rgba(248, 113, 113, 0.1);
 
-    --chart-1: #769FCD;
+    /* Chart palette */
+    --chart-1: var(--palette-accent);
     --chart-2: #fbbf24;
 }
