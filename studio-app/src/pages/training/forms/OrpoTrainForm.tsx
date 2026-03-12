@@ -14,7 +14,6 @@ export function OrpoTrainForm({ extra, setExtra }: OrpoTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Odds Ratio Preference Optimization</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

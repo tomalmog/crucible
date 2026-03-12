@@ -17,7 +17,6 @@ export function DpoTrainForm({ extra, setExtra }: DpoTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Direct Preference Optimization</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

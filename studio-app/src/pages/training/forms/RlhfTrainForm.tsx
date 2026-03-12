@@ -15,7 +15,6 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>RLHF Training</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

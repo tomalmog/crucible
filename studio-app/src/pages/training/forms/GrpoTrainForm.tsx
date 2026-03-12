@@ -15,7 +15,6 @@ export function GrpoTrainForm({ extra, setExtra }: GrpoTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Group Relative Policy Optimization</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

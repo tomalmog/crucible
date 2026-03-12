@@ -26,7 +26,8 @@ import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSec
 import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
 import { TrainingClusterContext } from "../../context/TrainingClusterContext";
 import { FormField } from "../../components/shared/FormField";
-import { ArrowLeft, ChevronRight, RotateCcw, Check } from "lucide-react";
+import { PageHeader } from "../../components/shared/PageHeader";
+import { ArrowLeft, RotateCcw, Check } from "lucide-react";
 
 function parseModelPath(stdout: string): string | null {
   for (const line of stdout.split("\n")) {
@@ -131,37 +132,14 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     }
   }
 
-  const STEPS: { label: string; key: Step }[] = [
-    { label: "Configure", key: "config" },
-    { label: "Running", key: "running" },
-    { label: "Results", key: "done" },
-  ];
-
   if (!config.isLoaded) return null;
 
   return (
-    <div>
-      <div className="wizard-header">
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>
-          <ArrowLeft size={14} /> Back
-        </button>
-        <h2>{methodInfo.name}</h2>
-        <div className="spacer" />
-        <div className="wizard-steps">
-          {STEPS.map((s, i) => (
-            <span key={s.key}>
-              {i > 0 && (
-                <span className="wizard-step-separator">
-                  <ChevronRight size={12} />
-                </span>
-              )}
-              <span className={`wizard-step${step === s.key ? " active" : ""}`}>
-                {s.label}
-              </span>
-            </span>
-          ))}
-        </div>
-      </div>
+    <>
+      <PageHeader title={methodInfo.name} />
+      <button className="detail-back" onClick={onBack}>
+        <ArrowLeft size={14} /> Back to Training
+      </button>
 
       {step === "config" && (
         <TrainingClusterContext.Provider value={remoteEnabled ? clusterConfig.cluster : ""}>
@@ -265,7 +243,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
             <div className="error-alert">{command.error || startError}</div>
           )}
           {registered && (
-            <div className="flex-row" style={{ color: "var(--color-success)" }}>
+            <div className="flex-row" style={{ color: "var(--success)" }}>
               <Check size={14} />
               <span>Model registered as &ldquo;{modelName}&rdquo;</span>
             </div>
@@ -281,6 +259,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

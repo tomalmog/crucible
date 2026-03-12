@@ -14,7 +14,6 @@ export function MultimodalTrainForm({ extra, setExtra }: MultimodalTrainFormProp
 
   return (
     <div className="stack-sm">
-      <h4>Multimodal Fine-Tuning</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

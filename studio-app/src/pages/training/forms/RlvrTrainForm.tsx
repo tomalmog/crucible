@@ -14,7 +14,6 @@ export function RlvrTrainForm({ extra, setExtra }: RlvrTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>RL with Verifiable Rewards</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

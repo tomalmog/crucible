@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe,
   Activity, Server, GitCompare, BookOpen, Settings,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -14,6 +15,42 @@ function getInitialCollapsed(): boolean {
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Track navigation history to know if back/forward are available.
+  // `index` points to the current position in `stack`.
+  const histRef = useRef({ stack: [location.pathname], index: 0, skipNext: false });
+
+  useEffect(() => {
+    const h = histRef.current;
+    if (h.skipNext) {
+      h.skipNext = false;
+      return;
+    }
+    // Normal navigation — truncate forward entries and push
+    const newStack = h.stack.slice(0, h.index + 1);
+    newStack.push(location.pathname);
+    h.stack = newStack;
+    h.index = newStack.length - 1;
+  }, [location.pathname]);
+
+  const canGoBack = histRef.current.index > 0;
+  const canGoForward = histRef.current.index < histRef.current.stack.length - 1;
+
+  function goBack() {
+    if (!canGoBack) return;
+    histRef.current.index -= 1;
+    histRef.current.skipNext = true;
+    navigate(histRef.current.stack[histRef.current.index]);
+  }
+
+  function goForward() {
+    if (!canGoForward) return;
+    histRef.current.index += 1;
+    histRef.current.skipNext = true;
+    navigate(histRef.current.stack[histRef.current.index]);
+  }
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -29,21 +66,44 @@ export function AppSidebar() {
           <span className="brand-icon">C</span>
           <span>Crucible</span>
         </h2>
+        <div className="sidebar-nav-arrows">
+          <button
+            className={`sidebar-arrow${canGoBack ? "" : " disabled"}`}
+            onClick={goBack}
+            disabled={!canGoBack}
+            title="Go back"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            className={`sidebar-arrow${canGoForward ? "" : " disabled"}`}
+            onClick={goForward}
+            disabled={!canGoForward}
+            title="Go forward"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
 
       <nav className="sidebar-nav">
+        <span className="sidebar-section-label">Workspace</span>
         <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
         <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
         <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
-        <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
         <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Benchmarks" />
+
+        <span className="sidebar-section-label">Tools</span>
+        <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
+        <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
         <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
 
-        <div className="sidebar-divider" />
-
+        <span className="sidebar-section-label">Operations</span>
         <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
         <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
-        <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
+
+        <div className="spacer" />
+
         <SidebarNavItem to="/docs" icon={<BookOpen size={16} />} label="Docs" />
         <SidebarNavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
       </nav>

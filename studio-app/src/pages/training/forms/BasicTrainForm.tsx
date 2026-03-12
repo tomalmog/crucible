@@ -14,10 +14,6 @@ export function BasicTrainForm({ extra, setExtra }: BasicTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Basic Training</h4>
-      <p className="text-tertiary page-description">
-        Standard supervised training from dataset. Configure shared parameters below.
-      </p>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

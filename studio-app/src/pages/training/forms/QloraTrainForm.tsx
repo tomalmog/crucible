@@ -14,7 +14,6 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Quantized LoRA (QLoRA)</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />

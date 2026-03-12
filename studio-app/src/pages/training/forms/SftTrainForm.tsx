@@ -17,7 +17,6 @@ export function SftTrainForm({ extra, setExtra }: SftTrainFormProps) {
 
   return (
     <div className="stack-sm">
-      <h4>Supervised Fine-Tuning</h4>
       <div className="grid-2">
         <FormField label="Dataset" required>
           <DatasetSelect value={extra["--dataset"] ?? ""} onChange={(v) => update("--dataset", v)} />
