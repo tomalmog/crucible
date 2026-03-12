@@ -133,6 +133,73 @@ label,
     letter-spacing: 0.01em;
 }
 
+/* ─── Form Fields ─── */
+
+.ff {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.ff-label {
+    display: block;
+    padding: 8px 12px 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ff-required {
+    color: var(--error);
+    margin-left: 2px;
+}
+
+.ff-hint {
+    font-weight: 400;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    margin-left: 6px;
+}
+
+.ff input,
+.ff select,
+.ff textarea {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 4px 12px 8px;
+    background: transparent;
+}
+
+.ff select {
+    cursor: pointer;
+}
+
+.ff input:focus,
+.ff select:focus,
+.ff textarea:focus {
+    box-shadow: none;
+}
+
+.ff:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.ff .path-input {
+    padding: 0 8px 4px 0;
+}
+
+.ff .path-input input {
+    padding: 4px 12px 8px;
+}
+
 /* ─── Path Input ─── */
 
 .path-input {
@@ -1587,6 +1654,58 @@ label,
 
 .dataset-select {
     position: relative;
+}
+
+.dataset-select-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dataset-select-input-wrap input {
+    padding-right: 28px;
+    cursor: pointer;
+}
+
+.dataset-select-input-wrap input:focus {
+    cursor: text;
+}
+
+.dataset-select-chevron {
+    position: absolute;
+    right: 10px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.dataset-select-clear {
+    position: absolute;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dataset-select-clear:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.dataset-select-empty {
+    padding: 12px;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
 }
 
 .dataset-select-dropdown {

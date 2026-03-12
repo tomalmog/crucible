@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { ChevronDown, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 
 interface ModelSelectProps {
@@ -16,9 +17,9 @@ interface ModelOption {
 
 /**
  * Searchable dropdown for selecting a registered model.
- * Shows local and remote models in grouped sections.
+ * Only allows picking from the model registry — no free text.
  */
-export function ModelSelect({ value, onChange, placeholder = "select a registered model", remoteOnly = false }: ModelSelectProps) {
+export function ModelSelect({ value, onChange, placeholder = "Select a model", remoteOnly = false }: ModelSelectProps) {
   const { models } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -38,12 +39,11 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
 
   const displayValue = value ? (pathToName.get(value) ?? value) : "";
 
-  const query = open ? search : "";
   const options = useMemo(() => {
     const result: ModelOption[] = [];
-    const lowerQuery = query.toLowerCase();
+    const q = search.toLowerCase();
     for (const m of models) {
-      if (!m.modelName.toLowerCase().includes(lowerQuery)) continue;
+      if (!m.modelName.toLowerCase().includes(q)) continue;
       if (!remoteOnly && m.hasLocal && m.modelPath) {
         result.push({ label: m.modelName, value: m.modelPath, section: "local" });
       }
@@ -53,7 +53,7 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
       }
     }
     return result;
-  }, [models, query, remoteOnly]);
+  }, [models, search, remoteOnly]);
 
   const localOptions = options.filter((o) => o.section === "local");
   const remoteOptions = options.filter((o) => o.section === "remote");
@@ -61,17 +61,26 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
 
   function handleFocus(): void {
     clearTimeout(blurTimeout.current);
-    setSearch(displayValue);
+    setSearch("");
     setOpen(true);
   }
 
   function handleBlur(): void {
-    blurTimeout.current = setTimeout(() => setOpen(false), 150);
+    blurTimeout.current = setTimeout(() => {
+      setOpen(false);
+      setSearch("");
+    }, 150);
   }
 
   function pick(modelPath: string): void {
     onChange(modelPath);
     setOpen(false);
+    setSearch("");
+  }
+
+  function clear(): void {
+    onChange("");
+    setSearch("");
   }
 
   function renderOptions(items: ModelOption[]) {
@@ -91,15 +100,22 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
 
   return (
     <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
-      <input
-        value={open ? search : displayValue}
-        onChange={(e) => {
-          setSearch(e.currentTarget.value);
-          if (!open) setOpen(true);
-        }}
-        placeholder={placeholder}
-      />
-      {open && hasResults && (
+      <div className="dataset-select-input-wrap">
+        <input
+          value={open ? search : displayValue}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          placeholder={displayValue || placeholder}
+          readOnly={!open}
+        />
+        {value && !open ? (
+          <button type="button" className="dataset-select-clear" onMouseDown={(e) => e.preventDefault()} onClick={clear}>
+            <X size={14} />
+          </button>
+        ) : (
+          <ChevronDown size={14} className="dataset-select-chevron" />
+        )}
+      </div>
+      {open && (
         <ul className="dataset-select-dropdown">
           {localOptions.length > 0 && (
             <>
@@ -112,6 +128,9 @@ export function ModelSelect({ value, onChange, placeholder = "select a registere
               <li className="dataset-select-header">Remote</li>
               {renderOptions(remoteOptions)}
             </>
+          )}
+          {!hasResults && (
+            <li className="dataset-select-empty">No models found</li>
           )}
         </ul>
       )}

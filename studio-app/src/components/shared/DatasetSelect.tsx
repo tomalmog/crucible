@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingCluster } from "../../context/TrainingClusterContext";
 import { listRemoteDatasets } from "../../api/remoteApi";
@@ -18,19 +18,18 @@ interface DatasetOption {
 }
 
 /**
- * Searchable dropdown for selecting a dataset.
- * Shows local datasets from the registry and, when a training cluster is
- * active, remote datasets from that cluster in a grouped "Remote" section.
+ * Searchable dropdown for selecting a dataset from the registry.
+ * Only allows picking from local/remote datasets — no free text.
  */
-export function DatasetSelect({ value, onChange, placeholder = "dataset name" }: DatasetSelectProps) {
+export function DatasetSelect({ value, onChange, placeholder = "Select a dataset" }: DatasetSelectProps) {
   const { datasets, dataRoot } = useCrucible();
   const cluster = useTrainingCluster();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Fetch remote datasets when a cluster is selected
   useEffect(() => {
     if (!dataRoot || !cluster) {
       setRemoteDatasets([]);
@@ -45,19 +44,19 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
 
   const options = useMemo(() => {
     const result: DatasetOption[] = [];
-    const lowerQuery = value.toLowerCase();
+    const q = search.toLowerCase();
     for (const d of datasets) {
-      if (d.name.toLowerCase().includes(lowerQuery)) {
+      if (d.name.toLowerCase().includes(q)) {
         result.push({ label: d.name, value: d.name, section: "local" });
       }
     }
     for (const d of remoteDatasets) {
-      if (d.name.toLowerCase().includes(lowerQuery)) {
+      if (d.name.toLowerCase().includes(q)) {
         result.push({ label: d.name, value: d.name, section: "remote" });
       }
     }
     return result;
-  }, [datasets, remoteDatasets, value]);
+  }, [datasets, remoteDatasets, search]);
 
   const localOptions = options.filter((o) => o.section === "local");
   const remoteOptions = options.filter((o) => o.section === "remote");
@@ -65,16 +64,26 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
 
   function handleFocus() {
     clearTimeout(blurTimeout.current);
+    setSearch("");
     setOpen(true);
   }
 
   function handleBlur() {
-    blurTimeout.current = setTimeout(() => setOpen(false), 150);
+    blurTimeout.current = setTimeout(() => {
+      setOpen(false);
+      setSearch("");
+    }, 150);
   }
 
   function pick(name: string) {
     onChange(name);
     setOpen(false);
+    setSearch("");
+  }
+
+  function clear() {
+    onChange("");
+    setSearch("");
   }
 
   function renderOptions(items: DatasetOption[]) {
@@ -92,22 +101,28 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
     ));
   }
 
-  const showSections = remoteOptions.length > 0;
-
   return (
     <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.currentTarget.value)}
-        placeholder={placeholder}
-      />
+      <div className="dataset-select-input-wrap">
+        <input
+          value={open ? search : value}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          placeholder={value || placeholder}
+          readOnly={!open}
+        />
+        {value && !open ? (
+          <button type="button" className="dataset-select-clear" onMouseDown={(e) => e.preventDefault()} onClick={clear}>
+            <X size={14} />
+          </button>
+        ) : (
+          <ChevronDown size={14} className="dataset-select-chevron" />
+        )}
+      </div>
       {open && (hasResults || isLoadingRemote) && (
         <ul className="dataset-select-dropdown">
           {localOptions.length > 0 && (
             <>
-              {(showSections || isLoadingRemote) && (
-                <li className="dataset-select-header">Local</li>
-              )}
+              <li className="dataset-select-header">Local</li>
               {renderOptions(localOptions)}
             </>
           )}
@@ -121,6 +136,9 @@ export function DatasetSelect({ value, onChange, placeholder = "dataset name" }:
               {renderOptions(remoteOptions)}
             </>
           ) : null}
+          {!hasResults && !isLoadingRemote && (
+            <li className="dataset-select-empty">No datasets found</li>
+          )}
         </ul>
       )}
     </div>

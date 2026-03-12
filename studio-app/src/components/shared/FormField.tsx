@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useId } from "react";
 
 interface FormFieldProps {
   label: string;
@@ -9,16 +9,16 @@ interface FormFieldProps {
 }
 
 export function FormField({ label, htmlFor, required, hint, children }: FormFieldProps) {
-  const labelContent = (
-    <span>
-      {label}
-      {required && <span className="form-field-required">*</span>}
-      {hint && <span className="form-field-hint">{hint}</span>}
-    </span>
-  );
+  const autoId = useId();
+  const id = htmlFor ?? autoId;
+
   return (
-    <div className="form-field">
-      {htmlFor ? <label htmlFor={htmlFor}>{labelContent}</label> : labelContent}
+    <div className="ff">
+      <label className="ff-label" htmlFor={id}>
+        {label}
+        {required && <span className="ff-required">*</span>}
+        {hint && <span className="ff-hint">{hint}</span>}
+      </label>
       {children}
     </div>
   );

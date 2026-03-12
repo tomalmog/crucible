@@ -11,12 +11,15 @@ import { ModelMergeForm } from "./ModelMergeForm";
 import type { ModelEntry } from "../../types/models";
 
 type DetailTab = "overview" | "merge";
+type LocationTab = "local" | "remote";
 const DETAIL_TABS = ["overview", "merge"] as const;
+const LOCATION_TABS = ["local", "remote"] as const;
 
 export function ModelsPage() {
   const { models, setSelectedModel, refreshModels } = useCrucible();
   const [detailEntry, setDetailEntry] = useState<ModelEntry | null>(null);
   const [tab, setTab] = useState<DetailTab>("overview");
+  const [locationTab, setLocationTab] = useState<LocationTab>("local");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   function handleSelect(entry: ModelEntry) {
@@ -45,6 +48,14 @@ export function ModelsPage() {
     );
   }
 
+  const filtered = models.filter((m) =>
+    locationTab === "local" ? m.hasLocal : m.hasRemote,
+  );
+
+  const emptyMsg = locationTab === "local"
+    ? "No local models. Train a model or download one from the Hub."
+    : "No remote models.";
+
   return (
     <>
       <PageHeader title="Models">
@@ -57,17 +68,27 @@ export function ModelsPage() {
         </button>
       </PageHeader>
 
-      {models.length === 0 ? (
-        <EmptyState title="No models" description="Train a model or download one from the Hub." />
+      <TabBar
+        tabs={LOCATION_TABS}
+        active={locationTab}
+        onChange={setLocationTab}
+        format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
+      />
+
+      {filtered.length === 0 ? (
+        <EmptyState title="No models" description={emptyMsg} />
       ) : (
         <div className="panel panel-flush">
-          {models.map((m) => (
+          {filtered.map((m) => (
             <ListRow
               key={m.modelName + m.modelPath}
               name={m.modelName}
               meta={
                 <>
-                  {m.hasRemote && <span className="badge">Remote</span>}
+                  {locationTab === "local" && m.hasRemote && <span className="badge">Also Remote</span>}
+                  {locationTab === "remote" && m.remoteHost && (
+                    <span className="badge">{m.remoteHost.split(".")[0]}</span>
+                  )}
                   <span>{formatSize(m.sizeBytes)}</span>
                 </>
               }
