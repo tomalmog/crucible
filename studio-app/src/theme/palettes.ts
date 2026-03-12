@@ -298,6 +298,16 @@ export const PALETTES: ColorPalette[] = [
     grayH: 210, grayS: 8,
   }),
 
+  // 17b — Steel Teal Dark
+  makePalette({
+    id: "steel-teal-dark",
+    name: "Steel Teal Dark",
+    preview: ["#6D8196", "#B0C4DE", "#01796F", "#1e2a30"],
+    accent: "#01796F", accentDark: "#015a54", accentLight: "#2a9a90",
+    bgBase: "#eef2f6", sidebar: "#1e2a30",
+    grayH: 210, grayS: 8,
+  }),
+
   // 18 — Mint Pastel
   makePalette({
     id: "mint-pastel",
@@ -336,6 +346,236 @@ export const PALETTES: ColorPalette[] = [
     accent: "#4B6E48", accentDark: "#3a5538", accentLight: "#6a8e66",
     bgBase: "#F2F0EF", sidebar: "#3a4a38",
     grayH: 50, grayS: 6,
+  }),
+
+  // 22 — Crimson Forest
+  makePalette({
+    id: "crimson-forest",
+    name: "Crimson Forest",
+    preview: ["#8E0A1E", "#2E6F40", "#ADD8E6", "#FFFFFF"],
+    accent: "#8E0A1E", accentDark: "#6a0816", accentLight: "#b82040",
+    bgBase: "#FFFFFF", sidebar: "#2E6F40",
+    grayH: 200, grayS: 4,
+  }),
+
+  // 23 — Indigo Copper
+  makePalette({
+    id: "indigo-copper",
+    name: "Indigo Copper",
+    preview: ["#3F51B5", "#B87333", "#f0eff4", "#2c1f4a"],
+    accent: "#3F51B5", accentDark: "#2c387e", accentLight: "#5c6bc0",
+    bgBase: "#f0eff4", sidebar: "#2c1f4a",
+    grayH: 250, grayS: 6,
+  }),
+
+  // 24 — Ocean Sunset
+  makePalette({
+    id: "ocean-sunset",
+    name: "Ocean Sunset",
+    preview: ["#0277BD", "#E65100", "#f0f3f5", "#1a3a4a"],
+    accent: "#0277BD", accentDark: "#01579B", accentLight: "#29B6F6",
+    bgBase: "#f0f3f5", sidebar: "#3d1e00",
+    grayH: 205, grayS: 6,
+  }),
+
+  // 25 — Plum Gold
+  makePalette({
+    id: "plum-gold",
+    name: "Plum Gold",
+    preview: ["#7B1FA2", "#C9A94E", "#f3f0f5", "#3c1053"],
+    accent: "#7B1FA2", accentDark: "#4A0072", accentLight: "#AB47BC",
+    bgBase: "#f3f0f5", sidebar: "#3c1053",
+    grayH: 280, grayS: 6,
+  }),
+
+  // 26 — Slate Rose
+  makePalette({
+    id: "slate-rose",
+    name: "Slate Rose",
+    preview: ["#546E7A", "#D4777C", "#f2f1f0", "#37474F"],
+    accent: "#D4777C", accentDark: "#a85558", accentLight: "#e8a0a4",
+    bgBase: "#f2f1f0", sidebar: "#37474F",
+    grayH: 200, grayS: 8,
+  }),
+
+  // 27 — Midnight Ember
+  makePalette({
+    id: "midnight-ember",
+    name: "Midnight Ember",
+    preview: ["#1a1a2e", "#E8590C", "#f0f0f2", "#ff7b3a"],
+    accent: "#E8590C", accentDark: "#b84408", accentLight: "#ff7b3a",
+    bgBase: "#f0f0f2", sidebar: "#1a1a2e",
+    grayH: 240, grayS: 4,
+  }),
+
+  // 28 — Jade Wine
+  makePalette({
+    id: "jade-wine",
+    name: "Jade Wine",
+    preview: ["#00897B", "#722F37", "#eff3f2", "#1b4a44"],
+    accent: "#00897B", accentDark: "#00695C", accentLight: "#26A69A",
+    bgBase: "#eff3f2", sidebar: "#722F37",
+    grayH: 165, grayS: 6,
+  }),
+
+  // 29 — Cobalt Sand
+  makePalette({
+    id: "cobalt-sand",
+    name: "Cobalt Sand",
+    preview: ["#0D47A1", "#C2956B", "#f0f1f3", "#4a3520"],
+    accent: "#0D47A1", accentDark: "#002171", accentLight: "#1565C0",
+    bgBase: "#f0f1f3", sidebar: "#4a3520",
+    grayH: 215, grayS: 5,
+  }),
+
+  // 30 — Rust Denim
+  makePalette({
+    id: "rust-denim",
+    name: "Rust Denim",
+    preview: ["#BF5B21", "#3E5C76", "#f2f0ee", "#2a3d50"],
+    accent: "#BF5B21", accentDark: "#8e4318", accentLight: "#e07838",
+    bgBase: "#f2f0ee", sidebar: "#2a3d50",
+    grayH: 210, grayS: 6,
+  }),
+
+  // 31 — Espresso Teal
+  makePalette({
+    id: "espresso-teal",
+    name: "Espresso Teal",
+    preview: ["#3E2723", "#009688", "#f1f0ee", "#00796B"],
+    accent: "#009688", accentDark: "#00695C", accentLight: "#4DB6AC",
+    bgBase: "#f1f0ee", sidebar: "#3E2723",
+    grayH: 20, grayS: 6,
+  }),
+
+  // 32 — Marigold Ink
+  makePalette({
+    id: "marigold-ink",
+    name: "Marigold Ink",
+    preview: ["#F9A825", "#1a1a1a", "#f3f2ee", "#c68400"],
+    accent: "#F9A825", accentDark: "#c68400", accentLight: "#fdd835",
+    bgBase: "#f3f2ee", sidebar: "#1a1a1a",
+    grayH: 45, grayS: 4,
+  }),
+
+  // 33 — Coral Slate
+  makePalette({
+    id: "coral-slate",
+    name: "Coral Slate",
+    preview: ["#FF6F61", "#4A5568", "#f2f0f0", "#2D3748"],
+    accent: "#FF6F61", accentDark: "#d4524a", accentLight: "#ff8a80",
+    bgBase: "#f2f0f0", sidebar: "#2D3748",
+    grayH: 220, grayS: 8,
+  }),
+
+  // 34 — Peacock Bronze
+  makePalette({
+    id: "peacock-bronze",
+    name: "Peacock Bronze",
+    preview: ["#006064", "#CD7F32", "#eff2f2", "#003840"],
+    accent: "#006064", accentDark: "#003840", accentLight: "#0097A7",
+    bgBase: "#eff2f2", sidebar: "#4a3010",
+    grayH: 185, grayS: 5,
+  }),
+
+  // 35 — Mulberry Ash
+  makePalette({
+    id: "mulberry-ash",
+    name: "Mulberry Ash",
+    preview: ["#880E4F", "#4E4E4E", "#f2f0f1", "#5c0a38"],
+    accent: "#880E4F", accentDark: "#5c0a38", accentLight: "#AD1457",
+    bgBase: "#f2f0f1", sidebar: "#3a3a3a",
+    grayH: 340, grayS: 4,
+  }),
+
+  // 36 — Saffron Night
+  makePalette({
+    id: "saffron-night",
+    name: "Saffron Night",
+    preview: ["#E6A817", "#141420", "#f3f1ec", "#b88512"],
+    accent: "#E6A817", accentDark: "#b88512", accentLight: "#f4c43a",
+    bgBase: "#f3f1ec", sidebar: "#141420",
+    grayH: 240, grayS: 3,
+  }),
+
+  // 37 — Vermillion Ice
+  makePalette({
+    id: "vermillion-ice",
+    name: "Vermillion Ice",
+    preview: ["#E23D28", "#607D8B", "#f0f2f4", "#b71c1c"],
+    accent: "#E23D28", accentDark: "#b71c1c", accentLight: "#ef5350",
+    bgBase: "#f0f2f4", sidebar: "#37474F",
+    grayH: 200, grayS: 6,
+  }),
+
+  // 38 — Cedar Sky
+  makePalette({
+    id: "cedar-sky",
+    name: "Cedar Sky",
+    preview: ["#5D3A1A", "#4FC3F7", "#f1f0ee", "#0288D1"],
+    accent: "#4FC3F7", accentDark: "#0288D1", accentLight: "#81D4FA",
+    bgBase: "#f1f0ee", sidebar: "#5D3A1A",
+    grayH: 25, grayS: 6,
+  }),
+
+  // 39 — Fern Burgundy
+  makePalette({
+    id: "fern-burgundy",
+    name: "Fern Burgundy",
+    preview: ["#558B2F", "#6D1B31", "#f0f2ef", "#33691E"],
+    accent: "#558B2F", accentDark: "#33691E", accentLight: "#7CB342",
+    bgBase: "#f0f2ef", sidebar: "#6D1B31",
+    grayH: 100, grayS: 5,
+  }),
+
+  // 40 — Tangerine Graphite
+  makePalette({
+    id: "tangerine-graphite",
+    name: "Tangerine Graphite",
+    preview: ["#FF8C00", "#333333", "#f2f1f0", "#e07000"],
+    accent: "#FF8C00", accentDark: "#e07000", accentLight: "#FFA726",
+    bgBase: "#f2f1f0", sidebar: "#2a2a2a",
+    grayH: 0, grayS: 0,
+  }),
+
+  // 41 — Amethyst Moss
+  makePalette({
+    id: "amethyst-moss",
+    name: "Amethyst Moss",
+    preview: ["#9C27B0", "#4A5D23", "#f2f0f3", "#6A1B9A"],
+    accent: "#9C27B0", accentDark: "#6A1B9A", accentLight: "#BA68C8",
+    bgBase: "#f2f0f3", sidebar: "#4A5D23",
+    grayH: 90, grayS: 5,
+  }),
+
+  // 42 — Paprika Stone
+  makePalette({
+    id: "paprika-stone",
+    name: "Paprika Stone",
+    preview: ["#C62828", "#78909C", "#f1f0ef", "#8E0000"],
+    accent: "#C62828", accentDark: "#8E0000", accentLight: "#EF5350",
+    bgBase: "#f1f0ef", sidebar: "#455A64",
+    grayH: 200, grayS: 5,
+  }),
+
+  // 43 — Cerulean Walnut
+  makePalette({
+    id: "cerulean-walnut",
+    name: "Cerulean Walnut",
+    preview: ["#0288D1", "#5D4037", "#eef2f4", "#01579B"],
+    accent: "#0288D1", accentDark: "#01579B", accentLight: "#29B6F6",
+    bgBase: "#eef2f4", sidebar: "#5D4037",
+    grayH: 210, grayS: 6,
+  }),
+
+  // 44 — Turquoise Charcoal
+  makePalette({
+    id: "turquoise-charcoal",
+    name: "Turquoise Charcoal",
+    preview: ["#00BCD4", "#363636", "#f0f2f3", "#00838F"],
+    accent: "#00BCD4", accentDark: "#00838F", accentLight: "#4DD0E1",
+    bgBase: "#f0f2f3", sidebar: "#2a2a2a",
+    grayH: 190, grayS: 4,
   }),
 ];
 
