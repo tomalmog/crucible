@@ -87,29 +87,6 @@ export function buildFilterArgs(
   return args;
 }
 
-export function buildSafetyEvalArgs(extra: Record<string, string>): string[] {
-  const args = ["safety-eval"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
-export function buildSafetyGateArgs(extra: Record<string, string>): string[] {
-  const args = ["safety-gate"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
-export function buildDeployArgs(extra: Record<string, string>): string[] {
-  const args = ["deploy"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
 
 export function buildModelArgs(subcommand: string, extra: Record<string, string>): string[] {
   const args = ["model", subcommand];

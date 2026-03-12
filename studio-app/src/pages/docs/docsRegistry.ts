@@ -4,8 +4,7 @@ export type DocCategory =
   | "Data"
   | "Concepts"
   | "Studio Guide"
-  | "Evaluation & Safety"
-  | "Deployment";
+;
 
 export interface DocEntry {
   slug: string;
@@ -20,8 +19,6 @@ export const CATEGORY_ORDER: DocCategory[] = [
   "Data",
   "Concepts",
   "Studio Guide",
-  "Evaluation & Safety",
-  "Deployment",
 ];
 
 // Content imports — one per doc page
@@ -46,8 +43,6 @@ import { dataFormats } from "./content/data-formats";
 import { dataManagement } from "./content/data-management";
 import { concepts } from "./content/concepts";
 import { studioGuide } from "./content/studio-guide";
-import { evaluationSafety } from "./content/evaluation-safety";
-import { deployment } from "./content/deployment";
 
 export const DOC_ENTRIES: DocEntry[] = [
   gettingStarted,
@@ -71,8 +66,6 @@ export const DOC_ENTRIES: DocEntry[] = [
   dataManagement,
   concepts,
   studioGuide,
-  evaluationSafety,
-  deployment,
 ];
 
 /** Maps TrainingMethod id to the doc slug for linking from the training picker. */

@@ -4,8 +4,6 @@ import { TrainingPage } from "./pages/training/TrainingPage";
 import { DatasetsPage } from "./pages/datasets/DatasetsPage";
 import { ModelsPage } from "./pages/models/ModelsPage";
 import { ChatPage } from "./pages/chat/ChatPage";
-import { SafetyPage } from "./pages/safety/SafetyPage";
-import { DeployPage } from "./pages/deploy/DeployPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { BenchmarksPage } from "./pages/experiments/ExperimentsPage";
 import { HubPage } from "./pages/hub/HubPage";
@@ -24,8 +22,6 @@ export const router = createHashRouter([
       { path: "datasets", Component: DatasetsPage },
       { path: "models", Component: ModelsPage },
       { path: "chat", Component: ChatPage },
-      { path: "safety", Component: SafetyPage },
-      { path: "deploy", Component: DeployPage },
       { path: "settings", Component: SettingsPage },
       { path: "benchmarks", Component: BenchmarksPage },
       { path: "hub", Component: HubPage },

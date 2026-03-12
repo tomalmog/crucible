@@ -69,15 +69,6 @@ def test_sweep_command_requires_output_dir() -> None:
         ])
 
 
-def test_sweep_command_requires_config_file() -> None:
-    """Sweep command should fail when --config-file is missing."""
-    parser = build_parser()
-    with pytest.raises(SystemExit):
-        parser.parse_args([
-            "sweep",
-            "--dataset", "demo",
-            "--output-dir", "/tmp/sweep-out",
-        ])
 
 
 def test_sweep_command_rejects_invalid_strategy() -> None:

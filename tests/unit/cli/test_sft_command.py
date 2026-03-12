@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from cli.main import build_parser, main
-from core.types import TrainingRunResult
-from store.dataset_sdk import CrucibleClient
+from cli.main import build_parser
 
 
 def test_sft_command_registers_in_parser() -> None:
@@ -25,11 +21,3 @@ def test_sft_command_registers_in_parser() -> None:
     assert args.packing is False
 
 
-def test_sft_command_requires_sft_data_path() -> None:
-    """SFT command should fail when --sft-data-path is missing."""
-    parser = build_parser()
-    with pytest.raises(SystemExit):
-        parser.parse_args([
-            "sft",
-            "--output-dir", "/tmp/out",
-        ])

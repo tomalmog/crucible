@@ -22,7 +22,6 @@ from cli.data_commands import (
     run_export_training_command,
     run_ingest_command,
 )
-from cli.deploy_command import add_deploy_command, run_deploy_command
 from cli.distillation_command import add_distillation_command, run_distillation_command
 from cli.distributed_train_command import (
     add_distributed_train_command,
@@ -56,12 +55,6 @@ from cli.replay_command import add_replay_command, run_replay_command
 from cli.rlhf_command import add_rlhf_command, run_rlhf_command
 from cli.rlvr_command import add_rlvr_command, run_rlvr_command
 from cli.run_spec_command import add_run_spec_command, run_run_spec_command
-from cli.safety_command import (
-    add_safety_eval_command,
-    add_safety_gate_command,
-    run_safety_eval_command,
-    run_safety_gate_command,
-)
 from cli.server_command import add_server_command, run_server_command
 from cli.sft_command import add_sft_command, run_sft_command
 from cli.suggest_command import add_suggest_command, run_suggest_command
@@ -84,9 +77,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_chat_command, add_rlhf_command, add_distributed_train_command,
     add_benchmark_command, add_sweep_command, add_compare_command,
     add_replay_command, add_model_command,
-    add_safety_eval_command, add_safety_gate_command,
     add_compute_command, add_server_command,
-    add_deploy_command,
     add_grpo_command, add_qlora_command, add_kto_command, add_orpo_command,
     add_suggest_command, add_hub_command,
     add_eval_command, add_curate_command,
@@ -120,11 +111,8 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "compare": run_compare_command,
         "replay": run_replay_command,
         "model": run_model_command,
-        "safety-eval": run_safety_eval_command,
-        "safety-gate": run_safety_gate_command,
         "compute": run_compute_command,
         "server": run_server_command,
-        "deploy": run_deploy_command,
         "grpo-train": run_grpo_command,
         "qlora-train": run_qlora_command,
         "kto-train": run_kto_command,

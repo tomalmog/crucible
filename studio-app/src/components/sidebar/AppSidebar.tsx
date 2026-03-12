@@ -1,6 +1,6 @@
 import { NavLink } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
-import { Zap, Database, Box, MessageSquare, Shield, Rocket, Settings, FlaskConical, Globe, GitCompare, Activity, BookOpen, Server } from "lucide-react";
+import { Zap, Database, Box, MessageSquare, Settings, FlaskConical, Globe, GitCompare, Activity, BookOpen, Server } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/training", icon: <Zap size={16} />, label: "Training" },
@@ -15,8 +15,6 @@ const TOOLS_ITEMS = [
   { to: "/jobs", icon: <Activity size={16} />, label: "Jobs" },
   { to: "/clusters", icon: <Server size={16} />, label: "Clusters" },
   { to: "/compare-chat", icon: <GitCompare size={16} />, label: "A/B Compare" },
-  { to: "/safety", icon: <Shield size={16} />, label: "Safety" },
-  { to: "/deploy", icon: <Rocket size={16} />, label: "Deploy" },
   { to: "/docs", icon: <BookOpen size={16} />, label: "Docs" },
   { to: "/settings", icon: <Settings size={16} />, label: "Settings" },
 ];

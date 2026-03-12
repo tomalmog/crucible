@@ -58,8 +58,6 @@ crucible/
 │   ├── ingest/                 #   Data ingestion pipeline
 │   ├── transforms/             #   Dedup, quality scoring, language detection
 │   ├── eval/                   #   Evaluation runners
-│   ├── deploy/                 #   Deployment logic
-│   ├── safety/                 #   Safety evaluation and gating
 │   └── crucible.py              #   CrucibleClient SDK entry point
 ├── studio-app/                 # Frontend — Tauri desktop app
 │   ├── src/

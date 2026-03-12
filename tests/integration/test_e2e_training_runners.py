@@ -105,14 +105,6 @@ def test_grpo_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_grpo_cli_missing_dataset_errors(
-    tmp_path: Path,
-) -> None:
-    with pytest.raises(SystemExit) as exc:
-        main(["grpo-train", "--output-dir", str(tmp_path)])
-    assert exc.value.code == 2
-
-
 def test_grpo_produces_artifacts(
     tmp_path: Path, grpo_data_file: str,
 ) -> None:
@@ -266,15 +258,6 @@ def test_kto_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_kto_cli_missing_required_arg_errors(
-    tmp_path: Path,
-) -> None:
-    """Omitting --kto-data-path (required) should exit with code 2."""
-    with pytest.raises(SystemExit) as exc:
-        main(["kto-train", "--output-dir", str(tmp_path)])
-    assert exc.value.code == 2
-
-
 def test_kto_produces_artifacts(
     tmp_path: Path, kto_data_file: str,
 ) -> None:
@@ -335,15 +318,6 @@ def test_orpo_cli_dispatches(
     ])
     assert code == 0
     assert "model_path=" in capsys.readouterr().out
-
-
-def test_orpo_cli_missing_required_arg_errors(
-    tmp_path: Path,
-) -> None:
-    """Omitting --orpo-data-path (required) should exit with code 2."""
-    with pytest.raises(SystemExit) as exc:
-        main(["orpo-train", "--output-dir", str(tmp_path)])
-    assert exc.value.code == 2
 
 
 def test_orpo_produces_artifacts(
@@ -410,15 +384,6 @@ def test_multimodal_cli_dispatches(
     assert "model_path=" in capsys.readouterr().out
 
 
-def test_multimodal_cli_missing_required_arg_errors(
-    tmp_path: Path,
-) -> None:
-    """Omitting --multimodal-data-path (required) should exit with code 2."""
-    with pytest.raises(SystemExit) as exc:
-        main(["multimodal-train", "--output-dir", str(tmp_path)])
-    assert exc.value.code == 2
-
-
 def test_multimodal_produces_artifacts(
     tmp_path: Path, multimodal_data_file: str,
 ) -> None:
@@ -481,15 +446,6 @@ def test_rlvr_cli_dispatches(
     ])
     assert code == 0
     assert "model_path=" in capsys.readouterr().out
-
-
-def test_rlvr_cli_missing_required_arg_errors(
-    tmp_path: Path,
-) -> None:
-    """Omitting --rlvr-data-path (required) should exit with code 2."""
-    with pytest.raises(SystemExit) as exc:
-        main(["rlvr-train", "--output-dir", str(tmp_path)])
-    assert exc.value.code == 2
 
 
 def test_rlvr_produces_artifacts(

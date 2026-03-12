@@ -2,12 +2,10 @@
 
 Reference document for context recovery. Everything listed here is implemented, tested, and working.
 
-## Python CLI & SDK (47 Commands)
+## Python CLI & SDK (39 Commands)
 
 ### Data Pipeline
 - **ingest** — Load data from local paths/S3, resumable checkpoints, incremental mode
-- **versions** — List dataset snapshots with metadata (counts, timestamps, lineage)
-- **filter** — Create metadata-filtered snapshots (language, quality score, source prefix)
 - **export-training** — Export snapshot to sharded training files with optional metadata
 
 ### Training Methods (13)
@@ -78,11 +76,8 @@ Reference document for context recovery. Everything listed here is implemented, 
 - **compute** — Cost estimation for training runs
 - **recipe** — Training recipe import/export
 
-### Safety & Deployment
-- **safety-eval** — Toxicity/jailbreak/red-team scoring
-- **safety-gate** — Pre-deployment threshold gate
-- **deploy** — Package model + config + tokenizer with manifest + checksum
-- **model** — Registry operations (tag, rollback, diff versions, delete)
+### Model & Registry
+- **model** — Registry operations (list, register, delete, pull, remote-sizes)
 - **server** — Collaboration server for multi-user runs + comments
 
 ### Evaluation Benchmarks (7)
@@ -124,25 +119,11 @@ Reference document for context recovery. Everything listed here is implemented, 
 - Catalog metadata (version, counts, parents, recipe)
 - Dataset-driven training: all 13 forms use `DatasetSelect` dropdown, backend auto-resolves data path
 
-### Safety Suite
-- Toxicity scorer
-- Safety gate (threshold-based pass/fail)
-- Jailbreak detector (pattern matching)
-- Red team harness (structured adversarial testing)
-- Alignment report (multi-dimensional evaluation)
-
-### Deployment
-- Packaging: model + config + tokenizer + safety report + SHA256 checksum
-- Readiness checklist (model loadable, config present, tokenizer present, size checks)
-- Quantization pipeline (INT8)
-- Latency profiler (warmup, percentile-based)
-
 ### Model Registry
 - Grouped by name (e.g. "My-Transformer") with per-model version history
 - Storage: `.crucible/models/groups/{name}.json`, `.crucible/models/versions/{id}.json`, `.crucible/models/index.json`
 - Auto-migration from old flat format via `migrate_flat_to_grouped()`
 - Tagging (semantic labels), rollback to previous versions
-- Diff between versions (config/tokenizer/bench/safety deltas)
 - Lineage DAG (dataset version → training run → model)
 - Soft-delete with permanent purge
 - Hub download auto-registration
@@ -150,7 +131,7 @@ Reference document for context recovery. Everything listed here is implemented, 
 ## Studio Desktop App (Tauri 2 + React 19)
 
 ### Architecture
-- React Router v7 with hash routing (12 pages)
+- React Router v7 with hash routing (11 pages)
 - Sidebar navigation with Lucide React icons
 - CrucibleContext (global state) + CommandContext (command execution)
 - CSS design system: variables.css, reset.css, components.css, layout.css
@@ -161,13 +142,11 @@ Reference document for context recovery. Everything listed here is implemented, 
 - **Datasets** — Two-column layout: dataset/version list + tabs (overview dashboard, version diff, sample inspector, ingest form, filter form)
 - **Models** — Grouped registry browser: version list, model diff, actions (tag/rollback/export/delete)
 - **Chat** — Model inference with configurable sampling, streaming responses, conversation history
-- **Compare Chat** — A/B model comparison: send same prompt to two models, rate responses, export as DPO data
+- **Compare Chat** — A/B model comparison: send same prompt to two models side-by-side, rate responses (A/B/Tie), export preferences as DPO training data via native save dialog
+- **Benchmarks** — Run evaluation benchmarks (MMLU, HellaSwag, ARC, etc.) against trained models
 - **Hub** — Tabbed search for models and datasets with filters (task, library, sort), detail views with file listings and sizes, download with progress, push to HuggingFace
 - **Jobs** — Unified job queue for local and remote jobs. Remote jobs show instant visibility from submit with live phase updates (connecting, provisioning, uploading, submitting). Pending Slurm jobs show queue indicator. Cancel, view logs, delete. Failed-during-submit jobs show inline error messages.
 - **Clusters** — Register, validate, and manage Slurm cluster connections
-- **Experiments** — Run tracking, multi-run comparison, cost analysis
-- **Safety** — Tabs: evaluation form + deployment gate form + results view
-- **Deploy** — Tabs: package, quantize, latency profile, readiness checklist
 - **Settings** — Data root config, hardware profile display, theme toggle
 - **Docs** — Built-in training method documentation
 
@@ -206,7 +185,7 @@ Reference document for context recovery. Everything listed here is implemented, 
 - **Push tab** — Push trained models to Hub with configurable repo ID and commit message
 
 ## Codebase Quality
-- 271+ Python source files, 180+ test files
+- 250+ Python source files, 160+ test files
 - Full mypy --strict typing, frozen dataclasses
 - Max 300 lines/file, 50 lines/function, 4 params/function
 - Centralized errors in src/core/errors.py

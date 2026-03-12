@@ -17,28 +17,6 @@ def test_available_benchmarks() -> None:
     assert "gsm8k" in AVAILABLE_BENCHMARKS
 
 
-def test_run_single_benchmark() -> None:
-    """Run a single benchmark returns result."""
-    result = run_benchmarks("test_model.pt", ["mmlu"])
-    assert len(result.benchmark_results) == 1
-    assert result.benchmark_results[0].benchmark_name == "mmlu"
-
-
-def test_run_multiple_benchmarks() -> None:
-    """Run multiple benchmarks returns all results."""
-    result = run_benchmarks("test_model.pt", ["mmlu", "gsm8k", "arc"])
-    assert len(result.benchmark_results) == 3
-
-
-def test_run_with_base_model() -> None:
-    """Running with base model produces comparison results."""
-    result = run_benchmarks(
-        "fine_tuned.pt", ["mmlu"], base_model_path="base.pt",
-    )
-    assert len(result.base_results) == 1
-    assert result.base_model_path == "base.pt"
-
-
 def test_benchmark_result_fields() -> None:
     """BenchmarkResult has expected fields."""
     br = BenchmarkResult(

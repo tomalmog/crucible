@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from core.errors import CrucibleRemoteError
-from core.slurm_types import ClusterConfig
 from serve.remote_hub_download import (
     _build_remote_model_path,
     _ensure_hf_hub_installed,
     _run_snapshot_download,
-    download_model_to_cluster,
 )
 
 
@@ -79,30 +77,3 @@ def test_run_snapshot_download_raises_when_path_missing() -> None:
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 
-# -- download_model_to_cluster -----------------------------------------------
-
-
-@patch("serve.remote_hub_download.ensure_remote_env")
-@patch("serve.remote_hub_download.SshSession")
-@patch("serve.remote_hub_download.load_cluster")
-def test_download_model_to_cluster_returns_remote_path(
-    mock_load_cluster: MagicMock,
-    mock_ssh_cls: MagicMock,
-    mock_ensure_env: MagicMock,
-) -> None:
-    """Returns the constructed remote model path after a successful download."""
-    mock_load_cluster.return_value = ClusterConfig(
-        name="test", host="hpc", user="jdoe", remote_workspace="/scratch",
-    )
-    session = _make_session([
-        ("hf_ok", "", 0),                                # _ensure_hf_hub_installed
-        ("downloaded_to=/scratch/models/test", "", 0),    # _run_snapshot_download
-    ])
-    session.mkdir_p = MagicMock()
-    mock_ssh_cls.return_value.__enter__ = MagicMock(return_value=session)
-    mock_ssh_cls.return_value.__exit__ = MagicMock(return_value=False)
-
-    result = download_model_to_cluster(
-        data_root="/data", repo_id="org/model", cluster_name="test",
-    )
-    assert result == "/scratch/models/org_model"

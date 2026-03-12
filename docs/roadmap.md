@@ -94,9 +94,6 @@ Shareable configs that capture an entire training setup:
 - Cross-cluster comparison of training results
 - Auto-select cluster based on GPU availability
 
-### LLM-as-Judge Improvements
-Enhanced criteria, comparative evaluation across models, automated regression testing against base model.
-
 ---
 
 ## P3 — Future

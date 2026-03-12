@@ -83,14 +83,6 @@ class CrucibleBenchmarkError(CrucibleError):
     """Raised for benchmark evaluation failures."""
 
 
-class CrucibleSafetyError(CrucibleError):
-    """Raised for safety evaluation failures."""
-
-
-class CrucibleDeployError(CrucibleError):
-    """Raised for deployment packaging failures."""
-
-
 class CrucibleComputeError(CrucibleError):
     """Raised for compute connectivity failures."""
 

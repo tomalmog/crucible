@@ -70,7 +70,7 @@ def test_cli_generates(tmp_path: Path) -> None:
     with patch("serve.ab_chat.run_chat", side_effect=_mock_run_chat):
         exit_code = main([
             "--data-root", str(tmp_path),
-            "ab-chat", "--model-a", "a", "--model-b", "b",
+            "ab-chat", "--model-a", "a", "--model-b", "b", "--prompt", "Hello",
         ])
 
     assert exit_code == 0
@@ -85,7 +85,7 @@ def test_cli_dpo_export(tmp_path: Path, capsys) -> None:
     with patch("serve.ab_chat.run_chat", side_effect=_mock_run_chat):
         exit_code = main([
             "--data-root", str(tmp_path),
-            "ab-chat", "--model-a", "a", "--model-b", "b",
+            "ab-chat", "--model-a", "a", "--model-b", "b", "--prompt", "Hello",
             "--export-dpo", str(dpo_path),
         ])
     captured = capsys.readouterr().out

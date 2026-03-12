@@ -11,7 +11,7 @@ Crucible Studio is the desktop application that gives you a visual interface for
 
 ### Sidebar Navigation
 
-The left sidebar is your main navigation. It provides access to: **Training**, **Datasets**, **Experiments**, **Chat**, **Hub**, **Jobs**, and **Docs**. Click any item to switch views.
+The left sidebar is your main navigation. It is split into two sections — **Workspace** (Training, Datasets, Models, Chat, Benchmarks, Hub) and **Tools** (Jobs, Clusters, A/B Compare, Docs, Settings). Click any item to switch views.
 
 ### Training
 
@@ -23,11 +23,9 @@ The training page also includes a **Sweep** tab for running hyperparameter sweep
 
 Browse all ingested datasets in one place. Each dataset shows its version history, record count, and source files. You can inspect individual samples, view field distributions, and run filters interactively. The ingest button lets you import new data directly from the UI using a file or folder picker.
 
-### Experiments
+### Benchmarks
 
-Compare training runs side by side. Select two or more experiments to see their loss curves overlaid, hyperparameters diffed, and final metrics compared in a table. This makes it easy to identify which configuration changes improved performance.
-
-The experiments page also provides **Evaluate** (run standard benchmarks like MMLU and GSM8K against a model), **LLM Judge** (score outputs with an external LLM API), and **Cost** (view compute cost summaries across runs). Each tool validates required inputs before running.
+Run standardized evaluation benchmarks (MMLU, HellaSwag, ARC, WinoGrande, GSM8K, TruthfulQA, HumanEval) against your trained models. Select a model, choose which benchmarks to run, and compare results across models to measure improvement after training.
 
 ### Chat
 
@@ -39,10 +37,18 @@ Browse and download models from HuggingFace directly within Studio. Search by mo
 
 ### Jobs
 
-Monitor all running and completed training jobs. Each job shows its status, progress, elapsed time, and key metrics. You can stop a running job, view its full logs, or jump to the corresponding experiment for detailed analysis.
+Monitor all running and completed training jobs — both local and remote. Each job shows its status, progress, elapsed time, and key metrics. You can stop a running job, view its full logs, or delete completed jobs.
+
+### Clusters
+
+Register, validate, and manage Slurm cluster connections for remote training. Add a cluster by providing SSH credentials and workspace path, then validate the connection before submitting jobs.
+
+### A/B Compare
+
+Send the same prompt to two different models side by side and compare their responses. Rate which response is better (A, B, or Tie) and export your preferences as DPO training data for further model alignment.
 
 ### Docs
 
-You are here. The docs section provides searchable, categorized documentation covering every feature in Crucible — from CLI commands to training methods to deployment workflows.
+You are here. The docs section provides searchable, categorized documentation covering every feature in Crucible — from CLI commands to training methods.
 `,
 };

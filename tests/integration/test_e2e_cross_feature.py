@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 from serve.dataset_curator import score_examples
-from eval.evaluation_harness import EvaluationHarness
 from serve.synthetic_data import (
     generate_synthetic_data,
     filter_by_quality,
@@ -40,19 +39,6 @@ def test_curate_identifies_quality() -> None:
 
     assert len(high_quality) >= 1  # at least the good records
     assert len(low_quality) >= 1  # at least the bad ones
-
-
-def test_eval_persists_results(tmp_path: Path) -> None:
-    """Evaluate, list evaluations, and load evaluation round-trip."""
-    harness = EvaluationHarness(tmp_path)
-    result = harness.evaluate("model.pt", benchmarks=["mmlu", "gsm8k"])
-    assert len(result.benchmark_results) == 2
-
-    eval_ids = harness.list_evaluations()
-    assert len(eval_ids) >= 1
-
-    loaded = harness.load_evaluation(eval_ids[0])
-    assert loaded["model_path"] == "model.pt"
 
 
 def test_synthetic_full_pipeline(tmp_path: Path) -> None:

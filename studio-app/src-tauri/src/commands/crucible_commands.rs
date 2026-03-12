@@ -4,7 +4,7 @@ use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 46] = [
+const ALLOWED_COMMANDS: [&str; 39] = [
     "ingest",
     "filter",
     "train",
@@ -18,7 +18,6 @@ const ALLOWED_COMMANDS: [&str; 46] = [
     "distributed-train",
     "export-training",
     "export-spec",
-    "versions",
     "chat",
     "run-spec",
     "verify",
@@ -28,10 +27,7 @@ const ALLOWED_COMMANDS: [&str; 46] = [
     "compare",
     "replay",
     "model",
-    "safety-eval",
-    "safety-gate",
     "compute",
-    "deploy",
     "grpo-train",
     "qlora-train",
     "kto-train",
@@ -39,16 +35,13 @@ const ALLOWED_COMMANDS: [&str; 46] = [
     "multimodal-train",
     "rlvr-train",
     "suggest",
-    "experiment",
     "hub",
     "eval",
-    "judge",
     "curate",
     "merge",
     "ab-chat",
     "recipe",
     "cloud",
-    "cost",
     "synthetic",
     "remote",
 ];
@@ -128,12 +121,12 @@ mod tests {
     #[test]
     fn validate_args_accepts_new_commands() {
         for cmd in ["sft", "dpo-train", "rlhf-train", "lora-train", "distill",
-                     "domain-adapt", "safety-eval", "safety-gate", "deploy",
+                     "domain-adapt",
                      "model", "sweep", "benchmark", "compare", "replay", "compute",
                      "grpo-train", "qlora-train", "kto-train", "orpo-train",
-                     "multimodal-train", "rlvr-train", "suggest", "experiment",
-                     "hub", "eval", "judge", "curate", "merge", "ab-chat",
-                     "recipe", "cloud", "cost", "synthetic"] {
+                     "multimodal-train", "rlvr-train", "suggest",
+                     "hub", "eval", "curate", "merge", "ab-chat",
+                     "recipe", "cloud", "synthetic"] {
             let args = vec![cmd.to_string()];
             assert!(validate_args(&args).is_ok(), "Expected '{cmd}' to be allowed");
         }
