@@ -62,7 +62,13 @@ def ensure_remote_env(session: SshSession) -> None:
         CrucibleRemoteError: If conda is unavailable or env creation
             fails after one automatic retry.
     """
-    env_names = _list_env_names(session)
+    try:
+        env_names = _list_env_names(session)
+    except CrucibleRemoteError:
+        # Retry once — HPC login nodes can be slow on first access
+        import time
+        time.sleep(3)
+        env_names = _list_env_names(session)
     if "forge" in env_names:
         _remove_legacy_forge_env(session)
     if ENV_NAME in env_names:
@@ -141,7 +147,7 @@ def _ensure_torch_installed(session: SshSession) -> None:
         conda_cmd(
             f'conda run -n {ENV_NAME} python -c "{check_script}"'
         ),
-        timeout=30,
+        timeout=60,
     )
     if code == 0 and "torch=" in stdout:
         # Verify required packages are present
@@ -176,7 +182,7 @@ def _ensure_packages_installed(session: SshSession) -> None:
         conda_cmd(
             f'conda run -n {ENV_NAME} python -c "{imports}"'
         ),
-        timeout=30,
+        timeout=60,
     )
     if code == 0:
         return
@@ -204,7 +210,7 @@ def _remove_env(session: SshSession) -> None:
 def _list_env_names(session: SshSession) -> set[str]:
     """Return the set of conda env names on the remote cluster."""
     stdout, _, code = session.execute(
-        conda_cmd("conda env list"), timeout=30,
+        conda_cmd("conda env list"), timeout=60,
     )
     if code != 0:
         raise CrucibleRemoteError(

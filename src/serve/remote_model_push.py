@@ -53,13 +53,14 @@ def push_model_to_cluster(
 
 # Files that should accompany model weights when pushing a single .pt file.
 _COMPANION_FILES = (
-    "vocab.json",
+    "tokenizer_vocab.json",
     "training_config.json",
     "config.json",
     "tokenizer.json",
     "tokenizer_config.json",
     "special_tokens_map.json",
     "tokenizer.model",
+    "vocab.json",
 )
 
 

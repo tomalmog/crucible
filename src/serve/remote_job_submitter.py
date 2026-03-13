@@ -394,12 +394,13 @@ def submit_remote_sweep(
 
 # Companion files to sync alongside remote model weights.
 _MODEL_COMPANIONS = (
-    "vocab.json",
+    "tokenizer_vocab.json",
     "training_config.json",
     "tokenizer.json",
     "tokenizer_config.json",
     "special_tokens_map.json",
     "tokenizer.model",
+    "vocab.json",
 )
 
 
@@ -411,7 +412,7 @@ def _ensure_remote_model_companions(
 ) -> None:
     """Upload missing tokenizer/config files next to a remote base model.
 
-    Checks if the remote model directory has companion files (vocab.json etc.).
+    Checks if the remote model directory has companion files (tokenizer etc.).
     If missing, looks up the model in the local registry and uploads from the
     local model directory. This ensures remote LoRA/SFT training can find
     the tokenizer without requiring a manual re-push.
@@ -424,11 +425,25 @@ def _ensure_remote_model_companions(
     base_model_resolved = session.resolve_path(base_model)
     models_prefix = f"{cluster.remote_workspace}/models/"
     if not base_model_resolved.startswith(models_prefix):
+        print(
+            f"Companion sync: skipping — path '{base_model_resolved}' "
+            f"not under '{models_prefix}'",
+            flush=True,
+        )
         return
+
+    # If base_model_path points to a file, use the parent directory
+    remote_model_dir = base_model_resolved
+    _, _, is_file_rc = session.execute(
+        f"test -f {base_model_resolved}", timeout=10,
+    )
+    if is_file_rc == 0:
+        # It's a file — use parent directory
+        remote_model_dir = str(Path(base_model_resolved).parent)
 
     try:
         _sync_model_companions(
-            session, base_model_resolved, models_prefix, data_root,
+            session, remote_model_dir, models_prefix, data_root,
         )
     except Exception as exc:
         # Don't let companion sync failure block submission
@@ -442,26 +457,30 @@ def _sync_model_companions(
     data_root: Path,
 ) -> None:
     """Upload missing companion files from local registry to remote model."""
-    # Check if vocab.json already exists on the remote
+    # Check if the Crucible tokenizer file already exists on the remote
     _, _, rc = session.execute(
-        f"test -f {remote_model_dir}/vocab.json", timeout=10,
+        f"test -f {remote_model_dir}/tokenizer_vocab.json", timeout=10,
     )
     if rc == 0:
         return  # tokenizer already present
 
     # Try to find the local model via registry
     model_name = remote_model_dir[len(models_prefix):].rstrip("/")
+    print(f"Companion sync: model_name='{model_name}', remote_dir='{remote_model_dir}'", flush=True)
     from store.model_registry import ModelRegistry
     registry = ModelRegistry(data_root)
     entry = registry.get_model(model_name)
 
     if not entry.model_path:
+        print("Companion sync: no model_path in registry entry", flush=True)
         return
 
     local_dir = Path(entry.model_path)
     if local_dir.is_file():
         local_dir = local_dir.parent
+    print(f"Companion sync: local_dir='{local_dir}'", flush=True)
 
+    uploaded = 0
     for name in _MODEL_COMPANIONS:
         local_file = local_dir / name
         if local_file.is_file():
@@ -471,3 +490,6 @@ def _sync_model_companions(
             if exists_rc != 0:
                 print(f"Uploading {name} to remote model...", flush=True)
                 session.upload(local_file, f"{remote_model_dir}/{name}")
+                uploaded += 1
+    if uploaded == 0:
+        print(f"Companion sync: no files to upload from {local_dir}", flush=True)
