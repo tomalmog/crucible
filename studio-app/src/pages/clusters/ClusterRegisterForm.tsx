@@ -52,12 +52,14 @@ export function ClusterRegisterForm({ onRegistered, editCluster }: ClusterRegist
       if (validate) args.push("--validate");
 
       const { task_id } = await startCrucibleCommand(dataRoot, args);
-      // Poll until the background task completes
+      // Poll until the background task completes, streaming output as it arrives
       let status = await getCrucibleCommandStatus(task_id);
       while (status.status === "running") {
+        setOutput([status.stdout, status.stderr].filter(Boolean).join("\n"));
         await new Promise((r) => setTimeout(r, 500));
         status = await getCrucibleCommandStatus(task_id);
       }
+      setOutput([status.stdout, status.stderr].filter(Boolean).join("\n"));
       if (status.status === "failed") {
         const stderr = status.stderr || "Unknown error";
         setError(stderr.split("\n").filter(Boolean).pop() || stderr);

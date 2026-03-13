@@ -196,13 +196,8 @@ pub async fn get_remote_model_sizes(
 
 /// Run a crucible CLI subprocess and return stdout on success, stderr on error.
 fn run_crucible_cli(data_root: &str, args: &[&str]) -> Result<String, String> {
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let venv_binary = workspace_root.join(".venv/bin/crucible");
-    let crucible_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        std::path::PathBuf::from("crucible")
-    };
+    let workspace_root = super::crucible_task_store::workspace_root_dir();
+    let crucible_bin = super::crucible_task_store::resolve_crucible_binary(&workspace_root);
     let output = std::process::Command::new(&crucible_bin)
         .current_dir(&workspace_root)
         .env("PYTHONUNBUFFERED", "1")

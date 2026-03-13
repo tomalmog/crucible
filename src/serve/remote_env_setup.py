@@ -186,7 +186,7 @@ def _ensure_packages_installed(session: SshSession) -> None:
     )
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
+        conda_cmd(f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}"),
         timeout=600,
     )
     if code != 0:
@@ -303,7 +303,7 @@ def _create_env(session: SshSession) -> None:
 
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
+        conda_cmd(f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}"),
         timeout=600,
     )
     if code != 0:

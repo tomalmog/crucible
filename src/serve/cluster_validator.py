@@ -88,7 +88,8 @@ def _check_torch(
         "import torch; "
         "print(f'torch={torch.__version__}'); "
         "print(f'cuda={torch.cuda.is_available()}'); "
-        "print(f'cuda_ver={torch.version.cuda or \"\"}')"
+        "v=torch.version.cuda or ''; "
+        "print(f'cuda_ver={v}')"
     )
     stdout, stderr, code = session.execute(
         f'{prefix} && {py} -c "{script}"', timeout=30,
@@ -150,10 +151,12 @@ def _discover_gpu_types(
     gpu_types: list[str] = []
     for line in stdout.strip().splitlines():
         # GRES format: gpu:type:count or gpu:count
+        # Count field may include state suffix like "2(S:0-1)"
         parts = line.strip().split(":")
-        if len(parts) >= 2 and parts[0] == "gpu" and not parts[1].isdigit():
-            if parts[1] not in gpu_types:
-                gpu_types.append(parts[1])
+        if len(parts) >= 2 and parts[0] == "gpu":
+            candidate = parts[1].split("(")[0]
+            if not candidate.isdigit() and candidate not in gpu_types:
+                gpu_types.append(candidate)
     return replace(result, gpu_types=tuple(gpu_types))
 
 

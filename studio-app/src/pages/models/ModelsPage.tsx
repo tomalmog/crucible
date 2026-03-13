@@ -37,6 +37,7 @@ export function ModelsPage() {
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   useEffect(() => {
     listClusters(dataRoot)
@@ -57,13 +58,17 @@ export function ModelsPage() {
 
   async function handlePushModel(entry: ModelEntry): Promise<void> {
     const name = entry.modelName;
+    setTransferError(null);
     setTransferring((prev) => new Set(prev).add(name));
     try {
       const { task_id } = await startCrucibleCommand(dataRoot, [
         "remote", "push-model", "--cluster", selectedCluster, "--name", name,
       ]);
-      await pollUntilDone(task_id);
+      const status = await pollUntilDone(task_id);
+      if (status.status === "failed") throw new Error(status.stderr || "Push failed");
       await refreshModels();
+    } catch (err) {
+      setTransferError(`Push "${name}" failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setTransferring((prev) => { const n = new Set(prev); n.delete(name); return n; });
     }
@@ -71,13 +76,17 @@ export function ModelsPage() {
 
   async function handlePullModel(entry: ModelEntry): Promise<void> {
     const name = entry.modelName;
+    setTransferError(null);
     setTransferring((prev) => new Set(prev).add(name));
     try {
       const { task_id } = await startCrucibleCommand(dataRoot, [
         "model", "pull", "--name", name,
       ]);
-      await pollUntilDone(task_id);
+      const status = await pollUntilDone(task_id);
+      if (status.status === "failed") throw new Error(status.stderr || "Pull failed");
       await refreshModels();
+    } catch (err) {
+      setTransferError(`Pull "${name}" failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setTransferring((prev) => { const n = new Set(prev); n.delete(name); return n; });
     }
@@ -147,7 +156,7 @@ export function ModelsPage() {
         format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
       />
 
-      {locationTab === "remote" && clusters.length > 1 && (
+      {clusters.length > 1 && (
         <select
           value={selectedCluster}
           onChange={(e) => setSelectedCluster(e.target.value)}
@@ -157,6 +166,10 @@ export function ModelsPage() {
             <option key={c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
+      )}
+
+      {transferError && (
+        <p className="error-text" style={{ marginBottom: 8 }}>{transferError}</p>
       )}
 
       {filtered.length === 0 ? (

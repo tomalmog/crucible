@@ -11,6 +11,30 @@ import argparse
 from store.dataset_sdk import CrucibleClient
 
 
+def _handle_push_model(client: CrucibleClient, args: argparse.Namespace) -> int:
+    from pathlib import Path
+    from serve.remote_model_push import push_model_to_cluster
+    from serve.ssh_connection import SshSession
+    from store.cluster_registry import load_cluster
+
+    registry = client.model_registry()
+    entry = registry.get_model(args.name)
+    if not entry.model_path:
+        print(f"Model '{args.name}' has no local path.")
+        return 1
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    with SshSession(cluster) as session:
+        remote_path = push_model_to_cluster(
+            session, cluster, entry.model_name, Path(entry.model_path),
+        )
+    print(f"Pushed '{entry.model_name}' to {args.cluster}:{remote_path}")
+    # Update registry to mark as "both"
+    registry.update_model_location(
+        entry.model_name, cluster.host, remote_path,
+    )
+    return 0
+
+
 def _handle_dataset_push(client: CrucibleClient, args: argparse.Namespace) -> int:
     from serve.remote_dataset_ops import push_dataset
     from serve.ssh_connection import SshSession

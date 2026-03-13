@@ -91,6 +91,25 @@ class ModelRegistry:
         save_model_entry(self._models_root, updated)
         return updated
 
+    def update_model_location(
+        self,
+        model_name: str,
+        remote_host: str,
+        remote_path: str,
+    ) -> ModelEntry:
+        """Mark a local model as also available on a remote cluster."""
+        from dataclasses import replace
+
+        existing = self.get_model(model_name)
+        updated = replace(
+            existing,
+            location_type="both",
+            remote_host=remote_host,
+            remote_path=remote_path,
+        )
+        save_model_entry(self._models_root, updated)
+        return updated
+
     def list_models(self) -> tuple[ModelEntry, ...]:
         """List all registered model entries."""
         entries: list[ModelEntry] = []

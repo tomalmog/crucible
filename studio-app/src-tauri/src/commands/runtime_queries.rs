@@ -106,12 +106,7 @@ pub fn get_lineage_graph(data_root: String) -> Result<LineageGraphSummary, Strin
 pub fn get_hardware_profile(data_root: String) -> Result<BTreeMap<String, String>, String> {
     let resolved_data_root = resolve_data_root_path(&data_root);
     let workspace_root = workspace_root_dir();
-    let venv_binary = workspace_root.join(".venv/bin/crucible");
-    let crucible_bin = if venv_binary.exists() {
-        venv_binary
-    } else {
-        PathBuf::from("crucible")
-    };
+    let crucible_bin = super::crucible_task_store::resolve_crucible_binary(&workspace_root);
     let output = Command::new(&crucible_bin)
         .current_dir(&workspace_root)
         .arg("--data-root")

@@ -78,6 +78,11 @@ def add_remote_command(
     cn = sub.add_parser("cancel", help="Cancel a remote job")
     cn.add_argument("--job-id", required=True, help="Remote job ID")
 
+    # push-model
+    psm = sub.add_parser("push-model", help="Push a local model to a remote cluster")
+    psm.add_argument("--cluster", required=True, help="Cluster name")
+    psm.add_argument("--name", required=True, help="Model name")
+
     # pull-model
     pm = sub.add_parser("pull-model", help="Download model from remote job")
     pm.add_argument("--job-id", required=True, help="Remote job ID")
@@ -172,6 +177,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         _handle_dataset_list,
         _handle_dataset_pull,
         _handle_dataset_push,
+        _handle_push_model,
     )
 
     handlers: dict[str, object] = {
@@ -188,6 +194,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "result": _handle_result,
         "logs": _handle_logs,
         "cancel": _handle_cancel,
+        "push-model": _handle_push_model,
         "pull-model": _handle_pull_model,
         "dataset-push": _handle_dataset_push,
         "dataset-list": _handle_dataset_list,

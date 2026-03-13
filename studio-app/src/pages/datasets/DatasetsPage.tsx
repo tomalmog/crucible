@@ -31,6 +31,7 @@ export function DatasetsPage() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
@@ -103,10 +104,13 @@ export function DatasetsPage() {
   }
 
   async function handlePushDataset(name: string): Promise<void> {
+    setTransferError(null);
     setTransferring((prev) => new Set(prev).add(name));
     try {
       await pushDatasetToCluster(dataRoot, selectedCluster, name);
       await Promise.all([refreshDatasets(), fetchRemote()]);
+    } catch (err) {
+      setTransferError(`Push "${name}" failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setTransferring((prev) => {
         const next = new Set(prev);
@@ -117,10 +121,13 @@ export function DatasetsPage() {
   }
 
   async function handlePullDataset(name: string): Promise<void> {
+    setTransferError(null);
     setTransferring((prev) => new Set(prev).add(name));
     try {
       await pullDatasetFromCluster(dataRoot, selectedCluster, name);
       await refreshDatasets();
+    } catch (err) {
+      setTransferError(`Pull "${name}" failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setTransferring((prev) => {
         const next = new Set(prev);
@@ -169,7 +176,7 @@ export function DatasetsPage() {
         format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
       />
 
-      {!isLocal && clusters.length > 1 && (
+      {clusters.length > 1 && (
         <select
           value={selectedCluster}
           onChange={(e) => setSelectedCluster(e.target.value)}
@@ -179,6 +186,10 @@ export function DatasetsPage() {
             <option key={c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
+      )}
+
+      {transferError && (
+        <p className="error-text" style={{ marginBottom: 8 }}>{transferError}</p>
       )}
 
       {!isLocal && clusters.length === 0 ? (

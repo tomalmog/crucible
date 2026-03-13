@@ -30,12 +30,15 @@ export function ClustersPage() {
     refresh();
   }, [refresh]);
 
-  async function waitForTask(taskId: string) {
+  async function waitForTask(taskId: string, onProgress?: (output: string) => void) {
     let status = await getCrucibleCommandStatus(taskId);
     while (status.status === "running") {
+      onProgress?.([status.stdout, status.stderr].filter(Boolean).join("\n"));
       await new Promise((r) => setTimeout(r, 500));
       status = await getCrucibleCommandStatus(taskId);
     }
+    onProgress?.([status.stdout, status.stderr].filter(Boolean).join("\n"));
+    return status;
   }
 
   function handleRemove(name: string) {
@@ -45,9 +48,10 @@ export function ClustersPage() {
       .catch(() => {});
   }
 
-  async function handleValidate(name: string) {
+  async function handleValidate(name: string, onProgress?: (output: string) => void) {
     const { task_id } = await startCrucibleCommand(dataRoot, ["remote", "validate-cluster", "--cluster", name]);
-    await waitForTask(task_id);
+    const status = await waitForTask(task_id, onProgress);
+    if (status.status === "failed") throw new Error(status.stderr || "Validation failed");
     refresh();
   }
 
@@ -112,7 +116,7 @@ export function ClustersPage() {
               key={c.name}
               cluster={c}
               onRemove={() => handleRemove(c.name)}
-              onValidate={() => handleValidate(c.name)}
+              onValidate={(onProgress) => handleValidate(c.name, onProgress)}
               onResetEnv={() => handleResetEnv(c.name)}
               onEdit={() => { setEditingCluster(c); setView("edit"); }}
             />

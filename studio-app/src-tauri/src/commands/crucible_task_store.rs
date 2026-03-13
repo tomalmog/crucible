@@ -464,12 +464,12 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
     }
 }
 
-fn workspace_root_dir() -> PathBuf {
+pub fn workspace_root_dir() -> PathBuf {
     // `CARGO_MANIFEST_DIR` points to `studio-app/src-tauri`.
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn resolve_crucible_binary(workspace_root: &Path) -> PathBuf {
+pub fn resolve_crucible_binary(workspace_root: &Path) -> PathBuf {
     // Try both names — the binary may be called "crucible" or "forge"
     for name in ["crucible", "forge"] {
         let venv_binary = workspace_root.join(format!(".venv/bin/{name}"));

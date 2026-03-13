@@ -5,7 +5,7 @@ import type { ClusterConfig } from "../../types/remote";
 interface ClusterCardProps {
   cluster: ClusterConfig;
   onRemove: () => void;
-  onValidate: () => Promise<void>;
+  onValidate: (onProgress: (output: string) => void) => Promise<void>;
   onResetEnv: () => Promise<void>;
   onEdit: () => void;
 }
@@ -14,14 +14,16 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
   const isValidated = !!cluster.validatedAt;
   const [validating, setValidating] = useState(false);
   const [validateResult, setValidateResult] = useState<"success" | "error" | null>(null);
+  const [validateOutput, setValidateOutput] = useState("");
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<"success" | "error" | null>(null);
 
   async function handleValidate() {
     setValidating(true);
     setValidateResult(null);
+    setValidateOutput("");
     try {
-      await onValidate();
+      await onValidate((output) => setValidateOutput(output));
       setValidateResult("success");
     } catch {
       setValidateResult("error");
@@ -118,6 +120,12 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
           )}
         </tbody>
       </table>
+
+      {(validating || validateOutput) && (
+        <pre className="console" style={{ maxHeight: 200, overflow: "auto" }}>
+          {validateOutput || "Connecting to cluster..."}
+        </pre>
+      )}
     </div>
   );
 }
