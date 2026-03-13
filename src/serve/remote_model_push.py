@@ -42,11 +42,38 @@ def push_model_to_cluster(
         remote_file = f"{remote_dir}/{model_path.name}"
         print(f"Uploading {model_path.name}...", flush=True)
         session.upload(model_path, remote_file)
+        # Also upload companion files (tokenizer, config) from the same directory
+        _upload_companion_files(session, model_path.parent, remote_dir)
     else:
         _upload_directory(session, model_path, remote_dir)
 
     print(f"Model '{model_name}' pushed to {cluster.name}:{remote_dir}", flush=True)
     return remote_dir
+
+
+# Files that should accompany model weights when pushing a single .pt file.
+_COMPANION_FILES = (
+    "vocab.json",
+    "training_config.json",
+    "config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "tokenizer.model",
+)
+
+
+def _upload_companion_files(
+    session: SshSession,
+    local_dir: Path,
+    remote_dir: str,
+) -> None:
+    """Upload tokenizer/config files that sit alongside model weights."""
+    for name in _COMPANION_FILES:
+        path = local_dir / name
+        if path.is_file():
+            print(f"Uploading {name}...", flush=True)
+            session.upload(path, f"{remote_dir}/{name}")
 
 
 def _upload_directory(
