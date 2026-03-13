@@ -84,6 +84,10 @@ class SshSession:
             raise CrucibleRemoteError(
                 f"SSH connection to {hostname} failed: {error}"
             ) from error
+        # Enable keepalive so long-running operations don't drop
+        transport = client.get_transport()
+        if transport is not None:
+            transport.set_keepalive(30)
         self._client = client
         # Resolve remote home directory for ~ expansion in SFTP paths
         _, stdout_ch, _ = client.exec_command("echo $HOME", timeout=10)
@@ -129,8 +133,9 @@ class SshSession:
             stderr = stderr_ch.read().decode("utf-8", errors="replace")
             exit_code = stdout_ch.channel.recv_exit_status()
         except Exception as error:
+            desc = str(error) or f"{type(error).__name__} (no message)"
             raise CrucibleRemoteError(
-                f"Remote command failed: {error}"
+                f"Remote command failed ({command[:80]}): {desc}"
             ) from error
         return stdout, stderr, exit_code
 
@@ -156,11 +161,16 @@ class SshSession:
         resolved = self.resolve_path(remote_path)
         try:
             sftp = self.client.open_sftp()
-            sftp.put(str(local_path), resolved)
-            sftp.close()
+            try:
+                sftp.put(str(local_path), resolved)
+            finally:
+                sftp.close()
+        except CrucibleRemoteError:
+            raise
         except Exception as error:
+            desc = str(error) or f"{type(error).__name__} (no message)"
             raise CrucibleRemoteError(
-                f"SFTP upload failed: {error}"
+                f"SFTP upload failed ({local_path.name}): {desc}"
             ) from error
 
     def download(self, remote_path: str, local_path: Path) -> None:
