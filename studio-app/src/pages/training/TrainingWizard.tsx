@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
@@ -25,6 +25,7 @@ import { TrainingRunMonitor } from "./TrainingRunMonitor";
 import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSection";
 import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
 import { TrainingClusterContext } from "../../context/TrainingClusterContext";
+import type { TrainingClusterContextValue } from "../../context/TrainingClusterContext";
 import { FormField } from "../../components/shared/FormField";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { ArrowLeft, RotateCcw, Check } from "lucide-react";
@@ -73,7 +74,18 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const [remoteSubmitting, setRemoteSubmitting] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
-  const { clusterMode } = useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
+  useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
+
+  // When DatasetSelect detects a remote dataset pick, auto-enable remote
+  const handleRemoteDatasetSelected = useCallback((cluster: string) => {
+    setRemoteEnabled(true);
+    setClusterConfig((prev) => ({ ...prev, cluster }));
+  }, []);
+
+  const clusterContextValue = useMemo<TrainingClusterContextValue>(() => ({
+    cluster: remoteEnabled ? clusterConfig.cluster : "",
+    onRemoteDatasetSelected: handleRemoteDatasetSelected,
+  }), [remoteEnabled, clusterConfig.cluster, handleRemoteDatasetSelected]);
 
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
@@ -142,7 +154,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
       </button>
 
       {step === "config" && (
-        <TrainingClusterContext.Provider value={remoteEnabled ? clusterConfig.cluster : ""}>
+        <TrainingClusterContext.Provider value={clusterContextValue}>
         <div className="panel stack-lg">
           {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
           {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
@@ -169,7 +181,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           </FormField>
 
           <ClusterSubmitSection
-            mode={clusterMode}
             enabled={remoteEnabled}
             onToggle={setRemoteEnabled}
             clusterConfig={clusterConfig}

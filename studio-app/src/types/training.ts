@@ -147,13 +147,6 @@ export const PRIMARY_MODEL_KEY: Partial<Record<TrainingMethod, string>> = {
   "rlvr-train": "--base-model",
 };
 
-/** Methods that support auto-location detection from model selection.
- *  Excludes: "train" (no model), "rlhf-train" (two models), "distill" (two models). */
-export const AUTO_LOCATION_METHODS: ReadonlySet<TrainingMethod> = new Set([
-  "sft", "lora-train", "qlora-train", "domain-adapt", "multimodal-train",
-  "dpo-train", "kto-train", "orpo-train", "grpo-train", "rlvr-train",
-]);
-
 export interface TrainingConfigDraft {
   shared: SharedTrainingConfig;
   extra: Record<string, string>;

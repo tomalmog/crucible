@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Loader2, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingCluster } from "../../context/TrainingClusterContext";
-import { listRemoteDatasets } from "../../api/remoteApi";
+import { listClusters, listRemoteDatasets } from "../../api/remoteApi";
+import type { ClusterConfig } from "../../types/remote";
 import type { RemoteDatasetInfo } from "../../types/remote";
 
 interface DatasetSelectProps {
@@ -19,28 +20,40 @@ interface DatasetOption {
 
 /**
  * Searchable dropdown for selecting a dataset from the registry.
- * Only allows picking from local/remote datasets — no free text.
+ * Always shows both local and remote datasets when clusters exist.
  */
 export function DatasetSelect({ value, onChange, placeholder = "Select a dataset" }: DatasetSelectProps) {
   const { datasets, dataRoot } = useCrucible();
-  const cluster = useTrainingCluster();
+  const { cluster: contextCluster, onRemoteDatasetSelected } = useTrainingCluster();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Always fetch clusters on mount so we can show remote datasets
   useEffect(() => {
-    if (!dataRoot || !cluster) {
+    if (!dataRoot) return;
+    listClusters(dataRoot)
+      .then(setClusters)
+      .catch(() => setClusters([]));
+  }, [dataRoot]);
+
+  // Fetch remote datasets: use context cluster if set, otherwise first available
+  const effectiveCluster = contextCluster || clusters[0]?.name || "";
+
+  useEffect(() => {
+    if (!dataRoot || !effectiveCluster) {
       setRemoteDatasets([]);
       return;
     }
     setIsLoadingRemote(true);
-    listRemoteDatasets(dataRoot, cluster)
+    listRemoteDatasets(dataRoot, effectiveCluster)
       .then(setRemoteDatasets)
       .catch(() => setRemoteDatasets([]))
       .finally(() => setIsLoadingRemote(false));
-  }, [dataRoot, cluster]);
+  }, [dataRoot, effectiveCluster]);
 
   const options = useMemo(() => {
     const result: DatasetOption[] = [];
@@ -77,6 +90,11 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
 
   function pick(name: string) {
     onChange(name);
+    // If user picked a remote dataset, signal the wizard to auto-enable remote
+    const isRemote = remoteDatasets.some((d) => d.name === name);
+    if (isRemote && onRemoteDatasetSelected) {
+      onRemoteDatasetSelected(effectiveCluster);
+    }
     setOpen(false);
     setSearch("");
   }

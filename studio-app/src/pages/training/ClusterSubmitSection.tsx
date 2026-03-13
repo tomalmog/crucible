@@ -6,8 +6,6 @@ import { listClusters } from "../../api/remoteApi";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { ClusterConfig } from "../../types/remote";
 
-export type ClusterMode = "toggle" | "auto";
-
 export interface ClusterSubmitConfig {
   cluster: string;
   partition: string;
@@ -37,7 +35,6 @@ export const DEFAULT_CLUSTER_CONFIG: ClusterSubmitConfig = {
 };
 
 interface ClusterSubmitSectionProps {
-  mode: ClusterMode;
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
   clusterConfig: ClusterSubmitConfig;
@@ -45,7 +42,6 @@ interface ClusterSubmitSectionProps {
 }
 
 export function ClusterSubmitSection({
-  mode,
   enabled,
   onToggle,
   clusterConfig,
@@ -64,10 +60,9 @@ export function ClusterSubmitSection({
       .finally(() => setIsLoadingClusters(false));
   }, [dataRoot]);
 
-  // Load clusters when section becomes active
   useEffect(() => {
-    if (mode === "auto" || enabled) loadClusters();
-  }, [mode, enabled, loadClusters]);
+    loadClusters();
+  }, [loadClusters]);
 
   const selectedCluster = clusters.find((c) => c.name === clusterConfig.cluster);
 
@@ -75,29 +70,19 @@ export function ClusterSubmitSection({
     onChange({ ...clusterConfig, [key]: value });
   }
 
-  const showFields = mode === "toggle" ? enabled : enabled;
-
   return (
     <div className="form-section-divider">
-      {mode === "toggle" && (
-        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, justifySelf: "start" }}>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => onToggle(e.target.checked)}
-            style={{ width: "auto" }}
-          />
-          <span style={{ fontWeight: 500 }}>Submit to remote cluster</span>
-        </label>
-      )}
+      <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, justifySelf: "start" }}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => onToggle(e.target.checked)}
+          style={{ width: "auto" }}
+        />
+        <span style={{ fontWeight: 500 }}>Submit to remote cluster</span>
+      </label>
 
-      {mode === "auto" && !enabled && (
-        <div className="text-tertiary" style={{ fontSize: "0.8rem" }}>
-          Select a remote model above to train on a cluster.
-        </div>
-      )}
-
-      {showFields && (
+      {enabled && (
         <div className="stack-md" style={{ marginTop: 8 }}>
             <FormField label="Cluster" required>
               <div style={{ position: "relative" }}>

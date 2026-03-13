@@ -3,8 +3,8 @@ import { useCrucible } from "../context/CrucibleContext";
 import { listClusters } from "../api/remoteApi";
 import type { ClusterConfig } from "../types/remote";
 import type { TrainingMethod } from "../types/training";
-import { AUTO_LOCATION_METHODS, PRIMARY_MODEL_KEY } from "../types/training";
-import type { ClusterMode, ClusterSubmitConfig } from "../pages/training/ClusterSubmitSection";
+import { PRIMARY_MODEL_KEY } from "../types/training";
+import type { ClusterSubmitConfig } from "../pages/training/ClusterSubmitSection";
 
 interface ModelLocationInfo {
   locationType: "local" | "remote";
@@ -12,20 +12,19 @@ interface ModelLocationInfo {
 }
 
 /**
- * Derives training location (local vs remote) from the selected model.
+ * Auto-detects training location (local vs remote) from the selected model.
  *
- * For auto-location methods, watches the primary model field in `extra` and
- * sets `remoteEnabled` + auto-selects a matching cluster. For manual-toggle
- * methods (train, rlhf-train, distill), returns `clusterMode: "toggle"`.
+ * For methods with a PRIMARY_MODEL_KEY, watches that field and sets
+ * `remoteEnabled` + auto-selects a matching cluster when a remote model
+ * is chosen.
  */
 export function useTrainingLocation(
   method: TrainingMethod,
   extra: Record<string, string>,
   setRemoteEnabled: (enabled: boolean) => void,
   setClusterConfig: React.Dispatch<React.SetStateAction<ClusterSubmitConfig>>,
-): { clusterMode: ClusterMode } {
+): void {
   const { models, dataRoot } = useCrucible();
-  const isAutoMethod = AUTO_LOCATION_METHODS.has(method);
   const primaryKey = PRIMARY_MODEL_KEY[method];
   const clustersRef = useRef<ClusterConfig[]>([]);
 
@@ -44,16 +43,16 @@ export function useTrainingLocation(
 
   // Pre-fetch clusters so we can auto-select the matching one
   useEffect(() => {
-    if (!isAutoMethod || !dataRoot) return;
+    if (!primaryKey || !dataRoot) return;
     listClusters(dataRoot)
       .then((c) => { clustersRef.current = c; })
       .catch(() => { clustersRef.current = []; });
-  }, [isAutoMethod, dataRoot]);
+  }, [primaryKey, dataRoot]);
 
   // Watch primary model field and derive location
   const primaryModelPath = primaryKey ? (extra[primaryKey] ?? "") : "";
   useEffect(() => {
-    if (!isAutoMethod || !primaryModelPath) return;
+    if (!primaryKey || !primaryModelPath) return;
     const info = pathLocationMap.get(primaryModelPath);
     if (!info) return;
 
@@ -66,7 +65,5 @@ export function useTrainingLocation(
         setClusterConfig((prev) => ({ ...prev, cluster: match.name }));
       }
     }
-  }, [isAutoMethod, primaryModelPath, pathLocationMap, setRemoteEnabled, setClusterConfig]);
-
-  return { clusterMode: isAutoMethod ? "auto" : "toggle" };
+  }, [primaryKey, primaryModelPath, pathLocationMap, setRemoteEnabled, setClusterConfig]);
 }
