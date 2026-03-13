@@ -248,6 +248,7 @@ def _build_and_load_model(
     num_layers = _infer_encoder_layer_count(state) or options.num_layers
     mlp_hidden_dim = (
         _infer_shape_value(state, "encoder.layers.0.linear1.weight", 0)
+        or _infer_shape_value(state, "blocks.0.ffn.0.weight", 0)
         or options.mlp_hidden_dim
     )
     mlp_layers = _infer_projection_layer_count(state) or options.mlp_layers

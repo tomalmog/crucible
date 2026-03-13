@@ -159,6 +159,7 @@ def _to_inferred_training_options(
     num_layers = _infer_encoder_layer_count(model_state) or options.num_layers
     mlp_hidden_dim = (
         _infer_shape_value(model_state, "encoder.layers.0.linear1.weight", 0)
+        or _infer_shape_value(model_state, "blocks.0.ffn.0.weight", 0)
         or options.mlp_hidden_dim
     )
     mlp_layers = _infer_projection_layer_count(model_state) or options.mlp_layers
@@ -199,14 +200,21 @@ def _infer_shape_value(model_state: Mapping[str, object], key: str, index: int) 
 
 
 def _infer_encoder_layer_count(model_state: Mapping[str, object]) -> int | None:
-    """Infer transformer encoder layer count from checkpoint key prefixes."""
+    """Infer transformer encoder layer count from checkpoint key prefixes.
+
+    Supports both ``encoder.layers.N`` (PyTorch TransformerEncoder) and
+    ``blocks.N`` (DefaultCausalModel) key formats.
+    """
     layer_indexes: set[int] = set()
     for key in model_state:
-        if not key.startswith("encoder.layers."):
-            continue
-        parts = key.split(".")
-        if len(parts) >= 3 and parts[2].isdigit():
-            layer_indexes.add(int(parts[2]))
+        if key.startswith("encoder.layers."):
+            parts = key.split(".")
+            if len(parts) >= 3 and parts[2].isdigit():
+                layer_indexes.add(int(parts[2]))
+        elif key.startswith("blocks."):
+            parts = key.split(".")
+            if len(parts) >= 2 and parts[1].isdigit():
+                layer_indexes.add(int(parts[1]))
     if not layer_indexes:
         return None
     return max(layer_indexes) + 1
