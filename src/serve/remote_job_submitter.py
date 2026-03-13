@@ -155,6 +155,10 @@ def submit_remote_job(
                         method_args[data_field] = source_file
                     else:
                         method_args[data_field] = records_file
+            # Ensure tokenizer/config companion files exist next to remote model
+            _ensure_remote_model_companions(
+                session, cluster, data_root, method_args,
+            )
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, training_method,
@@ -382,3 +386,69 @@ def submit_remote_sweep(
         slurm_job_id=slurm_job_id,
         submit_phase="",
     )
+
+
+# Companion files to sync alongside remote model weights.
+_MODEL_COMPANIONS = (
+    "vocab.json",
+    "training_config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "tokenizer.model",
+)
+
+
+def _ensure_remote_model_companions(
+    session: SshSession,
+    cluster: ClusterConfig,
+    data_root: Path,
+    method_args: dict[str, object],
+) -> None:
+    """Upload missing tokenizer/config files next to a remote base model.
+
+    Checks if the remote model directory has companion files (vocab.json etc.).
+    If missing, looks up the model in the local registry and uploads from the
+    local model directory. This ensures remote LoRA/SFT training can find
+    the tokenizer without requiring a manual re-push.
+    """
+    base_model = str(method_args.get("base_model_path", ""))
+    if not base_model:
+        return
+
+    models_prefix = f"{cluster.remote_workspace}/models/"
+    if not base_model.startswith(models_prefix):
+        return
+
+    # Check if vocab.json already exists on the remote
+    _, _, rc = session.execute(
+        f"test -f {base_model}/vocab.json", timeout=10,
+    )
+    if rc == 0:
+        return  # tokenizer already present
+
+    # Try to find the local model via registry
+    model_name = base_model[len(models_prefix):].rstrip("/")
+    try:
+        from store.model_registry import ModelRegistry
+        registry = ModelRegistry(data_root)
+        entry = registry.get_model(model_name)
+    except Exception:
+        return  # model not in registry, nothing we can do
+
+    if not entry.model_path:
+        return
+
+    local_dir = Path(entry.model_path)
+    if local_dir.is_file():
+        local_dir = local_dir.parent
+
+    for name in _MODEL_COMPANIONS:
+        local_file = local_dir / name
+        if local_file.is_file():
+            _, _, exists_rc = session.execute(
+                f"test -f {base_model}/{name}", timeout=10,
+            )
+            if exists_rc != 0:
+                print(f"Uploading {name} to remote model...", flush=True)
+                session.upload(local_file, f"{base_model}/{name}")
