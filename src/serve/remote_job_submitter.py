@@ -155,6 +155,10 @@ def submit_remote_job(
                         method_args[data_field] = source_file
                     else:
                         method_args[data_field] = records_file
+            # Resolve ~ in base_model_path so the agent uses an absolute path
+            bmp = str(method_args.get("base_model_path", ""))
+            if bmp:
+                method_args["base_model_path"] = session.resolve_path(bmp)
             # Ensure tokenizer/config companion files exist next to remote model
             _ensure_remote_model_companions(
                 session, cluster, data_root, method_args,
@@ -416,25 +420,40 @@ def _ensure_remote_model_companions(
     if not base_model:
         return
 
+    # Resolve ~ so the path matches the already-resolved cluster workspace
+    base_model_resolved = session.resolve_path(base_model)
     models_prefix = f"{cluster.remote_workspace}/models/"
-    if not base_model.startswith(models_prefix):
+    if not base_model_resolved.startswith(models_prefix):
         return
 
+    try:
+        _sync_model_companions(
+            session, base_model_resolved, models_prefix, data_root,
+        )
+    except Exception as exc:
+        # Don't let companion sync failure block submission
+        print(f"Warning: could not sync model companions: {exc}", flush=True)
+
+
+def _sync_model_companions(
+    session: SshSession,
+    remote_model_dir: str,
+    models_prefix: str,
+    data_root: Path,
+) -> None:
+    """Upload missing companion files from local registry to remote model."""
     # Check if vocab.json already exists on the remote
     _, _, rc = session.execute(
-        f"test -f {base_model}/vocab.json", timeout=10,
+        f"test -f {remote_model_dir}/vocab.json", timeout=10,
     )
     if rc == 0:
         return  # tokenizer already present
 
     # Try to find the local model via registry
-    model_name = base_model[len(models_prefix):].rstrip("/")
-    try:
-        from store.model_registry import ModelRegistry
-        registry = ModelRegistry(data_root)
-        entry = registry.get_model(model_name)
-    except Exception:
-        return  # model not in registry, nothing we can do
+    model_name = remote_model_dir[len(models_prefix):].rstrip("/")
+    from store.model_registry import ModelRegistry
+    registry = ModelRegistry(data_root)
+    entry = registry.get_model(model_name)
 
     if not entry.model_path:
         return
@@ -447,8 +466,8 @@ def _ensure_remote_model_companions(
         local_file = local_dir / name
         if local_file.is_file():
             _, _, exists_rc = session.execute(
-                f"test -f {base_model}/{name}", timeout=10,
+                f"test -f {remote_model_dir}/{name}", timeout=10,
             )
             if exists_rc != 0:
                 print(f"Uploading {name} to remote model...", flush=True)
-                session.upload(local_file, f"{base_model}/{name}")
+                session.upload(local_file, f"{remote_model_dir}/{name}")
