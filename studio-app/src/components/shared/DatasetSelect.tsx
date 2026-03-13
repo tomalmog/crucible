@@ -24,7 +24,7 @@ interface DatasetOption {
  */
 export function DatasetSelect({ value, onChange, placeholder = "Select a dataset" }: DatasetSelectProps) {
   const { datasets, dataRoot } = useCrucible();
-  const { cluster: contextCluster, onRemoteDatasetSelected } = useTrainingCluster();
+  const { cluster: contextCluster, onDatasetLocationChanged } = useTrainingCluster();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
@@ -88,12 +88,10 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
     }, 150);
   }
 
-  function pick(name: string) {
+  function pick(name: string, section: "local" | "remote") {
     onChange(name);
-    // If user picked a remote dataset, signal the wizard to auto-enable remote
-    const isRemote = remoteDatasets.some((d) => d.name === name);
-    if (isRemote && onRemoteDatasetSelected) {
-      onRemoteDatasetSelected(effectiveCluster);
+    if (onDatasetLocationChanged) {
+      onDatasetLocationChanged(section === "remote", effectiveCluster);
     }
     setOpen(false);
     setSearch("");
@@ -111,7 +109,7 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
           type="button"
           className="dataset-select-option"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => pick(o.value)}
+          onClick={() => pick(o.value, o.section)}
         >
           {o.label}
         </button>
@@ -125,6 +123,7 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
         <input
           value={open ? search : value}
           onChange={(e) => setSearch(e.currentTarget.value)}
+          onClick={() => { if (!open) { setSearch(""); setOpen(true); } }}
           placeholder={value || placeholder}
           readOnly={!open}
         />

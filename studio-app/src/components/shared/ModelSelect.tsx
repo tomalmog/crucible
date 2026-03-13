@@ -104,6 +104,7 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
         <input
           value={open ? search : displayValue}
           onChange={(e) => setSearch(e.currentTarget.value)}
+          onClick={() => { if (!open) { setSearch(""); setOpen(true); } }}
           placeholder={displayValue || placeholder}
           readOnly={!open}
         />

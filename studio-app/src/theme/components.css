@@ -2133,3 +2133,105 @@ label,
     padding: 6px 10px;
     font-size: 0.8125rem;
 }
+
+/* ─── Training form: leave room for the remote tab on the right ─── */
+
+.has-remote-tab {
+    margin-right: 40px;
+}
+
+/* ─── Remote Sidebar (collapsed tab) ─── */
+
+.remote-sidebar-tab {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+    writing-mode: vertical-lr;
+    box-shadow: var(--shadow-md);
+}
+
+.remote-sidebar-tab:hover {
+    color: var(--accent);
+    background: var(--bg-base);
+    box-shadow: var(--shadow-lg);
+}
+
+.remote-sidebar-tab svg {
+    transform: rotate(90deg);
+}
+
+/* ─── Remote Sidebar (expanded panel) ─── */
+
+.remote-sidebar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 200;
+    width: 300px;
+    background: var(--bg-base);
+    border-left: 2px solid var(--accent);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.remote-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elevated);
+    flex-shrink: 0;
+}
+
+.remote-sidebar-header h4 {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.remote-sidebar-body {
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+    font-size: 0.8125rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.remote-sidebar-body .form-field label {
+    font-size: 0.75rem;
+}
+
+.remote-sidebar-body .input,
+.remote-sidebar-body select,
+.remote-sidebar-body textarea {
+    font-size: 0.8125rem;
+    padding: 6px 8px;
+}
+
+.remote-sidebar-body .form-row {
+    gap: 8px;
+}

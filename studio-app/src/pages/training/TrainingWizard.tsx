@@ -76,16 +76,18 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
   const { shared, setShared, extra, setExtra } = config;
   useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
 
-  // When DatasetSelect detects a remote dataset pick, auto-enable remote
-  const handleRemoteDatasetSelected = useCallback((cluster: string) => {
-    setRemoteEnabled(true);
-    setClusterConfig((prev) => ({ ...prev, cluster }));
+  // Toggle remote on/off based on dataset selection (local vs remote)
+  const handleDatasetLocationChanged = useCallback((isRemote: boolean, cluster: string) => {
+    setRemoteEnabled(isRemote);
+    if (isRemote) {
+      setClusterConfig((prev) => ({ ...prev, cluster }));
+    }
   }, []);
 
   const clusterContextValue = useMemo<TrainingClusterContextValue>(() => ({
     cluster: remoteEnabled ? clusterConfig.cluster : "",
-    onRemoteDatasetSelected: handleRemoteDatasetSelected,
-  }), [remoteEnabled, clusterConfig.cluster, handleRemoteDatasetSelected]);
+    onDatasetLocationChanged: handleDatasetLocationChanged,
+  }), [remoteEnabled, clusterConfig.cluster, handleDatasetLocationChanged]);
 
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
@@ -155,30 +157,66 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
       {step === "config" && (
         <TrainingClusterContext.Provider value={clusterContextValue}>
-        <div className="panel stack-lg">
-          {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "dpo-train" && <DpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "rlhf-train" && <RlhfTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "lora-train" && <LoraTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "distill" && <DistillTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "domain-adapt" && <DomainAdaptForm extra={extra} setExtra={setExtra} />}
-          {method === "grpo-train" && <GrpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "qlora-train" && <QloraTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "kto-train" && <KtoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "orpo-train" && <OrpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
+        <div className={`panel stack-lg${!remoteEnabled ? " has-remote-tab" : ""}`}>
+            {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "dpo-train" && <DpoTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "rlhf-train" && <RlhfTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "lora-train" && <LoraTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "distill" && <DistillTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "domain-adapt" && <DomainAdaptForm extra={extra} setExtra={setExtra} />}
+            {method === "grpo-train" && <GrpoTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "qlora-train" && <QloraTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "kto-train" && <KtoTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "orpo-train" && <OrpoTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
+            {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
 
-          <SharedTrainingFields config={shared} onChange={setShared} />
+            <SharedTrainingFields config={shared} onChange={setShared} />
 
-          <FormField label="Model Name" required>
-            <input
-              value={modelName}
-              onChange={(e) => setModelName(e.currentTarget.value)}
-              placeholder="My-Model-0"
-            />
-          </FormField>
+            <FormField label="Model Name" required>
+              <input
+                value={modelName}
+                onChange={(e) => setModelName(e.currentTarget.value)}
+                placeholder="My-Model-0"
+              />
+            </FormField>
+
+            {!canStart && (
+              <div className="error-alert">
+                Missing required fields: {missing.join(", ")}
+              </div>
+            )}
+            {startError && (
+              <div className="error-alert">{startError}</div>
+            )}
+            <div className="flex-row">
+              {remoteEnabled ? (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => submitToCluster().catch(console.error)}
+                  disabled={!canStart || remoteSubmitting}
+                >
+                  {remoteSubmitting ? "Submitting..." : "Submit to Cluster"}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => startTraining().catch(console.error)}
+                  disabled={!canStart}
+                >
+                  Start Training
+                </button>
+              )}
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={config.resetToDefaults}
+                title="Reset to defaults"
+              >
+                <RotateCcw size={12} /> Reset
+              </button>
+            </div>
+          </div>
 
           <ClusterSubmitSection
             enabled={remoteEnabled}
@@ -186,42 +224,6 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
             clusterConfig={clusterConfig}
             onChange={setClusterConfig}
           />
-
-          {!canStart && (
-            <div className="error-alert">
-              Missing required fields: {missing.join(", ")}
-            </div>
-          )}
-          {startError && (
-            <div className="error-alert">{startError}</div>
-          )}
-          <div className="flex-row">
-            {remoteEnabled ? (
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={() => submitToCluster().catch(console.error)}
-                disabled={!canStart || remoteSubmitting}
-              >
-                {remoteSubmitting ? "Submitting..." : "Submit to Cluster"}
-              </button>
-            ) : (
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={() => startTraining().catch(console.error)}
-                disabled={!canStart}
-              >
-                Start Training
-              </button>
-            )}
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={config.resetToDefaults}
-              title="Reset to defaults"
-            >
-              <RotateCcw size={12} /> Reset
-            </button>
-          </div>
-        </div>
         </TrainingClusterContext.Provider>
       )}
 
