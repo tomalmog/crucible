@@ -191,10 +191,11 @@ def extract_log_error(session: SshSession, record: RemoteJobRecord) -> str:
     if result_error:
         return result_error
 
-    log_path = (
-        record.remote_log_path
-        or f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
-    )
+    log_path = record.remote_log_path
+    if not log_path and record.slurm_job_id:
+        log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    if not log_path:
+        return ""
     error = _scan_log_tail(session, log_path)
     if error:
         return error

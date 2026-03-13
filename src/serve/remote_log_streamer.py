@@ -33,8 +33,11 @@ def stream_remote_logs(
 
     cluster = load_cluster(data_root, record.cluster_name)
     log_path = record.remote_log_path
-    if not log_path:
+    if not log_path and record.slurm_job_id:
         log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    if not log_path:
+        yield "[no log path available — job may still be submitting]"
+        return
 
     with SshSession(cluster) as session:
         yield from _wait_for_log_file(session, log_path)
@@ -56,10 +59,11 @@ def fetch_remote_logs(
     """Fetch the last N lines of logs from a remote job."""
     record = load_remote_job(data_root, job_id)
     cluster = load_cluster(data_root, record.cluster_name)
-    log_path = (
-        record.remote_log_path
-        or f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
-    )
+    log_path = record.remote_log_path
+    if not log_path and record.slurm_job_id:
+        log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
+    if not log_path:
+        return "[no log path available — job may still be submitting]"
 
     with SshSession(cluster) as session:
         _, _, code = session.execute(f"test -f {log_path}", timeout=10)

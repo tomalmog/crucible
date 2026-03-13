@@ -87,6 +87,8 @@ def _handle_list_clusters(
 def _handle_validate_cluster(
     client: CrucibleClient, args: argparse.Namespace,
 ) -> int:
+    from dataclasses import replace as dc_replace
+
     from serve.cluster_validator import update_cluster_validated, validate_cluster
     from store.cluster_registry import load_cluster, save_cluster
 
@@ -97,6 +99,10 @@ def _handle_validate_cluster(
 
     if result.python_ok and result.slurm_ok:
         updated = update_cluster_validated(cluster)
+        if result.partitions:
+            updated = dc_replace(updated, partitions=result.partitions)
+        if result.gpu_types:
+            updated = dc_replace(updated, gpu_types=result.gpu_types)
         save_cluster(client._config.data_root, updated)
     return 0
 

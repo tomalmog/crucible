@@ -70,22 +70,19 @@ export function ClusterSubmitSection({
     onChange({ ...clusterConfig, [key]: value });
   }
 
-  if (!enabled) {
-    return (
+  return (
+    <>
       <button
-        className="remote-sidebar-tab"
+        className={`remote-sidebar-tab${enabled ? " remote-sidebar-tab-hidden" : ""}`}
         onClick={() => onToggle(true)}
         title="Open remote cluster settings"
       >
         <Server size={14} />
         <span>Remote</span>
       </button>
-    );
-  }
 
-  return (
-    <div className="remote-sidebar">
-      <div className="remote-sidebar-header">
+      <div className={`remote-sidebar${enabled ? " remote-sidebar-open" : ""}`}>
+        <div className="remote-sidebar-header">
         <h4>Remote Cluster</h4>
         <button
           className="btn btn-ghost btn-sm btn-icon"
@@ -201,16 +198,15 @@ export function ClusterSubmitSection({
           </FormField>
         </div>
 
-        <FormField label="Auto-Pull Model">
-          <label className="flex-row">
-            <input
-              type="checkbox"
-              checked={clusterConfig.pullModel}
-              onChange={(e) => set("pullModel", e.currentTarget.checked)}
-            />
-            <span>Pull model to local after completion</span>
-          </label>
-        </FormField>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-secondary)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={clusterConfig.pullModel}
+            onChange={(e) => set("pullModel", e.currentTarget.checked)}
+            style={{ width: "auto" }}
+          />
+          Auto-pull model after completion
+        </label>
 
         <FormSection title="Extra Overrides (JSON)">
           <FormField label="Additional key-value pairs" hint="Merged into method args; overrides form values">
@@ -225,5 +221,6 @@ export function ClusterSubmitSection({
         </FormSection>
       </div>
     </div>
+    </>
   );
 }

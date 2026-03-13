@@ -27,7 +27,7 @@ from serve.lora_injection import (
     freeze_base_parameters,
     inject_lora_adapters,
 )
-from serve.model_weights import load_initial_weights, read_model_state_dict
+from serve.model_weights import read_model_state_dict
 from serve.sft_data_loader import load_sft_examples
 from serve.sft_tokenization import SftSequence, build_sft_sequences
 from serve.training_artifacts import (
@@ -211,20 +211,6 @@ def _resolve_lora_config(
     )
 
 
-def _infer_checkpoint_vocab_size(
-    torch_module: Any, weights_path: str, device: Any, fallback: int,
-) -> int:
-    """Infer vocab size from checkpoint embedding weights."""
-    try:
-        state = read_model_state_dict(torch_module, weights_path, device)
-        embedding_weight = state.get("embedding.weight")
-        if embedding_weight is not None and hasattr(embedding_weight, "shape"):
-            return int(embedding_weight.shape[0])
-    except Exception:
-        pass
-    return fallback
-
-
 def _build_and_load_model(
     torch_module: Any,
     options: LoraTrainingOptions,
@@ -240,29 +226,55 @@ def _build_and_load_model(
     if is_huggingface_model_id(options.base_model_path):
         return load_huggingface_model(options.base_model_path, device=device)
 
+    from pathlib import Path
+
     from core.types import TrainingOptions
+
+    # Read checkpoint state dict once — used both for architecture
+    # inference and weight loading to avoid reading the file twice.
+    state = read_model_state_dict(torch_module, options.base_model_path, device)
+
+    # Infer architecture params from checkpoint to avoid shape mismatches.
+    # Without this, a model saved with mlp_layers>1 (Sequential output head)
+    # would fail to load into a model built with mlp_layers=1 (single Linear).
+    from serve.chat_option_resolver import (
+        _infer_encoder_layer_count,
+        _infer_projection_layer_count,
+        _infer_shape_value,
+    )
+
+    vocab_size = _infer_shape_value(state, "embedding.weight", 0) or 10000
+    hidden_dim = _infer_shape_value(state, "embedding.weight", 1) or options.hidden_dim
+    num_layers = _infer_encoder_layer_count(state) or options.num_layers
+    mlp_hidden_dim = (
+        _infer_shape_value(state, "encoder.layers.0.linear1.weight", 0)
+        or options.mlp_hidden_dim
+    )
+    mlp_layers = _infer_projection_layer_count(state) or options.mlp_layers
+    attention_heads = options.attention_heads
+    if attention_heads > 0 and hidden_dim % attention_heads != 0:
+        for candidate in range(min(attention_heads, hidden_dim), 0, -1):
+            if hidden_dim % candidate == 0:
+                attention_heads = candidate
+                break
 
     training_options = TrainingOptions(
         dataset_name=options.dataset_name,
         output_dir=options.output_dir,
-        hidden_dim=options.hidden_dim,
-        num_layers=options.num_layers,
-        attention_heads=options.attention_heads,
-        mlp_hidden_dim=options.mlp_hidden_dim,
-        mlp_layers=options.mlp_layers,
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        attention_heads=attention_heads,
+        mlp_hidden_dim=mlp_hidden_dim,
+        mlp_layers=mlp_layers,
         max_token_length=options.max_token_length,
-    )
-    vocab_size = _infer_checkpoint_vocab_size(
-        torch_module, options.base_model_path, device, fallback=10000,
     )
     model = load_training_model(torch_module, training_options, vocab_size=vocab_size)
     model = model.to(device)
-    load_initial_weights(
-        torch_module=torch_module,
-        model=model,
-        initial_weights_path=options.base_model_path,
-        device=device,
-    )
+
+    # Apply the already-loaded state dict directly.
+    from serve.model_weights import _apply_model_state
+    _apply_model_state(model, state, Path(options.base_model_path))
+
     return model
 
 

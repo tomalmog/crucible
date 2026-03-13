@@ -139,24 +139,44 @@ def _discover_gpu_types(
     session: SshSession,
     result: ClusterValidationResult,
 ) -> ClusterValidationResult:
-    """Discover available GPU types from Slurm GRES configuration."""
+    """Discover available GPU types from Slurm GRES and node features."""
     if not result.slurm_ok:
-        return result
-    stdout, _, code = session.execute(
-        "sinfo --noheader -o '%G' | sort -u", timeout=15,
-    )
-    if code != 0:
         return result
 
     gpu_types: list[str] = []
-    for line in stdout.strip().splitlines():
-        # GRES format: gpu:type:count or gpu:count
-        # Count field may include state suffix like "2(S:0-1)"
-        parts = line.strip().split(":")
-        if len(parts) >= 2 and parts[0] == "gpu":
-            candidate = parts[1].split("(")[0]
-            if not candidate.isdigit() and candidate not in gpu_types:
-                gpu_types.append(candidate)
+
+    # Method 1: parse GRES — gpu:type:count format
+    stdout, _, code = session.execute(
+        "sinfo --noheader -o '%G' | sort -u", timeout=15,
+    )
+    if code == 0:
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if not line or line == "(null)":
+                continue
+            parts = line.split(":")
+            if len(parts) >= 3 and parts[0] == "gpu":
+                candidate = parts[1].split("(")[0]
+                if candidate and candidate not in gpu_types:
+                    gpu_types.append(candidate)
+
+    # Method 2: if GRES didn't have named types, check node features
+    if not gpu_types:
+        stdout, _, code = session.execute(
+            "sinfo --noheader -o '%f' | tr ',' '\\n' | sort -u", timeout=15,
+        )
+        if code == 0:
+            gpu_keywords = ("gpu", "a100", "a40", "v100", "h100", "l40",
+                            "t4", "rtx", "titan", "p100", "a10", "l4")
+            for line in stdout.strip().splitlines():
+                feat = line.strip().lower()
+                if not feat or feat == "(null)":
+                    continue
+                if any(kw in feat for kw in gpu_keywords):
+                    name = line.strip()
+                    if name not in gpu_types:
+                        gpu_types.append(name)
+
     return replace(result, gpu_types=tuple(gpu_types))
 
 

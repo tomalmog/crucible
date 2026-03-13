@@ -2163,9 +2163,16 @@ label,
     letter-spacing: 0.04em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
     writing-mode: vertical-lr;
     box-shadow: var(--shadow-md);
+    opacity: 1;
+    transition: opacity 0.2s ease, color 0.15s, background 0.15s, box-shadow 0.15s;
+    pointer-events: auto;
+}
+
+.remote-sidebar-tab-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .remote-sidebar-tab:hover {
@@ -2193,6 +2200,12 @@ label,
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+}
+
+.remote-sidebar-open {
+    transform: translateX(0);
 }
 
 .remote-sidebar-header {
@@ -2213,25 +2226,42 @@ label,
 }
 
 .remote-sidebar-body {
-    padding: 16px;
+    padding: 12px;
     display: grid;
-    gap: 12px;
+    gap: 6px;
     font-size: 0.8125rem;
     overflow-y: auto;
     flex: 1;
 }
 
-.remote-sidebar-body .form-field label {
-    font-size: 0.75rem;
+.remote-sidebar-body .ff {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
 }
 
-.remote-sidebar-body .input,
-.remote-sidebar-body select,
-.remote-sidebar-body textarea {
+.remote-sidebar-body .ff-label {
+    padding: 4px 8px 0;
+    font-size: 0.625rem;
+}
+
+.remote-sidebar-body .ff input,
+.remote-sidebar-body .ff select,
+.remote-sidebar-body .ff textarea {
+    padding: 2px 8px 5px;
     font-size: 0.8125rem;
-    padding: 6px 8px;
 }
 
 .remote-sidebar-body .form-row {
-    gap: 8px;
+    gap: 6px;
+    margin: 0;
+}
+
+.remote-sidebar-body .flex-row {
+    gap: 6px;
+}
+
+.remote-sidebar-body .form-section {
+    margin: 0;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
 }

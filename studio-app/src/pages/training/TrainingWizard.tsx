@@ -157,7 +157,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
 
       {step === "config" && (
         <TrainingClusterContext.Provider value={clusterContextValue}>
-        <div className={`panel stack-lg${!remoteEnabled ? " has-remote-tab" : ""}`}>
+        <div className="panel stack-lg has-remote-tab">
             {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
             {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
             {method === "dpo-train" && <DpoTrainForm extra={extra} setExtra={setExtra} />}
