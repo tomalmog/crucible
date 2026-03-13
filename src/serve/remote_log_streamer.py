@@ -35,11 +35,13 @@ def stream_remote_logs(
     log_path = record.remote_log_path
     if not log_path and record.slurm_job_id:
         log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
-    if not log_path:
-        yield "[no log path available — job may still be submitting]"
-        return
 
     with SshSession(cluster) as session:
+        if not log_path and record.remote_output_dir:
+            log_path = _discover_slurm_log(session, record.remote_output_dir)
+        if not log_path:
+            yield "[no log path available — job may still be submitting]"
+            return
         yield from _wait_for_log_file(session, log_path)
         if not _log_file_exists(session, log_path):
             return
@@ -62,10 +64,14 @@ def fetch_remote_logs(
     log_path = record.remote_log_path
     if not log_path and record.slurm_job_id:
         log_path = f"{record.remote_output_dir}/slurm-{record.slurm_job_id}.out"
-    if not log_path:
-        return "[no log path available — job may still be submitting]"
 
     with SshSession(cluster) as session:
+        # If we still don't have a log path, try discovering slurm-*.out
+        if not log_path and record.remote_output_dir:
+            log_path = _discover_slurm_log(session, record.remote_output_dir)
+        if not log_path:
+            return "[no log path available — job may still be submitting]"
+
         _, _, code = session.execute(f"test -f {log_path}", timeout=10)
         if code != 0:
             sacct_info = query_sacct_details(session, record.slurm_job_id)
@@ -103,6 +109,17 @@ def _log_file_exists(session: SshSession, log_path: str) -> bool:
     """Check if a log file exists on the remote."""
     _, _, code = session.execute(f"test -f {log_path}", timeout=10)
     return code == 0
+
+
+def _discover_slurm_log(session: SshSession, workdir: str) -> str:
+    """Try to find a slurm-*.out file in the remote workdir."""
+    stdout, _, code = session.execute(
+        f"ls -1t {workdir}/slurm-*.out 2>/dev/null | head -1",
+        timeout=10,
+    )
+    if code == 0 and stdout.strip():
+        return stdout.strip()
+    return ""
 
 
 def _fetch_static_logs(

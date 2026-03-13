@@ -37,8 +37,14 @@ export async function getRemoteJobLogs(
 ): Promise<string> {
   const key = `jobLogs:${dataRoot}:${jobId}`;
   if (bypassCache) invalidate(key);
-  const ttl = jobState && TERMINAL_STATES.has(jobState) ? Infinity : 10_000;
-  return cached(key, ttl, () => sshLimited(() => invoke<string>("get_remote_job_logs", { dataRoot, jobId })));
+  const wantInfinite = !!(jobState && TERMINAL_STATES.has(jobState));
+  const ttl = wantInfinite ? Infinity : 10_000;
+  const result = await cached(key, ttl, () => sshLimited(() => invoke<string>("get_remote_job_logs", { dataRoot, jobId })));
+  // Don't permanently cache placeholder messages — they may resolve on retry
+  if (wantInfinite && result.startsWith("[")) {
+    invalidate(key);
+  }
+  return result;
 }
 
 export async function syncRemoteJobStatus(
@@ -54,6 +60,8 @@ export async function syncRemoteJobStatus(
   // Upgrade to infinite TTL if the job reached a terminal state
   if (TERMINAL_STATES.has(result.state)) {
     cacheSet(key, result, Infinity);
+    // Clear any stale log cache so the next fetch gets fresh logs
+    invalidate(`jobLogs:${dataRoot}:${jobId}`);
   }
   return result;
 }
