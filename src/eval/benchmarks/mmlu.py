@@ -64,7 +64,7 @@ def _format_prompt(example: dict[str, object]) -> str:
 def _score_choices(eval_model: EvalModel, prompt: str) -> int:
     """Return the index of the highest-scoring choice token."""
     logits = compute_logits(eval_model, prompt)
-    choice_tokens = ["a", "b", "c", "d"]
+    choice_tokens = ["A", "B", "C", "D"]
     scores = []
     for token in choice_tokens:
         token_ids = eval_model.tokenizer.encode(token, 1)

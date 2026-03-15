@@ -163,6 +163,46 @@ def compute_sequence_loss(eval_model: EvalModel, text: str) -> float:
     return float(loss.item())
 
 
+def compute_completion_loss(eval_model: EvalModel, prompt: str, completion: str) -> float:
+    """Compute average cross-entropy loss over completion tokens only.
+
+    Tokenizes prompt + completion together but only computes loss on the
+    completion portion.  This avoids the shared prompt dominating the loss
+    when comparing multiple completions for the same prompt.
+
+    Args:
+        eval_model: Loaded model context.
+        prompt: Context / prompt text (not scored).
+        completion: Completion text to score.
+
+    Returns:
+        Average cross-entropy loss over the completion tokens.
+    """
+    torch = eval_model.torch_module
+    prompt_ids = eval_model.tokenizer.encode(prompt, eval_model.max_token_length)
+    full_ids = eval_model.tokenizer.encode(
+        prompt + completion, eval_model.max_token_length,
+    )
+    # Number of tokens belonging to the completion
+    completion_len = len(full_ids) - len(prompt_ids)
+    if completion_len < 1:
+        return float("inf")
+    tensor = torch.tensor([full_ids], dtype=torch.long).to(eval_model.device)
+    with torch.no_grad():
+        output = eval_model.model(tensor)
+    logits = output.logits if hasattr(output, "logits") else output
+    # Only score the completion positions: logits at [prompt_len-1 .. end-1]
+    # predict tokens at [prompt_len .. end]
+    start = max(len(prompt_ids) - 1, 0)
+    shift_logits = logits[0, start:-1, :]
+    shift_labels = tensor[0, start + 1:]
+    if shift_logits.shape[0] == 0:
+        return float("inf")
+    loss_fn = torch.nn.CrossEntropyLoss()
+    loss = loss_fn(shift_logits, shift_labels)
+    return float(loss.item())
+
+
 def generate_text(
     eval_model: EvalModel,
     prompt: str,

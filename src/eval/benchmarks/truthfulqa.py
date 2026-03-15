@@ -8,7 +8,7 @@ scoring where the model must select the single correct answer.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import compute_sequence_loss, load_eval_model
+from eval.benchmarks._model_loader import compute_completion_loss, load_eval_model
 
 
 def run_truthfulqa(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
@@ -23,10 +23,10 @@ def run_truthfulqa(model_path: str, *, max_samples: int | None = None) -> Benchm
         examples = examples[:max_samples]
     correct = 0
     for example in examples:
-        prompt = f"Question: {example['question']}\nAnswer:"
+        prompt = f"Question: {example['question']}\nAnswer: "
         choices = example["choices"]
         losses = [
-            compute_sequence_loss(eval_model, prompt + " " + str(c))
+            compute_completion_loss(eval_model, prompt, str(c))
             for c in choices
         ]
         predicted = int(min(range(len(losses)), key=lambda i: losses[i]))

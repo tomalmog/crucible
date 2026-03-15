@@ -8,7 +8,7 @@ Scores by comparing sequence loss (perplexity) across completions.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import compute_sequence_loss, load_eval_model
+from eval.benchmarks._model_loader import compute_completion_loss, load_eval_model
 
 
 def run_hellaswag(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
@@ -23,8 +23,9 @@ def run_hellaswag(model_path: str, *, max_samples: int | None = None) -> Benchma
         examples = examples[:max_samples]
     correct = 0
     for example in examples:
+        ctx = example["ctx"] + " "
         losses = [
-            compute_sequence_loss(eval_model, example["ctx"] + " " + ending)
+            compute_completion_loss(eval_model, ctx, ending)
             for ending in example["endings"]
         ]
         predicted = int(min(range(len(losses)), key=lambda i: losses[i]))

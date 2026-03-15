@@ -8,7 +8,7 @@ sequence loss across answer completions.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import compute_sequence_loss, load_eval_model
+from eval.benchmarks._model_loader import compute_completion_loss, load_eval_model
 
 
 def run_arc(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
@@ -23,9 +23,9 @@ def run_arc(model_path: str, *, max_samples: int | None = None) -> BenchmarkResu
         examples = examples[:max_samples]
     correct = 0
     for example in examples:
-        prompt = f"Question: {example['question']}\nAnswer:"
+        prompt = f"Question: {example['question']}\nAnswer: "
         losses = [
-            compute_sequence_loss(eval_model, prompt + " " + choice)
+            compute_completion_loss(eval_model, prompt, choice)
             for choice in example["choices"]
         ]
         predicted = int(min(range(len(losses)), key=lambda i: losses[i]))
