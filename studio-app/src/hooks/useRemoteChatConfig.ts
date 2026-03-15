@@ -37,7 +37,9 @@ export function useRemoteChatConfig(
       return;
     }
     listClusters(dataRoot).then((clusters) => {
-      setClusterInfo(clusters.find((c) => c.host === remoteHost) ?? null);
+      const match = clusters.find((c) => c.host === remoteHost) ?? null;
+      setClusterInfo(match);
+      if (match?.defaultPartition) setPartition(match.defaultPartition);
     });
   }, [isRemote, remoteHost, dataRoot]);
 

@@ -62,6 +62,7 @@ def stream_remote_chat(
             sys.stdout = saved_stdout
         command = _build_srun_command(
             cluster.module_loads, bundle_dir, resources,
+            default_partition=cluster.default_partition,
         )
         # Use a longer timeout: env setup can take minutes, then
         # srun may queue before the model runs.
@@ -128,6 +129,7 @@ def _build_srun_command(
     module_loads: tuple[str, ...],
     bundle_dir: str,
     resources: SlurmResourceConfig,
+    default_partition: str = "",
 ) -> str:
     """Build the srun command that runs inference on a compute node."""
     parts: list[str] = list(module_loads)
@@ -137,8 +139,9 @@ def _build_srun_command(
     srun = ["srun", "--nodes=1", "--ntasks=1"]
     gres = f"gpu:{resources.gpu_type}:1" if resources.gpu_type else "gpu:1"
     srun.append(f"--gres={gres}")
-    if resources.partition:
-        srun.append(f"--partition={resources.partition}")
+    partition = resources.partition or default_partition
+    if partition:
+        srun.append(f"--partition={partition}")
     if resources.memory:
         srun.append(f"--mem={resources.memory}")
     if resources.time_limit:
