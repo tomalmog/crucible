@@ -79,7 +79,7 @@ def run_lora_training(
     try:
         run_registry.transition(run_record.run_id, "running")
         device = resolve_execution_device(torch_module)
-        model = _build_and_load_model(torch_module, options, device)
+        model, inferred_options = _build_and_load_model(torch_module, options, device)
         lora_config = _resolve_lora_config(torch_module, model, options.lora_config)
         inject_lora_adapters(torch_module, model, lora_config)
         freeze_base_parameters(model)
@@ -112,7 +112,7 @@ def run_lora_training(
         tokenizer = _load_lora_tokenizer(options)
         if tokenizer is not None:
             save_tokenizer_vocabulary(output_dir, tokenizer)
-        save_training_config(output_dir, options)
+        save_training_config(output_dir, inferred_options or options)
         history_path = save_training_history(output_dir, epoch_metrics, [])
         result = TrainingRunResult(
             model_path=str(model_path),
@@ -215,8 +215,13 @@ def _build_and_load_model(
     torch_module: Any,
     options: LoraTrainingOptions,
     device: Any,
-) -> Any:
+) -> tuple[Any, Any]:
     """Build or load the base model for LoRA injection.
+
+    Returns:
+        Tuple of (model, inferred_training_options).  The training options
+        reflect the actual architecture of the loaded checkpoint and should
+        be used when saving training_config.json.
 
     Supports three modes:
     - HuggingFace model ID (e.g. 'gpt2'): loads via transformers
@@ -224,7 +229,7 @@ def _build_and_load_model(
     - Local directory with model files: loads via transformers
     """
     if is_huggingface_model_id(options.base_model_path):
-        return load_huggingface_model(options.base_model_path, device=device)
+        return load_huggingface_model(options.base_model_path, device=device), None
 
     from pathlib import Path
 
@@ -276,7 +281,7 @@ def _build_and_load_model(
     from serve.model_weights import _apply_model_state
     _apply_model_state(model, state, Path(options.base_model_path))
 
-    return model
+    return model, training_options
 
 
 def _build_lora_optimizer(

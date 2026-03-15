@@ -102,12 +102,29 @@ def _to_persisted_training_options(
     payload: Mapping[str, object],
     model_state: Mapping[str, object],
 ) -> TrainingOptions:
-    """Build training options from persisted config with safe fallbacks."""
+    """Build training options from persisted config with safe fallbacks.
+
+    Cross-checks shape-sensitive values against the checkpoint state dict
+    to guard against stale or incorrect config files.
+    """
     max_token_length = _read_int(payload, "max_token_length", options.max_token_length)
-    hidden_dim = _read_int(payload, "hidden_dim", options.hidden_dim)
-    num_layers = _read_int(payload, "num_layers", options.num_layers)
-    mlp_hidden_dim = _read_int(payload, "mlp_hidden_dim", options.mlp_hidden_dim)
-    mlp_layers = _read_int(payload, "mlp_layers", options.mlp_layers)
+    hidden_dim = (
+        _infer_shape_value(model_state, "embedding.weight", 1)
+        or _read_int(payload, "hidden_dim", options.hidden_dim)
+    )
+    num_layers = (
+        _infer_encoder_layer_count(model_state)
+        or _read_int(payload, "num_layers", options.num_layers)
+    )
+    mlp_hidden_dim = (
+        _infer_shape_value(model_state, "encoder.layers.0.linear1.weight", 0)
+        or _infer_shape_value(model_state, "blocks.0.ffn.0.weight", 0)
+        or _read_int(payload, "mlp_hidden_dim", options.mlp_hidden_dim)
+    )
+    mlp_layers = (
+        _infer_projection_layer_count(model_state)
+        or _read_int(payload, "mlp_layers", options.mlp_layers)
+    )
     dropout = _read_float(payload, "dropout", options.dropout)
     requested_heads = _read_int(payload, "attention_heads", options.attention_heads)
     attention_heads = _resolve_attention_heads(hidden_dim, requested_heads)
