@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe,
-  Activity, Server, GitCompare, BookOpen, Settings, HardDrive,
+  Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
@@ -120,6 +120,7 @@ export function AppSidebar() {
 
         <div className="spacer" />
 
+        <SidebarNavItem to="/ui-test" icon={<Palette size={16} />} label="UI Library" />
         <SidebarNavItem to="/docs" icon={<BookOpen size={16} />} label="Docs" />
         <SidebarNavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
       </nav>
