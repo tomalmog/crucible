@@ -8,3 +8,4 @@ pub mod model_queries;
 pub mod remote_cli_ops;
 pub mod remote_queries;
 pub mod runtime_queries;
+pub mod storage_queries;

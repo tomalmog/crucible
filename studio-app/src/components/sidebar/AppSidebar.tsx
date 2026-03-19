@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe,
-  Activity, Server, GitCompare, BookOpen, Settings,
+  Activity, Server, GitCompare, BookOpen, Settings, HardDrive,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
@@ -116,6 +116,7 @@ export function AppSidebar() {
         <span className="sidebar-section-label">Operations</span>
         <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
         <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
+        <SidebarNavItem to="/resources" icon={<HardDrive size={16} />} label="Resources" />
 
         <div className="spacer" />
 

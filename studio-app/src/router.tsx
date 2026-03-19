@@ -11,6 +11,7 @@ import { CompareChatPage } from "./pages/chat/CompareChatPage";
 import { JobsPage } from "./pages/jobs/JobsPage";
 import { DocsPage } from "./pages/docs/DocsPage";
 import { ClustersPage } from "./pages/clusters/ClustersPage";
+import { ResourcesPage } from "./pages/resources/ResourcesPage";
 
 export const router = createHashRouter([
   {
@@ -28,6 +29,7 @@ export const router = createHashRouter([
       { path: "compare-chat", Component: CompareChatPage },
       { path: "jobs", Component: JobsPage },
       { path: "clusters", Component: ClustersPage },
+      { path: "resources", Component: ResourcesPage },
       { path: "docs", Component: DocsPage },
     ],
   },

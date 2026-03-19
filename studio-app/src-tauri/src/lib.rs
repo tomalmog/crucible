@@ -44,7 +44,11 @@ pub fn run() {
             commands::remote_cli_ops::push_dataset_to_cluster,
             commands::remote_cli_ops::pull_dataset_from_cluster,
             commands::remote_cli_ops::delete_remote_dataset_cmd,
-            commands::remote_cli_ops::get_remote_model_sizes
+            commands::remote_cli_ops::get_remote_model_sizes,
+            commands::storage_queries::get_storage_breakdown,
+            commands::storage_queries::list_orphaned_runs,
+            commands::storage_queries::delete_orphaned_runs,
+            commands::storage_queries::clear_cache
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
