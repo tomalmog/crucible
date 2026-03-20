@@ -57,6 +57,13 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
         context = _build_hf_runtime_context(options)
         response_text = _generate_response_text(context)
         return ChatResult(response_text=response_text)
+    # Check if this is a merged HF model (e.g. from LoRA training on a HF base).
+    # The training_config.json will have base_model_path pointing to the HF model.
+    hf_base = _detect_hf_base_model(options.model_path)
+    if hf_base:
+        context = _build_hf_runtime_context(options, hf_model_id=hf_base)
+        response_text = _generate_response_text(context)
+        return ChatResult(response_text=response_text)
     model_format = _detect_dir_aware_format(options.model_path)
     if model_format == "onnx":
         response_text = run_onnx_chat(records, options)
@@ -66,12 +73,24 @@ def run_chat(records: list[DataRecord] | None, options: ChatOptions) -> ChatResu
     return ChatResult(response_text=response_text)
 
 
-def _build_hf_runtime_context(options: ChatOptions) -> ChatRuntimeContext:
-    """Build chat runtime using a HuggingFace model."""
+def _build_hf_runtime_context(
+    options: ChatOptions,
+    hf_model_id: str | None = None,
+) -> ChatRuntimeContext:
+    """Build chat runtime using a HuggingFace model.
+
+    Args:
+        options: Chat options. When hf_model_id is None, options.model_path
+            is used as the HuggingFace model ID.
+        hf_model_id: Override HF model ID (used for merged LoRA models where
+            model_path is a .pt file but the architecture comes from a HF base).
+    """
     torch_module = _import_torch()
     device = _resolve_inference_device(torch_module)
 
-    model = load_huggingface_model(options.model_path, options.weights_path, device)
+    model_id = hf_model_id or options.model_path
+    weights_path = options.model_path if hf_model_id else options.weights_path
+    model = load_huggingface_model(model_id, weights_path, device)
     model.eval()
 
     # Detect actual device the model landed on (device_map may override)
@@ -81,7 +100,7 @@ def _build_hf_runtime_context(options: ChatOptions) -> ChatRuntimeContext:
         device = torch_module.device(first_device)
 
     # Load tokenizer
-    hf_tokenizer = load_huggingface_tokenizer(options.model_path)
+    hf_tokenizer = load_huggingface_tokenizer(model_id)
     tokenizer = _HfTokenizerAdapter(hf_tokenizer)
 
     max_context = getattr(model.config, "n_positions", None) or options.max_token_length
@@ -144,6 +163,22 @@ def _build_runtime_context(
         device=device,
         max_context_tokens=max_context_tokens,
     )
+
+
+def _detect_hf_base_model(model_path: str) -> str | None:
+    """Check if model_path has a training_config with a HuggingFace base_model_path.
+
+    Returns the base model ID if found, None otherwise.
+    """
+    from serve.training_metadata import load_training_config
+
+    config = load_training_config(model_path)
+    if not config:
+        return None
+    base = str(config.get("base_model_path", "") or "")
+    if base and is_huggingface_model_id(base):
+        return base
+    return None
 
 
 def _import_torch() -> Any:

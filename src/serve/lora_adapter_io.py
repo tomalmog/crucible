@@ -159,7 +159,14 @@ def _merge_lora_layers(torch_module: Any, model: Any) -> int:
 
 
 def _merge_single_layer(torch_module: Any, lora_module: Any) -> None:
-    """Merge one LoRA layer's delta into its original weight."""
+    """Merge one LoRA layer's delta into its original weight.
+
+    For nn.Linear the weight is (out, in) and delta is (out, in) — shapes match.
+    For transformers Conv1D the weight is (in, out) so the delta must be transposed.
+    """
     with torch_module.no_grad():
         delta = (lora_module.lora_b @ lora_module.lora_a) * lora_module.scaling
+        is_conv1d = type(lora_module.original).__name__ == "Conv1D"
+        if is_conv1d:
+            delta = delta.T
         lora_module.original.weight.add_(delta)

@@ -23,6 +23,8 @@ def is_huggingface_model_id(model_path: str) -> bool:
     with Crucible-produced weight files.
     """
     path = Path(model_path).expanduser()
+    if path.is_absolute():
+        return path.is_dir() and (path / "config.json").exists()
     if path.is_dir():
         config = path / "config.json"
         if config.exists():
