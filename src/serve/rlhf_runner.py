@@ -121,12 +121,9 @@ def _build_rlhf_context(
         base_model=options.policy_model_path if use_hf else None,
         build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
+        initial_weights_path=options.policy_model_path if not use_hf else None,
+        training_options=training_options,
     )
-    if not use_hf:
-        load_initial_weights(
-            torch_module=torch_module, model=policy_model,
-            initial_weights_path=options.policy_model_path, device=device,
-        )
     ref_model = create_reference_policy(torch_module, policy_model)
     reward_model = _resolve_reward_model(
         torch_module, policy_model, options, device,

@@ -139,14 +139,14 @@ def _build_runtime_context(
     random.Random(random_seed).shuffle(sequences)
     train_batches, validation_batches = _build_batches(sequences, options)
     device = resolve_execution_device(torch_module)
-    model = load_training_model(torch_module, options, len(tokenizer.vocabulary))
-    model = model.to(device)
-    load_initial_weights(
-        torch_module=torch_module,
-        model=model,
-        initial_weights_path=options.initial_weights_path,
-        device=device,
-    )
+    if options.initial_weights_path:
+        from serve.model_weights import build_and_load_from_checkpoint
+        model, _, _ = build_and_load_from_checkpoint(
+            torch_module, options.initial_weights_path, options, device,
+        )
+    else:
+        model = load_training_model(torch_module, options, len(tokenizer.vocabulary))
+        model = model.to(device)
     attention_backend = select_attention_backend()
     model = apply_attention_backend(model, attention_backend, torch_module, device=device)
     if options.gradient_checkpointing:

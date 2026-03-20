@@ -114,12 +114,9 @@ def _build_orpo_runtime_context(
         base_model=options.base_model,
         build_crucible_model=lambda: load_training_model(torch_module, training_options, len(tokenizer.vocabulary)),
         device=device,
+        initial_weights_path=options.initial_weights_path if not options.base_model else None,
+        training_options=training_options,
     )
-    if not options.base_model:
-        load_initial_weights(
-            torch_module=torch_module, model=model,
-            initial_weights_path=options.initial_weights_path, device=device,
-        )
     precision_runtime = build_training_precision_runtime(
         torch_module=torch_module, requested_mode=options.precision_mode, device=device,
     )

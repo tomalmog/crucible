@@ -194,16 +194,16 @@ def _load_qlora_base_model(
                 hf_model.enable_input_require_grads()
             hf_model.gradient_checkpointing_enable()
         return _HfLogitsWrapper(torch_module, hf_model)
-    model = load_training_model(
-        torch_module, training_options, len(tokenizer.vocabulary),
-    )
-    model = model.to(device)
-    load_initial_weights(
-        torch_module=torch_module,
-        model=model,
-        initial_weights_path=options.base_model_path,
-        device=device,
-    )
+    if options.base_model_path:
+        from serve.model_weights import build_and_load_from_checkpoint
+        model, _, _ = build_and_load_from_checkpoint(
+            torch_module, options.base_model_path, training_options, device,
+        )
+    else:
+        model = load_training_model(
+            torch_module, training_options, len(tokenizer.vocabulary),
+        )
+        model = model.to(device)
     return model
 
 
