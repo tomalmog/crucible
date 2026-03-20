@@ -119,15 +119,18 @@ def _execute_distillation(
         config = getattr(inner, "config", None)
         teacher_vocab_size = int(getattr(config, "vocab_size", vocab_size)) if config else vocab_size
     else:
-        teacher_vocab_size = _infer_teacher_vocab_size(
-            torch_module, options.teacher_model_path, device,
+        teacher, teacher_vocab_size, teacher_options = _build_crucible_teacher(
+            torch_module, options.teacher_model_path, training_options, device,
         )
-        teacher = _load_teacher_model(
+    use_hf_student = options.student_model_path and is_huggingface_model_id(options.student_model_path)
+    if options.student_model_path and not use_hf_student:
+        student, _, _ = _build_crucible_model_from_checkpoint(
+            torch_module, options.student_model_path, training_options, device,
+        )
+    else:
+        student = _load_student_model(
             torch_module, training_options, teacher_vocab_size, options, device,
         )
-    student = _load_student_model(
-        torch_module, training_options, teacher_vocab_size, options, device,
-    )
     precision_runtime = build_training_precision_runtime(
         torch_module=torch_module,
         requested_mode=options.precision_mode,
@@ -179,6 +182,39 @@ def _infer_teacher_vocab_size(
             f"{teacher_model_path}: missing embedding.weight tensor."
         )
     return int(embedding_weight.shape[0])
+
+
+def _build_crucible_model_from_checkpoint(
+    torch_module: Any,
+    model_path: str,
+    base_options: TrainingOptions,
+    device: Any,
+) -> tuple[Any, int, TrainingOptions]:
+    """Build a Crucible model by inferring architecture from a checkpoint."""
+    from serve.model_weights import build_and_load_from_checkpoint
+    return build_and_load_from_checkpoint(
+        torch_module, model_path, base_options, device,
+    )
+
+
+def _build_crucible_teacher(
+    torch_module: Any,
+    teacher_model_path: str,
+    base_options: TrainingOptions,
+    device: Any,
+) -> tuple[Any, int, TrainingOptions]:
+    """Build teacher model from Crucible checkpoint with architecture inference.
+
+    Returns:
+        Tuple of (frozen_teacher, vocab_size, inferred_options).
+    """
+    teacher, vocab_size, inferred_options = _build_crucible_model_from_checkpoint(
+        torch_module, teacher_model_path, base_options, device,
+    )
+    teacher.eval()
+    for param in teacher.parameters():
+        param.requires_grad = False
+    return teacher, vocab_size, inferred_options
 
 
 def _load_teacher_model(
@@ -384,6 +420,10 @@ def _run_distillation_pass(
             with torch_module.no_grad():
                 teacher_logits = teacher(inputs)
             student_logits = student(inputs)
+            # Clamp targets to student vocab for hard CE loss
+            student_vocab = student_logits.shape[-1]
+            if student_vocab < teacher_vocab_size:
+                targets = torch_module.clamp(targets, min=0, max=student_vocab - 1)
             loss = compute_distillation_loss(
                 torch_module=torch_module,
                 student_logits=student_logits,

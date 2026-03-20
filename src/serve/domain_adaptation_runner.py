@@ -132,12 +132,9 @@ def _build_adaptation_context(
         base_model=options.base_model_path if use_hf else None,
         build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
+        initial_weights_path=options.base_model_path if not use_hf else None,
+        training_options=training_options,
     )
-    if not use_hf:
-        load_initial_weights(
-            torch_module=torch_module, model=model,
-            initial_weights_path=options.base_model_path, device=device,
-        )
     _run_drift_baseline(torch_module, model, options, tokenizer, device)
     precision = build_training_precision_runtime(
         torch_module=torch_module, requested_mode=options.precision_mode, device=device,

@@ -89,6 +89,10 @@ def _compute_kl_loss(
 ) -> Any:
     """Compute KL divergence loss scaled by temperature squared.
 
+    When teacher and student have different vocabulary sizes, both are
+    sliced to the smaller vocab so KL divergence can be computed over
+    the shared token dimensions.
+
     Args:
         torch_module: Imported torch module.
         student_logits: Student logits (batch, seq_len, vocab).
@@ -98,6 +102,12 @@ def _compute_kl_loss(
     Returns:
         Scalar KL divergence loss times T^2.
     """
+    student_vocab = student_logits.shape[-1]
+    teacher_vocab = teacher_logits.shape[-1]
+    if student_vocab != teacher_vocab:
+        shared_vocab = min(student_vocab, teacher_vocab)
+        student_logits = student_logits[..., :shared_vocab]
+        teacher_logits = teacher_logits[..., :shared_vocab]
     student_log_probs = soften_logits(torch_module, student_logits, temperature)
     teacher_probs = _compute_soft_targets(torch_module, teacher_logits, temperature)
     kl_loss = torch_module.nn.functional.kl_div(

@@ -179,6 +179,86 @@ def _import_onnx_optional() -> Any:
     return onnx
 
 
+def infer_architecture_from_state(
+    state: Mapping[str, object],
+    base_options: Any,
+) -> dict[str, int]:
+    """Infer architecture params from a checkpoint state dict.
+
+    Returns dict with: vocab_size, hidden_dim, num_layers, mlp_hidden_dim,
+    mlp_layers, attention_heads — falling back to base_options defaults.
+    """
+    from serve.chat_option_resolver import (
+        _infer_encoder_layer_count,
+        _infer_projection_layer_count,
+        _infer_shape_value,
+    )
+
+    vocab_size = _infer_shape_value(state, "embedding.weight", 0) or 10000
+    hidden_dim = _infer_shape_value(state, "embedding.weight", 1) or base_options.hidden_dim
+    num_layers = _infer_encoder_layer_count(state) or base_options.num_layers
+    mlp_hidden_dim = (
+        _infer_shape_value(state, "encoder.layers.0.linear1.weight", 0)
+        or _infer_shape_value(state, "blocks.0.ffn.0.weight", 0)
+        or base_options.mlp_hidden_dim
+    )
+    mlp_layers = _infer_projection_layer_count(state) or base_options.mlp_layers
+    attention_heads = base_options.attention_heads
+    if attention_heads > 0 and hidden_dim % attention_heads != 0:
+        for candidate in range(min(attention_heads, hidden_dim), 0, -1):
+            if hidden_dim % candidate == 0:
+                attention_heads = candidate
+                break
+
+    return {
+        "vocab_size": vocab_size,
+        "hidden_dim": hidden_dim,
+        "num_layers": num_layers,
+        "mlp_hidden_dim": mlp_hidden_dim,
+        "mlp_layers": mlp_layers,
+        "attention_heads": attention_heads,
+    }
+
+
+def build_and_load_from_checkpoint(
+    torch_module: Any,
+    weights_path: str,
+    base_options: Any,
+    device: Any,
+) -> tuple[Any, int, Any]:
+    """Build a Crucible model by inferring architecture from checkpoint.
+
+    Safe alternative to build_model + load_initial_weights. Reads the
+    state dict first, infers architecture params (hidden_dim, num_layers,
+    mlp_layers, etc.), builds a matching model, and loads weights.
+
+    Returns:
+        Tuple of (model, vocab_size, inferred_training_options).
+    """
+    from core.types import TrainingOptions
+    from serve.architecture_loader import load_training_model
+
+    state = read_model_state_dict(torch_module, weights_path, device)
+    arch = infer_architecture_from_state(state, base_options)
+
+    inferred_options = TrainingOptions(
+        dataset_name=base_options.dataset_name,
+        output_dir=base_options.output_dir,
+        hidden_dim=arch["hidden_dim"],
+        num_layers=arch["num_layers"],
+        attention_heads=arch["attention_heads"],
+        mlp_hidden_dim=arch["mlp_hidden_dim"],
+        mlp_layers=arch["mlp_layers"],
+        max_token_length=base_options.max_token_length,
+        validation_split=base_options.validation_split,
+        precision_mode=base_options.precision_mode,
+    )
+    model = load_training_model(torch_module, inferred_options, arch["vocab_size"])
+    model = model.to(device)
+    _apply_model_state(model, state, Path(weights_path))
+    return model, arch["vocab_size"], inferred_options
+
+
 def _apply_model_state(model: Any, model_state: Mapping[str, object], weights_path: Path) -> None:
     """Apply checkpoint state dict to model with traceable error handling."""
     try:

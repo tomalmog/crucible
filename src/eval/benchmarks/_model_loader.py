@@ -39,10 +39,18 @@ def load_eval_model(model_path: str) -> EvalModel:
 
     if is_huggingface_model_id(model_path):
         return _load_hf_eval_model(torch_module, model_path)
+    # Check if this is a merged HF model (e.g. from LoRA training on a HF base).
+    hf_base = _detect_hf_base_model(model_path)
+    if hf_base:
+        return _load_hf_eval_model(torch_module, hf_base, weights_path=model_path)
     return _load_crucible_eval_model(torch_module, model_path)
 
 
-def _load_hf_eval_model(torch_module: Any, model_path: str) -> EvalModel:
+def _load_hf_eval_model(
+    torch_module: Any,
+    model_path: str,
+    weights_path: str | None = None,
+) -> EvalModel:
     """Load a HuggingFace model for evaluation."""
     from serve.device_selection import resolve_execution_device
     from serve.hf_model_loader import (
@@ -52,7 +60,7 @@ def _load_hf_eval_model(torch_module: Any, model_path: str) -> EvalModel:
     )
 
     device = resolve_execution_device(torch_module)
-    hf_model = load_huggingface_model(model_path, device=device)
+    hf_model = load_huggingface_model(model_path, weights_path, device)
     model = _make_logits_wrapper(hf_model)
     model.eval()
 
@@ -255,6 +263,20 @@ class _HfTokenizerAdapter:
 
     def decode(self, token_ids: list[int]) -> str:
         return str(self._tokenizer.decode(token_ids))
+
+
+def _detect_hf_base_model(model_path: str) -> str | None:
+    """Check if model_path has a training_config with a HuggingFace base_model_path."""
+    from serve.hf_model_loader import is_huggingface_model_id
+    from serve.training_metadata import load_training_config
+
+    config = load_training_config(model_path)
+    if not config:
+        return None
+    base = str(config.get("base_model_path", "") or "")
+    if base and is_huggingface_model_id(base):
+        return base
+    return None
 
 
 def _import_torch() -> Any:

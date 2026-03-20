@@ -23,6 +23,8 @@ def is_huggingface_model_id(model_path: str) -> bool:
     with Crucible-produced weight files.
     """
     path = Path(model_path).expanduser()
+    if path.is_absolute():
+        return path.is_dir() and (path / "config.json").exists()
     if path.is_dir():
         config = path / "config.json"
         if config.exists():
@@ -177,6 +179,8 @@ def build_or_load_model(
     base_model: str | None,
     build_crucible_model: Any,
     device: Any,
+    initial_weights_path: str | None = None,
+    training_options: Any = None,
 ) -> Any:
     """Build a Crucible model or load a HuggingFace model depending on base_model.
 
@@ -185,12 +189,19 @@ def build_or_load_model(
     logits (compatible with Crucible training loops). Otherwise falls back to
     the provided build_crucible_model callable.
 
+    When initial_weights_path and training_options are provided, infers
+    architecture from the checkpoint to prevent shape mismatches (e.g. when
+    the checkpoint was trained with mlp_layers > 1 but defaults are 1).
+
     Args:
         torch_module: Imported torch module.
         base_model: HuggingFace model ID, file path, or None.
         build_crucible_model: Callable that returns a Crucible model when no HF
             model is used. Signature: () -> model.
         device: Target device for the model.
+        initial_weights_path: Optional Crucible checkpoint path. When provided
+            with training_options, architecture is inferred from the checkpoint.
+        training_options: Base training options used for architecture fallbacks.
 
     Returns:
         The loaded or built model on the target device.
@@ -198,6 +209,13 @@ def build_or_load_model(
     if base_model and is_huggingface_model_id(base_model):
         model = load_huggingface_model(base_model, device=device)
         return _make_logits_wrapper(model)
+
+    if initial_weights_path and training_options:
+        from serve.model_weights import build_and_load_from_checkpoint
+        model, _, _ = build_and_load_from_checkpoint(
+            torch_module, initial_weights_path, training_options, device,
+        )
+        return model
 
     model = build_crucible_model()
     model = model.to(device)
