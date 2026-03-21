@@ -22,14 +22,12 @@ export function TrainingMethodPicker({ onSelect }: TrainingMethodPickerProps) {
           className="method-card"
           onClick={() => onSelect(method.id)}
         >
-          <div className="method-card-header">
-            <span className="method-card-name">{method.name}</span>
+          <span className="method-card-name">{method.name}</span>
+          <span className="method-card-description">{method.description}</span>
+          <div className="method-card-footer">
             <span className="method-card-tag">
               {CATEGORY_LABELS[method.category] ?? method.category}
             </span>
-          </div>
-          <span className="method-card-description">{method.description}</span>
-          <div className="method-card-footer">
             <button
               className="method-card-docs"
               onClick={(e) => {

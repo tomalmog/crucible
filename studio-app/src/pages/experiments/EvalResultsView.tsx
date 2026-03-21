@@ -113,19 +113,15 @@ export function EvalResultsView() {
       </div>
 
       <FormField label="Benchmarks" required>
-        <div className="flex-row" style={{ flexWrap: "wrap", gap: 8 }}>
+        <div className="checkbox-group">
           {ALL_BENCHMARKS.map((b) => (
-            <label
-              key={b}
-              style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4, cursor: "pointer" }}
-            >
+            <label key={b} className="checkbox-row">
               <input
                 type="checkbox"
                 checked={selectedBenchmarks.has(b)}
                 onChange={() => toggleBenchmark(b)}
-                style={{ width: "auto" }}
               />
-              <span style={{ fontSize: "0.8125rem" }}>{b}</span>
+              <span>{b}</span>
             </label>
           ))}
         </div>

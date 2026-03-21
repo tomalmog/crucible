@@ -177,18 +177,29 @@ export function UITestPage() {
         <div className="panel-header"><h3>Checkbox</h3></div>
         <div style={{ padding: "0 16px 16px" }}>
           <div className="stack-sm">
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <input type="checkbox" checked={checkA} onChange={(e) => setCheckA(e.target.checked)} style={{ width: 16, height: 16, margin: 0 }} />
-              <span className="text-sm">Unchecked by default</span>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={checkA} onChange={(e) => setCheckA(e.target.checked)} />
+              <span>Unchecked by default</span>
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <input type="checkbox" checked={checkB} onChange={(e) => setCheckB(e.target.checked)} style={{ width: 16, height: 16, margin: 0 }} />
-              <span className="text-sm">Checked by default</span>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={checkB} onChange={(e) => setCheckB(e.target.checked)} />
+              <span>Checked by default</span>
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "not-allowed", opacity: 0.4 }}>
-              <input type="checkbox" checked={checkDisabled} disabled style={{ width: 16, height: 16, margin: 0 }} />
-              <span className="text-sm">Disabled</span>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={checkDisabled} disabled />
+              <span>Disabled</span>
             </label>
+            <div className="ff" style={{ marginTop: 8 }}>
+              <label className="ff-label">Benchmarks <span className="ff-required">*</span></label>
+              <div className="checkbox-group">
+                {["mmlu", "gsm8k", "hellaswag", "arc", "truthfulqa", "winogrande", "humaneval"].map((b) => (
+                  <label key={b} className="checkbox-row">
+                    <input type="checkbox" defaultChecked />
+                    <span>{b}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
