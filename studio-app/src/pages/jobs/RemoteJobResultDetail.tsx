@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
-import { getRemoteJobResult, getRemoteJobLogs } from "../../api/remoteApi";
+import { getRemoteJobResult, getRemoteJobLogs, getCachedRemoteJobResult, getCachedRemoteJobLogs } from "../../api/remoteApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
 import { LogitLensResults } from "../interp/LogitLensResults";
 import { ActivationPcaResults } from "../interp/ActivationPcaResults";
@@ -49,34 +49,45 @@ function BackButton({ onBack }: { onBack: () => void }) {
 
 export function RemoteJobResultDetail({ job, onBack }: RemoteJobResultDetailProps) {
   const { dataRoot } = useCrucible();
-  const [result, setResult] = useState<TrainingResult | null>(null);
-  const [logs, setLogs] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const initialResult = useMemo(
+    () => dataRoot ? getCachedRemoteJobResult(dataRoot, job.jobId) as TrainingResult | undefined : undefined,
+    [dataRoot, job.jobId],
+  );
+  const initialLogs = useMemo(
+    () => dataRoot ? getCachedRemoteJobLogs(dataRoot, job.jobId) : undefined,
+    [dataRoot, job.jobId],
+  );
+  const [result, setResult] = useState<TrainingResult | null>(initialResult ?? null);
+  const [logs, setLogs] = useState<string>(initialLogs?.trim() || "");
+  const [loading, setLoading] = useState(!initialResult);
   const [error, setError] = useState<string | null>(null);
 
   const fetchResult = useCallback(async () => {
     if (!dataRoot) return;
-    setLoading(true);
+    if (!result) setLoading(true);
     setError(null);
     try {
-      const data = await getRemoteJobResult(dataRoot, job.jobId, true);
+      const data = await getRemoteJobResult(dataRoot, job.jobId);
       setResult(data as unknown as TrainingResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [dataRoot, job.jobId]);
+  }, [dataRoot, job.jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchResult(); }, [fetchResult]);
+  useEffect(() => {
+    if (!initialResult) fetchResult();
+  }, [fetchResult]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Also fetch logs for failed jobs
   useEffect(() => {
     if (!dataRoot || job.state !== "failed") return;
-    getRemoteJobLogs(dataRoot, job.jobId, job.state, true)
+    if (initialLogs) return;
+    getRemoteJobLogs(dataRoot, job.jobId, job.state)
       .then((content) => setLogs(content?.trim() || ""))
       .catch(() => {});
-  }, [dataRoot, job.jobId, job.state]);
+  }, [dataRoot, job.jobId, job.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (

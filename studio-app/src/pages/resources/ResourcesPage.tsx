@@ -3,6 +3,7 @@ import { PageHeader } from "../../components/shared/PageHeader";
 import { useResourceData } from "../../hooks/useResourceData";
 import { StoragePanel } from "./StoragePanel";
 import { HardwarePanel } from "./HardwarePanel";
+import { ClusterInfoPanel } from "./ClusterInfoPanel";
 import { ActivityPanel } from "./ActivityPanel";
 import { CleanupPanel } from "./CleanupPanel";
 
@@ -31,6 +32,7 @@ export function ResourcesPage() {
       <div className="resource-card-list">
         <StoragePanel storage={storage} remoteStorage={remoteStorage} />
         <HardwarePanel hardware={hardware} clusters={clusters} />
+        <ClusterInfoPanel remoteStorage={remoteStorage} clusters={clusters} loading={loading} />
         <ActivityPanel localJobs={localJobs} remoteJobs={remoteJobs} />
         <CleanupPanel orphans={orphans} storage={storage} onRefresh={refresh} />
       </div>

@@ -44,6 +44,10 @@ def add_remote_command(
     rc = sub.add_parser("remove-cluster", help="Remove a cluster registration")
     rc.add_argument("--cluster", required=True, help="Cluster name")
 
+    # cluster-info
+    ci = sub.add_parser("cluster-info", help="Get live cluster GPU and node status")
+    ci.add_argument("--cluster", required=True, help="Cluster name")
+
     # reset-env
     re_ = sub.add_parser("reset-env", help="Remove crucible conda env on a cluster")
     re_.add_argument("--cluster", required=True, help="Cluster name")
@@ -168,6 +172,7 @@ def _add_submit_args(parser: argparse.ArgumentParser) -> None:
 
 def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Dispatch to the appropriate remote sub-subcommand handler."""
+    from cli.remote_cluster_info_handler import _handle_cluster_info
     from cli.remote_command_handlers import (
         _handle_cancel,
         _handle_eval_submit,
@@ -199,6 +204,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "list-clusters": _handle_list_clusters,
         "validate-cluster": _handle_validate_cluster,
         "remove-cluster": _handle_remove_cluster,
+        "cluster-info": _handle_cluster_info,
         "reset-env": _handle_reset_env,
         "submit": _handle_submit,
         "submit-sweep": _handle_submit_sweep,

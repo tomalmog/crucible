@@ -45,6 +45,7 @@ pub fn run() {
             commands::remote_cli_ops::pull_dataset_from_cluster,
             commands::remote_cli_ops::delete_remote_dataset_cmd,
             commands::remote_cli_ops::get_remote_model_sizes,
+            commands::remote_cli_ops::get_cluster_info,
             commands::job_queries::list_unified_jobs,
             commands::job_queries::get_unified_job,
             commands::job_queries::delete_unified_job,

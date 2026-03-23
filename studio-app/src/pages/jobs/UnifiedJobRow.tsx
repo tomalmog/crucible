@@ -84,7 +84,7 @@ export function UnifiedJobRow({
     if (!dataRoot || !isRemote) return;
     setLoading(true);
     try {
-      const content = await getJobLogs(dataRoot, job.jobId);
+      const content = await getJobLogs(dataRoot, job.jobId, job.state);
       setLogs(content?.trim() || "No logs available yet.");
     } catch (err) {
       setLogs(`Error fetching logs: ${err}`);

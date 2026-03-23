@@ -166,6 +166,33 @@ pub async fn delete_remote_dataset_cmd(
     .map_err(|e| format!("Task join error: {e}"))?
 }
 
+/// Fetch live cluster GPU and node status via sinfo.
+///
+/// Returns the raw JSON value — TypeScript owns the shape.
+#[tauri::command]
+pub async fn get_cluster_info(
+    data_root: String,
+    cluster: String,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let stdout = run_crucible_cli(
+            &data_root,
+            &["remote", "cluster-info", "--cluster", &cluster],
+        )
+        .map_err(|e| format!("cluster-info failed: {e}"))?;
+        for line in stdout.lines() {
+            if let Some(json_str) = line.strip_prefix("CRUCIBLE_JSON:") {
+                let value: serde_json::Value = serde_json::from_str(json_str)
+                    .map_err(|e| format!("Failed to parse cluster-info JSON: {e}"))?;
+                return Ok(value);
+            }
+        }
+        Err("No CRUCIBLE_JSON line found in cluster-info output".to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))?
+}
+
 /// Get sizes of remote models on a cluster.
 ///
 /// Returns a JSON map of { model_name: size_bytes }.

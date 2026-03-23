@@ -22,6 +22,14 @@ export async function cached<T>(
   return data;
 }
 
+export function cacheGet<T>(key: string): T | undefined {
+  const entry = store.get(key);
+  if (entry && (entry.expiresAt === Infinity || Date.now() < entry.expiresAt)) {
+    return entry.data as T;
+  }
+  return undefined;
+}
+
 export function cacheSet<T>(key: string, data: T, ttlMs: number): void {
   store.set(key, {
     data,

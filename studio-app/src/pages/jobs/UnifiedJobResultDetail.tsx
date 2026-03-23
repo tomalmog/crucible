@@ -3,7 +3,7 @@ import { ArrowLeft, Loader2, Trophy } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { JobRecord } from "../../types/jobs";
 import type { CommandTaskStatus, TrainingHistory } from "../../types";
-import { getJobResult, getJobLogs } from "../../api/jobsApi";
+import { getJobResult, getJobLogs, getCachedJobResult, getCachedJobLogs } from "../../api/jobsApi";
 import { loadTrainingHistory } from "../../api/studioApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
 import { LogitLensResults } from "../interp/LogitLensResults";
@@ -258,31 +258,36 @@ function LocalGenericView({ job, localTask, onBack }: { job: JobRecord; localTas
 
 function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => void }) {
   const { dataRoot } = useCrucible();
-  const [result, setResult] = useState<ResultData | null>(null);
-  const [remoteLogs, setRemoteLogs] = useState("");
-  const [loading, setLoading] = useState(true);
+  const initialResult = useMemo(() => getCachedJobResult(job.jobId) as ResultData | undefined, [job.jobId]);
+  const initialLogs = useMemo(() => getCachedJobLogs(job.jobId), [job.jobId]);
+  const [result, setResult] = useState<ResultData | null>(initialResult ?? null);
+  const [remoteLogs, setRemoteLogs] = useState(initialLogs?.trim() || "");
+  const [loading, setLoading] = useState(!initialResult);
   const [error, setError] = useState<string | null>(null);
 
   const fetchResult = useCallback(async () => {
     if (!dataRoot) return;
-    setLoading(true);
+    if (!result) setLoading(true);
     setError(null);
     try {
-      const data = await getJobResult(dataRoot, job.jobId);
+      const data = await getJobResult(dataRoot, job.jobId, job.state);
       setResult(data as ResultData);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [dataRoot, job.jobId]);
+  }, [dataRoot, job.jobId, job.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchResult(); }, [fetchResult]);
+  useEffect(() => {
+    if (!initialResult) fetchResult();
+  }, [fetchResult]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!dataRoot || job.state !== "failed") return;
-    getJobLogs(dataRoot, job.jobId).then((c) => setRemoteLogs(c?.trim() || "")).catch(() => {});
-  }, [dataRoot, job.jobId, job.state]);
+    if (initialLogs) return;
+    getJobLogs(dataRoot, job.jobId, job.state).then((c) => setRemoteLogs(c?.trim() || "")).catch(() => {});
+  }, [dataRoot, job.jobId, job.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (

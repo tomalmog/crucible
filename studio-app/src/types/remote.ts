@@ -67,3 +67,33 @@ export interface SlurmResourceConfig {
   memory: string;
   timeLimit: string;
 }
+
+export type NodeState = "idle" | "mixed" | "allocated" | "drained" | "down" | "unknown";
+
+export interface PartitionInfo {
+  name: string;
+  isDefault: boolean;
+  state: "up" | "down" | "inactive";
+  timeLimit: string;
+  totalNodes: number;
+  nodesByState: Record<NodeState, number>;
+  totalGpus: number;
+  idleGpus: number;
+  gpuConfig: string;
+  memoryMb: number;
+  cpusPerNode: number;
+}
+
+export interface ClusterInfo {
+  clusterName: string;
+  isConnected: boolean;
+  partitions: PartitionInfo[];
+  totalGpus: number;
+  idleGpus: number;
+  gpuUtilizationPct: number;
+  healthyNodes: number;
+  drainedNodes: number;
+  downNodes: number;
+  totalNodes: number;
+  fetchedAt: string;
+}

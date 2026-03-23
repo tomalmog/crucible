@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ClusterConfig, RemoteDatasetInfo, RemoteJobRecord } from "../types/remote";
-import { cached, cacheSet, invalidate, sshLimited } from "./remoteCache";
+import type { ClusterConfig, ClusterInfo, RemoteDatasetInfo, RemoteJobRecord } from "../types/remote";
+import { cached, cacheGet, cacheSet, invalidate, sshLimited } from "./remoteCache";
 
 const TERMINAL_STATES = new Set(["completed", "failed", "cancelled"]);
 
@@ -14,6 +14,17 @@ export async function listRemoteJobs(dataRoot: string): Promise<RemoteJobRecord[
 
 export async function getRemoteJob(dataRoot: string, jobId: string): Promise<RemoteJobRecord> {
   return invoke<RemoteJobRecord>("get_remote_job", { dataRoot, jobId });
+}
+
+/** Synchronous cache read for remote job results. */
+export function getCachedRemoteJobResult(dataRoot: string, jobId: string): Record<string, unknown> | undefined {
+  const raw = cacheGet<string>(`jobResult:${dataRoot}:${jobId}`);
+  if (raw == null) return undefined;
+  try { return JSON.parse(raw) as Record<string, unknown>; } catch { return undefined; }
+}
+
+export function getCachedRemoteJobLogs(dataRoot: string, jobId: string): string | undefined {
+  return cacheGet<string>(`jobLogs:${dataRoot}:${jobId}`);
 }
 
 export async function getRemoteJobResult(
@@ -111,6 +122,18 @@ export async function getRemoteModelSizes(
   if (bypassCache) invalidate(key);
   return cached(key, 30_000, () =>
     sshLimited(() => invoke<Record<string, number>>("get_remote_model_sizes", { dataRoot, cluster })),
+  );
+}
+
+export async function getClusterInfo(
+  dataRoot: string,
+  cluster: string,
+  bypassCache?: boolean,
+): Promise<ClusterInfo> {
+  const key = `clusterInfo:${dataRoot}:${cluster}`;
+  if (bypassCache) invalidate(key);
+  return cached(key, 30_000, () =>
+    sshLimited(() => invoke<ClusterInfo>("get_cluster_info", { dataRoot, cluster })),
   );
 }
 

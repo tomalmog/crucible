@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { JobRecord } from "../types/jobs";
 import { TERMINAL_JOB_STATES } from "../types/jobs";
-import { cached, cacheSet, invalidate, sshLimited } from "./remoteCache";
+import { cached, cacheGet, cacheSet, invalidate, sshLimited } from "./remoteCache";
 
 export async function listJobs(dataRoot: string): Promise<JobRecord[]> {
   return invoke("list_unified_jobs", { dataRoot });
@@ -52,20 +52,39 @@ export async function deleteJob(
   return invoke("delete_unified_job", { dataRoot, jobId });
 }
 
+/** Synchronous cache read — returns undefined on miss. */
+export function getCachedJobResult(jobId: string): Record<string, unknown> | undefined {
+  return cacheGet<Record<string, unknown>>(`job-result-${jobId}`);
+}
+
+export function getCachedJobLogs(jobId: string): string | undefined {
+  return cacheGet<string>(`job-logs-${jobId}`);
+}
+
 export async function getJobLogs(
   dataRoot: string,
   jobId: string,
+  jobState?: string,
 ): Promise<string> {
-  return invoke("get_unified_job_logs", { dataRoot, jobId });
+  const key = `job-logs-${jobId}`;
+  const ttl = jobState && TERMINAL_JOB_STATES.has(jobState as any) ? Infinity : 10_000;
+  return cached(key, ttl, () =>
+    invoke<string>("get_unified_job_logs", { dataRoot, jobId }),
+  );
 }
 
 export async function getJobResult(
   dataRoot: string,
   jobId: string,
+  jobState?: string,
 ): Promise<Record<string, unknown>> {
-  const raw: string = await invoke("get_unified_job_result", {
-    dataRoot,
-    jobId,
+  const key = `job-result-${jobId}`;
+  const ttl = jobState && TERMINAL_JOB_STATES.has(jobState as any) ? Infinity : 10_000;
+  return cached(key, ttl, async () => {
+    const raw: string = await invoke("get_unified_job_result", {
+      dataRoot,
+      jobId,
+    });
+    return JSON.parse(raw);
   });
-  return JSON.parse(raw);
 }

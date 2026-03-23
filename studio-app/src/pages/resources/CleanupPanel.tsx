@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, Check } from "lucide-react";
 import { formatSize } from "../../components/shared/RegistryRow";
 import { useCrucible } from "../../context/CrucibleContext";
 import { deleteOrphanedRuns, clearCache } from "../../api/resourcesApi";
@@ -93,19 +93,24 @@ export function CleanupPanel({ orphans, storage, onRefresh }: CleanupPanelProps)
         ) : (
           <>
             <div style={{ maxHeight: 200, overflow: "auto" }}>
-              {orphans.map((o) => (
-                <label key={o.runId} className="orphan-row" style={{ cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(o.runId)}
-                    onChange={() => toggleSelect(o.runId)}
-                    style={{ width: 16, height: 16, flexShrink: 0 }}
-                  />
-                  <span className="orphan-row-name">{o.runId}</span>
-                  <span className="orphan-row-meta">{o.datasetName}</span>
-                  <span className="orphan-row-meta">{formatSize(o.sizeBytes)}</span>
-                </label>
-              ))}
+              {orphans.map((o) => {
+                const isSelected = selected.has(o.runId);
+                return (
+                  <div
+                    key={o.runId}
+                    className={`orphan-row ${isSelected ? "orphan-row-selected" : ""}`}
+                    onClick={() => toggleSelect(o.runId)}
+                  >
+                    <span className={`orphan-check ${isSelected ? "orphan-check-active" : ""}`}>
+                      {isSelected && <Check size={10} />}
+                    </span>
+                    <span className="orphan-row-name">{o.runId}</span>
+                    <span className="orphan-row-meta">{o.datasetName}</span>
+                    <span className="orphan-row-meta">{o.updatedAt}</span>
+                    <span className="orphan-row-meta">{formatSize(o.sizeBytes)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex-row" style={{ gap: 8, marginTop: 8 }}>
               <button

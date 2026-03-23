@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCrucible } from "../context/CrucibleContext";
 import { getStorageBreakdown, listOrphanedRuns } from "../api/resourcesApi";
-import { listClusters, getRemoteModelSizes, listRemoteDatasets } from "../api/remoteApi";
+import { listClusters, getClusterInfo, getRemoteModelSizes, listRemoteDatasets } from "../api/remoteApi";
 import { useJobs } from "./useJobs";
 import { useRemoteJobs } from "./useRemoteJobs";
 import type { StorageBreakdown, OrphanedRun } from "../types/resources";
-import type { ClusterConfig, RemoteDatasetInfo } from "../types/remote";
+import type { ClusterConfig, ClusterInfo, RemoteDatasetInfo } from "../types/remote";
 
 export interface ClusterRemoteStorage {
   cluster: ClusterConfig;
   datasets: RemoteDatasetInfo[];
   modelSizes: Record<string, number>;
+  clusterInfo: ClusterInfo | null;
 }
 
 export function useResourceData() {
@@ -43,11 +44,12 @@ export function useResourceData() {
       setClusters(cls);
       const remote: ClusterRemoteStorage[] = await Promise.all(
         cls.map(async (c) => {
-          const [datasets, modelSizes] = await Promise.all([
+          const [datasets, modelSizes, clusterInfo] = await Promise.all([
             listRemoteDatasets(dataRoot, c.name).catch(() => [] as RemoteDatasetInfo[]),
             getRemoteModelSizes(dataRoot, c.name).catch(() => ({}) as Record<string, number>),
+            getClusterInfo(dataRoot, c.name).catch(() => null as ClusterInfo | null),
           ]);
-          return { cluster: c, datasets, modelSizes };
+          return { cluster: c, datasets, modelSizes, clusterInfo };
         }),
       );
       setRemoteStorage(remote);

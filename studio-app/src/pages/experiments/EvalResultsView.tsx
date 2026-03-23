@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
@@ -32,6 +32,10 @@ export function EvalResultsView() {
   const [timeLimit, setTimeLimit] = useState("04:00:00");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comboQuery, setComboQuery] = useState("");
+  const [comboOpen, setComboOpen] = useState(false);
+  const comboRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!dataRoot) return;
@@ -40,6 +44,17 @@ export function EvalResultsView() {
       if (c.length > 0 && !cluster) setCluster(c[0].name);
     }).catch(() => setClusters([]));
   }, [dataRoot]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (comboRef.current && !comboRef.current.contains(e.target as Node)) {
+        setComboOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const selectedCluster = clusters.find((c) => c.name === cluster);
 
@@ -66,7 +81,6 @@ export function EvalResultsView() {
     setError(null);
     try {
       const benchmarks = Array.from(selectedBenchmarks).join(",");
-      // Look up the registered model name from the selected path
       const selectedEntry = models.find(
         (m) => m.remotePath === modelPath || m.modelPath === modelPath,
       );
@@ -89,6 +103,11 @@ export function EvalResultsView() {
       setSubmitting(false);
     }
   }
+
+  const selected = ALL_BENCHMARKS.filter((b) => selectedBenchmarks.has(b));
+  const comboFiltered = ALL_BENCHMARKS.filter((b) =>
+    b.toLowerCase().includes(comboQuery.toLowerCase()),
+  );
 
   return (
     <CommandFormPanel
@@ -115,17 +134,46 @@ export function EvalResultsView() {
       </div>
 
       <FormField label="Benchmarks" required>
-        <div className="checkbox-group">
-          {ALL_BENCHMARKS.map((b) => (
-            <label key={b} className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={selectedBenchmarks.has(b)}
-                onChange={() => toggleBenchmark(b)}
-              />
-              <span>{b}</span>
-            </label>
-          ))}
+        <div className="bench-combo-wrap" ref={comboRef}>
+          <div className="bench-combo-selected">
+            {selected.map((b) => (
+              <span key={b} className="bench-combo-tag">
+                {b}
+                <span className="bench-chip-x" onClick={() => toggleBenchmark(b)}>&times;</span>
+              </span>
+            ))}
+          </div>
+          <div className="bench-combo-input-wrap">
+            <input
+              ref={inputRef}
+              type="text"
+              className="bench-combo-input"
+              placeholder={selected.length === ALL_BENCHMARKS.length ? "All selected" : "Search benchmarks..."}
+              value={comboQuery}
+              onChange={(e) => { setComboQuery(e.currentTarget.value); setComboOpen(true); }}
+              onFocus={() => setComboOpen(true)}
+            />
+            {comboOpen && comboFiltered.length > 0 && (
+              <div className="bench-combo-menu">
+                {comboFiltered.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    className={`bench-combo-option ${selectedBenchmarks.has(b) ? "bench-combo-option--active" : ""}`}
+                    onClick={() => {
+                      toggleBenchmark(b);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    <span className="bench-combo-option-check">
+                      {selectedBenchmarks.has(b) ? "\u2713" : ""}
+                    </span>
+                    {b}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </FormField>
 
