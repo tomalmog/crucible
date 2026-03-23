@@ -2,12 +2,11 @@ import { useMemo, useState } from "react";
 import { CommandTaskStatus } from "../../types";
 import { parseTrainingProgress } from "../training/TrainingRunMonitor";
 import { formatDuration } from "../../components/shared/formatDuration";
-import { statusBadgeClass, extractCrucibleError } from "./JobsPage";
+import { jobAccentColor, extractCrucibleError } from "./JobsPage";
+import { formatTimeAgo } from "../../utils/formatTime";
 import {
   Square,
-  ChevronDown,
   ChevronRight,
-  Eye,
   Pencil,
   Trash2,
   Check,
@@ -56,14 +55,21 @@ export function JobRow({
   }
 
   return (
-    <div className="run-row section-divider">
+    <div
+      className="job-card"
+      style={{ "--job-accent": jobAccentColor(job.status) } as React.CSSProperties}
+      onClick={() => {
+        if (editing) return;
+        if (isFinished) onView();
+        else onToggle();
+      }}
+    >
+      {/* Line 1: status dot + name | secondary actions + status */}
       <div className="run-row-header">
         <div className="flex-row">
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={onToggle}>
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
+          <span className={"job-status-dot" + (job.status === "running" ? " pulsing" : "")} />
           {editing ? (
-            <div className="flex-row-tight">
+            <div className="flex-row-tight" onClick={(e) => e.stopPropagation()}>
               <input
                 autoFocus
                 className="job-inline-input"
@@ -87,39 +93,53 @@ export function JobRow({
               <span className="run-row-id">{displayName}</span>
               <button
                 className="btn btn-ghost btn-sm btn-icon"
-                onClick={startEditing}
+                onClick={(e) => { e.stopPropagation(); startEditing(); }}
                 title="Rename"
               >
                 <Pencil size={11} />
               </button>
             </>
           )}
-          <span className={statusBadgeClass(job.status)}>{job.status}</span>
         </div>
         <div className="flex-row">
-          <span className="run-row-meta">
-            {isFinished ? `took ${formatDuration(job.elapsed_seconds)}` : formatDuration(job.elapsed_seconds)}
-          </span>
           {job.status === "running" && (
-            <button className="btn btn-sm" onClick={onKill} title="Kill process">
-              <Square size={12} /> Kill
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onKill(); }} title="Kill process">
+              <Square size={12} />
             </button>
           )}
           {isFinished && (
-            <>
-              <button className="btn btn-sm" onClick={onView} title="View result">
-                <Eye size={12} /> Result
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={onDelete} title="Delete job">
-                <Trash2 size={12} />
-              </button>
-            </>
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete job">
+              <Trash2 size={12} />
+            </button>
           )}
+          <span className="run-row-meta">{job.status}</span>
+          <ChevronRight size={14} className="job-card-chevron" />
         </div>
       </div>
 
-      <div className="run-row-path">{commandLabel}</div>
+      {/* Line 2: meta — command label + elapsed time + timestamp */}
+      <div className="job-card-meta">
+        <span>{commandLabel}</span>
+        <span>
+          {isFinished ? `took ${formatDuration(job.elapsed_seconds)} · ` : `${formatDuration(job.elapsed_seconds)} · `}
+          {formatTimeAgo(Date.now() - job.elapsed_seconds * 1000)}
+        </span>
+      </div>
 
+      {/* Progress strip (running jobs) */}
+      {job.status === "running" && (
+        <>
+          <div className="job-progress-strip">
+            <div className="job-progress-strip-fill" style={{ width: `${job.progress_percent}%` }} />
+          </div>
+          <div className="job-card-meta">
+            <span>{job.progress_percent.toFixed(0)}% · Elapsed {formatDuration(job.elapsed_seconds)}</span>
+            <span>~{formatDuration(job.remaining_seconds)} remaining</span>
+          </div>
+        </>
+      )}
+
+      {/* Inline metrics */}
       {job.status === "running" && progress && (
         <div className="job-progress-meta">
           <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
@@ -128,25 +148,7 @@ export function JobRow({
         </div>
       )}
 
-      {job.status === "running" && (
-        <div className="progress-bar gap-top-sm">
-          <div className="progress-bar-header">
-            <span className="progress-label">Progress</span>
-            <span className="progress-value">{job.progress_percent.toFixed(0)}%</span>
-          </div>
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: `${job.progress_percent}%` }}
-            />
-          </div>
-          <div className="progress-bar-footer">
-            <span>Elapsed {formatDuration(job.elapsed_seconds)}</span>
-            <span>~{formatDuration(job.remaining_seconds)} remaining</span>
-          </div>
-        </div>
-      )}
-
+      {/* Expanded output */}
       {isExpanded && (
         <div className="job-expanded">
           {job.stdout && (

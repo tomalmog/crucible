@@ -1,20 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { JobRecord } from "../../types/jobs";
 import { TERMINAL_JOB_STATES } from "../../types/jobs";
 import { getJobLogs, syncJobState } from "../../api/jobsApi";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
-import { statusBadgeClass } from "./JobsPage";
+import { jobLabel } from "../../utils/jobLabels";
+import { formatTimeAgo } from "../../utils/formatTime";
+import { jobAccentColor } from "./JobsPage";
+import { parseTrainingProgress } from "../training/TrainingRunMonitor";
 import {
-  Activity,
-  ChevronDown,
   ChevronRight,
-  Eye,
   Square,
   Trash2,
   Check,
-  Server,
-  Terminal,
   RefreshCw,
   Download,
   XCircle,
@@ -72,7 +70,7 @@ export function UnifiedJobRow({
   const [pullError, setPullError] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
 
-  const displayName = job.label || job.modelName || job.jobId;
+  const displayName = job.label || jobLabel(job.jobType, job.modelName) || job.jobId;
   const isFinished = TERMINAL_JOB_STATES.has(job.state);
   const isRunning = ACTIVE_STATES.has(job.state) || job.state === "submitting";
   const isSubmitting = job.state === "submitting";
@@ -273,20 +271,29 @@ export function UnifiedJobRow({
   // --- Expand/collapse for local jobs ---
   const [localExpanded, setLocalExpanded] = useState(false);
 
+  // Parse training metrics from local stdout
+  const progress = useMemo(
+    () => (isLocal && localTask?.stdout ? parseTrainingProgress(localTask.stdout) : null),
+    [isLocal, localTask?.stdout],
+  );
+
   return (
-    <div className="run-row section-divider">
+    <div
+      className="job-card"
+      style={{ "--job-accent": jobAccentColor(job.state) } as React.CSSProperties}
+      onClick={() => {
+        if (editing) return;
+        if (isFinished) onView();
+        else if (isLocal) setLocalExpanded((p) => !p);
+        else toggleLogs();
+      }}
+    >
+      {/* Line 1: status dot + name | secondary actions + status */}
       <div className="run-row-header">
         <div className="flex-row">
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            onClick={() => isLocal ? setLocalExpanded((p) => !p) : toggleLogs()}
-          >
-            {(isLocal ? localExpanded : showLogs)
-              ? <ChevronDown size={14} />
-              : <ChevronRight size={14} />}
-          </button>
+          <span className={"job-status-dot" + (isRunning ? " pulsing" : "")} />
           {isLocal && editing ? (
-            <div className="flex-row-tight">
+            <div className="flex-row-tight" onClick={(e) => e.stopPropagation()}>
               <input
                 autoFocus
                 className="job-inline-input"
@@ -309,90 +316,69 @@ export function UnifiedJobRow({
             <>
               <span className="run-row-id">{displayName}</span>
               {isLocal && onRename && (
-                <button className="btn btn-ghost btn-sm btn-icon" onClick={startEditing} title="Rename">
+                <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); startEditing(); }} title="Rename">
                   <Pencil size={11} />
                 </button>
               )}
             </>
           )}
-          {isRemote && job.backendCluster && (
-            <span className="badge"><Server size={10} /> {job.backendCluster}</span>
-          )}
-          <span className={statusBadgeClass(job.state)}>{job.state}</span>
-          {isRunning && (
-            <span className="badge badge-accent" style={{ fontSize: "0.7rem" }}>
-              <Activity size={10} /> live
-            </span>
-          )}
         </div>
         <div className="flex-row">
-          {isRemote && !isSubmitting && job.backendJobId && (
-            <span className="run-row-meta">
-              {job.backend === "slurm" ? `Slurm ${job.backendJobId.startsWith("rj-") ? "" : job.backendJobId}` : job.backendJobId}
-            </span>
-          )}
-          {isLocal && localTask && (
-            <span className="run-row-meta">
-              {isFinished
-                ? `took ${formatDur(localTask.elapsed_seconds)}`
-                : formatDur(localTask.elapsed_seconds)}
-            </span>
-          )}
           {isLocal && job.state === "running" && onKill && (
-            <button className="btn btn-sm" onClick={onKill} title="Kill process">
-              <Square size={12} /> Kill
-            </button>
-          )}
-          {(isCompleted || isFailed) && (
-            <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); onView(); }} title="View result">
-              <Eye size={12} /> Result
-            </button>
-          )}
-          {isRemote && !isSubmitting && (
-            <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); toggleLogs(); }} title="View logs">
-              <Terminal size={12} /> Logs
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onKill(); }} title="Kill process">
+              <Square size={12} />
             </button>
           )}
           {isRemote && isCompleted && !hasLocalModel && !pulling && !pullDone && !NON_TRAINING_TYPES.has(job.jobType) && (
-            <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handlePull(); }} title="Download model">
-              <Download size={12} /> Pull Model
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); handlePull(); }} title="Pull model">
+              <Download size={12} />
             </button>
           )}
           {isRemote && ACTIVE_STATES.has(job.state) && (
-            <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); onCancel(); }} title="Cancel job">
-              <XCircle size={12} /> Cancel
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onCancel(); }} title="Cancel job">
+              <XCircle size={12} />
             </button>
           )}
           {isRemote && showLogs && (
-            <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); fetchLogs(true); }} title="Refresh logs">
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); fetchLogs(true); }} title="Refresh logs">
               <RefreshCw size={12} />
             </button>
           )}
           {isFinished && (
-            <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete job">
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete job">
               <Trash2 size={12} />
             </button>
           )}
+          <span className="run-row-meta">{job.state}</span>
+          <ChevronRight size={14} className="job-card-chevron" />
         </div>
       </div>
 
-      <div className="run-row-path">
-        {job.jobType}{sweepTag}
+      {/* Line 2: meta — job type + cluster on left, timestamp on right */}
+      <div className="job-card-meta">
+        <span>
+          {job.jobType}{sweepTag}
+          {isRemote && job.backendCluster && ` · ${job.backendCluster}`}
+        </span>
+        <span>
+          {isLocal && localTask && (isFinished ? `took ${formatDur(localTask.elapsed_seconds)} · ` : `${formatDur(localTask.elapsed_seconds)} · `)}
+          {formatTimeAgo(job.createdAt)}
+        </span>
       </div>
+
+      {/* Submit / pending phase messages */}
       {isSubmitting && job.submitPhase && (
-        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+        <div className="run-row-path" style={{ color: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
           {job.submitPhase}
         </div>
       )}
       {job.state === "pending" && isRemote && (
-        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+        <div className="run-row-path" style={{ color: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
           Queued — waiting for resources...
         </div>
       )}
       {isFailed && isRemote && job.submitPhase && (
-        <div className="error-alert-prominent" style={{ margin: "var(--space-xs) var(--space-md)" }}>
-          {job.submitPhase}
-        </div>
+        <div className="error-alert-prominent">{job.submitPhase}</div>
       )}
       {job.modelPath && isRemote && (
         <div className="run-row-path" style={{ opacity: 0.7, fontSize: "0.8rem" }}>
@@ -400,26 +386,31 @@ export function UnifiedJobRow({
         </div>
       )}
 
-      {/* Local job progress bar */}
+      {/* Progress strip (local running jobs) */}
       {isLocal && localTask && localTask.status === "running" && (
-        <div className="progress-bar gap-top-sm">
-          <div className="progress-bar-header">
-            <span className="progress-label">Progress</span>
-            <span className="progress-value">{localTask.progress_percent.toFixed(0)}%</span>
+        <>
+          <div className="job-progress-strip">
+            <div className="job-progress-strip-fill" style={{ width: `${localTask.progress_percent}%` }} />
           </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${localTask.progress_percent}%` }} />
-          </div>
-          <div className="progress-bar-footer">
-            <span>Elapsed {formatDur(localTask.elapsed_seconds)}</span>
+          <div className="job-card-meta">
+            <span>{localTask.progress_percent.toFixed(0)}% · Elapsed {formatDur(localTask.elapsed_seconds)}</span>
             <span>~{formatDur(localTask.remaining_seconds)} remaining</span>
           </div>
+        </>
+      )}
+
+      {/* Inline metrics (local running jobs with training progress) */}
+      {isLocal && localTask && localTask.status === "running" && progress && (
+        <div className="job-progress-meta">
+          <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
+          {progress.loss != null && <span>Loss: {progress.loss.toFixed(4)}</span>}
+          {progress.meanReward != null && <span>Reward: {progress.meanReward.toFixed(4)}</span>}
         </div>
       )}
 
       {/* Pull progress (remote) */}
       {(pulling || pullDone || pullError) && (
-        <div className="gap-top-sm" style={{ padding: "0 var(--space-md)" }}>
+        <div>
           {pulling && (
             <div className="pull-steps">
               {pullProgress.map((step, i) => (
@@ -429,7 +420,7 @@ export function UnifiedJobRow({
             </div>
           )}
           {pullDone && (
-            <div className="pull-success flex-row" style={{ gap: "var(--space-xs)", color: "var(--clr-success)" }}>
+            <div className="pull-success flex-row" style={{ gap: "var(--space-xs)" }}>
               <Check size={14} /> Model pulled successfully!
             </div>
           )}

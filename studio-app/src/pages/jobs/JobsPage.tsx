@@ -70,6 +70,15 @@ export function statusBadgeClass(status: string): string {
   }
 }
 
+export function jobAccentColor(status: string): string {
+  switch (status) {
+    case "running": case "submitting": case "pending": return "var(--accent)";
+    case "completed": return "var(--success)";
+    case "failed": return "var(--error)";
+    default: return "var(--border)";
+  }
+}
+
 export function extractCrucibleError(stderr: string): string | null {
   const lines = stderr.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -172,7 +181,9 @@ export function JobsPage() {
         if (j.command === "dispatch") continue; // dispatch jobs are in unified store
         if (statusFilter !== "all" && normalizeStatus(j.status) !== statusFilter) continue;
         if (typeFilter !== "all" && classifyLocalJob(j.command) !== typeFilter) continue;
-        items.push({ kind: "local", job: j, sortKey: now - i });
+        // Derive start time from elapsed_seconds (no createdAt on legacy local jobs)
+        const ts = now - j.elapsed_seconds * 1000;
+        items.push({ kind: "local", job: j, sortKey: ts });
       }
     }
 
@@ -265,7 +276,7 @@ export function JobsPage() {
           <p>Launch a training run from the Training page to see it here.</p>
         </div>
       ) : (
-        <div className="panel panel-flush">
+        <div className="job-card-list">
           {isLoading && merged.length === 0 && (
             <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
               <Loader2 size={20} className="spin" />

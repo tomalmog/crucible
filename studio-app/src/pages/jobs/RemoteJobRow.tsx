@@ -3,16 +3,13 @@ import { useCrucible } from "../../context/CrucibleContext";
 import type { RemoteJobRecord } from "../../types/remote";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 import { getRemoteJobLogs, syncRemoteJobStatus } from "../../api/remoteApi";
-import { statusBadgeClass } from "./JobsPage";
+import { jobLabel } from "../../utils/jobLabels";
+import { jobAccentColor } from "./JobsPage";
+import { formatTimeAgo } from "../../utils/formatTime";
 import {
-  Activity,
-  ChevronDown,
   ChevronRight,
-  Eye,
   Trash2,
   Check,
-  Server,
-  Terminal,
   RefreshCw,
   Download,
   XCircle,
@@ -202,6 +199,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
   const isRunning = job.state === "running" || job.state === "pending" || isSubmitting;
   const isCompleted = job.state === "completed";
   const isFailed = job.state === "failed";
+  const isFinished = isCompleted || isFailed;
   const hasLocalModel = !!job.modelPathLocal;
   const failedOnCluster = isFailed && !!job.slurmJobId;
 
@@ -221,112 +219,75 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="run-row section-divider">
+    <div
+      className="job-card"
+      style={{ "--job-accent": jobAccentColor(job.state) } as React.CSSProperties}
+      onClick={() => {
+        if (isFinished) onView();
+        else toggleLogs();
+      }}
+    >
+      {/* Line 1: status dot + name | secondary actions + status */}
       <div className="run-row-header">
         <div className="flex-row">
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleLogs}>
-            {showLogs ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-          <span className="run-row-id">{job.modelName || job.jobId}</span>
-          {job.modelName && (
-            <span className="run-row-meta" style={{ opacity: 0.6 }}>{job.jobId}</span>
-          )}
-          <span className="badge"><Server size={10} /> {job.clusterName}</span>
-          <span className={statusBadgeClass(job.state)}>{job.state}</span>
-          {isRunning && (
-            <span className="badge badge-accent" style={{ fontSize: "0.7rem" }}>
-              <Activity size={10} /> live
-            </span>
-          )}
+          <span className={"job-status-dot" + (isRunning ? " pulsing" : "")} />
+          <span className="run-row-id">{jobLabel(job.trainingMethod, job.modelName) || job.jobId}</span>
         </div>
         <div className="flex-row">
-          {!isSubmitting && job.slurmJobId && (
-            <span className="run-row-meta">Slurm {job.slurmJobId}</span>
-          )}
-          {(isCompleted || isFailed) && (
-            <button
-              className="btn btn-sm"
-              onClick={(e) => { e.stopPropagation(); onView(); }}
-              title="View result"
-            >
-              <Eye size={12} /> Result
-            </button>
-          )}
-          {!isSubmitting && (
-            <button
-              className="btn btn-sm"
-              onClick={(e) => { e.stopPropagation(); toggleLogs(); }}
-              title="View logs"
-            >
-              <Terminal size={12} /> Logs
-            </button>
-          )}
           {isCompleted && !hasLocalModel && !pulling && !pullDone && !["eval", "logit-lens", "activation-pca", "activation-patch"].includes(job.trainingMethod) && (
-            <button
-              className="btn btn-sm"
-              onClick={(e) => { e.stopPropagation(); handlePull(); }}
-              title="Download model to local machine"
-            >
-              <Download size={12} /> Pull Model
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); handlePull(); }} title="Pull model">
+              <Download size={12} />
             </button>
           )}
           {(job.state === "pending" || job.state === "running") && (
-            <button
-              className="btn btn-sm"
-              onClick={(e) => { e.stopPropagation(); onCancel(); }}
-              title="Cancel job"
-            >
-              <XCircle size={12} /> Cancel
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onCancel(); }} title="Cancel job">
+              <XCircle size={12} />
             </button>
           )}
           {showLogs && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={(e) => { e.stopPropagation(); fetchLogs(true); }}
-              title="Refresh logs"
-            >
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); fetchLogs(true); }} title="Refresh logs">
               <RefreshCw size={12} />
             </button>
           )}
           {!isRunning && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              title="Delete job"
-            >
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete job">
               <Trash2 size={12} />
             </button>
           )}
+          <span className="run-row-meta">{job.state}</span>
+          <ChevronRight size={14} className="job-card-chevron" />
         </div>
       </div>
-      <div className="run-row-path">
-        {job.trainingMethod}{sweepTag}
+
+      {/* Line 2: meta — method + cluster + timestamp */}
+      <div className="job-card-meta">
+        <span>{job.trainingMethod}{sweepTag} · {job.clusterName}</span>
+        <span>{formatTimeAgo(job.submittedAt)}</span>
       </div>
+
+      {/* Submit / pending phase messages */}
       {isSubmitting && job.submitPhase && (
-        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+        <div className="run-row-path" style={{ color: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
           {job.submitPhase}
         </div>
       )}
       {job.state === "pending" && (
-        <div className="run-row-path" style={{ color: "var(--clr-accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
+        <div className="run-row-path" style={{ color: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
           Queued in Slurm — waiting for resources...
         </div>
       )}
       {isFailed && job.submitPhase && (
-        <div className="error-alert-prominent" style={{ margin: "var(--space-xs) var(--space-md)" }}>
-          {job.submitPhase}
-        </div>
-      )}
-      {job.submittedAt && (
-        <div className="run-row-path">Submitted: {job.submittedAt}</div>
+        <div className="error-alert-prominent">{job.submitPhase}</div>
       )}
       {job.modelPathRemote && (
         <div className="run-row-path" style={{ opacity: 0.7, fontSize: "0.8rem" }}>
           Remote model: {job.modelPathRemote}
         </div>
       )}
+
+      {/* Pull progress */}
       {(pulling || pullDone || pullError) && (
-        <div className="gap-top-sm" style={{ padding: "0 var(--space-md)" }}>
+        <div>
           {pulling && (
             <div className="pull-steps">
               {pullProgress.map((step, i) => (
@@ -336,7 +297,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
             </div>
           )}
           {pullDone && (
-            <div className="pull-success flex-row" style={{ gap: "var(--space-xs)", color: "var(--clr-success)" }}>
+            <div className="pull-success flex-row" style={{ gap: "var(--space-xs)" }}>
               <Check size={14} /> Model pulled successfully!
             </div>
           )}
@@ -345,6 +306,8 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
           )}
         </div>
       )}
+
+      {/* Logs */}
       {showLogs && (
         <div className="job-expanded">
           {loading && !logs && (
