@@ -28,15 +28,11 @@ export function ResourcesPage() {
         </button>
       </PageHeader>
 
-      <div className="grid-2">
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <StoragePanel storage={storage} remoteStorage={remoteStorage} />
-          <CleanupPanel orphans={orphans} storage={storage} onRefresh={refresh} />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <HardwarePanel hardware={hardware} clusters={clusters} />
-          <ActivityPanel localJobs={localJobs} remoteJobs={remoteJobs} />
-        </div>
+      <div className="resource-card-list">
+        <StoragePanel storage={storage} remoteStorage={remoteStorage} />
+        <HardwarePanel hardware={hardware} clusters={clusters} />
+        <ActivityPanel localJobs={localJobs} remoteJobs={remoteJobs} />
+        <CleanupPanel orphans={orphans} storage={storage} onRefresh={refresh} />
       </div>
     </>
   );

@@ -1,4 +1,3 @@
-import { MetricCard } from "../../components/shared/MetricCard";
 import type { ClusterConfig } from "../../types/remote";
 
 interface HardwarePanelProps {
@@ -25,30 +24,36 @@ export function HardwarePanel({ hardware, clusters }: HardwarePanelProps) {
     : [];
 
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <h3>Hardware</h3>
+    <div className="resource-card">
+      <div className="resource-card-header">
+        <h3 className="resource-card-title">Hardware</h3>
       </div>
+
       {entries.length > 0 ? (
-        <div className="metric-row">
+        <div className="hw-grid">
           {entries.map((e) => (
-            <MetricCard key={e.label} label={e.label} value={e.value} />
+            <div className="hw-item" key={e.label}>
+              <span className="hw-item-label">{e.label}</span>
+              <span className="hw-item-value">{e.value}</span>
+            </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-tertiary" style={{ padding: "0 16px 16px" }}>
+        <p className="text-sm text-tertiary" style={{ margin: 0 }}>
           No hardware profile available.
         </p>
       )}
+
       {clusters.length > 0 && (
-        <div style={{ padding: "0 16px 16px" }}>
-          <h4 className="text-sm" style={{ marginBottom: 8 }}>Remote Clusters</h4>
+        <div className="resource-section">
+          <div className="resource-section-header">
+            <span className="resource-section-title">Remote Clusters</span>
+          </div>
           {clusters.map((c) => (
-            <div key={c.name} className="flex-row" style={{ marginBottom: 4 }}>
-              <span className="text-sm">{c.name}</span>
-              <span className="text-xs text-tertiary">
-                {c.gpuTypes.length > 0 ? c.gpuTypes.join(", ") : "No GPUs detected"}
-                {c.partitions.length > 0 && ` | ${c.partitions.join(", ")}`}
+            <div key={c.name} className="activity-job">
+              <span className="activity-job-name">{c.name}</span>
+              <span className="activity-job-meta">
+                {c.gpuTypes.length > 0 ? c.gpuTypes.join(", ") : "No GPUs"}
               </span>
             </div>
           ))}

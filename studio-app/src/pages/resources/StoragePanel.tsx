@@ -24,70 +24,69 @@ export function StoragePanel({ storage, remoteStorage }: StoragePanelProps) {
   const modelsTotal = cluster
     ? Object.values(cluster.modelSizes).reduce((sum, s) => sum + s, 0)
     : storage.modelsBytes;
-  const runsTotal = isLocal ? storage.runsBytes : null;
-  const cacheTotal = isLocal ? storage.cacheBytes : null;
+  const runsTotal = isLocal ? storage.runsBytes : 0;
+  const cacheTotal = isLocal ? storage.cacheBytes : 0;
   const totalUsed = isLocal
     ? storage.totalBytes
     : datasetsTotal + modelsTotal;
   const diskAvailable = isLocal ? storage.diskAvailableBytes : null;
 
+  // Build bar rows
+  const bars: { label: string; bytes: number; color?: string }[] = [
+    { label: "Datasets", bytes: datasetsTotal },
+    { label: "Models", bytes: modelsTotal },
+  ];
+  if (isLocal) {
+    bars.push({ label: "Training Runs", bytes: runsTotal });
+    bars.push({ label: "Cache", bytes: cacheTotal });
+  }
+
+  const maxBytes = Math.max(...bars.map((b) => b.bytes), 1);
+
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <h3>Storage</h3>
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-          <option value="local">Local</option>
-          {remoteStorage.map((rs) => (
-            <option key={rs.cluster.name} value={rs.cluster.name}>
-              {rs.cluster.name}
-            </option>
-          ))}
-        </select>
+    <div className="resource-card">
+      <div className="resource-card-header">
+        <h3 className="resource-card-title">Storage</h3>
+        {remoteStorage.length > 0 && (
+          <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ width: "auto", minWidth: 100, padding: "4px 8px", fontSize: "0.75rem" }}>
+            <option value="local">Local</option>
+            {remoteStorage.map((rs) => (
+              <option key={rs.cluster.name} value={rs.cluster.name}>
+                {rs.cluster.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
-      <table className="overview-table">
-        <tbody>
-          <tr>
-            <td className="overview-label">Datasets</td>
-            <td className="overview-value">
-              {isLocal
-                ? formatSize(datasetsTotal)
-                : `${cluster!.datasets.length} (${formatSize(datasetsTotal)})`}
-            </td>
-          </tr>
-          <tr>
-            <td className="overview-label">Models</td>
-            <td className="overview-value">
-              {isLocal
-                ? formatSize(modelsTotal)
-                : `${Object.keys(cluster!.modelSizes).length} (${formatSize(modelsTotal)})`}
-            </td>
-          </tr>
-          <tr>
-            <td className="overview-label">Training Runs</td>
-            <td className={`overview-value${runsTotal == null ? " text-tertiary" : ""}`}>
-              {runsTotal != null ? (formatSize(runsTotal) || "0 B") : "N/A"}
-            </td>
-          </tr>
-          <tr>
-            <td className="overview-label">Cache</td>
-            <td className={`overview-value${cacheTotal == null ? " text-tertiary" : ""}`}>
-              {cacheTotal != null ? (formatSize(cacheTotal) || "0 B") : "N/A"}
-            </td>
-          </tr>
-          <tr>
-            <td className="overview-label">Total Used</td>
-            <td className="overview-value" style={{ fontWeight: 600 }}>
-              {formatSize(totalUsed)}
-            </td>
-          </tr>
-          <tr>
-            <td className="overview-label">Disk Available</td>
-            <td className={`overview-value${diskAvailable == null ? " text-tertiary" : ""}`}>
-              {diskAvailable != null ? formatSize(diskAvailable) : "N/A"}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {bars.map((b) => (
+          <div className="storage-bar-row" key={b.label}>
+            <div className="storage-bar-label">
+              <span className="storage-bar-label-name">{b.label}</span>
+              <span className="storage-bar-label-value">{formatSize(b.bytes) || "0 B"}</span>
+            </div>
+            <div className="storage-bar-track">
+              <div
+                className="storage-bar-fill"
+                style={{ width: `${Math.max((b.bytes / maxBytes) * 100, 0.5)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="storage-total">
+        <span className="storage-total-label">Total Used</span>
+        <span className="storage-total-value">{formatSize(totalUsed)}</span>
+      </div>
+
+      {diskAvailable != null && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+          <span>Disk Available</span>
+          <span style={{ fontFamily: "var(--font-mono)" }}>{formatSize(diskAvailable)}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
   const [validateOutput, setValidateOutput] = useState("");
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<"success" | "error" | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function handleValidate() {
     setValidating(true);
@@ -47,82 +48,101 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
     }
   }
 
+  const accentColor = isValidated ? "var(--success)" : "var(--warning)";
+
   return (
-    <div className="panel">
-      <div className="run-row-header">
+    <div
+      className="cluster-card"
+      style={{ "--cluster-accent": accentColor } as React.CSSProperties}
+    >
+      {/* Header: name + status dot + actions */}
+      <div className="cluster-card-header">
         <div className="flex-row">
-          <span className="run-row-id">{cluster.name}</span>
+          <span
+            className={"job-status-dot"}
+            style={{ background: accentColor }}
+          />
+          <span className="cluster-card-name">{cluster.name}</span>
           {isValidated ? (
             <span className="badge badge-success">
-              <CheckCircle size={12} /> Validated
+              <CheckCircle size={10} /> Validated
             </span>
           ) : (
-            <span className="badge badge-error">
-              <XCircle size={12} /> Not validated
+            <span className="badge badge-warning">
+              <XCircle size={10} /> Not validated
             </span>
           )}
         </div>
         <div className="flex-row">
-          <button className="btn btn-sm" onClick={handleValidate} disabled={validating} title="Validate cluster">
-            {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
-            {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
-          </button>
-          <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting} title="Remove and rebuild crucible conda env on next job">
-            {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
-            {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Edit cluster">
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onEdit} title="Edit cluster">
             <Pencil size={12} />
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={onRemove} title="Remove cluster">
-            <Trash2 size={12} />
-          </button>
+          {!confirmRemove ? (
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setConfirmRemove(true)} title="Remove cluster">
+              <Trash2 size={12} />
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm btn-error"
+              onClick={() => { onRemove(); setConfirmRemove(false); }}
+              onBlur={() => setConfirmRemove(false)}
+              autoFocus
+            >
+              Confirm
+            </button>
+          )}
         </div>
       </div>
 
-      <table className="overview-table">
-        <tbody>
-          <tr>
-            <td className="overview-label">Host</td>
-            <td className="overview-value">{cluster.user}@{cluster.host}</td>
-          </tr>
-          {cluster.defaultPartition && (
-            <tr>
-              <td className="overview-label">Default Partition</td>
-              <td className="overview-value">{cluster.defaultPartition}</td>
-            </tr>
-          )}
-          {cluster.partitions.length > 0 && (
-            <tr>
-              <td className="overview-label">Partitions</td>
-              <td className="overview-value">{cluster.partitions.join(", ")}</td>
-            </tr>
-          )}
-          {cluster.gpuTypes.length > 0 && (
-            <tr>
-              <td className="overview-label">GPU Types</td>
-              <td className="overview-value">{cluster.gpuTypes.join(", ")}</td>
-            </tr>
-          )}
-          <tr>
-            <td className="overview-label">Python</td>
-            <td className="overview-value">{cluster.pythonPath}</td>
-          </tr>
-          <tr>
-            <td className="overview-label">Workspace</td>
-            <td className="overview-value">{cluster.remoteWorkspace}</td>
-          </tr>
-          {isValidated && (
-            <tr>
-              <td className="overview-label">Last Validated</td>
-              <td className="overview-value">{cluster.validatedAt}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {/* Connection details — compact 2-column grid */}
+      <div className="cluster-card-details">
+        <div className="cluster-card-detail">
+          <span className="cluster-card-detail-label">Host</span>
+          <span className="cluster-card-detail-value">{cluster.user}@{cluster.host}</span>
+        </div>
+        <div className="cluster-card-detail">
+          <span className="cluster-card-detail-label">Workspace</span>
+          <span className="cluster-card-detail-value">{cluster.remoteWorkspace}</span>
+        </div>
+        {cluster.defaultPartition && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">Partition</span>
+            <span className="cluster-card-detail-value">{cluster.defaultPartition}</span>
+          </div>
+        )}
+        {cluster.gpuTypes.length > 0 && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">GPUs</span>
+            <span className="cluster-card-detail-value">{cluster.gpuTypes.join(", ")}</span>
+          </div>
+        )}
+        <div className="cluster-card-detail">
+          <span className="cluster-card-detail-label">Python</span>
+          <span className="cluster-card-detail-value">{cluster.pythonPath}</span>
+        </div>
+        {isValidated && cluster.validatedAt && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">Validated</span>
+            <span className="cluster-card-detail-value">{cluster.validatedAt}</span>
+          </div>
+        )}
+      </div>
 
+      {/* Action buttons */}
+      <div className="cluster-card-actions">
+        <button className="btn btn-sm" onClick={handleValidate} disabled={validating}>
+          {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
+          {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
+        </button>
+        <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting}>
+          {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
+          {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
+        </button>
+      </div>
+
+      {/* Validation output */}
       {(validating || validateOutput) && (
-        <pre className="console" style={{ maxHeight: 200, overflow: "auto" }}>
+        <pre className="console console-short">
           {validateOutput || "Connecting to cluster..."}
         </pre>
       )}

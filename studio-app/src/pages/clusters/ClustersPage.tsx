@@ -110,7 +110,7 @@ export function ClustersPage() {
           <p>Register a Slurm cluster to submit remote training jobs.</p>
         </div>
       ) : (
-        <div className="stack-md">
+        <div className="job-card-list">
           {clusters.map((c) => (
             <ClusterCard
               key={c.name}

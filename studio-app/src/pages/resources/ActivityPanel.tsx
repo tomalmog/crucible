@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router";
-import { statusBadgeClass } from "../jobs/JobsPage";
 import type { CommandTaskStatus } from "../../types";
 import type { RemoteJobRecord } from "../../types/remote";
 
@@ -17,43 +16,40 @@ export function ActivityPanel({ localJobs, remoteJobs }: ActivityPanelProps) {
   const totalActive = activeLocal.length + activeRemote.length;
 
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <h3>Activity</h3>
+    <div className="resource-card">
+      <div className="resource-card-header">
+        <h3 className="resource-card-title">Activity</h3>
         {totalActive > 0 && (
           <span className="badge badge-accent">{totalActive} active</span>
         )}
       </div>
+
       {totalActive === 0 ? (
-        <p className="text-sm text-tertiary" style={{ padding: "0 16px 16px" }}>
+        <p className="text-sm text-tertiary" style={{ margin: 0 }}>
           No active jobs.
         </p>
       ) : (
-        <div style={{ padding: "0 16px 16px" }}>
+        <div>
           {activeLocal.map((j) => (
-            <div key={j.task_id} className="flex-row" style={{ marginBottom: 6 }}>
-              <span className="text-sm" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {j.label || j.command}
-              </span>
-              <span className={statusBadgeClass(j.status)}>{j.status}</span>
-              <span className="text-xs text-tertiary">{formatElapsed(j.elapsed_seconds)}</span>
+            <div key={j.task_id} className="activity-job">
+              <span className="job-status-dot pulsing" style={{ background: "var(--accent)" }} />
+              <span className="activity-job-name">{j.label || j.command}</span>
+              <span className="activity-job-meta">{formatElapsed(j.elapsed_seconds)}</span>
             </div>
           ))}
           {activeRemote.map((j) => (
-            <div key={j.jobId} className="flex-row" style={{ marginBottom: 6 }}>
-              <span className="text-sm" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {j.trainingMethod} @ {j.clusterName}
-              </span>
-              <span className={statusBadgeClass(j.state)}>{j.state}</span>
+            <div key={j.jobId} className="activity-job">
+              <span className="job-status-dot pulsing" style={{ background: "var(--accent)" }} />
+              <span className="activity-job-name">{j.trainingMethod} @ {j.clusterName}</span>
+              <span className="activity-job-meta">{j.state}</span>
             </div>
           ))}
         </div>
       )}
-      <div style={{ padding: "0 16px 16px" }}>
-        <button className="btn btn-sm" onClick={() => navigate("/jobs")}>
-          View All Jobs
-        </button>
-      </div>
+
+      <button className="btn btn-sm" onClick={() => navigate("/jobs")} style={{ justifySelf: "start" }}>
+        View All Jobs
+      </button>
     </div>
   );
 }
