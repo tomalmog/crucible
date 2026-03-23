@@ -21,8 +21,7 @@ export function ActivationPcaResults({ result }: Props) {
         points={points}
         xLabel={`PC1 (${ev0}%)`}
         yLabel={`PC2 (${ev1}%)`}
-        width={640}
-        height={440}
+        height={480}
       />
     </div>
   );

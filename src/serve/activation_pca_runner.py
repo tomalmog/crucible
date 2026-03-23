@@ -56,7 +56,10 @@ def run_activation_pca(
                     pooled = acts[0].mean(dim=0).cpu()
                     vectors.append(pooled)
                     labels.append(color)
-                    snippets.append(text[:80])
+                    snippet = text[:120].rstrip()
+                    if len(text) > 120:
+                        snippet += "..."
+                    snippets.append(snippet)
 
     stacked = torch.stack(vectors).float()
     n_components = min(2, stacked.shape[0], stacked.shape[1])
