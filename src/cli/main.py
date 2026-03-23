@@ -27,7 +27,9 @@ from cli.data_commands import (
     run_export_training_command,
     run_ingest_command,
 )
+from cli.dispatch_command import add_dispatch_command, run_dispatch_command
 from cli.distillation_command import add_distillation_command, run_distillation_command
+from cli.job_command import add_job_command, run_job_command
 from cli.distributed_train_command import (
     add_distributed_train_command,
     run_distributed_train_command,
@@ -91,6 +93,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_cloud_command, add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
     add_logit_lens_command, add_activation_pca_command, add_activation_patching_command,
+    add_dispatch_command, add_job_command,
 )
 
 
@@ -139,6 +142,8 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "logit-lens": run_logit_lens_command,
         "activation-pca": run_activation_pca_command,
         "activation-patch": run_activation_patching_command,
+        "dispatch": run_dispatch_command,
+        "job": run_job_command,
     }
 
 
@@ -159,10 +164,21 @@ _TRAINING_COMMANDS = frozenset({
 })
 
 
+def _init_backends() -> None:
+    """Register all execution backends."""
+    from core.backend_registry import register_backend
+    from serve.local_runner import LocalRunner
+    from serve.slurm_runner import SlurmRunner
+
+    register_backend("local", LocalRunner())
+    register_backend("slurm", SlurmRunner())
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the Crucible CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    _init_backends()
     client = _build_client(args.data_root)
     dispatch = _build_dispatch_table()
     handler = dispatch.get(args.command)

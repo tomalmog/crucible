@@ -105,6 +105,7 @@ textarea {
     font-family: var(--font-body);
     font-size: 0.8125rem;
     line-height: 1.5;
+    text-transform: none;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     box-shadow: var(--shadow-sm);
 }

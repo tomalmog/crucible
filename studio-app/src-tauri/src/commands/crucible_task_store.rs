@@ -2,6 +2,7 @@
 
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -14,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 19] = [
+const JOBS_PAGE_COMMANDS: [&str; 20] = [
     "train",
     "sft",
     "dpo-train",
@@ -34,6 +35,7 @@ const JOBS_PAGE_COMMANDS: [&str; 19] = [
     "logit-lens",
     "activation-pca",
     "activation-patch",
+    "dispatch",
 ];
 
 #[derive(Clone)]
@@ -208,6 +210,12 @@ impl CommandTaskStore {
     }
 
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>) {
+        // Write initial unified JobRecord for commands shown on Jobs page.
+        // Skip "dispatch" — the Python dispatch command writes its own record.
+        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
+            write_job_record(&data_root, &task_id, &command_name, "running", "", "");
+        }
+
         let working_directory = workspace_root_dir();
         let crucible_bin = resolve_crucible_binary(&working_directory);
         let spawn_result = Command::new(crucible_bin)
@@ -229,10 +237,10 @@ impl CommandTaskStore {
                     }
                 }
                 self.stream_child_output(&task_id, &mut child);
-                self.finalize_child(&task_id, &command_name, &mut child);
+                self.finalize_child(&task_id, &command_name, &data_root, &mut child);
             }
             Err(error) => {
-                self.fail_task(&task_id, &command_name, error.to_string());
+                self.fail_task(&task_id, &command_name, &data_root, error.to_string());
             }
         }
     }
@@ -289,11 +297,14 @@ impl CommandTaskStore {
         }
     }
 
-    fn finalize_child(&self, task_id: &str, command_name: &str, child: &mut std::process::Child) {
+    fn finalize_child(&self, task_id: &str, command_name: &str, data_root: &str, child: &mut std::process::Child) {
         let exit_status = child.wait();
 
         let now = Instant::now();
         let mut observed_elapsed_seconds = None;
+        let mut final_state = "failed";
+        let mut stdout_snapshot = String::new();
+        let mut stderr_snapshot = String::new();
         if let Ok(mut tasks) = self.inner.tasks.lock() {
             if let Some(task) = tasks.get_mut(task_id) {
                 let exit_code = exit_status
@@ -307,14 +318,27 @@ impl CommandTaskStore {
                 };
                 task.finished_at = Some(now);
                 observed_elapsed_seconds = Some(task.started_at.elapsed().as_secs_f64().max(1.0));
+                final_state = if exit_code == 0 { "completed" } else { "failed" };
+                stdout_snapshot = task.stdout.clone();
+                stderr_snapshot = task.stderr.clone();
             }
         }
         if let Some(observed_seconds) = observed_elapsed_seconds {
             self.update_duration_estimate(command_name, observed_seconds);
         }
+        // Update unified JobRecord (skip dispatch — Python manages its own)
+        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name) {
+            let model_path = extract_model_path(&stdout_snapshot);
+            let err_msg = if final_state == "failed" {
+                // Take last 200 chars of stderr as error message
+                let len = stderr_snapshot.len();
+                if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot }
+            } else { String::new() };
+            update_job_record(data_root, task_id, final_state, &model_path, &err_msg);
+        }
     }
 
-    fn fail_task(&self, task_id: &str, command_name: &str, error_message: String) {
+    fn fail_task(&self, task_id: &str, command_name: &str, data_root: &str, error_message: String) {
         let now = Instant::now();
         let mut observed_elapsed_seconds = None;
         if let Ok(mut tasks) = self.inner.tasks.lock() {
@@ -328,6 +352,10 @@ impl CommandTaskStore {
         }
         if let Some(observed_seconds) = observed_elapsed_seconds {
             self.update_duration_estimate(command_name, observed_seconds);
+        }
+        // Update unified JobRecord (skip dispatch — Python manages its own)
+        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name) {
+            update_job_record(data_root, task_id, "failed", "", &error_message);
         }
     }
 
@@ -465,6 +493,122 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
         "chat" => 20,
         _ => 30,
     }
+}
+
+/// Write a unified JobRecord JSON to .crucible/jobs/ so the unified UI can see it.
+fn write_job_record(
+    data_root: &str,
+    task_id: &str,
+    command: &str,
+    state: &str,
+    model_path: &str,
+    error_message: &str,
+) {
+    let jobs_dir = Path::new(data_root).join("jobs");
+    if fs::create_dir_all(&jobs_dir).is_err() {
+        return;
+    }
+    let now = utc_iso_now();
+    let record = serde_json::json!({
+        "job_id": task_id,
+        "backend": "local",
+        "job_type": command,
+        "state": state,
+        "created_at": now,
+        "updated_at": now,
+        "label": "",
+        "backend_job_id": "",
+        "backend_cluster": "",
+        "backend_output_dir": "",
+        "backend_log_path": "",
+        "model_path": model_path,
+        "model_path_local": model_path,
+        "model_name": "",
+        "error_message": error_message,
+        "progress_percent": if state == "running" { 0.0 } else { 100.0 },
+        "submit_phase": "",
+        "is_sweep": command == "sweep",
+        "sweep_trial_count": 0
+    });
+    let path = jobs_dir.join(format!("{task_id}.json"));
+    let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());
+}
+
+/// Update just the state, model_path, and error_message fields of an existing job record.
+fn update_job_record(
+    data_root: &str,
+    task_id: &str,
+    state: &str,
+    model_path: &str,
+    error_message: &str,
+) {
+    let path = Path::new(data_root).join("jobs").join(format!("{task_id}.json"));
+    if !path.exists() {
+        return;
+    }
+    let contents = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+    let mut record: serde_json::Value = match serde_json::from_str(&contents) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    if let Some(obj) = record.as_object_mut() {
+        obj.insert("state".to_string(), serde_json::json!(state));
+        obj.insert("updated_at".to_string(), serde_json::json!(utc_iso_now()));
+        obj.insert("progress_percent".to_string(), serde_json::json!(100.0));
+        if !model_path.is_empty() {
+            obj.insert("model_path".to_string(), serde_json::json!(model_path));
+            obj.insert("model_path_local".to_string(), serde_json::json!(model_path));
+        }
+        if !error_message.is_empty() {
+            obj.insert("error_message".to_string(), serde_json::json!(error_message));
+        }
+    }
+    let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());
+}
+
+/// Extract model_path=... from stdout.
+fn extract_model_path(stdout: &str) -> String {
+    for line in stdout.lines() {
+        if let Some(rest) = line.strip_prefix("model_path=") {
+            return rest.trim().to_string();
+        }
+    }
+    String::new()
+}
+
+/// UTC ISO-8601 timestamp without chrono dependency.
+fn utc_iso_now() -> String {
+    let dur = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let total_secs = dur.as_secs();
+    let secs_in_day: u64 = 86400;
+    let mut days = total_secs / secs_in_day;
+    let day_secs = total_secs % secs_in_day;
+    let h = day_secs / 3600;
+    let m = (day_secs % 3600) / 60;
+    let s = day_secs % 60;
+    // Simple days-since-epoch to Y-M-D (good enough for sorting)
+    let mut year: u64 = 1970;
+    loop {
+        let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 366 } else { 365 };
+        if days < days_in_year { break; }
+        days -= days_in_year;
+        year += 1;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let month_days: [u64; 12] = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut month: u64 = 1;
+    for md in &month_days {
+        if days < *md { break; }
+        days -= md;
+        month += 1;
+    }
+    let day = days + 1;
+    format!("{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}Z")
 }
 
 pub fn workspace_root_dir() -> PathBuf {

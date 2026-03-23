@@ -4,7 +4,7 @@ use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 42] = [
+const ALLOWED_COMMANDS: [&str; 44] = [
     "ingest",
     "filter",
     "train",
@@ -47,6 +47,8 @@ const ALLOWED_COMMANDS: [&str; 42] = [
     "logit-lens",
     "activation-pca",
     "activation-patch",
+    "dispatch",
+    "job",
 ];
 
 #[tauri::command]

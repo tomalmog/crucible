@@ -1,5 +1,6 @@
 import { SharedTrainingConfig, TrainingMethod } from "../types/training";
 import type { ClusterSubmitConfig } from "../pages/training/ClusterSubmitSection";
+import type { BackendKind, ResourceConfig } from "../types/jobs";
 
 function appendOptional(args: string[], flag: string, value: string | undefined): void {
   const trimmed = (value ?? "").trim();
@@ -290,6 +291,35 @@ export function buildRemoteInterpArgs(
   if (opts.memory) args.push("--memory", opts.memory);
   if (opts.timeLimit) args.push("--time-limit", opts.timeLimit);
   return args;
+}
+
+/** Canonical method args dict — alias for buildRemoteMethodArgs. */
+export const buildMethodArgs = buildRemoteMethodArgs;
+
+/** Build CLI args for `crucible dispatch --spec <json>`. */
+export function buildDispatchSpec(
+  jobType: string,
+  methodArgs: Record<string, unknown>,
+  backend: BackendKind,
+  opts?: {
+    label?: string;
+    clusterName?: string;
+    resources?: ResourceConfig;
+    isSweep?: boolean;
+    sweepTrials?: Record<string, unknown>[];
+  },
+): string[] {
+  const spec: Record<string, unknown> = {
+    job_type: jobType,
+    method_args: methodArgs,
+    backend,
+  };
+  if (opts?.label) spec.label = opts.label;
+  if (opts?.clusterName) spec.cluster_name = opts.clusterName;
+  if (opts?.resources) spec.resources = opts.resources;
+  if (opts?.isSweep) spec.is_sweep = true;
+  if (opts?.sweepTrials) spec.sweep_trials = opts.sweepTrials;
+  return ["dispatch", "--spec", JSON.stringify(spec)];
 }
 
 /** Build the full CLI args array for `crucible remote submit ...`. */

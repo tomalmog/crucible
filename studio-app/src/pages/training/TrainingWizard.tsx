@@ -5,7 +5,9 @@ import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
 import { useTrainingLocation } from "../../hooks/useTrainingLocation";
-import { buildTrainingArgs, buildRemoteMethodArgs, buildRemoteSubmitArgs } from "../../api/commandArgs";
+import {
+  buildTrainingArgs, buildMethodArgs, buildDispatchSpec,
+} from "../../api/commandArgs";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
@@ -128,15 +130,25 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     setRemoteSubmitting(true);
     setStartError(null);
     try {
-      const methodArgsObj = buildRemoteMethodArgs(shared, extra);
+      const methodArgsObj = buildMethodArgs(shared, extra);
       let extraOverrides: Record<string, unknown> = {};
       try {
         extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
-      const methodArgsJson = JSON.stringify(merged);
-      const effectiveName = modelName.trim() || undefined;
-      const args = buildRemoteSubmitArgs(method, methodArgsJson, clusterConfig, effectiveName);
+      const args = buildDispatchSpec(method, merged, "slurm", {
+        label: modelName.trim() || undefined,
+        clusterName: clusterConfig.cluster,
+        resources: {
+          partition: clusterConfig.partition,
+          nodes: parseInt(clusterConfig.nodes, 10) || 1,
+          gpus_per_node: parseInt(clusterConfig.gpusPerNode, 10) || 1,
+          cpus_per_task: parseInt(clusterConfig.cpusPerTask, 10) || 4,
+          memory: clusterConfig.memory || "32G",
+          time_limit: clusterConfig.timeLimit || "04:00:00",
+          gpu_type: clusterConfig.gpuType || "",
+        },
+      });
       await startCrucibleCommand(dataRoot, args);
       navigate("/jobs");
     } catch (err) {

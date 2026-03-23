@@ -26,9 +26,12 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLPreElement>(null);
   const streamTaskRef = useRef<string | null>(null);
   const streamPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isStreamingRef = useRef(false);
+  const userScrolledRef = useRef(false);
+  const isAutoScrollingRef = useRef(false);
 
   // One-shot fetch for completed/failed jobs
   const fetchLogs = useCallback(async (bypassCache?: boolean) => {
@@ -48,6 +51,8 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
   const startLogStream = useCallback(async () => {
     if (!dataRoot || streamTaskRef.current) return;
     setLoading(true);
+    isStreamingRef.current = true;
+    userScrolledRef.current = false;
     try {
       const { task_id } = await startCrucibleCommand(dataRoot, [
         "remote", "logs", "--job-id", job.jobId, "--follow", "--tail", "200",
@@ -60,7 +65,8 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
           const status = await getCrucibleCommandStatus(task_id);
           const stdout = status.stdout || "";
           if (stdout) {
-            setLogs(stdout.trim());
+            const trimmed = stdout.trim();
+            setLogs(prev => trimmed.length >= prev.length ? trimmed : prev);
             setLoading(false);
             // Detect agent completion in log stream → trigger immediate status sync
             if (!completionDetectedRef.current &&
@@ -75,19 +81,20 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
             if (streamPollRef.current) clearInterval(streamPollRef.current);
             streamPollRef.current = null;
             streamTaskRef.current = null;
+            isStreamingRef.current = false;
             setLoading(false);
-            // Stream ended — fetch full logs to capture anything missed
-            fetchLogs(true);
           }
         } catch {
           if (streamPollRef.current) clearInterval(streamPollRef.current);
           streamPollRef.current = null;
           streamTaskRef.current = null;
+          isStreamingRef.current = false;
           setLoading(false);
         }
       }, 2_000);
     } catch (err) {
       setLogs(`Error starting log stream: ${err}`);
+      isStreamingRef.current = false;
       setLoading(false);
     }
   }, [dataRoot, job.jobId, fetchLogs, onRefresh]);
@@ -117,18 +124,30 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
   useEffect(() => {
     if (!ACTIVE_STATES.has(job.state) && streamTaskRef.current) {
       stopLogStream();
-      // Job finished — do a final one-shot fetch for complete logs
-      fetchLogs(true);
     }
-  }, [job.state, stopLogStream, fetchLogs]);
+  }, [job.state, stopLogStream]);
 
   useEffect(() => () => stopLogStream(), [stopLogStream]);
 
-  // Auto-scroll log container to bottom (without moving the page)
+  // Auto-scroll log container to bottom only while actively streaming
+  // and user hasn't manually scrolled up
   useEffect(() => {
-    const el = logEndRef.current?.parentElement;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!isStreamingRef.current || userScrolledRef.current) return;
+    const el = logContainerRef.current;
+    if (el) {
+      isAutoScrollingRef.current = true;
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => { isAutoScrollingRef.current = false; });
+    }
   }, [logs]);
+
+  // Detect when user scrolls away from bottom → stop auto-scroll
+  const handleLogScroll = useCallback((e: React.UIEvent<HTMLPreElement>) => {
+    if (!isStreamingRef.current || isAutoScrollingRef.current) return;
+    const el = e.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    userScrolledRef.current = !atBottom;
+  }, []);
 
   const [pullProgress, setPullProgress] = useState<string[]>([]);
   const [pullDone, setPullDone] = useState(false);
@@ -336,9 +355,8 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { j
               <div className="job-output-label">
                 Remote Logs {loading && "(refreshing...)"}
               </div>
-              <pre className="console console-short" style={{ maxHeight: "400px", overflow: "auto" }}>
+              <pre ref={logContainerRef} className="console console-tall" onScroll={handleLogScroll}>
                 {logs}
-                <div ref={logEndRef} />
               </pre>
             </div>
           ) : (
