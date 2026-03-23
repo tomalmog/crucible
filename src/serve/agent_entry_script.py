@@ -141,7 +141,7 @@ def _read_jsonl_as_records(path: str) -> list:
             # For SFT/chat data, also append the response if present
             response = row.get("response", "") or row.get("chosen", "")
             if response and isinstance(response, str):
-                content = f"{content}\n{response}" if content else response
+                content = (content + chr(10) + response) if content else response
             meta = {k: v for k, v in row.items() if k not in (*_TEXT_KEYS, "response", "chosen", "rejected")}
             records.append(_SimpleRecord(content=content, metadata=meta))
     return records
