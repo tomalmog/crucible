@@ -9,6 +9,7 @@ import {
   buildTrainingArgs, buildMethodArgs, buildDispatchSpec,
 } from "../../api/commandArgs";
 import { startCrucibleCommand } from "../../api/studioApi";
+import { trainingLabel } from "../../utils/jobLabels";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -105,7 +106,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     setRegistered(false);
     try {
       const args = buildTrainingArgs(method, shared, extra);
-      const status = await command.run(dataRoot, args);
+      const status = await command.run(dataRoot, args, trainingLabel(method, modelName));
       setStep("done");
       if (status.status === "completed" && status.exit_code === 0) {
         const modelPath = parseModelPath(status.stdout);
@@ -149,7 +150,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           gpu_type: clusterConfig.gpuType || "",
         },
       });
-      await startCrucibleCommand(dataRoot, args);
+      await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName));
       navigate("/jobs");
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));

@@ -9,7 +9,7 @@ interface CrucibleCommandState {
   status: CommandTaskStatus | null;
   output: string;
   error: string | null;
-  run: (dataRoot: string, args: string[]) => Promise<CommandTaskStatus>;
+  run: (dataRoot: string, args: string[], label?: string) => Promise<CommandTaskStatus>;
   reset: () => void;
 }
 
@@ -26,14 +26,14 @@ export function useCrucibleCommand(): CrucibleCommandState {
     setError(null);
   }, []);
 
-  const run = useCallback(async (dataRoot: string, args: string[]): Promise<CommandTaskStatus> => {
+  const run = useCallback(async (dataRoot: string, args: string[], label?: string): Promise<CommandTaskStatus> => {
     setIsRunning(true);
     setError(null);
     setOutput("");
     setStatus(null);
 
     try {
-      const taskStart = await startCrucibleCommand(dataRoot, args);
+      const taskStart = await startCrucibleCommand(dataRoot, args, label);
       let taskStatus: CommandTaskStatus;
 
       while (true) {

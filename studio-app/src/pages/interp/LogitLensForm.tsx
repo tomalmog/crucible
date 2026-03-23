@@ -7,6 +7,7 @@ import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
+import { logitLensLabel } from "../../utils/jobLabels";
 
 export function LogitLensForm() {
   const { dataRoot } = useCrucible();
@@ -44,7 +45,7 @@ export function LogitLensForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "logit-lens", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath));
       } else {
         const args = [
           "logit-lens",
@@ -54,7 +55,7 @@ export function LogitLensForm() {
           "--top-k", topK || "5",
         ];
         if (layerIndices.trim()) args.push("--layer-indices", layerIndices);
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath));
       }
       navigate("/jobs");
     } catch (err) {

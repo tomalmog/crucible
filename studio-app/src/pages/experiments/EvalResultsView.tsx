@@ -7,6 +7,7 @@ import { ModelSelect } from "../../components/shared/ModelSelect";
 import { listClusters } from "../../api/remoteApi";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteEvalArgs } from "../../api/commandArgs";
+import { evalLabel } from "../../utils/jobLabels";
 import type { ClusterConfig } from "../../types/remote";
 
 const ALL_BENCHMARKS = [
@@ -79,7 +80,8 @@ export function EvalResultsView() {
         memory,
         timeLimit,
       });
-      await startCrucibleCommand(dataRoot, args);
+      const selectedModelName = selectedEntry?.modelName || "model";
+      await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName));
       navigate("/jobs");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

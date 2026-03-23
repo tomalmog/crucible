@@ -8,6 +8,7 @@ import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
+import { activationPcaLabel } from "../../utils/jobLabels";
 
 export function ActivationPcaForm() {
   const { dataRoot } = useCrucible();
@@ -49,7 +50,7 @@ export function ActivationPcaForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "activation-pca", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath));
       } else {
         const args = [
           "activation-pca",
@@ -61,7 +62,7 @@ export function ActivationPcaForm() {
           "--granularity", granularity,
         ];
         if (colorField.trim()) args.push("--color-field", colorField);
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath));
       }
       navigate("/jobs");
     } catch (err) {

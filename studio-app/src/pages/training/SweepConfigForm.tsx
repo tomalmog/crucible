@@ -13,6 +13,7 @@ import {
   TRAINING_METHODS,
   REQUIRED_METHOD_FIELDS,
 } from "../../types/training";
+import { sweepLabel } from "../../utils/jobLabels";
 import { Plus, Trash2 } from "lucide-react";
 
 interface SweepParam {
@@ -143,7 +144,7 @@ export function SweepConfigForm() {
       }
     }
     setRegistered(false);
-    const status = await command.run(dataRoot, args);
+    const status = await command.run(dataRoot, args, sweepLabel(method, modelName));
     if (status.status === "completed" && status.stdout) {
       setResults(status.stdout);
       if (modelName.trim() && dataRoot) {

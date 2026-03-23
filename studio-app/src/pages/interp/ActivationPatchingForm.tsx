@@ -7,6 +7,7 @@ import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
+import { activationPatchingLabel } from "../../utils/jobLabels";
 
 export function ActivationPatchingForm() {
   const { dataRoot } = useCrucible();
@@ -45,7 +46,7 @@ export function ActivationPatchingForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "activation-patch", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath));
       } else {
         const args = [
           "activation-patch",
@@ -55,7 +56,7 @@ export function ActivationPatchingForm() {
           "--output-dir", "./outputs/interp",
           "--metric", metric,
         ];
-        await startCrucibleCommand(dataRoot, args);
+        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath));
       }
       navigate("/jobs");
     } catch (err) {

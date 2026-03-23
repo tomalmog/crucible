@@ -54,8 +54,9 @@ export async function sampleRecords(
 export async function startCrucibleCommand(
   dataRoot: string,
   args: string[],
+  label?: string,
 ): Promise<CommandTaskStart> {
-  return invoke<CommandTaskStart>("start_crucible_command", { dataRoot, args });
+  return invoke<CommandTaskStart>("start_crucible_command", { dataRoot, args, label });
 }
 
 export async function getCrucibleCommandStatus(
