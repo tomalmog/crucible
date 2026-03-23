@@ -85,21 +85,23 @@ impl Default for CommandTaskStore {
 }
 
 impl CommandTaskStore {
-    pub fn start_task(&self, data_root: String, args: Vec<String>) -> CommandTaskStart {
+    pub fn start_task(&self, data_root: String, args: Vec<String>, label: String) -> CommandTaskStart {
         let command_name = args[0].clone();
         let task_id = self.generate_task_id();
         let estimated_total_seconds = self.estimate_for_command(&command_name);
+        let label_opt = if label.is_empty() { None } else { Some(label.clone()) };
         self.insert_running_task(
             task_id.clone(),
             command_name.clone(),
             args.clone(),
             estimated_total_seconds,
+            label_opt,
         );
 
         let task_store = self.clone();
         let task_id_for_thread = task_id.clone();
         std::thread::spawn(move || {
-            task_store.execute_task(task_id_for_thread, data_root, command_name, args);
+            task_store.execute_task(task_id_for_thread, data_root, command_name, args, label);
         });
 
         CommandTaskStart {
@@ -209,11 +211,11 @@ impl CommandTaskStore {
         Ok(())
     }
 
-    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>) {
+    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String) {
         // Write initial unified JobRecord for commands shown on Jobs page.
         // Skip "dispatch" — the Python dispatch command writes its own record.
         if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
-            write_job_record(&data_root, &task_id, &command_name, "running", "", "");
+            write_job_record(&data_root, &task_id, &command_name, "running", "", "", &label);
         }
 
         let working_directory = workspace_root_dir();
@@ -370,6 +372,7 @@ impl CommandTaskStore {
         command_name: String,
         args: Vec<String>,
         estimated_total_seconds: u64,
+        label: Option<String>,
     ) {
         if let Ok(mut tasks) = self.inner.tasks.lock() {
             tasks.insert(
@@ -386,7 +389,7 @@ impl CommandTaskStore {
                     stderr: String::new(),
                     exit_code: None,
                     pid: None,
-                    label: None,
+                    label,
                 },
             );
             prune_finished_tasks(&mut tasks);
@@ -503,6 +506,7 @@ fn write_job_record(
     state: &str,
     model_path: &str,
     error_message: &str,
+    label: &str,
 ) {
     let jobs_dir = Path::new(data_root).join("jobs");
     if fs::create_dir_all(&jobs_dir).is_err() {
@@ -516,7 +520,7 @@ fn write_job_record(
         "state": state,
         "created_at": now,
         "updated_at": now,
-        "label": "",
+        "label": label,
         "backend_job_id": "",
         "backend_cluster": "",
         "backend_output_dir": "",
