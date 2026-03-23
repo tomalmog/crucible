@@ -23,6 +23,10 @@ _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
     "transformers", "accelerate", "safetensors", "datasets",
 )
+# Mapping from pip package name to Python import name when they differ.
+_IMPORT_NAMES: dict[str, str] = {
+    "pyyaml": "yaml",
+}
 
 # Shell snippet that sources conda's init script from common locations.
 # We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
@@ -174,9 +178,12 @@ def _ensure_torch_installed(session: SshSession) -> None:
 
 def _ensure_packages_installed(session: SshSession) -> None:
     """Install any missing pip packages into the crucible env."""
+    def _import_name(pkg: str) -> str:
+        clean = pkg.split("<")[0].split(">")[0].strip()
+        return _IMPORT_NAMES.get(clean, clean)
+
     imports = " ".join(
-        f"__import__('{p.split('<')[0].split('>')[0].strip()}')"
-        for p in _PIP_PACKAGES
+        f"__import__('{_import_name(p)}')" for p in _PIP_PACKAGES
     )
     _, _, code = session.execute(
         conda_cmd(

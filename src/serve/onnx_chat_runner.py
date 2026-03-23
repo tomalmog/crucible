@@ -131,6 +131,8 @@ def _generate_response_text(context: OnnxChatContext) -> str:
         generated_ids.append(next_token_id)
         if options.stream:
             token_text = context.tokenizer.decode([next_token_id])
+            if len(generated_ids) > 1 and _is_word_level_tokenizer(context.tokenizer):
+                token_text = " " + token_text
             sys.stdout.write(token_text)
             sys.stdout.flush()
     if not generated_ids:
@@ -189,3 +191,10 @@ def _softmax(np_module: Any, logits: Any) -> Any:
     shifted_logits = logits - np_module.max(logits)
     exponentials = np_module.exp(shifted_logits)
     return exponentials / np_module.sum(exponentials)
+
+
+def _is_word_level_tokenizer(tokenizer: Any) -> bool:
+    """Check if tokenizer is a word-level tokenizer that needs space separators."""
+    from serve.tokenization import VocabularyTokenizer
+
+    return isinstance(tokenizer, VocabularyTokenizer)

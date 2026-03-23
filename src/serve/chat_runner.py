@@ -245,6 +245,8 @@ def _generate_response_text(context: ChatRuntimeContext) -> str:
         generated_ids.append(next_token_id)
         if options.stream:
             token_text = context.tokenizer.decode([next_token_id])
+            if len(generated_ids) > 1 and _is_word_level_tokenizer(context.tokenizer):
+                token_text = " " + token_text
             sys.stdout.write(token_text)
             sys.stdout.flush()
     if not generated_ids:
@@ -289,3 +291,10 @@ def _resolve_runtime_context_limit(model: Any, fallback_limit: int) -> int:
         if shape is not None and len(shape) > 0 and int(shape[0]) > 0:
             return int(shape[0])
     return fallback_limit
+
+
+def _is_word_level_tokenizer(tokenizer: Any) -> bool:
+    """Check if tokenizer is a word-level tokenizer that needs space separators."""
+    from serve.tokenization import VocabularyTokenizer
+
+    return isinstance(tokenizer, VocabularyTokenizer)
