@@ -9,6 +9,7 @@ import type { RemoteJobRecord } from "../../types/remote";
 import type { JobRecord } from "../../types/jobs";
 import { syncRemoteJobStatus } from "../../api/remoteApi";
 import { Activity, Loader2 } from "lucide-react";
+import { TabBar } from "../../components/shared/TabBar";
 import { JobResultDetail } from "./JobResultDetail";
 import { RemoteJobResultDetail } from "./RemoteJobResultDetail";
 import { UnifiedJobResultDetail } from "./UnifiedJobResultDetail";
@@ -18,7 +19,7 @@ import { UnifiedJobRow } from "./UnifiedJobRow";
 
 type StatusFilter = "all" | "running" | "completed" | "failed";
 type LocationFilter = "all" | "local" | "remote";
-type TaskTypeFilter = "all" | "training" | "eval" | "sweep";
+type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp";
 
 const TRAINING_COMMANDS = new Set([
   "train", "sft", "dpo-train", "rlhf-train", "lora-train", "lora-merge",
@@ -26,9 +27,12 @@ const TRAINING_COMMANDS = new Set([
   "qlora-train", "kto-train", "orpo-train", "multimodal-train", "rlvr-train",
 ]);
 
+const INTERP_COMMANDS = new Set(["logit-lens", "activation-pca", "activation-patch"]);
+
 function classifyLocalJob(command: string): TaskTypeFilter {
   if (command === "sweep") return "sweep";
   if (command === "eval") return "eval";
+  if (INTERP_COMMANDS.has(command)) return "interp";
   if (TRAINING_COMMANDS.has(command)) return "training";
   return "training";
 }
@@ -36,14 +40,20 @@ function classifyLocalJob(command: string): TaskTypeFilter {
 function classifyRemoteJob(job: RemoteJobRecord): TaskTypeFilter {
   if (job.isSweep) return "sweep";
   if (job.trainingMethod === "eval") return "eval";
+  if (job.trainingMethod && INTERP_COMMANDS.has(job.trainingMethod)) return "interp";
   return "training";
 }
 
 function classifyUnifiedJob(job: JobRecord): TaskTypeFilter {
   if (job.isSweep) return "sweep";
   if (job.jobType === "eval") return "eval";
+  if (job.jobType && INTERP_COMMANDS.has(job.jobType)) return "interp";
   return "training";
 }
+
+const TYPE_TABS: readonly TaskTypeFilter[] = ["all", "training", "eval", "sweep", "interp"] as const;
+const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "running", "completed", "failed"] as const;
+const LOCATION_OPTIONS: readonly LocationFilter[] = ["all", "local", "remote"] as const;
 
 export function statusBadgeClass(status: string): string {
   switch (status) {
@@ -222,24 +232,28 @@ export function JobsPage() {
         )}
       </PageHeader>
 
-      <div className="filter-bar">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-          <option value="all">All Status</option>
-          <option value="running">Running</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-        </select>
-        <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value as LocationFilter)}>
-          <option value="all">All Locations</option>
-          <option value="local">Local</option>
-          <option value="remote">Remote</option>
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TaskTypeFilter)}>
-          <option value="all">All Types</option>
-          <option value="training">Training</option>
-          <option value="eval">Eval</option>
-          <option value="sweep">Sweep</option>
-        </select>
+      <TabBar tabs={TYPE_TABS} active={typeFilter} onChange={setTypeFilter} />
+
+      <div className="filter-pills">
+        {STATUS_OPTIONS.map((s) => (
+          <button
+            key={s}
+            className={`filter-pill${statusFilter === s ? " active" : ""}`}
+            onClick={() => setStatusFilter(s)}
+          >
+            {s === "all" ? "All Status" : s.charAt(0).toUpperCase() + s.slice(1)}
+          </button>
+        ))}
+        <span className="filter-pill-divider" />
+        {LOCATION_OPTIONS.map((l) => (
+          <button
+            key={l}
+            className={`filter-pill${locationFilter === l ? " active" : ""}`}
+            onClick={() => setLocationFilter(l)}
+          >
+            {l === "all" ? "All Locations" : l.charAt(0).toUpperCase() + l.slice(1)}
+          </button>
+        ))}
       </div>
 
       {merged.length === 0 && !isLoading ? (

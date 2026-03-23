@@ -26,6 +26,10 @@ def load_interp_model(model_path: str) -> tuple[Any, "InterpTokenizer"]:
 
     if is_huggingface_model_id(model_path):
         return _load_hf(model_path)
+    # Check if this is a merged HF model (e.g. from LoRA/QLoRA on an HF base).
+    hf_base = _detect_hf_base_model(model_path)
+    if hf_base:
+        return _load_hf_with_weights(hf_base, model_path)
     return _load_crucible(model_path)
 
 
@@ -42,6 +46,43 @@ def _load_hf(model_path: str) -> tuple[Any, "InterpTokenizer"]:
     model = load_huggingface_model(model_path)
     hf_tok = load_huggingface_tokenizer(model_path)
     return model, InterpTokenizer.from_hf(hf_tok)
+
+
+def _load_hf_with_weights(
+    hf_model_id: str, weights_path: str,
+) -> tuple[Any, "InterpTokenizer"]:
+    """Load HF architecture with custom weights from a .pt checkpoint.
+
+    Used for merged LoRA/QLoRA models where the .pt file contains
+    HF-style keys but the architecture comes from a HF base model.
+    """
+    from serve.hf_model_loader import (
+        load_huggingface_model,
+        load_huggingface_tokenizer,
+    )
+
+    model = load_huggingface_model(hf_model_id, weights_path)
+    model.eval()
+    hf_tok = load_huggingface_tokenizer(hf_model_id)
+    return model, InterpTokenizer.from_hf(hf_tok)
+
+
+def _detect_hf_base_model(model_path: str) -> str | None:
+    """Check if model_path has a training_config with a HF base_model_path."""
+    from serve.hf_model_loader import is_huggingface_model_id
+    from serve.training_metadata import load_training_config
+
+    config = load_training_config(model_path)
+    if not config:
+        return None
+    base = str(config.get("base_model_path", "") or "")
+    if base and is_huggingface_model_id(base):
+        return base
+    # Also check initial_weights_path (used by QLoRA's TrainingOptions)
+    initial = str(config.get("initial_weights_path", "") or "")
+    if initial and is_huggingface_model_id(initial):
+        return initial
+    return None
 
 
 # ---------- Crucible path ----------

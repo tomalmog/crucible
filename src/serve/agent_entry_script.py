@@ -124,6 +124,7 @@ class _SimpleRecord:
 
 def _read_jsonl_as_records(path: str) -> list:
     """Read a JSONL file and convert to simple record objects."""
+    _TEXT_KEYS = ("text", "input", "content", "prompt", "instruction")
     records = []
     with open(path) as f:
         for line in f:
@@ -131,8 +132,17 @@ def _read_jsonl_as_records(path: str) -> list:
             if not line:
                 continue
             row = json.loads(line)
-            content = row.get("text") or row.get("input") or row.get("content", "")
-            meta = {k: v for k, v in row.items() if k not in ("text", "input", "content")}
+            content = ""
+            for k in _TEXT_KEYS:
+                val = row.get(k, "")
+                if val and isinstance(val, str):
+                    content = val
+                    break
+            # For SFT/chat data, also append the response if present
+            response = row.get("response", "") or row.get("chosen", "")
+            if response and isinstance(response, str):
+                content = f"{content}\n{response}" if content else response
+            meta = {k: v for k, v in row.items() if k not in (*_TEXT_KEYS, "response", "chosen", "rejected")}
             records.append(_SimpleRecord(content=content, metadata=meta))
     return records
 

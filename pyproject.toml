@@ -22,7 +22,7 @@ onnx = ["onnx==1.17.0", "onnxruntime==1.20.1", "numpy==2.2.2"]
 tokenizers = ["tokenizers==0.22.2"]
 remote = ["paramiko==3.5.0"]
 eval = ["datasets>=3.0.0"]
-interp = ["scikit-learn>=1.4.0"]
+interp = []
 
 [project.scripts]
 crucible = "cli.main:main"
@@ -65,7 +65,5 @@ module = [
   "paramiko",
   "paramiko.*",
   "datasets",
-  "sklearn",
-  "sklearn.*",
 ]
 ignore_missing_imports = true

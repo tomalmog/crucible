@@ -2185,6 +2185,44 @@ label,
     font-size: 0.8125rem;
 }
 
+/* ─── Filter Pills ─── */
+
+.filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.filter-pill {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.filter-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+}
+
+.filter-pill-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    margin: 0 4px;
+}
+
 /* ─── Training form: leave room for the remote tab on the right ─── */
 
 .has-remote-tab {

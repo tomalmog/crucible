@@ -15,7 +15,14 @@ def run_activation_pca(
 ) -> dict[str, Any]:
     """Run PCA on layer activations and write results JSON."""
     import torch
-    from sklearn.decomposition import PCA  # type: ignore[import-untyped,unused-ignore]
+
+    texts = _extract_texts(records, options.max_samples)
+    if not texts:
+        from core.errors import CrucibleError
+        raise CrucibleError(
+            f"No usable text found in {len(records)} dataset records. "
+            "Ensure the dataset has 'text', 'prompt', 'content', or 'input' fields."
+        )
 
     model, tokenizer = _load_model_and_tokenizer(options)
     model.eval()
@@ -24,8 +31,6 @@ def run_activation_pca(
     layer_idx = options.layer_index if options.layer_index >= 0 else len(all_layers) - 1
     target_layer = all_layers[layer_idx]
     device = next(model.parameters()).device
-
-    texts = _extract_texts(records, options.max_samples)
     vectors: list[Any] = []
     labels: list[str] = []
     snippets: list[str] = []
@@ -53,10 +58,16 @@ def run_activation_pca(
                     labels.append(color)
                     snippets.append(text[:80])
 
-    stacked = torch.stack(vectors).numpy()
+    stacked = torch.stack(vectors).float()
     n_components = min(2, stacked.shape[0], stacked.shape[1])
-    pca = PCA(n_components=n_components)
-    projected = pca.fit_transform(stacked)
+
+    # PCA via SVD — no sklearn dependency needed
+    mean = stacked.mean(dim=0)
+    centered = stacked - mean
+    U, S, Vh = torch.linalg.svd(centered, full_matrices=False)
+    projected = (centered @ Vh[:n_components].T).numpy()
+    total_var = (S ** 2).sum()
+    explained_variance = [(float(S[i] ** 2 / total_var)) for i in range(n_components)]
 
     points = []
     for i in range(len(projected)):
@@ -71,7 +82,7 @@ def run_activation_pca(
         "layer_name": target_layer,
         "layer_index": layer_idx,
         "granularity": options.granularity,
-        "explained_variance": [round(float(v), 4) for v in pca.explained_variance_ratio_],
+        "explained_variance": [round(v, 4) for v in explained_variance],
         "points": points,
     }
 
@@ -91,19 +102,46 @@ def _load_model_and_tokenizer(options: ActivationPcaOptions) -> tuple[Any, Any]:
     return load_interp_model(model_path)
 
 
+_TEXT_ATTR_NAMES = ("text", "content", "prompt", "instruction", "input")
+
+
 def _extract_texts(records: list[Any], max_samples: int) -> list[str]:
-    """Extract text content from dataset records."""
+    """Extract text content from dataset records of any format.
+
+    Supports: Crucible DataRecord (.text), remote _SimpleRecord (.content),
+    SFT/LoRA/QLoRA records (.prompt + .response), plain dicts, etc.
+    """
     texts: list[str] = []
     for record in records[:max_samples]:
-        # Crucible DataRecord has .text; remote _SimpleRecord has .content
-        text = getattr(record, "text", None) or getattr(record, "content", None)
-        if isinstance(text, str) and text.strip():
+        text = _extract_single_text(record)
+        if text:
             texts.append(text)
-        elif isinstance(text, dict):
-            val = text.get("text", "") or text.get("input", "")
-            if val:
-                texts.append(str(val))
     return texts
+
+
+def _extract_single_text(record: Any) -> str:
+    """Extract a single text string from a record of any format."""
+    # Try attribute access (DataRecord, _SimpleRecord, etc.)
+    for attr in _TEXT_ATTR_NAMES:
+        val = getattr(record, attr, None)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+
+    # Try dict access
+    if isinstance(record, dict):
+        for key in _TEXT_ATTR_NAMES:
+            val = record.get(key, "")
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        # Nested dict: {"text": {"text": "..."}}
+        for key in ("text", "content"):
+            val = record.get(key)
+            if isinstance(val, dict):
+                inner = val.get("text", "") or val.get("input", "")
+                if inner:
+                    return str(inner).strip()
+
+    return ""
 
 
 def _get_color_label(records: list[Any], index: int, field: str) -> str:
