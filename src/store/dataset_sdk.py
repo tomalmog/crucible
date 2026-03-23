@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from core.activation_pca_types import ActivationPcaOptions
+from core.activation_patching_types import ActivationPatchingOptions
 from core.chat_types import ChatOptions, ChatResult
 from core.config import CrucibleConfig
 from core.distillation_types import DistillationOptions
@@ -20,6 +22,7 @@ from core.multimodal_types import MultimodalOptions
 from core.orpo_types import OrpoOptions
 from core.qlora_types import QloraOptions
 from core.rlvr_types import RlvrOptions
+from core.logit_lens_types import LogitLensOptions
 from core.errors import (
     CrucibleDistillationError, CrucibleDpoError, CrucibleGrpoError, CrucibleKtoError,
     CrucibleLoraError, CrucibleMultimodalError, CrucibleOrpoError, CrucibleQloraError,
@@ -38,6 +41,8 @@ from core.types import (
     TrainingRunResult,
 )
 from ingest.pipeline import ingest_dataset
+from serve.activation_pca_runner import run_activation_pca
+from serve.activation_patching_runner import run_activation_patching
 from serve.chat_runner import run_chat
 from serve.distillation_runner import run_distillation
 from serve.domain_adaptation_runner import run_domain_adaptation
@@ -50,6 +55,7 @@ from serve.orpo_runner import run_orpo_training
 from serve.qlora_runner import run_qlora_training
 from serve.rlhf_runner import run_rlhf_training
 from serve.rlvr_runner import run_rlvr_training
+from serve.logit_lens_runner import run_logit_lens
 from serve.lora_training_runner import run_lora_training
 from serve.sft_runner import run_sft_training
 from serve.training_run_registry import TrainingRunRegistry
@@ -211,6 +217,20 @@ class CrucibleClient:
                 data_root=self._config.data_root,
             )
         return self.dataset(options.dataset_name).rlvr_train(options)
+
+    def logit_lens(self, options: LogitLensOptions) -> dict[str, object]:
+        """Run logit lens interpretability analysis."""
+        return run_logit_lens(options)
+
+    def activation_pca(self, options: ActivationPcaOptions) -> dict[str, object]:
+        """Run activation PCA interpretability analysis."""
+        dataset = self.dataset(options.dataset_name)
+        _, records = dataset.load_records()
+        return run_activation_pca(options, records)
+
+    def activation_patching(self, options: ActivationPatchingOptions) -> dict[str, object]:
+        """Run activation patching interpretability analysis."""
+        return run_activation_patching(options)
 
     def chat(self, options: ChatOptions) -> ChatResult:
         """Run chat inference against a trained model."""

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
 import {
-  Zap, Database, Box, MessageSquare, FlaskConical, Globe,
+  Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
   Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -107,6 +107,7 @@ export function AppSidebar() {
         <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
         <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
         <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Benchmarks" />
+        <SidebarNavItem to="/interpretability" icon={<Microscope size={16} />} label="Interpretability" />
 
         <span className="sidebar-section-label">Tools</span>
         <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />

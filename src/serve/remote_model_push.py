@@ -10,6 +10,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+from core.constants import sanitize_remote_name
 from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
 from serve.ssh_connection import SshSession
@@ -35,7 +36,7 @@ def push_model_to_cluster(
     if not model_path.exists():
         raise CrucibleRemoteError(f"Local model path not found: {model_path}")
 
-    remote_dir = f"{cluster.remote_workspace}/models/{model_name}"
+    remote_dir = f"{cluster.remote_workspace}/models/{sanitize_remote_name(model_name)}"
     session.mkdir_p(remote_dir)
 
     if model_path.is_file():

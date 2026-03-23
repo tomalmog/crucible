@@ -112,6 +112,31 @@ def _ingest_raw_data(client, method_args: dict) -> None:
     print(f"CRUCIBLE_AGENT: Ingestion complete.")
 
 
+class _SimpleRecord:
+    """Lightweight record for reading raw JSONL when the dataset store
+    is not available (e.g. on a remote cluster)."""
+    __slots__ = ("content", "metadata")
+
+    def __init__(self, content, metadata=None):
+        self.content = content
+        self.metadata = metadata or {}
+
+
+def _read_jsonl_as_records(path: str) -> list:
+    """Read a JSONL file and convert to simple record objects."""
+    records = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            content = row.get("text") or row.get("input") or row.get("content", "")
+            meta = {k: v for k, v in row.items() if k not in ("text", "input", "content")}
+            records.append(_SimpleRecord(content=content, metadata=meta))
+    return records
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Crucible remote agent")
     parser.add_argument("--config", required=True, help="Path to training config JSON")
@@ -196,6 +221,77 @@ def main() -> None:
             sys.exit(1)
         avg = result_data.get("average_score", "N/A")
         print(f"CRUCIBLE_AGENT: Evaluation complete. Average score: {avg}")
+        print("CRUCIBLE_AGENT_COMPLETE")
+        return
+
+    # --- Interpretability jobs: run analysis, write result.json ---
+    _INTERP_METHODS = frozenset({"logit-lens", "activation-pca", "activation-patch"})
+    if method in _INTERP_METHODS:
+        print(f"CRUCIBLE_AGENT: Running interpretability ({method})...", flush=True)
+        _ensure_output_dir(method_args)
+        try:
+            if method == "logit-lens":
+                from core.logit_lens_types import LogitLensOptions
+                from serve.logit_lens_runner import run_logit_lens
+                opts = LogitLensOptions(**{
+                    k: v for k, v in method_args.items()
+                    if k in LogitLensOptions.__dataclass_fields__
+                })
+                interp_result = run_logit_lens(opts)
+            elif method == "activation-pca":
+                from core.activation_pca_types import ActivationPcaOptions
+                from serve.activation_pca_runner import run_activation_pca
+                opts = ActivationPcaOptions(**{
+                    k: v for k, v in method_args.items()
+                    if k in ActivationPcaOptions.__dataclass_fields__
+                })
+                # Load dataset records for PCA.
+                # On remote clusters, read raw JSONL directly since the
+                # dataset may not be in the Crucible store.
+                ds_name = method_args.get("dataset_name", "")
+                records = []
+                if ds_name:
+                    try:
+                        _, records = client.dataset(ds_name).load_records()
+                    except Exception:
+                        # Fallback: try reading raw JSONL from dataset dir
+                        import glob
+                        from core.constants import sanitize_remote_name
+                        ws = os.environ.get("CRUCIBLE_WORKSPACE", os.getcwd())
+                        safe_ds = sanitize_remote_name(ds_name)
+                        jsonl_candidates = glob.glob(
+                            f"{ws}/datasets/{safe_ds}/*.jsonl",
+                        )
+                        if jsonl_candidates:
+                            records = _read_jsonl_as_records(jsonl_candidates[0])
+                interp_result = run_activation_pca(opts, records)
+            else:  # activation-patch
+                from core.activation_patching_types import ActivationPatchingOptions
+                from serve.activation_patching_runner import run_activation_patching
+                opts = ActivationPatchingOptions(**{
+                    k: v for k, v in method_args.items()
+                    if k in ActivationPatchingOptions.__dataclass_fields__
+                })
+                interp_result = run_activation_patching(opts)
+
+            result_data = {
+                "status": "completed",
+                "job_type": method,
+                **interp_result,
+            }
+        except Exception as exc:
+            import traceback
+            result_data = {
+                "status": "failed",
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+            }
+        with open(output_path, "w") as f:
+            json.dump(result_data, f, indent=2)
+        if result_data["status"] == "failed":
+            print(f"CRUCIBLE_AGENT_ERROR: {result_data['error']}", file=sys.stderr)
+            sys.exit(1)
+        print(f"CRUCIBLE_AGENT: Interpretability ({method}) complete.")
         print("CRUCIBLE_AGENT_COMPLETE")
         return
 

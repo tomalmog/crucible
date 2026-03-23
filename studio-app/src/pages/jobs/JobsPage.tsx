@@ -118,13 +118,14 @@ export function JobsPage() {
     const items: UnifiedJob[] = [];
 
     if (locationFilter !== "remote") {
-      for (const j of jobs) {
+      const now = Date.now();
+      for (let i = 0; i < jobs.length; i++) {
+        const j = jobs[i];
         if (statusFilter !== "all" && normalizeStatus(j.status) !== statusFilter) continue;
         if (typeFilter !== "all" && classifyLocalJob(j.command) !== typeFilter) continue;
-        // Local jobs have sequential task IDs — higher = newer.
-        // Extract the numeric part for sorting.
-        const num = parseInt(j.task_id.replace(/\D/g, ""), 10) || 0;
-        items.push({ kind: "local", job: j, sortKey: num });
+        // Local jobs lack timestamps. The array is already newest-first,
+        // so assign descending keys comparable to remote timestamps.
+        items.push({ kind: "local", job: j, sortKey: now - i });
       }
     }
 
@@ -224,6 +225,7 @@ export function JobsPage() {
                 onDelete={() => removeRemoteJob(item.job.jobId)}
                 onCancel={() => cancelRemoteJob(item.job.jobId).catch(console.error)}
                 onView={() => setViewingRemoteJob(item.job)}
+                onRefresh={refreshRemote}
               />
             ),
           )}

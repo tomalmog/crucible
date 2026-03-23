@@ -123,6 +123,19 @@ def add_remote_command(
     es.add_argument("--memory", default="32G", help="Memory limit")
     es.add_argument("--time-limit", default="04:00:00", help="Wall-clock limit")
 
+    # interp-submit
+    ip = sub.add_parser("interp-submit", help="Submit interpretability job to cluster")
+    ip.add_argument("--cluster", required=True, help="Cluster name")
+    ip.add_argument("--interp-method", required=True, help="Interp method: logit-lens, activation-pca, activation-patch")
+    ip.add_argument("--method-args", required=True, help="JSON interp arguments")
+    ip.add_argument("--partition", default="", help="Slurm partition")
+    ip.add_argument("--nodes", type=int, default=1, help="Number of nodes")
+    ip.add_argument("--gpus-per-node", type=int, default=1, help="GPUs per node")
+    ip.add_argument("--gpu-type", default="", help="GPU type (e.g. a100)")
+    ip.add_argument("--cpus-per-task", type=int, default=4, help="CPUs per task")
+    ip.add_argument("--memory", default="32G", help="Memory limit")
+    ip.add_argument("--time-limit", default="02:00:00", help="Wall-clock limit")
+
     # chat
     ch = sub.add_parser("chat", help="Run chat inference on a remote cluster model")
     ch.add_argument("--cluster", required=True, help="Cluster name")
@@ -158,6 +171,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     from cli.remote_command_handlers import (
         _handle_cancel,
         _handle_eval_submit,
+        _handle_interp_submit,
         _handle_list_clusters,
         _handle_list_jobs,
         _handle_logs,
@@ -189,6 +203,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "submit": _handle_submit,
         "submit-sweep": _handle_submit_sweep,
         "eval-submit": _handle_eval_submit,
+        "interp-submit": _handle_interp_submit,
         "list": _handle_list_jobs,
         "status": _handle_status,
         "result": _handle_result,

@@ -18,6 +18,7 @@ from core.constants import (
     DATASETS_DIR_NAME,
     MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
+    sanitize_remote_name,
 )
 from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig
@@ -94,7 +95,8 @@ def push_dataset(
     if source_path:
         metadata["has_source"] = True
 
-    remote_dir = f"{_remote_datasets_dir(cluster)}/{dataset_name}"
+    safe_name = sanitize_remote_name(dataset_name)
+    remote_dir = f"{_remote_datasets_dir(cluster)}/{safe_name}"
     session.mkdir_p(remote_dir)
 
     _upload_tar(session, remote_dir, records_path, metadata, source_path)
@@ -204,7 +206,7 @@ def delete_remote_dataset(
     dataset_name: str,
 ) -> None:
     """Delete a dataset directory on the remote cluster."""
-    remote_dir = f"{_remote_datasets_dir(cluster)}/{dataset_name}"
+    remote_dir = f"{_remote_datasets_dir(cluster)}/{sanitize_remote_name(dataset_name)}"
     _, stderr, code = session.execute(f"rm -rf {remote_dir}")
     if code != 0:
         raise CrucibleRemoteError(
@@ -227,7 +229,8 @@ def pull_remote_dataset(
     Returns the local dataset directory path.
     """
     datasets_dir = _remote_datasets_dir(cluster)
-    remote_dir = f"{datasets_dir}/{dataset_name}"
+    safe_name = sanitize_remote_name(dataset_name)
+    remote_dir = f"{datasets_dir}/{safe_name}"
     remote_records = f"{remote_dir}/{RECORDS_FILE_NAME}"
 
     _, _, code = session.execute(f"test -f {remote_records}")

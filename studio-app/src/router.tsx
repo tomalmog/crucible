@@ -12,6 +12,7 @@ import { JobsPage } from "./pages/jobs/JobsPage";
 import { DocsPage } from "./pages/docs/DocsPage";
 import { ClustersPage } from "./pages/clusters/ClustersPage";
 import { ResourcesPage } from "./pages/resources/ResourcesPage";
+import { InterpPage } from "./pages/interp/InterpPage";
 import { UITestPage } from "./pages/ui-test/UITestPage";
 
 export const router = createHashRouter([
@@ -31,6 +32,7 @@ export const router = createHashRouter([
       { path: "jobs", Component: JobsPage },
       { path: "clusters", Component: ClustersPage },
       { path: "resources", Component: ResourcesPage },
+      { path: "interpretability", Component: InterpPage },
       { path: "docs", Component: DocsPage },
       { path: "ui-test", Component: UITestPage },
     ],

@@ -171,6 +171,23 @@ def _handle_eval_submit(client: CrucibleClient, args: argparse.Namespace) -> int
     return 0
 
 
+def _handle_interp_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
+    from serve.remote_job_submitter import submit_remote_interp_job
+
+    method_args = json.loads(args.method_args)
+    resources = _build_resources(args)
+    record = submit_remote_interp_job(
+        data_root=client._config.data_root,
+        cluster_name=args.cluster,
+        interp_method=args.interp_method,
+        method_args=method_args,
+        resources=resources,
+    )
+    print(f"job_id={record.job_id}")
+    print(f"slurm_job_id={record.slurm_job_id}")
+    return 0
+
+
 def _handle_submit_sweep(client: CrucibleClient, args: argparse.Namespace) -> int:
     import yaml
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { RemoteJobRecord } from "../../types/remote";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
-import { getRemoteJobLogs } from "../../api/remoteApi";
+import { getRemoteJobLogs, syncRemoteJobStatus } from "../../api/remoteApi";
 import { statusBadgeClass } from "./JobsPage";
 import {
   Activity,
@@ -20,7 +20,7 @@ import {
 
 const ACTIVE_STATES = new Set(["running", "pending"]);
 
-export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void; onView: () => void }) {
+export function RemoteJobRow({ job, onDelete, onCancel, onView, onRefresh }: { job: RemoteJobRecord; onDelete: () => void; onCancel: () => void; onView: () => void; onRefresh?: () => void }) {
   const { dataRoot, refreshModels } = useCrucible();
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepArraySize} trials)` : "";
   const [showLogs, setShowLogs] = useState(false);
@@ -54,6 +54,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
       ]);
       streamTaskRef.current = task_id;
       // Poll the task's stdout for incremental output
+      const completionDetectedRef = { current: false };
       streamPollRef.current = setInterval(async () => {
         try {
           const status = await getCrucibleCommandStatus(task_id);
@@ -61,6 +62,14 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
           if (stdout) {
             setLogs(stdout.trim());
             setLoading(false);
+            // Detect agent completion in log stream → trigger immediate status sync
+            if (!completionDetectedRef.current &&
+                (stdout.includes("CRUCIBLE_AGENT_COMPLETE") || stdout.includes("CRUCIBLE_AGENT_ERROR"))) {
+              completionDetectedRef.current = true;
+              syncRemoteJobStatus(dataRoot!, job.jobId, true)
+                .then(() => onRefresh?.())
+                .catch(console.error);
+            }
           }
           if (status.status !== "running") {
             if (streamPollRef.current) clearInterval(streamPollRef.current);
@@ -81,7 +90,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
       setLogs(`Error starting log stream: ${err}`);
       setLoading(false);
     }
-  }, [dataRoot, job.jobId, fetchLogs]);
+  }, [dataRoot, job.jobId, fetchLogs, onRefresh]);
 
   const stopLogStream = useCallback(() => {
     if (streamPollRef.current) {
@@ -184,6 +193,14 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
     }
   }, [failedOnCluster]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-start log streaming for running jobs
+  useEffect(() => {
+    if (isRunning && !isSubmitting && !showLogs) {
+      setShowLogs(true);
+      startLogStream();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="run-row section-divider">
       <div className="run-row-header">
@@ -225,7 +242,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
               <Terminal size={12} /> Logs
             </button>
           )}
-          {isCompleted && !hasLocalModel && !pulling && !pullDone && job.trainingMethod !== "eval" && (
+          {isCompleted && !hasLocalModel && !pulling && !pullDone && !["eval", "logit-lens", "activation-pca", "activation-patch"].includes(job.trainingMethod) && (
             <button
               className="btn btn-sm"
               onClick={(e) => { e.stopPropagation(); handlePull(); }}
@@ -234,7 +251,7 @@ export function RemoteJobRow({ job, onDelete, onCancel, onView }: { job: RemoteJ
               <Download size={12} /> Pull Model
             </button>
           )}
-          {job.state === "pending" && (
+          {(job.state === "pending" || job.state === "running") && (
             <button
               className="btn btn-sm"
               onClick={(e) => { e.stopPropagation(); onCancel(); }}

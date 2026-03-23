@@ -3,6 +3,10 @@ import { ArrowLeft, Trophy } from "lucide-react";
 import { CommandTaskStatus, TrainingHistory } from "../../types";
 import { loadTrainingHistory } from "../../api/studioApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
+import { LogitLensResults } from "../interp/LogitLensResults";
+import { ActivationPcaResults } from "../interp/ActivationPcaResults";
+import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
+import type { LogitLensResult, PcaResult, PatchingResult } from "../../types/interp";
 
 interface JobResultDetailProps {
   job: CommandTaskStatus;
@@ -13,6 +17,10 @@ const TRAINING_COMMANDS = new Set([
   "train", "sft", "dpo-train", "rlhf-train", "lora-train",
   "distill", "domain-adapt", "grpo-train", "qlora-train",
   "kto-train", "orpo-train", "multimodal-train", "rlvr-train",
+]);
+
+const INTERP_COMMANDS = new Set([
+  "logit-lens", "activation-pca", "activation-patch",
 ]);
 
 function parseKeyValueOutput(stdout: string): Record<string, string> {
@@ -81,17 +89,19 @@ function extractArgValue(args: string[], flag: string): string | null {
 export function JobResultDetail({ job, onBack }: JobResultDetailProps) {
   const isSweep = job.command === "sweep";
   const isTraining = TRAINING_COMMANDS.has(job.command);
+  const isInterp = INTERP_COMMANDS.has(job.command);
   const isFailed = job.status === "failed";
 
   if (isFailed) return <FailedJobView job={job} onBack={onBack} />;
   if (isSweep) return <SweepResultView job={job} onBack={onBack} />;
+  if (isInterp) return <InterpResultView job={job} onBack={onBack} />;
   if (isTraining) return <TrainingResultView job={job} onBack={onBack} />;
   return <GenericResultView job={job} onBack={onBack} />;
 }
 
 function BackButton({ onBack }: { onBack: () => void }) {
   return (
-    <button className="btn btn-ghost btn-sm" onClick={onBack}>
+    <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ justifySelf: "start" }}>
       <ArrowLeft size={14} /> Back to Jobs
     </button>
   );
@@ -267,6 +277,49 @@ function TrainingResultView({ job, onBack }: JobResultDetailProps) {
         <summary>Raw output</summary>
         <pre className="console console-short">{job.stdout}</pre>
       </details>
+    </div>
+  );
+}
+
+const INTERP_LABELS: Record<string, string> = {
+  "logit-lens": "Logit Lens",
+  "activation-pca": "Activation PCA",
+  "activation-patch": "Activation Patching",
+};
+
+function InterpResultView({ job, onBack }: JobResultDetailProps) {
+  const parsed = useMemo(() => {
+    try {
+      return JSON.parse(job.stdout) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }, [job.stdout]);
+
+  const label = INTERP_LABELS[job.command] ?? job.command;
+
+  return (
+    <div className="panel stack-lg">
+      <BackButton onBack={onBack} />
+      <h3>{label} — Result</h3>
+      {parsed && job.command === "logit-lens" && (
+        <LogitLensResults result={parsed as unknown as LogitLensResult} />
+      )}
+      {parsed && job.command === "activation-pca" && (
+        <ActivationPcaResults result={parsed as unknown as PcaResult} />
+      )}
+      {parsed && job.command === "activation-patch" && (
+        <ActivationPatchingResults result={parsed as unknown as PatchingResult} />
+      )}
+      {!parsed && job.stdout && (
+        <pre className="console">{job.stdout}</pre>
+      )}
+      {job.stderr && (
+        <details>
+          <summary>stderr</summary>
+          <pre className="console console-short">{job.stderr}</pre>
+        </details>
+      )}
     </div>
   );
 }

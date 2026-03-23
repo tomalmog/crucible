@@ -6,8 +6,25 @@ Keeping values here avoids magic literals in business logic.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Literal
+
+
+def sanitize_remote_name(name: str) -> str:
+    """Sanitize a name for use as a remote filesystem directory.
+
+    Replaces any character that is not alphanumeric, underscore, dash,
+    or dot with an underscore.  This handles HuggingFace repo IDs like
+    ``org/model-name`` → ``org_model-name`` so they stay as flat
+    directory names on remote clusters.
+
+    Used by dataset push/pull/list, hub downloads, training job
+    submission, and interp job submission.  **Every** code path that
+    builds a remote dataset or model directory MUST use this function
+    so paths stay consistent.
+    """
+    return re.sub(r"[^a-zA-Z0-9_.\-]", "_", name)
 
 DEFAULT_DATA_ROOT = Path(".crucible")
 DATASETS_DIR_NAME = "datasets"

@@ -238,7 +238,7 @@ export function UITestPage() {
           <p className="text-xs text-tertiary" style={{ marginBottom: 8 }}>Static demo (DatasetSelect / ModelSelect pattern)</p>
           <div className="dataset-select" style={{ maxWidth: 360 }}>
             <div className="dataset-select-input-wrap">
-              <input value="my-training-data" readOnly placeholder="Select a dataset" />
+              <input value="my-training-data — Local" readOnly placeholder="Select a dataset" />
               <button type="button" className="dataset-select-clear"><X size={14} /></button>
             </div>
           </div>
@@ -253,7 +253,7 @@ export function UITestPage() {
                 <li className="dataset-select-header">Local</li>
                 <li><button type="button" className="dataset-select-option">my-training-data</button></li>
                 <li><button type="button" className="dataset-select-option">eval-holdout</button></li>
-                <li className="dataset-select-header">Remote</li>
+                <li className="dataset-select-header">Watgpu</li>
                 <li><button type="button" className="dataset-select-option">cluster-dataset-v2</button></li>
               </ul>
             </div>

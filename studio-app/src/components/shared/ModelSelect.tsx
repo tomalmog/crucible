@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 
@@ -7,6 +7,7 @@ interface ModelSelectProps {
   onChange: (modelPath: string) => void;
   placeholder?: string;
   remoteOnly?: boolean;
+  localOnly?: boolean;
 }
 
 interface ModelOption {
@@ -19,25 +20,25 @@ interface ModelOption {
  * Searchable dropdown for selecting a registered model.
  * Only allows picking from the model registry — no free text.
  */
-export function ModelSelect({ value, onChange, placeholder = "Select a model", remoteOnly = false }: ModelSelectProps) {
+export function ModelSelect({ value, onChange, placeholder = "Select a model", remoteOnly = false, localOnly = false }: ModelSelectProps) {
   const { models } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const pathToName = useMemo(() => {
+  const pathToDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of models) {
-      if (m.modelPath) map.set(m.modelPath, m.modelName);
+      if (m.modelPath) map.set(m.modelPath, `${m.modelName} — Local`);
       if (m.remotePath) {
-        const host = m.remoteHost.split(".")[0];
-        map.set(m.remotePath, `${m.modelName} (${host})`);
+        const host = m.remoteHost.split(".")[0] || "Remote";
+        map.set(m.remotePath, `${m.modelName} — ${host}`);
       }
     }
     return map;
   }, [models]);
 
-  const displayValue = value ? (pathToName.get(value) ?? value) : "";
+  const displayValue = value ? (pathToDisplay.get(value) ?? value) : "";
 
   const options = useMemo(() => {
     const result: ModelOption[] = [];
@@ -47,17 +48,32 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
       if (!remoteOnly && m.hasLocal && m.modelPath) {
         result.push({ label: m.modelName, value: m.modelPath, section: "local" });
       }
-      if (m.hasRemote && m.remotePath) {
-        const host = m.remoteHost.split(".")[0];
-        result.push({ label: `${m.modelName} (${host})`, value: m.remotePath, section: "remote" });
+      if (!localOnly && m.hasRemote && m.remotePath) {
+        result.push({ label: m.modelName, value: m.remotePath, section: "remote" });
       }
     }
     return result;
-  }, [models, search, remoteOnly]);
+  }, [models, search, remoteOnly, localOnly]);
+
+  // Group remote models by cluster hostname
+  const remoteGroups = useMemo(() => {
+    const groups = new Map<string, ModelOption[]>();
+    if (localOnly) return groups;
+    for (const m of models) {
+      if (!m.hasRemote || !m.remotePath) continue;
+      const q = search.toLowerCase();
+      if (!m.modelName.toLowerCase().includes(q)) continue;
+      const host = m.remoteHost.split(".")[0] || "Remote";
+      const list = groups.get(host) || [];
+      list.push({ label: m.modelName, value: m.remotePath, section: "remote" });
+      groups.set(host, list);
+    }
+    return groups;
+  }, [models, search, localOnly]);
 
   const localOptions = options.filter((o) => o.section === "local");
-  const remoteOptions = options.filter((o) => o.section === "remote");
-  const hasResults = localOptions.length > 0 || remoteOptions.length > 0;
+  const hasRemote = remoteGroups.size > 0;
+  const hasResults = localOptions.length > 0 || hasRemote;
 
   function handleFocus(): void {
     clearTimeout(blurTimeout.current);
@@ -124,12 +140,12 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
               {renderOptions(localOptions)}
             </>
           )}
-          {remoteOptions.length > 0 && (
-            <>
-              <li className="dataset-select-header">Remote</li>
-              {renderOptions(remoteOptions)}
-            </>
-          )}
+          {Array.from(remoteGroups.entries()).map(([host, items]) => (
+            <React.Fragment key={host}>
+              <li className="dataset-select-header">{host}</li>
+              {renderOptions(items)}
+            </React.Fragment>
+          ))}
           {!hasResults && (
             <li className="dataset-select-empty">No models found</li>
           )}

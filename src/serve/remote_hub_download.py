@@ -7,9 +7,9 @@ the remote, and optionally registers the model in the local registry.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
+from core.constants import sanitize_remote_name
 from core.errors import CrucibleRemoteError
 from serve.remote_env_setup import ENV_NAME, conda_cmd, ensure_remote_env
 from serve.ssh_connection import SshSession
@@ -113,7 +113,7 @@ def download_dataset_to_cluster(
             repo_type="dataset",
         )
         # Write metadata.json so list_remote_datasets discovers it
-        safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", repo_id)
+        safe_name = sanitize_remote_name(repo_id)
         _write_remote_dataset_metadata(session, remote_path, safe_name)
         _progress(f"Download complete: {remote_path}")
 
@@ -171,14 +171,12 @@ def _ensure_hf_hub_installed(session: SshSession) -> None:
 
 def _build_remote_model_path(remote_workspace: str, repo_id: str) -> str:
     """Build the target directory for the model on the remote."""
-    safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", repo_id)
-    return f"{remote_workspace}/models/{safe_name}"
+    return f"{remote_workspace}/models/{sanitize_remote_name(repo_id)}"
 
 
 def _build_remote_dataset_path(remote_workspace: str, repo_id: str) -> str:
     """Build the target directory for the dataset on the remote."""
-    safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", repo_id)
-    return f"{remote_workspace}/datasets/{safe_name}"
+    return f"{remote_workspace}/datasets/{sanitize_remote_name(repo_id)}"
 
 
 def _run_snapshot_download(

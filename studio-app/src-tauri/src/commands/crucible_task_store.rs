@@ -13,8 +13,8 @@ const MAX_TASKS: usize = 200;
 const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
-/// Commands shown on the Jobs page (training workloads only).
-const JOBS_PAGE_COMMANDS: [&str; 16] = [
+/// Commands shown on the Jobs page.
+const JOBS_PAGE_COMMANDS: [&str; 19] = [
     "train",
     "sft",
     "dpo-train",
@@ -31,6 +31,9 @@ const JOBS_PAGE_COMMANDS: [&str; 16] = [
     "multimodal-train",
     "rlvr-train",
     "sweep",
+    "logit-lens",
+    "activation-pca",
+    "activation-patch",
 ];
 
 #[derive(Clone)]
@@ -129,7 +132,7 @@ impl CommandTaskStore {
             .cloned()
             .map(task_to_status)
             .collect();
-        result.sort_by(|a, b| a.task_id.cmp(&b.task_id));
+        result.sort_by(|a, b| b.task_id.cmp(&a.task_id));
         result
     }
 

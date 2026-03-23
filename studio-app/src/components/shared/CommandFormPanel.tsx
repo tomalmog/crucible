@@ -38,11 +38,6 @@ export function CommandFormPanel({
     <div className="panel stack-lg">
       <h3>{title}</h3>
       {children}
-      {!canStart && (
-        <div className="error-alert">
-          Missing required fields: {missing.join(", ")}
-        </div>
-      )}
       <button
         className="btn btn-primary"
         onClick={onSubmit}

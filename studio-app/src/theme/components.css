@@ -450,30 +450,33 @@ label,
 .badge {
     display: inline-flex;
     align-items: center;
+    gap: 4px;
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 999px;
     font-size: 0.6875rem;
     font-weight: 600;
     font-family: var(--font-mono);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
 }
 
 .badge-accent {
-    background: var(--accent-muted);
+    border-color: var(--accent);
     color: var(--accent-text);
 }
 
 .badge-success {
-    background: var(--success-muted);
+    border-color: var(--success);
     color: var(--success);
 }
 
 .badge-warning {
-    background: var(--warning-muted);
+    border-color: var(--warning);
     color: var(--warning);
 }
 
 .badge-error {
-    background: var(--error-muted);
+    border-color: var(--error);
     color: var(--error);
 }
 
@@ -1499,6 +1502,15 @@ label,
     font-weight: 500;
 }
 
+.info-banner {
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--clr-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--clr-accent) 25%, transparent);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
 .section-divider {
     border-bottom: 1px solid var(--border);
     padding-bottom: 1rem;
@@ -2302,4 +2314,64 @@ label,
     margin: 0;
     padding-top: 6px;
     border-top: 1px solid var(--border);
+}
+
+/* ─── Scatter Plot ─── */
+
+.scatter-tooltip {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    font-size: 0.75rem;
+    color: var(--text);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scatter-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.scatter-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.scatter-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ─── Logit Lens ─── */
+
+.logit-lens-svg {
+    font-family: var(--font-mono);
+}
+
+.chart-label {
+    font-size: 0.6875rem;
+    fill: var(--text-secondary);
+}
+
+.chart-cell-text {
+    font-size: 0.625rem;
+    fill: var(--text);
 }

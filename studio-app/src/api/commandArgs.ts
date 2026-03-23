@@ -263,6 +263,35 @@ export function buildRemoteEvalArgs(
   return args;
 }
 
+/** Build CLI args for `crucible remote interp-submit ...`. */
+export function buildRemoteInterpArgs(
+  cluster: string,
+  interpMethod: string,
+  methodArgsJson: string,
+  opts: {
+    partition?: string;
+    gpusPerNode?: string;
+    gpuType?: string;
+    cpusPerTask?: string;
+    memory?: string;
+    timeLimit?: string;
+  } = {},
+): string[] {
+  const args = [
+    "remote", "interp-submit",
+    "--cluster", cluster,
+    "--interp-method", interpMethod,
+    "--method-args", methodArgsJson,
+  ];
+  if (opts.partition) args.push("--partition", opts.partition);
+  if (opts.gpusPerNode) args.push("--gpus-per-node", opts.gpusPerNode);
+  if (opts.gpuType) args.push("--gpu-type", opts.gpuType);
+  if (opts.cpusPerTask) args.push("--cpus-per-task", opts.cpusPerTask);
+  if (opts.memory) args.push("--memory", opts.memory);
+  if (opts.timeLimit) args.push("--time-limit", opts.timeLimit);
+  return args;
+}
+
 /** Build the full CLI args array for `crucible remote submit ...`. */
 export function buildRemoteSubmitArgs(
   method: TrainingMethod,

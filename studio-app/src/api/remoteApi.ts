@@ -54,7 +54,7 @@ export async function syncRemoteJobStatus(
 ): Promise<RemoteJobRecord> {
   const key = `jobStatus:${dataRoot}:${jobId}`;
   if (bypassCache) invalidate(key);
-  const result = await cached(key, 30_000, () =>
+  const result = await cached(key, 10_000, () =>
     sshLimited(() => invoke<RemoteJobRecord>("sync_remote_job_status", { dataRoot, jobId })),
   );
   // Upgrade to infinite TTL if the job reached a terminal state

@@ -3,8 +3,12 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { getRemoteJobResult, getRemoteJobLogs } from "../../api/remoteApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
+import { LogitLensResults } from "../interp/LogitLensResults";
+import { ActivationPcaResults } from "../interp/ActivationPcaResults";
+import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
 import type { TrainingHistory } from "../../types";
 import type { RemoteJobRecord } from "../../types/remote";
+import type { LogitLensResult, PcaResult, PatchingResult } from "../../types/interp";
 
 interface RemoteJobResultDetailProps {
   job: RemoteJobRecord;
@@ -113,6 +117,10 @@ export function RemoteJobResultDetail({ job, onBack }: RemoteJobResultDetailProp
 
   if (result.job_type === "eval") {
     return <EvalResultView job={job} result={result} onBack={onBack} />;
+  }
+
+  if (result.job_type === "logit-lens" || result.job_type === "activation-pca" || result.job_type === "activation-patch") {
+    return <InterpResultView job={job} result={result} onBack={onBack} />;
   }
 
   return <TrainingResultView job={job} result={result} onBack={onBack} />;
@@ -442,6 +450,47 @@ function TrainingResultView({ job, result, onBack }: {
       )}
 
       {history && <TrainingCurvesView history={history} />}
+    </div>
+  );
+}
+
+const INTERP_LABELS: Record<string, string> = {
+  "logit-lens": "Logit Lens",
+  "activation-pca": "Activation PCA",
+  "activation-patch": "Activation Patching",
+};
+
+function InterpResultView({ job, result, onBack }: {
+  job: RemoteJobRecord;
+  result: TrainingResult;
+  onBack: () => void;
+}) {
+  const jobType = result.job_type ?? "";
+  const label = INTERP_LABELS[jobType] ?? jobType;
+
+  return (
+    <div className="panel stack-lg">
+      <BackButton onBack={onBack} />
+      <h3>{label} — Remote Result</h3>
+      <div className="stats-grid">
+        <div className="metric-card">
+          <span className="metric-label">Analysis</span>
+          <span className="metric-value text-sm">{label}</span>
+        </div>
+        <div className="metric-card">
+          <span className="metric-label">Cluster</span>
+          <span className="metric-value text-sm">{job.clusterName}</span>
+        </div>
+      </div>
+      {jobType === "logit-lens" && (
+        <LogitLensResults result={result as unknown as LogitLensResult} />
+      )}
+      {jobType === "activation-pca" && (
+        <ActivationPcaResults result={result as unknown as PcaResult} />
+      )}
+      {jobType === "activation-patch" && (
+        <ActivationPatchingResults result={result as unknown as PatchingResult} />
+      )}
     </div>
   );
 }

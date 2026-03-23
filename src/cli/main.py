@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
+from cli.activation_pca_command import add_activation_pca_command, run_activation_pca_command
+from cli.activation_patching_command import (
+    add_activation_patching_command,
+    run_activation_patching_command,
+)
 from cli.benchmark_command import add_benchmark_command, run_benchmark_command
 from cli.chat_command import add_chat_command, run_chat_command
 from cli.cloud_command import add_cloud_command, run_cloud_command
@@ -38,6 +43,7 @@ from cli.hardware_profile_command import (
 )
 from cli.hub_command import add_hub_command, run_hub_command
 from cli.kto_command import add_kto_command, run_kto_command
+from cli.logit_lens_command import add_logit_lens_command, run_logit_lens_command
 from cli.lora_command import (
     add_lora_merge_command,
     add_lora_train_command,
@@ -84,6 +90,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_merge_command, add_ab_chat_command, add_recipe_command,
     add_cloud_command, add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
+    add_logit_lens_command, add_activation_pca_command, add_activation_patching_command,
 )
 
 
@@ -129,6 +136,9 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "synthetic": run_synthetic_command,
         "rlvr-train": run_rlvr_command,
         "remote": run_remote_command,
+        "logit-lens": run_logit_lens_command,
+        "activation-pca": run_activation_pca_command,
+        "activation-patch": run_activation_patching_command,
     }
 
 
