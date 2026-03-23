@@ -122,11 +122,34 @@ class _SimpleRecord:
         self.metadata = metadata or {}
 
 
+def _read_data_as_records(path: str) -> list:
+    """Read a JSONL or Parquet file and convert to simple record objects."""
+    if path.endswith(".parquet"):
+        return _read_parquet_as_records(path)
+    return _read_jsonl_as_records(path)
+
+
+def _read_parquet_as_records(path: str) -> list:
+    """Read a Parquet file and convert to simple record objects."""
+    _TEXT_KEYS = ("text", "input", "content", "prompt", "instruction")
+    try:
+        import pyarrow.parquet as pq
+    except ImportError:
+        print("CRUCIBLE_AGENT: pyarrow not available, trying pandas...", flush=True)
+        import pandas as pd
+        df = pd.read_parquet(path)
+        rows = df.to_dict(orient="records")
+        return _rows_to_records(rows, _TEXT_KEYS)
+    table = pq.read_table(path)
+    rows = table.to_pylist()
+    return _rows_to_records(rows, _TEXT_KEYS)
+
+
 def _read_jsonl_as_records(path: str) -> list:
     """Read a JSONL file and convert to simple record objects."""
     _TEXT_KEYS = ("text", "input", "content", "prompt", "instruction")
     records = []
-    with open(path) as f:
+    with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -144,6 +167,24 @@ def _read_jsonl_as_records(path: str) -> list:
                 content = (content + chr(10) + response) if content else response
             meta = {k: v for k, v in row.items() if k not in (*_TEXT_KEYS, "response", "chosen", "rejected")}
             records.append(_SimpleRecord(content=content, metadata=meta))
+    return records
+
+
+def _rows_to_records(rows: list, text_keys: tuple) -> list:
+    """Convert a list of dicts to _SimpleRecord objects."""
+    records = []
+    for row in rows:
+        content = ""
+        for k in text_keys:
+            val = row.get(k, "")
+            if val and isinstance(val, str):
+                content = val
+                break
+        response = row.get("response", "") or row.get("chosen", "")
+        if response and isinstance(response, str):
+            content = (content + chr(10) + response) if content else response
+        meta = {k: v for k, v in row.items() if k not in (*text_keys, "response", "chosen", "rejected")}
+        records.append(_SimpleRecord(content=content, metadata=meta))
     return records
 
 
@@ -261,7 +302,7 @@ def main() -> None:
                 records = []
                 if raw_path and os.path.isfile(raw_path):
                     print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
-                    records = _read_jsonl_as_records(raw_path)
+                    records = _read_data_as_records(raw_path)
                     print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
                 interp_result = run_activation_pca(opts, records)
             else:  # activation-patch
