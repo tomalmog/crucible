@@ -20,8 +20,11 @@ _HEALTHY_STATES = frozenset({"idle", "mixed", "allocated", "completing"})
 _DRAINED_STATES = frozenset({"drained", "draining"})
 _DOWN_STATES = frozenset({"down", "down*", "error", "fail", "not_responding"})
 
-# Match GPU count from GRES field, e.g. "gpu:4(S:0-1)" → 4, "gpu:a100:2" → 2
-_GPU_COUNT_RE = re.compile(r"gpu(?::[^:]+)?:(\d+)")
+# Match GPU count from GRES field.  Two formats exist:
+#   "gpu:4(S:0-1)" → 4  (count directly after gpu:)
+#   "gpu:a100:2"   → 2  (type name between gpu: and :count)
+# If the char after "gpu:" is a letter it's a type name; if a digit it's the count.
+_GPU_COUNT_RE = re.compile(r"gpu:(?:[a-zA-Z][^:]*:)?(\d+)")
 
 SINFO_FORMAT = "%P|%a|%l|%D|%T|%G|%m|%c"
 
