@@ -132,14 +132,26 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
     text_value = payload.get("text")
     if isinstance(text_value, str):
         return {"text": text_value}
-    # Support prompt/response format (SFT, LoRA, etc.)
     prompt = payload.get("prompt")
+    # Support prompt/response format (SFT, LoRA, distillation, etc.)
     response = payload.get("response")
     if isinstance(prompt, str) and isinstance(response, str):
         return {"text": f"{prompt}\n{response}"}
+    # Support preference format (DPO, ORPO, RLHF — prompt/chosen/rejected)
+    chosen = payload.get("chosen")
+    if isinstance(prompt, str) and isinstance(chosen, str):
+        return {"text": f"{prompt}\n{chosen}"}
+    # Support RLVR format (prompt/solution)
+    solution = payload.get("solution")
+    if isinstance(prompt, str) and isinstance(solution, str):
+        return {"text": f"{prompt}\n{solution}"}
+    # Support prompt-only format (GRPO)
+    if isinstance(prompt, str):
+        return {"text": prompt}
     raise CrucibleIngestError(
         f"Invalid JSONL record at {file_path}:{line_number}: "
-        "expected 'text' field or 'prompt'/'response' fields. "
+        "expected 'text', 'prompt'/'response', 'prompt'/'chosen', "
+        "'prompt'/'solution', or 'prompt' field. "
         "Fix the format and retry ingest."
     )
 

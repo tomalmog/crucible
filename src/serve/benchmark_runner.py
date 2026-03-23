@@ -118,21 +118,56 @@ def _import_torch() -> Any:
 def _load_model(
     torch_module: Any, model_path: str,
 ) -> tuple[Any, Any]:
-    """Load model weights and return model and device."""
+    """Load model weights and return model and device.
+
+    Handles both HuggingFace models (nn.Module) and Crucible .pt
+    checkpoints (state_dict) by reconstructing the architecture
+    from the saved training config.
+    """
+    from serve.hf_model_loader import is_huggingface_model_id
+
     path = Path(model_path).expanduser().resolve()
-    if not path.exists():
+    if not path.exists() and not is_huggingface_model_id(model_path):
         raise CrucibleBenchmarkError(
             f"Model file not found at {path}."
         )
     device = resolve_execution_device(torch_module)
     try:
-        model = torch_module.load(str(path), map_location=device)
+        loaded = torch_module.load(str(path), map_location=device)
     except Exception as error:
         raise CrucibleBenchmarkError(
             f"Failed to load model from {path}: {error}"
         ) from error
+    # If torch.load returns an nn.Module, use it directly.
+    if hasattr(loaded, "eval"):
+        loaded.eval()
+        return loaded, device
+    # Otherwise it's a state_dict — reconstruct the architecture.
+    from serve.architecture_loader import load_training_model
+    from serve.chat_option_resolver import resolve_chat_training_options
+    from serve.model_weights import load_initial_weights, read_model_state_dict
+    from serve.training_metadata import load_tokenizer
+    from core.chat_types import ChatOptions
+
+    model_state = loaded
+    chat_opts = ChatOptions(model_path=model_path, prompt="")
+    training_options = resolve_chat_training_options(chat_opts, model_state)
+
+    tokenizer = load_tokenizer(model_path)
+    vocab_size = len(tokenizer.vocabulary) if tokenizer else _infer_vocab_size(model_state)
+    model = load_training_model(torch_module, training_options, vocab_size)
+    model = model.to(device)
+    load_initial_weights(torch_module, model, model_path, device)
     model.eval()
     return model, device
+
+
+def _infer_vocab_size(state_dict: dict[str, Any]) -> int:
+    """Infer vocabulary size from embedding layer in state dict."""
+    for key, tensor in state_dict.items():
+        if "embed" in key and tensor.dim() == 2:
+            return tensor.shape[0]
+    return 5000
 
 
 def _tokenize_records(

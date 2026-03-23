@@ -43,7 +43,7 @@ def test_load_dpo_examples_missing_prompt_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(CrucibleDpoError, match="line 1.*prompt"):
+    with pytest.raises(CrucibleDpoError, match="row 1.*prompt"):
         load_dpo_examples(str(data_file))
 
 
@@ -58,7 +58,7 @@ def test_load_dpo_examples_missing_chosen_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(CrucibleDpoError, match="line 1.*chosen"):
+    with pytest.raises(CrucibleDpoError, match="row 1.*chosen"):
         load_dpo_examples(str(data_file))
 
 
@@ -73,7 +73,7 @@ def test_load_dpo_examples_empty_rejected_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(CrucibleDpoError, match="line 1.*rejected"):
+    with pytest.raises(CrucibleDpoError, match="row 1.*rejected"):
         load_dpo_examples(str(data_file))
 
 

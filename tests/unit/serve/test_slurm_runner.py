@@ -133,7 +133,7 @@ def test_remote_to_unified_basic() -> None:
     assert unified.backend_log_path == "/scratch/run1/slurm.out"
     assert unified.model_path == "/scratch/run1/model.pt"
     assert unified.model_name == "Test-Model"
-    assert unified.label == "Test-Model"
+    assert unified.label == "SFT \u00b7 Test-Model"
     assert unified.created_at == "2026-01-01T00:00:00+00:00"
 
 

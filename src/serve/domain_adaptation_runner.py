@@ -175,16 +175,34 @@ def _load_reference_sequences(
     reference_path: str, tokenizer: Any, max_length: int,
 ) -> list[list[int]]:
     """Load reference text lines and tokenize for drift evaluation."""
+    from serve.data_file_reader import read_data_rows
+
     path = Path(reference_path).expanduser().resolve()
     if not path.exists():
         raise CrucibleServeError(f"Reference data file not found at {path}.")
-    lines = path.read_text(encoding="utf-8").strip().splitlines()
+
+    texts: list[str] = []
+    suffix = path.suffix.lower()
+    if suffix in (".jsonl", ".parquet"):
+        rows = read_data_rows(str(path))
+        for row in rows:
+            text = str(row.get("text", "")).strip()
+            if not text:
+                # Fallback: try prompt/response
+                prompt = str(row.get("prompt", "")).strip()
+                response = str(row.get("response", "")).strip()
+                text = f"{prompt}\n{response}" if prompt and response else prompt
+            if text:
+                texts.append(text)
+    else:
+        for line in path.read_text(encoding="utf-8").strip().splitlines():
+            text = line.strip()
+            if text:
+                texts.append(text)
+
     sequences: list[list[int]] = []
-    for line in lines:
-        text = line.strip()
-        if not text:
-            continue
-        tokens = tokenizer.encode(text)
+    for text in texts:
+        tokens = tokenizer.encode(text, max_length)
         if len(tokens) > max_length:
             tokens = tokens[:max_length]
         if len(tokens) >= 2:

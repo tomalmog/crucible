@@ -102,16 +102,12 @@ def _build_rlvr_context(records, options, training_options, random_seed, run_id,
 
 
 def _load_rlvr_data(data_path):
-    path = Path(data_path)
-    if not path.exists():
-        raise CrucibleServeError(f"RLVR data not found: {data_path}")
-    data = []
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if line:
-                data.append(json.loads(line))
-    return data
+    from serve.data_file_reader import read_data_rows
+
+    try:
+        return read_data_rows(data_path)
+    except (FileNotFoundError, ImportError, OSError) as exc:
+        raise CrucibleServeError(str(exc)) from exc
 
 
 def _build_rlvr_batches(data, tokenizer, options):

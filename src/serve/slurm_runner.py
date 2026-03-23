@@ -11,6 +11,38 @@ from core.slurm_types import SlurmResourceConfig
 from store.job_store import generate_job_id, now_iso, save_job, update_job, load_job
 
 
+_METHOD_DISPLAY: dict[str, str] = {
+    "train": "Train",
+    "sft": "SFT",
+    "dpo-train": "DPO",
+    "rlhf-train": "RLHF",
+    "lora-train": "LoRA",
+    "qlora-train": "QLoRA",
+    "grpo-train": "GRPO",
+    "kto-train": "KTO",
+    "orpo-train": "ORPO",
+    "distill": "Distill",
+    "domain-adapt": "Domain Adapt",
+    "distributed-train": "Distributed",
+    "multimodal-train": "Multimodal",
+    "rlvr-train": "RLVR",
+    "logit-lens": "Logit Lens",
+    "activation-pca": "Activation PCA",
+    "activation-patch": "Activation Patching",
+    "eval": "Eval",
+    "sweep": "Sweep",
+}
+
+
+def _build_job_label(method: str, model_name: str) -> str:
+    """Build a standardised job label: 'Method · ModelName'."""
+    display = _METHOD_DISPLAY.get(method, method)
+    name = model_name.rstrip("/").rsplit("/", 1)[-1] if model_name else ""
+    if name:
+        return f"{display} \u00b7 {name}"
+    return display
+
+
 def _spec_to_slurm_resources(spec: JobSpec) -> SlurmResourceConfig:
     """Convert JobSpec.resources to SlurmResourceConfig."""
     r = spec.resources
@@ -58,7 +90,7 @@ class SlurmRunner:
                 data_root, spec, resources,
             )
 
-        unified = self._remote_to_unified(remote_record)
+        unified = self._remote_to_unified(remote_record, label=spec.label)
         save_job(data_root, unified)
         return unified
 
@@ -174,12 +206,15 @@ class SlurmRunner:
             resources=resources,
         )
 
-    def _remote_to_unified(self, remote_record: object) -> JobRecord:
+    def _remote_to_unified(self, remote_record: object, label: str = "") -> JobRecord:
         """Convert a RemoteJobRecord to a unified JobRecord."""
         from core.slurm_types import RemoteJobRecord
         if not isinstance(remote_record, RemoteJobRecord):
             raise CrucibleError("Expected RemoteJobRecord from Slurm submit")
         ts = now_iso()
+        resolved_label = label or _build_job_label(
+            remote_record.training_method, remote_record.model_name,
+        )
         return JobRecord(
             job_id=generate_job_id(),
             backend="slurm",
@@ -187,7 +222,7 @@ class SlurmRunner:
             state=remote_record.state,  # type: ignore[arg-type]
             created_at=remote_record.submitted_at,
             updated_at=ts,
-            label=remote_record.model_name,
+            label=resolved_label,
             backend_job_id=remote_record.job_id,
             backend_cluster=remote_record.cluster_name,
             backend_output_dir=remote_record.remote_output_dir,

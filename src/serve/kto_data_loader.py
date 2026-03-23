@@ -6,38 +6,32 @@ desirable/undesirable label rather than paired preferences.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from core.errors import CrucibleKtoError
 from core.kto_types import KtoExample
+from serve.data_file_reader import read_data_rows
 
 
 def load_kto_examples(data_path: str) -> list[KtoExample]:
-    """Load KTO examples from a JSONL file.
+    """Load KTO examples from a JSONL or Parquet file.
 
-    Each line must have 'prompt', 'response', and 'is_desirable' fields.
+    Each row must have 'prompt', 'response', and 'is_desirable' fields.
     """
-    path = Path(data_path)
-    if not path.exists():
-        raise CrucibleKtoError(f"KTO data file not found: {data_path}")
+    try:
+        rows = read_data_rows(data_path)
+    except (FileNotFoundError, ImportError, OSError) as error:
+        raise CrucibleKtoError(str(error)) from error
     examples: list[KtoExample] = []
-    with open(path, encoding="utf-8") as fh:
-        for line_num, line in enumerate(fh, start=1):
-            line = line.strip()
-            if not line:
-                continue
-            obj = json.loads(line)
-            prompt = obj.get("prompt", "")
-            response = obj.get("response", "")
-            is_desirable = obj.get("is_desirable", True)
-            if not prompt or not response:
-                continue
-            examples.append(KtoExample(
-                prompt=prompt,
-                response=response,
-                is_desirable=bool(is_desirable),
-            ))
+    for row in rows:
+        prompt = row.get("prompt", "")
+        response = row.get("response", "")
+        is_desirable = row.get("is_desirable", True)
+        if not prompt or not response:
+            continue
+        examples.append(KtoExample(
+            prompt=str(prompt),
+            response=str(response),
+            is_desirable=bool(is_desirable),
+        ))
     return examples
 
 

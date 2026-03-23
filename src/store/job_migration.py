@@ -53,18 +53,38 @@ def _write_marker(data_root: Path) -> None:
     (jobs / _MARKER_FILE).write_text("migrated\n")
 
 
+def _build_job_label(method: str, model_name: str) -> str:
+    """Build a standardised job label: 'Method · Name'."""
+    display_map: dict[str, str] = {
+        "train": "Train", "sft": "SFT", "dpo-train": "DPO",
+        "rlhf-train": "RLHF", "lora-train": "LoRA", "qlora-train": "QLoRA",
+        "grpo-train": "GRPO", "kto-train": "KTO", "orpo-train": "ORPO",
+        "distill": "Distill", "domain-adapt": "Domain Adapt",
+        "distributed-train": "Distributed", "multimodal-train": "Multimodal",
+        "rlvr-train": "RLVR", "logit-lens": "Logit Lens",
+        "activation-pca": "Activation PCA",
+        "activation-patch": "Activation Patching",
+        "eval": "Eval", "sweep": "Sweep",
+    }
+    display = display_map.get(method, method)
+    name = model_name.rstrip("/").rsplit("/", 1)[-1] if model_name else ""
+    return f"{display} \u00b7 {name}" if name else display
+
+
 def _convert_remote_record(raw: dict[str, object]) -> JobRecord:
     """Convert a legacy RemoteJobRecord dict to a unified JobRecord."""
     # Use the legacy job_id as the unified job_id (keeps references stable)
     legacy_id = str(raw.get("job_id", ""))
+    method = str(raw.get("training_method", ""))
+    model_name = str(raw.get("model_name", ""))
     return JobRecord(
         job_id=legacy_id,
         backend="slurm",
-        job_type=str(raw.get("training_method", "")),
+        job_type=method,
         state=str(raw.get("state", "pending")),  # type: ignore[arg-type]
         created_at=str(raw.get("submitted_at", "")),
         updated_at=str(raw.get("updated_at", "")),
-        label=str(raw.get("model_name", "")),
+        label=_build_job_label(method, model_name),
         backend_job_id=legacy_id,
         backend_cluster=str(raw.get("cluster_name", "")),
         backend_output_dir=str(raw.get("remote_output_dir", "")),

@@ -136,19 +136,17 @@ def _build_orpo_runtime_context(
 
 
 def _load_orpo_data(data_path: str) -> list[dict[str, str]]:
-    """Load ORPO preference pairs from JSONL file."""
-    path = Path(data_path)
-    if not path.exists():
-        raise CrucibleOrpoError(f"ORPO data file not found: {data_path}")
+    """Load ORPO preference pairs from JSONL or Parquet file."""
+    from serve.data_file_reader import read_data_rows
+
+    try:
+        rows = read_data_rows(data_path)
+    except (FileNotFoundError, ImportError, OSError) as exc:
+        raise CrucibleOrpoError(str(exc)) from exc
     data: list[dict[str, str]] = []
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            obj = json.loads(line)
-            if "prompt" in obj and "chosen" in obj:
-                data.append(obj)
+    for row in rows:
+        if "prompt" in row and "chosen" in row:
+            data.append({k: str(v) for k, v in row.items()})
     return data
 
 

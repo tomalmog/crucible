@@ -43,7 +43,7 @@ def test_load_sft_examples_missing_prompt_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(CrucibleSftError, match="line 1.*prompt"):
+    with pytest.raises(CrucibleSftError, match="row 1.*prompt"):
         load_sft_examples(str(data_file))
 
 
@@ -58,7 +58,7 @@ def test_load_sft_examples_empty_response_raises(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(CrucibleSftError, match="line 1.*response"):
+    with pytest.raises(CrucibleSftError, match="row 1.*response"):
         load_sft_examples(str(data_file))
 
 

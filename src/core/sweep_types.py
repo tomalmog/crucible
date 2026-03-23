@@ -59,7 +59,7 @@ class SweepConfig:
     metric: str = "validation_loss"
     minimize: bool = True
     training_method: str = "train"
-    method_args: tuple[tuple[str, str], ...] = ()
+    method_args: tuple[tuple[str, object], ...] = ()
 
 
 @dataclass(frozen=True)

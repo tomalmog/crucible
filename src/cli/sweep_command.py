@@ -141,7 +141,10 @@ def _build_sweep_config(args: argparse.Namespace) -> SweepConfig:
             ) from error
         if not isinstance(raw_args, dict):
             raise CrucibleSweepError("--method-args must be a JSON object.")
-        method_args = tuple((k, str(v)) for k, v in raw_args.items())
+        method_args = tuple(
+            (k.lstrip("-").replace("-", "_"), v)
+            for k, v in raw_args.items()
+        )
     return SweepConfig(
         dataset_name=args.dataset,
         output_dir=args.output_dir,

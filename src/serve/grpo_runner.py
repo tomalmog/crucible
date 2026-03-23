@@ -159,20 +159,18 @@ def _build_grpo_runtime_context(
 
 
 def _load_grpo_prompts(data_path: str) -> list[str]:
-    """Load prompts from a JSONL file for GRPO group sampling."""
-    path = Path(data_path)
-    if not path.exists():
-        raise CrucibleGrpoError(f"GRPO data file not found: {data_path}")
+    """Load prompts from a JSONL or Parquet file for GRPO group sampling."""
+    from serve.data_file_reader import read_data_rows
+
+    try:
+        rows = read_data_rows(data_path)
+    except (FileNotFoundError, ImportError, OSError) as exc:
+        raise CrucibleGrpoError(str(exc)) from exc
     prompts: list[str] = []
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            obj = json.loads(line)
-            prompt = obj.get("prompt", "")
-            if prompt:
-                prompts.append(prompt)
+    for row in rows:
+        prompt = row.get("prompt", "")
+        if prompt:
+            prompts.append(str(prompt))
     return prompts
 
 

@@ -102,7 +102,8 @@ class TestErrors:
 
     def test_raises_when_conda_unavailable(self) -> None:
         session = _make_session([
-            ("", "conda: command not found", 127),
+            ("", "conda: command not found", 127),  # first attempt
+            ("", "conda: command not found", 127),  # retry after sleep
         ])
         with pytest.raises(CrucibleRemoteError, match="conda is not available"):
             ensure_remote_env(session)

@@ -69,7 +69,7 @@ def test_convert_remote_record_basic() -> None:
     assert record.backend == "slurm"
     assert record.job_type == "sft"
     assert record.state == "completed"
-    assert record.label == "My-Model"
+    assert record.label == "SFT \u00b7 My-Model"
     assert record.model_name == "My-Model"
     assert record.backend_cluster == "test-hpc"
     assert record.backend_output_dir == "/scratch/crucible/rj-abc123def456"
