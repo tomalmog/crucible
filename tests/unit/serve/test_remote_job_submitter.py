@@ -9,7 +9,7 @@ import pytest
 
 from core.errors import CrucibleRemoteError
 from core.slurm_types import ClusterConfig, RemoteJobRecord, SlurmResourceConfig
-from serve.remote_job_submitter import submit_remote_job
+from serve.remote_job_submitter import submit_remote_interp_job, submit_remote_job
 
 _MODULE = "serve.remote_job_submitter"
 
@@ -187,3 +187,114 @@ def test_submit_remote_job_marks_failed_on_error(
         _call_submit()
     fail_call = _patch_all["update_remote_job_state"].call_args_list[-1]
     assert fail_call.args[2] == "failed"
+
+
+# ── Remote interp job submission ─────────────────────────────────────
+
+
+@pytest.fixture()
+def _patch_interp() -> dict[str, MagicMock]:
+    """Patch dependencies of submit_remote_interp_job."""
+    cluster = _make_cluster()
+    session = _make_session_mock()
+    result_record = RemoteJobRecord(
+        job_id=_JOB_ID,
+        slurm_job_id="99999",
+        cluster_name=_CLUSTER_NAME,
+        training_method="activation-pca",
+        state="running",
+        submitted_at=_TS,
+        updated_at=_TS,
+        remote_output_dir=_WORKDIR,
+    )
+
+    patches = {
+        "load_cluster": patch(f"{_MODULE}.load_cluster", return_value=cluster),
+        "generate_job_id": patch(f"{_MODULE}.generate_job_id", return_value=_JOB_ID),
+        "now_iso": patch(f"{_MODULE}.now_iso", return_value=_TS),
+        "build_agent_tarball": patch(
+            f"{_MODULE}.build_agent_tarball",
+            return_value=Path("/tmp/fake.tar.gz"),
+        ),
+        "save_remote_job": patch(f"{_MODULE}.save_remote_job"),
+        "update_remote_job_state": patch(
+            f"{_MODULE}.update_remote_job_state",
+            return_value=result_record,
+        ),
+        "ensure_remote_env": patch(f"{_MODULE}.ensure_remote_env"),
+        "SshSession": patch(f"{_MODULE}.SshSession", return_value=session),
+        "_upload_bundle": patch(f"{_MODULE}._upload_bundle"),
+        "_upload_config": patch(f"{_MODULE}._upload_config"),
+        "_upload_script": patch(f"{_MODULE}._upload_script"),
+        "_generate_script": patch(
+            f"{_MODULE}._generate_script",
+            return_value="#!/bin/bash\n",
+        ),
+        "_submit_sbatch": patch(f"{_MODULE}._submit_sbatch", return_value="99999"),
+        "_find_remote_data_file": patch(
+            f"{_MODULE}._find_remote_data_file",
+            return_value=f"{_WORKSPACE}/datasets/test_ds/records.jsonl",
+        ),
+        "_ensure_interp_model_companions": patch(
+            f"{_MODULE}._ensure_interp_model_companions",
+        ),
+    }
+
+    mocks: dict[str, MagicMock] = {}
+    for key, patcher in patches.items():
+        mocks[key] = patcher.start()
+
+    yield mocks
+
+    for patcher in patches.values():
+        patcher.stop()
+
+
+def _call_interp_submit(
+    method_args: dict[str, object] | None = None,
+) -> RemoteJobRecord:
+    return submit_remote_interp_job(
+        data_root=Path("/tmp/crucible"),
+        cluster_name=_CLUSTER_NAME,
+        interp_method="activation-pca",
+        method_args=method_args or {},
+        resources=_make_resources(),
+    )
+
+
+def test_interp_submit_resolves_dataset_to_raw_data_path(
+    _patch_interp: dict[str, MagicMock],
+) -> None:
+    """submit_remote_interp_job injects raw_data_path into method_args."""
+    method_args: dict[str, object] = {
+        "model_path": "gpt2",
+        "dataset_name": "test-ds",
+    }
+    _call_interp_submit(method_args=method_args)
+    assert method_args["raw_data_path"] == f"{_WORKSPACE}/datasets/test_ds/records.jsonl"
+
+
+def test_interp_submit_config_contains_raw_data_path(
+    _patch_interp: dict[str, MagicMock],
+) -> None:
+    """The config uploaded to remote contains raw_data_path in method_args."""
+    method_args: dict[str, object] = {
+        "model_path": "gpt2",
+        "dataset_name": "test-ds",
+    }
+    _call_interp_submit(method_args=method_args)
+    # _upload_config receives (session, config_payload, workdir)
+    config_payload = _patch_interp["_upload_config"].call_args.args[1]
+    assert config_payload["method_args"]["raw_data_path"] == (
+        f"{_WORKSPACE}/datasets/test_ds/records.jsonl"
+    )
+
+
+def test_interp_submit_no_dataset_skips_resolution(
+    _patch_interp: dict[str, MagicMock],
+) -> None:
+    """When no dataset_name, _find_remote_data_file is not called."""
+    method_args: dict[str, object] = {"model_path": "gpt2"}
+    _call_interp_submit(method_args=method_args)
+    assert _patch_interp["_find_remote_data_file"].call_count == 0
+    assert "raw_data_path" not in method_args

@@ -256,24 +256,13 @@ def main() -> None:
                     if k in ActivationPcaOptions.__dataclass_fields__
                 })
                 # Load dataset records for PCA.
-                # On remote clusters, read raw JSONL directly since the
-                # dataset may not be in the Crucible store.
-                ds_name = method_args.get("dataset_name", "")
+                # The submitter resolves the dataset to raw_data_path.
+                raw_path = method_args.get("raw_data_path", "")
                 records = []
-                if ds_name:
-                    try:
-                        _, records = client.dataset(ds_name).load_records()
-                    except Exception:
-                        # Fallback: try reading raw JSONL from dataset dir
-                        import glob
-                        from core.constants import sanitize_remote_name
-                        ws = os.environ.get("CRUCIBLE_WORKSPACE", os.getcwd())
-                        safe_ds = sanitize_remote_name(ds_name)
-                        jsonl_candidates = glob.glob(
-                            f"{ws}/datasets/{safe_ds}/*.jsonl",
-                        )
-                        if jsonl_candidates:
-                            records = _read_jsonl_as_records(jsonl_candidates[0])
+                if raw_path and os.path.isfile(raw_path):
+                    print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
+                    records = _read_jsonl_as_records(raw_path)
+                    print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
                 interp_result = run_activation_pca(opts, records)
             else:  # activation-patch
                 from core.activation_patching_types import ActivationPatchingOptions

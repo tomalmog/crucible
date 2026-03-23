@@ -381,7 +381,7 @@ def submit_remote_interp_job(
                     _ensure_interp_model_companions(
                         session, cluster, data_root, model_path,
                     )
-            # Verify dataset exists on cluster if PCA needs one
+            # Resolve dataset to a data file path (same as training jobs)
             ds_name = str(method_args.get("dataset_name", ""))
             if ds_name:
                 safe_ds = sanitize_remote_name(ds_name)
@@ -394,6 +394,8 @@ def submit_remote_interp_job(
                         f"dataset-push --cluster {cluster_name} "
                         f"--dataset {ds_name}"
                     )
+                data_file = _find_remote_data_file(session, ds_path)
+                method_args["raw_data_path"] = data_file
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, interp_method,
