@@ -6,8 +6,8 @@ and export workflows used by CLI, SDK, and run-spec pipelines.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Mapping
 
 from core.constants import DEFAULT_QUALITY_MODEL
 
@@ -39,10 +39,12 @@ class SourceTextRecord:
     Attributes:
         source_uri: Source path or URI where text was loaded.
         text: Raw text content extracted from source.
+        extra_fields: Custom fields from source (e.g. labels from JSONL).
     """
 
     source_uri: str
     text: str
+    extra_fields: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

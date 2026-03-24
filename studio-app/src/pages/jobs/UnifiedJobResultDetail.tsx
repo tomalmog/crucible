@@ -9,7 +9,10 @@ import { TrainingCurvesView } from "../training/TrainingCurvesView";
 import { LogitLensResults } from "../interp/LogitLensResults";
 import { ActivationPcaResults } from "../interp/ActivationPcaResults";
 import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
-import type { LogitLensResult, PcaResult, PatchingResult } from "../../types/interp";
+import { LinearProbeResults } from "../interp/LinearProbeResults";
+import { SaeTrainResults, SaeAnalyzeResults } from "../interp/SaeResults";
+import { SteerComputeResults, SteerApplyResults } from "../interp/SteerResults";
+import type { LogitLensResult, PcaResult, PatchingResult, LinearProbeResult, SaeTrainResult, SaeAnalyzeResult, SteerComputeResult, SteerApplyResult } from "../../types/interp";
 import { DetailHeader } from "./RetryButton";
 
 // ── Shared types/constants ─────────────────────────────────────────────
@@ -50,12 +53,21 @@ const TRAINING_TYPES = new Set([
   "kto-train", "orpo-train", "multimodal-train", "rlvr-train",
 ]);
 
-const INTERP_TYPES = new Set(["logit-lens", "activation-pca", "activation-patch"]);
+const INTERP_TYPES = new Set([
+  "logit-lens", "activation-pca", "activation-patch",
+  "linear-probe", "sae-train", "sae-analyze",
+  "steer-compute", "steer-apply",
+]);
 
 const INTERP_LABELS: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
+  "linear-probe": "Linear Probe",
+  "sae-train": "SAE Train",
+  "sae-analyze": "SAE Analyze",
+  "steer-compute": "Steer Compute",
+  "steer-apply": "Steer Apply",
 };
 
 function extractCrucibleError(stderr: string): string | null {
@@ -249,6 +261,11 @@ function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; l
       {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as LogitLensResult} />}
       {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as PcaResult} />}
       {parsed && job.jobType === "activation-patch" && <ActivationPatchingResults result={parsed as PatchingResult} />}
+      {parsed && job.jobType === "linear-probe" && <LinearProbeResults result={parsed as LinearProbeResult} />}
+      {parsed && job.jobType === "sae-train" && <SaeTrainResults result={parsed as SaeTrainResult} />}
+      {parsed && job.jobType === "sae-analyze" && <SaeAnalyzeResults result={parsed as SaeAnalyzeResult} />}
+      {parsed && job.jobType === "steer-compute" && <SteerComputeResults result={parsed as SteerComputeResult} />}
+      {parsed && job.jobType === "steer-apply" && <SteerApplyResults result={parsed as SteerApplyResult} />}
       {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
     </div>
   );
@@ -490,6 +507,11 @@ function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; res
       {jobType === "logit-lens" && <LogitLensResults result={result as unknown as LogitLensResult} />}
       {jobType === "activation-pca" && <ActivationPcaResults result={result as unknown as PcaResult} />}
       {jobType === "activation-patch" && <ActivationPatchingResults result={result as unknown as PatchingResult} />}
+      {jobType === "linear-probe" && <LinearProbeResults result={result as unknown as LinearProbeResult} />}
+      {jobType === "sae-train" && <SaeTrainResults result={result as unknown as SaeTrainResult} />}
+      {jobType === "sae-analyze" && <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />}
+      {jobType === "steer-compute" && <SteerComputeResults result={result as unknown as SteerComputeResult} />}
+      {jobType === "steer-apply" && <SteerApplyResults result={result as unknown as SteerApplyResult} />}
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );

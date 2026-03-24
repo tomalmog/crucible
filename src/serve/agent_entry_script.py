@@ -276,44 +276,122 @@ def main() -> None:
         return
 
     # --- Interpretability jobs: run analysis, write result.json ---
-    _INTERP_METHODS = frozenset({"logit-lens", "activation-pca", "activation-patch"})
-    if method in _INTERP_METHODS:
+    def _dispatch_logit_lens(ma):
+        from core.logit_lens_types import LogitLensOptions
+        from serve.logit_lens_runner import run_logit_lens
+        opts = LogitLensOptions(**{
+            k: v for k, v in ma.items()
+            if k in LogitLensOptions.__dataclass_fields__
+        })
+        return run_logit_lens(opts)
+
+    def _dispatch_activation_pca(ma):
+        from core.activation_pca_types import ActivationPcaOptions
+        from serve.activation_pca_runner import run_activation_pca
+        opts = ActivationPcaOptions(**{
+            k: v for k, v in ma.items()
+            if k in ActivationPcaOptions.__dataclass_fields__
+        })
+        raw_path = ma.get("raw_data_path", "")
+        records = []
+        if raw_path and os.path.isfile(raw_path):
+            print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
+            records = _read_data_as_records(raw_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
+        return run_activation_pca(opts, records)
+
+    def _dispatch_activation_patch(ma):
+        from core.activation_patching_types import ActivationPatchingOptions
+        from serve.activation_patching_runner import run_activation_patching
+        opts = ActivationPatchingOptions(**{
+            k: v for k, v in ma.items()
+            if k in ActivationPatchingOptions.__dataclass_fields__
+        })
+        return run_activation_patching(opts)
+
+    def _dispatch_linear_probe(ma):
+        from core.linear_probe_types import LinearProbeOptions
+        from serve.linear_probe_runner import run_linear_probe
+        opts = LinearProbeOptions(**{
+            k: v for k, v in ma.items()
+            if k in LinearProbeOptions.__dataclass_fields__
+        })
+        raw_path = ma.get("raw_data_path", "")
+        records = []
+        if raw_path and os.path.isfile(raw_path):
+            print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
+            records = _read_data_as_records(raw_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
+        return run_linear_probe(opts, records)
+
+    def _dispatch_sae_train(ma):
+        from core.sae_types import SaeTrainOptions
+        from serve.sae_train_runner import run_sae_train
+        opts = SaeTrainOptions(**{
+            k: v for k, v in ma.items()
+            if k in SaeTrainOptions.__dataclass_fields__
+        })
+        raw_path = ma.get("raw_data_path", "")
+        records = []
+        if raw_path and os.path.isfile(raw_path):
+            print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
+            records = _read_data_as_records(raw_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
+        return run_sae_train(opts, records)
+
+    def _dispatch_sae_analyze(ma):
+        from core.sae_types import SaeAnalyzeOptions
+        from serve.sae_analyze_runner import run_sae_analyze
+        opts = SaeAnalyzeOptions(**{
+            k: v for k, v in ma.items()
+            if k in SaeAnalyzeOptions.__dataclass_fields__
+        })
+        return run_sae_analyze(opts)
+
+    def _dispatch_steer_compute(ma):
+        from core.steering_types import SteerComputeOptions
+        from serve.steer_compute_runner import run_steer_compute
+        opts = SteerComputeOptions(**{
+            k: v for k, v in ma.items()
+            if k in SteerComputeOptions.__dataclass_fields__
+        })
+        pos_records = None
+        neg_records = None
+        pos_path = ma.get("positive_raw_data_path", "")
+        neg_path = ma.get("negative_raw_data_path", "")
+        if pos_path and os.path.isfile(pos_path):
+            pos_records = _read_data_as_records(pos_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(pos_records)} positive records", flush=True)
+        if neg_path and os.path.isfile(neg_path):
+            neg_records = _read_data_as_records(neg_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(neg_records)} negative records", flush=True)
+        return run_steer_compute(opts, pos_records, neg_records)
+
+    def _dispatch_steer_apply(ma):
+        from core.steering_types import SteerApplyOptions
+        from serve.steer_apply_runner import run_steer_apply
+        opts = SteerApplyOptions(**{
+            k: v for k, v in ma.items()
+            if k in SteerApplyOptions.__dataclass_fields__
+        })
+        return run_steer_apply(opts)
+
+    _INTERP_DISPATCH = {
+        "logit-lens": _dispatch_logit_lens,
+        "activation-pca": _dispatch_activation_pca,
+        "activation-patch": _dispatch_activation_patch,
+        "linear-probe": _dispatch_linear_probe,
+        "sae-train": _dispatch_sae_train,
+        "sae-analyze": _dispatch_sae_analyze,
+        "steer-compute": _dispatch_steer_compute,
+        "steer-apply": _dispatch_steer_apply,
+    }
+
+    if method in _INTERP_DISPATCH:
         print(f"CRUCIBLE_AGENT: Running interpretability ({method})...", flush=True)
         _ensure_output_dir(method_args)
         try:
-            if method == "logit-lens":
-                from core.logit_lens_types import LogitLensOptions
-                from serve.logit_lens_runner import run_logit_lens
-                opts = LogitLensOptions(**{
-                    k: v for k, v in method_args.items()
-                    if k in LogitLensOptions.__dataclass_fields__
-                })
-                interp_result = run_logit_lens(opts)
-            elif method == "activation-pca":
-                from core.activation_pca_types import ActivationPcaOptions
-                from serve.activation_pca_runner import run_activation_pca
-                opts = ActivationPcaOptions(**{
-                    k: v for k, v in method_args.items()
-                    if k in ActivationPcaOptions.__dataclass_fields__
-                })
-                # Load dataset records for PCA.
-                # The submitter resolves the dataset to raw_data_path.
-                raw_path = method_args.get("raw_data_path", "")
-                records = []
-                if raw_path and os.path.isfile(raw_path):
-                    print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
-                    records = _read_data_as_records(raw_path)
-                    print(f"CRUCIBLE_AGENT: Loaded {len(records)} records", flush=True)
-                interp_result = run_activation_pca(opts, records)
-            else:  # activation-patch
-                from core.activation_patching_types import ActivationPatchingOptions
-                from serve.activation_patching_runner import run_activation_patching
-                opts = ActivationPatchingOptions(**{
-                    k: v for k, v in method_args.items()
-                    if k in ActivationPatchingOptions.__dataclass_fields__
-                })
-                interp_result = run_activation_patching(opts)
-
+            interp_result = _INTERP_DISPATCH[method](method_args)
             result_data = {
                 "status": "completed",
                 "job_type": method,

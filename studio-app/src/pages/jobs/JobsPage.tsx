@@ -19,7 +19,11 @@ type StatusFilter = "all" | "running" | "completed" | "failed";
 type LocationFilter = "all" | "local" | "remote";
 type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp";
 
-const INTERP_COMMANDS = new Set(["logit-lens", "activation-pca", "activation-patch"]);
+const INTERP_COMMANDS = new Set([
+  "logit-lens", "activation-pca", "activation-patch",
+  "linear-probe", "sae-train", "sae-analyze",
+  "steer-compute", "steer-apply",
+]);
 
 function classifyRemoteJob(job: RemoteJobRecord): TaskTypeFilter {
   if (job.isSweep) return "sweep";

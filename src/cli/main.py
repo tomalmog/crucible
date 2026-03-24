@@ -45,6 +45,7 @@ from cli.hardware_profile_command import (
 )
 from cli.hub_command import add_hub_command, run_hub_command
 from cli.kto_command import add_kto_command, run_kto_command
+from cli.linear_probe_command import add_linear_probe_command, run_linear_probe_command
 from cli.logit_lens_command import add_logit_lens_command, run_logit_lens_command
 from cli.lora_command import (
     add_lora_merge_command,
@@ -62,9 +63,13 @@ from cli.remote_command import add_remote_command, run_remote_command
 from cli.replay_command import add_replay_command, run_replay_command
 from cli.rlhf_command import add_rlhf_command, run_rlhf_command
 from cli.rlvr_command import add_rlvr_command, run_rlvr_command
+from cli.sae_analyze_command import add_sae_analyze_command, run_sae_analyze_command
+from cli.sae_train_command import add_sae_train_command, run_sae_train_command
 from cli.run_spec_command import add_run_spec_command, run_run_spec_command
 from cli.server_command import add_server_command, run_server_command
 from cli.sft_command import add_sft_command, run_sft_command
+from cli.steer_apply_command import add_steer_apply_command, run_steer_apply_command
+from cli.steer_compute_command import add_steer_compute_command, run_steer_compute_command
 from cli.suggest_command import add_suggest_command, run_suggest_command
 from cli.sweep_command import add_sweep_command, run_sweep_command
 from cli.synthetic_command import add_synthetic_command, run_synthetic_command
@@ -93,6 +98,8 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_cloud_command, add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
     add_logit_lens_command, add_activation_pca_command, add_activation_patching_command,
+    add_linear_probe_command, add_sae_train_command, add_sae_analyze_command,
+    add_steer_compute_command, add_steer_apply_command,
     add_dispatch_command, add_job_command,
 )
 
@@ -142,6 +149,11 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "logit-lens": run_logit_lens_command,
         "activation-pca": run_activation_pca_command,
         "activation-patch": run_activation_patching_command,
+        "linear-probe": run_linear_probe_command,
+        "sae-train": run_sae_train_command,
+        "sae-analyze": run_sae_analyze_command,
+        "steer-compute": run_steer_compute_command,
+        "steer-apply": run_steer_apply_command,
         "dispatch": run_dispatch_command,
         "job": run_job_command,
     }

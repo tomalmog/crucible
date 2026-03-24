@@ -396,6 +396,22 @@ def submit_remote_interp_job(
                     )
                 data_file = _find_remote_data_file(session, ds_path)
                 method_args["raw_data_path"] = data_file
+            # Resolve dual datasets for steering compute
+            for ds_key, path_key in (
+                ("positive_dataset", "positive_raw_data_path"),
+                ("negative_dataset", "negative_raw_data_path"),
+            ):
+                ds = str(method_args.get(ds_key, ""))
+                if ds:
+                    safe = sanitize_remote_name(ds)
+                    dp = f"{cluster.remote_workspace}/datasets/{safe}"
+                    _, _, drc = session.execute(f"test -d {dp}", timeout=10)
+                    if drc != 0:
+                        raise CrucibleRemoteError(
+                            f"Dataset '{ds}' not found on cluster "
+                            f"'{cluster_name}'."
+                        )
+                    method_args[path_key] = _find_remote_data_file(session, dp)
             _upload_config(session, config_payload, workdir)
             script = _generate_script(
                 cluster, resources, job_id, interp_method,

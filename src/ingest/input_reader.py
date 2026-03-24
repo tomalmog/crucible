@@ -102,8 +102,13 @@ def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
         if not line.strip():
             continue
         payload = _parse_jsonl_line(file_path, line, line_number)
+        text = payload.pop("text")
         records.append(
-            SourceTextRecord(source_uri=f"{file_path}:{line_number}", text=payload["text"])
+            SourceTextRecord(
+                source_uri=f"{file_path}:{line_number}",
+                text=text,
+                extra_fields=payload,
+            )
         )
     return records
 
@@ -117,7 +122,7 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
         line_number: One-based line number.
 
     Returns:
-        Parsed JSON object containing text field.
+        Parsed JSON object with ``text`` key and any extra string fields.
 
     Raises:
         CrucibleIngestError: If line is invalid.
@@ -129,25 +134,33 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
             f"Failed to parse JSONL record at {file_path}:{line_number}: "
             f"{error.msg}. Fix the JSON syntax and retry ingest."
         ) from error
+
+    # Collect extra string fields (everything except the text-producing keys)
+    _TEXT_KEYS = {"text", "prompt", "response", "chosen", "rejected", "solution"}
+    extras = {
+        k: str(v) for k, v in payload.items()
+        if k not in _TEXT_KEYS and isinstance(v, (str, int, float, bool))
+    }
+
     text_value = payload.get("text")
     if isinstance(text_value, str):
-        return {"text": text_value}
+        return {"text": text_value, **extras}
     prompt = payload.get("prompt")
     # Support prompt/response format (SFT, LoRA, distillation, etc.)
     response = payload.get("response")
     if isinstance(prompt, str) and isinstance(response, str):
-        return {"text": f"{prompt}\n{response}"}
+        return {"text": f"{prompt}\n{response}", **extras}
     # Support preference format (DPO, ORPO, RLHF — prompt/chosen/rejected)
     chosen = payload.get("chosen")
     if isinstance(prompt, str) and isinstance(chosen, str):
-        return {"text": f"{prompt}\n{chosen}"}
+        return {"text": f"{prompt}\n{chosen}", **extras}
     # Support RLVR format (prompt/solution)
     solution = payload.get("solution")
     if isinstance(prompt, str) and isinstance(solution, str):
-        return {"text": f"{prompt}\n{solution}"}
+        return {"text": f"{prompt}\n{solution}", **extras}
     # Support prompt-only format (GRPO)
     if isinstance(prompt, str):
-        return {"text": prompt}
+        return {"text": prompt, **extras}
     raise CrucibleIngestError(
         f"Invalid JSONL record at {file_path}:{line_number}: "
         "expected 'text', 'prompt'/'response', 'prompt'/'chosen', "
@@ -288,8 +301,13 @@ def _records_from_text_body(source_uri: str, key: str, body: str) -> list[Source
         if not line.strip():
             continue
         payload = _parse_jsonl_line(Path(source_uri), line, line_number)
+        text = payload.pop("text")
         records.append(
-            SourceTextRecord(source_uri=f"{source_uri}:{line_number}", text=payload["text"])
+            SourceTextRecord(
+                source_uri=f"{source_uri}:{line_number}",
+                text=text,
+                extra_fields=payload,
+            )
         )
     return records
 

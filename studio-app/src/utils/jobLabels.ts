@@ -18,6 +18,11 @@ const METHOD_DISPLAY: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
+  "linear-probe": "Linear Probe",
+  "sae-train": "SAE Train",
+  "sae-analyze": "SAE Analyze",
+  "steer-compute": "Steer Compute",
+  "steer-apply": "Steer Apply",
   eval: "Eval",
   sweep: "Sweep",
 };

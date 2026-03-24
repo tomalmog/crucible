@@ -115,12 +115,14 @@ def _build_enriched_records(
     quality_results = score_quality(texts, quality_model)
     enriched_records: list[DataRecord] = []
     for source_record, language, quality_result in zip(source_records, languages, quality_results):
+        extra = dict(source_record.extra_fields)
+        extra["quality_model"] = quality_result.model_name
         metadata = RecordMetadata(
             source_uri=source_record.source_uri,
             language=language,
             quality_score=quality_result.quality_score,
             perplexity=quality_result.perplexity,
-            extra_fields={"quality_model": quality_result.model_name},
+            extra_fields=extra,
         )
         enriched_records.append(
             DataRecord(

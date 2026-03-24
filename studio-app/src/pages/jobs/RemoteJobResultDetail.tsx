@@ -6,9 +6,12 @@ import { TrainingCurvesView } from "../training/TrainingCurvesView";
 import { LogitLensResults } from "../interp/LogitLensResults";
 import { ActivationPcaResults } from "../interp/ActivationPcaResults";
 import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
+import { LinearProbeResults } from "../interp/LinearProbeResults";
+import { SaeTrainResults, SaeAnalyzeResults } from "../interp/SaeResults";
+import { SteerComputeResults, SteerApplyResults } from "../interp/SteerResults";
 import type { TrainingHistory } from "../../types";
 import type { RemoteJobRecord } from "../../types/remote";
-import type { LogitLensResult, PcaResult, PatchingResult } from "../../types/interp";
+import type { LogitLensResult, PcaResult, PatchingResult, LinearProbeResult, SaeTrainResult, SaeAnalyzeResult, SteerComputeResult, SteerApplyResult } from "../../types/interp";
 
 interface RemoteJobResultDetailProps {
   job: RemoteJobRecord;
@@ -130,7 +133,12 @@ export function RemoteJobResultDetail({ job, onBack }: RemoteJobResultDetailProp
     return <EvalResultView job={job} result={result} onBack={onBack} />;
   }
 
-  if (result.job_type === "logit-lens" || result.job_type === "activation-pca" || result.job_type === "activation-patch") {
+  const INTERP_JOB_TYPES = new Set([
+    "logit-lens", "activation-pca", "activation-patch",
+    "linear-probe", "sae-train", "sae-analyze",
+    "steer-compute", "steer-apply",
+  ]);
+  if (result.job_type && INTERP_JOB_TYPES.has(result.job_type)) {
     return <InterpResultView job={job} result={result} onBack={onBack} />;
   }
 
@@ -469,6 +477,11 @@ const INTERP_LABELS: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
+  "linear-probe": "Linear Probe",
+  "sae-train": "SAE Train",
+  "sae-analyze": "SAE Analyze",
+  "steer-compute": "Steer Compute",
+  "steer-apply": "Steer Apply",
 };
 
 function InterpResultView({ job, result, onBack }: {
@@ -501,6 +514,21 @@ function InterpResultView({ job, result, onBack }: {
       )}
       {jobType === "activation-patch" && (
         <ActivationPatchingResults result={result as unknown as PatchingResult} />
+      )}
+      {jobType === "linear-probe" && (
+        <LinearProbeResults result={result as unknown as LinearProbeResult} />
+      )}
+      {jobType === "sae-train" && (
+        <SaeTrainResults result={result as unknown as SaeTrainResult} />
+      )}
+      {jobType === "sae-analyze" && (
+        <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />
+      )}
+      {jobType === "steer-compute" && (
+        <SteerComputeResults result={result as unknown as SteerComputeResult} />
+      )}
+      {jobType === "steer-apply" && (
+        <SteerApplyResults result={result as unknown as SteerApplyResult} />
       )}
     </div>
   );

@@ -158,10 +158,15 @@ class IngestCheckpointStore:
 
 def _write_source_records(records_path: Path, records: list[SourceTextRecord]) -> None:
     """Write source text records to JSONL file."""
-    lines = [
-        json.dumps({"source_uri": record.source_uri, "text": record.text}, sort_keys=True)
-        for record in records
-    ]
+    lines = []
+    for record in records:
+        row: dict[str, object] = {
+            "source_uri": record.source_uri,
+            "text": record.text,
+        }
+        if record.extra_fields:
+            row["extra_fields"] = dict(record.extra_fields)
+        lines.append(json.dumps(row, sort_keys=True))
     records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -177,11 +182,16 @@ def _read_source_records(records_path: Path) -> list[SourceTextRecord]:
         if not line.strip():
             continue
         payload = _parse_source_line(records_path, line, line_number)
-        records.append(SourceTextRecord(source_uri=payload["source_uri"], text=payload["text"]))
+        extra = payload.get("extra_fields", {})
+        records.append(SourceTextRecord(
+            source_uri=payload["source_uri"],
+            text=payload["text"],
+            extra_fields=extra if isinstance(extra, dict) else {},
+        ))
     return records
 
 
-def _parse_source_line(records_path: Path, line: str, line_number: int) -> dict[str, str]:
+def _parse_source_line(records_path: Path, line: str, line_number: int) -> dict[str, object]:
     """Parse one source checkpoint line."""
     try:
         payload = json.loads(line)
@@ -197,7 +207,11 @@ def _parse_source_line(records_path: Path, line: str, line_number: int) -> dict[
             f"Invalid ingest checkpoint payload at {records_path}:{line_number}. "
             "Retry without --resume to rebuild checkpoints."
         )
-    return {"source_uri": source_uri, "text": text}
+    result: dict[str, object] = {"source_uri": source_uri, "text": text}
+    extra = payload.get("extra_fields")
+    if isinstance(extra, dict):
+        result["extra_fields"] = extra
+    return result
 
 
 def _write_data_records(records_path: Path, records: list[DataRecord]) -> None:
