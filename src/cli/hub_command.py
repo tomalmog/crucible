@@ -14,7 +14,6 @@ from serve.huggingface_hub import (
     download_model,
     get_dataset_info,
     get_model_info,
-    push_model,
     search_datasets,
     search_models,
 )
@@ -66,8 +65,6 @@ def run_hub_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         return _run_download_dataset_remote(
             client, args.repo_id, args.cluster, getattr(args, "revision", None),
         )
-    if subcmd == "push":
-        return _run_push(args.model_path, args.repo_id, args.message, args.private)
     print(f"Unknown hub subcommand: {subcmd}")
     return 1
 
@@ -219,13 +216,6 @@ def _register_downloaded_dataset(
         print(f"warning: dataset registration failed: {exc}", file=sys.stderr)
 
 
-def _run_push(model_path: str, repo_id: str, message: str, private: bool) -> int:
-    """Push a model to HuggingFace Hub."""
-    url = push_model(model_path, repo_id, message, private)
-    print(f"url={url}")
-    return 0
-
-
 def _add_register_args(parser: argparse.ArgumentParser, kind: str) -> None:
     """Add --register and --<kind>-name flags to a download subparser."""
     registry = "model registry" if kind == "model" else "dataset registry"
@@ -285,9 +275,3 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     ddr.add_argument("repo_id", help="Dataset repository ID")
     ddr.add_argument("--cluster", required=True, help="Cluster name")
     ddr.add_argument("--revision", help="Dataset revision/branch")
-
-    push = sub.add_parser("push", help="Push model to Hub")
-    push.add_argument("model_path", help="Local model path")
-    push.add_argument("repo_id", help="Target repository ID")
-    push.add_argument("--message", default="Upload model via Crucible", help="Commit message")
-    push.add_argument("--private", action="store_true", help="Create private repo")

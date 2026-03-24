@@ -4,7 +4,7 @@ use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 44] = [
+const ALLOWED_COMMANDS: [&str; 48] = [
     "ingest",
     "filter",
     "train",
@@ -49,6 +49,10 @@ const ALLOWED_COMMANDS: [&str; 44] = [
     "activation-patch",
     "dispatch",
     "job",
+    "onnx-export",
+    "safetensors-export",
+    "gguf-export",
+    "hf-export",
 ];
 
 #[tauri::command]
@@ -134,7 +138,10 @@ mod tests {
                      "multimodal-train", "rlvr-train", "suggest",
                      "hub", "eval", "curate", "merge", "ab-chat",
                      "recipe", "cloud", "synthetic",
-                     "logit-lens", "activation-pca", "activation-patch"] {
+                     "logit-lens", "activation-pca", "activation-patch",
+                     "onnx-export",
+                     "safetensors-export", "gguf-export",
+                     "hf-export"] {
             let args = vec![cmd.to_string()];
             assert!(validate_args(&args).is_ok(), "Expected '{cmd}' to be allowed");
         }

@@ -12,7 +12,12 @@ import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
 import { LinearProbeResults } from "../interp/LinearProbeResults";
 import { SaeTrainResults, SaeAnalyzeResults } from "../interp/SaeResults";
 import { SteerComputeResults, SteerApplyResults } from "../interp/SteerResults";
+import { OnnxExportResults } from "../export/OnnxExportResults";
+import { SafeTensorsExportResults } from "../export/SafeTensorsExportResults";
+import { GgufExportResults } from "../export/GgufExportResults";
+import { HfExportResults } from "../export/HfExportResults";
 import type { LogitLensResult, PcaResult, PatchingResult, LinearProbeResult, SaeTrainResult, SaeAnalyzeResult, SteerComputeResult, SteerApplyResult } from "../../types/interp";
+import type { OnnxExportResult, SafeTensorsExportResult, GgufExportResult, HfExportResult } from "../../types/export";
 import { DetailHeader } from "./RetryButton";
 
 // ── Shared types/constants ─────────────────────────────────────────────
@@ -188,9 +193,12 @@ function LocalResultRouter({ job, localTask, onBack }: {
   const isFailed = job.state === "failed" || localTask.status === "failed";
   const config = job.config;
 
+  const isExport = job.jobType === "onnx-export" || job.jobType === "safetensors-export" || job.jobType === "gguf-export" || job.jobType === "hf-export";
+
   if (isFailed) return <LocalFailedView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isSweep) return <LocalSweepView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isInterp) return <LocalInterpView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isExport) return <LocalExportView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isTraining) return <LocalTrainingView job={job} localTask={localTask} onBack={onBack} config={config} />;
   return <LocalGenericView job={job} localTask={localTask} onBack={onBack} config={config} />;
 }
@@ -267,6 +275,34 @@ function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; l
       {parsed && job.jobType === "steer-compute" && <SteerComputeResults result={parsed as SteerComputeResult} />}
       {parsed && job.jobType === "steer-apply" && <SteerApplyResults result={parsed as SteerApplyResult} />}
       {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
+    </div>
+  );
+}
+
+function LocalExportView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
+  const parsed = useMemo(() => {
+    try {
+      // Try to find a JSON object in stdout
+      const jsonMatch = localTask.stdout.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      return JSON.parse(localTask.stdout);
+    } catch { return null; }
+  }, [localTask.stdout]);
+
+  const exportLabel = job.jobType === "safetensors-export" ? "SafeTensors Export"
+    : job.jobType === "gguf-export" ? "GGUF Export"
+    : job.jobType === "hf-export" ? "HuggingFace Export" : "ONNX Export";
+
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} />
+      <h3>{job.label || exportLabel} — Result</h3>
+      {parsed && job.jobType === "onnx-export" && <OnnxExportResults result={parsed as OnnxExportResult} />}
+      {parsed && job.jobType === "safetensors-export" && <SafeTensorsExportResults result={parsed as SafeTensorsExportResult} />}
+      {parsed && job.jobType === "gguf-export" && <GgufExportResults result={parsed as GgufExportResult} />}
+      {parsed && job.jobType === "hf-export" && <HfExportResults result={parsed as HfExportResult} />}
+      {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
+      <LogsSection logs={localTask.stdout} />
     </div>
   );
 }

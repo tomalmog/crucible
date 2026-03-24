@@ -54,6 +54,13 @@ from cli.lora_command import (
     run_lora_train_command,
 )
 from cli.merge_command import add_merge_command, run_merge_command
+from cli.onnx_export_command import add_onnx_export_command, run_onnx_export_command
+from cli.safetensors_export_command import (
+    add_safetensors_export_command,
+    run_safetensors_export_command,
+)
+from cli.gguf_export_command import add_gguf_export_command, run_gguf_export_command
+from cli.hf_export_command import add_hf_export_command, run_hf_export_command
 from cli.model_command import add_model_command, run_model_command
 from cli.multimodal_command import add_multimodal_command, run_multimodal_command
 from cli.orpo_command import add_orpo_command, run_orpo_command
@@ -101,6 +108,9 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_linear_probe_command, add_sae_train_command, add_sae_analyze_command,
     add_steer_compute_command, add_steer_apply_command,
     add_dispatch_command, add_job_command,
+    add_onnx_export_command,
+    add_safetensors_export_command, add_gguf_export_command,
+    add_hf_export_command,
 )
 
 
@@ -156,6 +166,10 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "steer-apply": run_steer_apply_command,
         "dispatch": run_dispatch_command,
         "job": run_job_command,
+        "onnx-export": run_onnx_export_command,
+        "safetensors-export": run_safetensors_export_command,
+        "gguf-export": run_gguf_export_command,
+        "hf-export": run_hf_export_command,
     }
 
 

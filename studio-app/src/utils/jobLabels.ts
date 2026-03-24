@@ -25,6 +25,10 @@ const METHOD_DISPLAY: Record<string, string> = {
   "steer-apply": "Steer Apply",
   eval: "Eval",
   sweep: "Sweep",
+  "onnx-export": "ONNX Export",
+  "safetensors-export": "SafeTensors Export",
+  "gguf-export": "GGUF Export",
+  "hf-export": "HuggingFace Export",
 };
 
 /**

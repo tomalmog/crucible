@@ -281,19 +281,3 @@ def get_dataset_info(repo_id: str) -> dict[str, Any]:
     }
 
 
-def push_model(
-    model_path: str,
-    repo_id: str,
-    commit_message: str = "Upload model via Crucible",
-    private: bool = False,
-) -> str:
-    """Push a trained model to HuggingFace Hub."""
-    hf = _import_huggingface_hub()
-    api = hf.HfApi()
-    api.create_repo(repo_id=repo_id, exist_ok=True, private=private)
-    url = api.upload_folder(
-        folder_path=model_path,
-        repo_id=repo_id,
-        commit_message=commit_message,
-    )
-    return str(url)

@@ -15,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 20] = [
+const JOBS_PAGE_COMMANDS: [&str; 24] = [
     "train",
     "sft",
     "dpo-train",
@@ -36,6 +36,10 @@ const JOBS_PAGE_COMMANDS: [&str; 20] = [
     "activation-pca",
     "activation-patch",
     "dispatch",
+    "onnx-export",
+    "safetensors-export",
+    "gguf-export",
+    "hf-export",
 ];
 
 #[derive(Clone)]
