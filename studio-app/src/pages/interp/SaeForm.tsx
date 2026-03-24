@@ -185,7 +185,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
             <FormField label="SAE Path" required hint="Path to trained .pt file">
               <input value={saePath} onChange={(e) => setSaePath(e.currentTarget.value)} placeholder="./outputs/interp/sae_model.pt" />
             </FormField>
-            <FormField label="Dataset" hint="Training dataset for feature associations">
+            <FormField label="Dataset" hint="Select the training dataset to see what each feature responds to">
               <DatasetSelect value={dataset} onChange={setDataset} />
             </FormField>
             <FormField label="Top K Features">
