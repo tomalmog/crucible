@@ -56,10 +56,8 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [comboQuery, setComboQuery] = useState("");
   const [comboOpen, setComboOpen] = useState(false);
   const comboRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch available clusters; set default only if no cluster is already selected
   useEffect(() => {
@@ -147,9 +145,6 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   }
 
   const selected = ALL_BENCHMARKS.filter((b) => selectedBenchmarks.has(b));
-  const comboFiltered = ALL_BENCHMARKS.filter((b) =>
-    b.toLowerCase().includes(comboQuery.toLowerCase()),
-  );
 
   return (
     <CommandFormPanel
@@ -179,43 +174,45 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         <div className="bench-combo-wrap" ref={comboRef}>
           <div className="bench-combo-selected">
             {selected.map((b) => (
-              <span key={b} className="bench-combo-tag">
-                {b}
-                <span className="bench-chip-x" onClick={() => toggleBenchmark(b)}>&times;</span>
+              <span key={b} className="bench-combo-tag" onClick={() => toggleBenchmark(b)}>
+                {b} &times;
               </span>
             ))}
+            <span
+              className="bench-combo-tag"
+              style={{ background: "transparent", border: "1px dashed var(--border)", color: "var(--text-tertiary)" }}
+              onClick={() => {
+                if (selected.length === ALL_BENCHMARKS.length) setSelectedBenchmarks(new Set());
+                else setSelectedBenchmarks(new Set(ALL_BENCHMARKS));
+              }}
+            >
+              {selected.length === ALL_BENCHMARKS.length ? "Clear All" : "Select All"}
+            </span>
+            <span
+              className="bench-combo-tag"
+              style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+              onClick={() => setComboOpen((p) => !p)}
+            >
+              {comboOpen ? "Close" : "Edit"}
+            </span>
           </div>
-          <div className="bench-combo-input-wrap">
-            <input
-              ref={inputRef}
-              type="text"
-              className="bench-combo-input"
-              placeholder={selected.length === ALL_BENCHMARKS.length ? "All selected" : "Search benchmarks..."}
-              value={comboQuery}
-              onChange={(e) => { setComboQuery(e.currentTarget.value); setComboOpen(true); }}
-              onFocus={() => setComboOpen(true)}
-            />
-            {comboOpen && comboFiltered.length > 0 && (
-              <div className="bench-combo-menu">
-                {comboFiltered.map((b) => (
-                  <button
-                    key={b}
-                    type="button"
-                    className={`bench-combo-option ${selectedBenchmarks.has(b) ? "bench-combo-option--active" : ""}`}
-                    onClick={() => {
-                      toggleBenchmark(b);
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <span className="bench-combo-option-check">
-                      {selectedBenchmarks.has(b) ? "\u2713" : ""}
-                    </span>
-                    {b}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {comboOpen && (
+            <div className="bench-combo-menu" style={{ position: "relative", top: 0 }}>
+              {ALL_BENCHMARKS.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  className={`bench-combo-option ${selectedBenchmarks.has(b) ? "bench-combo-option--active" : ""}`}
+                  onClick={() => toggleBenchmark(b)}
+                >
+                  <span className="bench-combo-option-check">
+                    {selectedBenchmarks.has(b) ? "\u2713" : ""}
+                  </span>
+                  {b}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </FormField>
 
