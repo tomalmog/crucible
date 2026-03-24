@@ -248,27 +248,34 @@ label,
 .bench-combo-wrap {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    margin-top: 4px;
+    cursor: pointer;
 }
 
 .bench-combo-selected {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding-left: 10px;
+    gap: 6px;
+    padding: 2px 10px 14px;
 }
 
 .bench-combo-tag {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 4px 10px;
     background: var(--accent-muted);
     color: var(--accent-text);
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     font-size: 0.75rem;
-    cursor: default;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.bench-combo-tag:hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .bench-chip-x {
