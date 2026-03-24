@@ -8,14 +8,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.constants import sanitize_remote_name
 from core.errors import CrucibleModelRegistryError
 from core.model_registry_types import ModelEntry
 from serve.training_run_io import read_json_file, write_json_file
 
 
 def _safe_filename(name: str) -> str:
-    """Sanitize a model name for use as a filename (replaces ``/`` with ``--``)."""
-    return name.replace("/", "--")
+    """Sanitize a model name for use as a filename.
+
+    Uses ``sanitize_remote_name`` so HuggingFace repo IDs like
+    ``org/model`` become ``org_model`` consistently across all paths.
+    """
+    return sanitize_remote_name(name)
 
 
 def save_model_entry(models_root: Path, entry: ModelEntry) -> Path:

@@ -216,7 +216,7 @@ def pull_remote_model_direct(
         is_file = rc_file == 0
 
         if is_file:
-            # Single file: just download it
+            # Download the model file
             stdout, _, _ = session.execute(
                 f"du -sh '{remote_path}' 2>/dev/null || echo 'unknown'",
                 timeout=30,
@@ -227,6 +227,9 @@ def pull_remote_model_direct(
             local_file = local_dir / remote_basename
             session.download(remote_path, local_file)
             model_local_path = str(local_file)
+
+            # Also download sibling metadata files if present
+            _download_metadata_files(session, remote_parent, local_dir)
         else:
             # Directory: tar + download + extract
             _, _, rc_dir = session.execute(
@@ -287,6 +290,35 @@ def pull_remote_model_direct(
 
     progress("Complete!")
     return model_local_path
+
+
+_METADATA_FILES = (
+    "training_config.json",
+    "tokenizer_vocab.json",
+    "vocab.json",
+    "tokenizer.json",
+    "history.json",
+    "lora_adapter.pt",
+    "lora_adapter_config.json",
+)
+
+
+def _download_metadata_files(
+    session: SshSession,
+    remote_dir: str,
+    local_dir: Path,
+) -> None:
+    """Download small metadata files from the model directory."""
+    for name in _METADATA_FILES:
+        remote_file = f"{remote_dir}/{name}"
+        _, _, rc = session.execute(f"test -f '{remote_file}'", timeout=5)
+        if rc == 0:
+            local_file = local_dir / name
+            if not local_file.exists():
+                try:
+                    session.download(remote_file, local_file)
+                except Exception:
+                    pass  # Non-critical metadata
 
 
 def _read_model_path(

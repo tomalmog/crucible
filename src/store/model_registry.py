@@ -116,7 +116,8 @@ class ModelRegistry:
         for name in self.list_model_names():
             try:
                 entries.append(load_model_entry(self._models_root, name))
-            except CrucibleModelRegistryError:
+            except CrucibleModelRegistryError as exc:
+                _logger.warning("Skipping corrupt model entry '%s': %s", name, exc)
                 continue
         return tuple(entries)
 

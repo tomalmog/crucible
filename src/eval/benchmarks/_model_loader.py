@@ -266,16 +266,22 @@ class _HfTokenizerAdapter:
 
 
 def _detect_hf_base_model(model_path: str) -> str | None:
-    """Check if model_path has a training_config with a HuggingFace base_model_path."""
+    """Check if model_path has a training_config with a HuggingFace base model.
+
+    Checks both ``base_model_path`` (used by LoRA/SFT/DPO) and
+    ``initial_weights_path`` (used by QLoRA) so that all fine-tuned
+    HuggingFace models are detected regardless of training method.
+    """
     from serve.hf_model_loader import is_huggingface_model_id
     from serve.training_metadata import load_training_config
 
     config = load_training_config(model_path)
     if not config:
         return None
-    base = str(config.get("base_model_path", "") or "")
-    if base and is_huggingface_model_id(base):
-        return base
+    for key in ("base_model_path", "initial_weights_path"):
+        value = str(config.get(key, "") or "")
+        if value and is_huggingface_model_id(value):
+            return value
     return None
 
 

@@ -5,6 +5,7 @@ Persists RemoteJobRecord instances as JSON under .crucible/remote-jobs/.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,8 @@ from pathlib import Path
 from core.errors import CrucibleRemoteError
 from core.slurm_types import RemoteJobRecord, RemoteJobState
 from serve.training_run_io import read_json_file, write_json_file
+
+_logger = logging.getLogger(__name__)
 
 
 def _jobs_dir(data_root: Path) -> Path:
@@ -145,7 +148,8 @@ def list_remote_jobs(data_root: Path) -> tuple[RemoteJobRecord, ...]:
             raw = read_json_file(path)
             if isinstance(raw, dict):
                 records.append(_dict_to_record(raw))
-        except Exception:
+        except Exception as exc:
+            _logger.warning("Skipping corrupt remote job file '%s': %s", path.name, exc)
             continue
     records.sort(key=lambda r: r.submitted_at, reverse=True)
     return tuple(records)
