@@ -3,7 +3,7 @@ import { Loader2, Trophy } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { JobRecord } from "../../types/jobs";
 import type { CommandTaskStatus, TrainingHistory } from "../../types";
-import { getJobResult, getJobLogs, getCachedJobResult, getCachedJobLogs } from "../../api/jobsApi";
+import { getJobResult, getJobLogs, getCachedJobResult } from "../../api/jobsApi";
 import { loadTrainingHistory } from "../../api/studioApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
 import { LogitLensResults } from "../interp/LogitLensResults";
@@ -80,6 +80,50 @@ function parseKeyValueOutput(stdout: string): Record<string, string> {
   return result;
 }
 
+// ── Shared logs section ─────────────────────────────────────────────────
+
+/** Log viewer shown at the bottom of result views. For local jobs pass `logs`
+ *  directly; for remote jobs pass `jobId` and logs are fetched automatically. */
+function LogsSection({ logs, jobId, jobState }: {
+  logs?: string;
+  jobId?: string;
+  jobState?: string;
+}) {
+  const { dataRoot } = useCrucible();
+  const [remoteLogs, setRemoteLogs] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (logs || !jobId || !dataRoot) return;
+    setLoading(true);
+    getJobLogs(dataRoot, jobId, jobState)
+      .then((c) => setRemoteLogs(c?.trim() || ""))
+      .catch((err) => setFetchError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoading(false));
+  }, [logs, jobId, jobState, dataRoot]);
+
+  const content = logs ?? remoteLogs;
+
+  if (!logs && !jobId) return null;
+
+  return (
+    <div>
+      <div style={{ textAlign: "center", fontSize: "1rem", fontWeight: 600, marginTop: 24, marginBottom: 12 }}>Logs</div>
+      {loading && (
+        <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+          <Loader2 size={16} className="spin" />
+        </div>
+      )}
+      {fetchError && <div className="error-alert">{fetchError}</div>}
+      {content && <pre className="console" style={{ fontSize: "0.8125rem", maxHeight: 300 }}>{content}</pre>}
+      {!loading && !fetchError && !content && (
+        <p className="text-muted">No logs available.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────
 
 export function UnifiedJobResultDetail({ job, localTask, onBack }: UnifiedJobResultDetailProps) {
@@ -149,9 +193,7 @@ function LocalFailedView({ job, localTask, onBack, config }: { job: JobRecord; l
       {localTask.stderr && (
         <details><summary className="error-text">Full traceback</summary><pre className="console console-short">{localTask.stderr}</pre></details>
       )}
-      {localTask.stdout && (
-        <details><summary>stdout</summary><pre className="console console-short">{localTask.stdout}</pre></details>
-      )}
+      <LogsSection logs={localTask.stdout} />
     </div>
   );
 }
@@ -191,7 +233,7 @@ function LocalTrainingView({ job, localTask, onBack, config }: { job: JobRecord;
         </div>
       )}
       {history && <TrainingCurvesView history={history} />}
-      <details><summary>Raw output</summary><pre className="console console-short">{localTask.stdout}</pre></details>
+      <LogsSection logs={localTask.stdout} />
     </div>
   );
 }
@@ -280,9 +322,7 @@ function LocalGenericView({ job, localTask, onBack, config }: { job: JobRecord; 
 function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => void }) {
   const { dataRoot } = useCrucible();
   const initialResult = useMemo(() => getCachedJobResult(job.jobId) as ResultData | undefined, [job.jobId]);
-  const initialLogs = useMemo(() => getCachedJobLogs(job.jobId), [job.jobId]);
   const [result, setResult] = useState<ResultData | null>(initialResult ?? null);
-  const [remoteLogs, setRemoteLogs] = useState(initialLogs?.trim() || "");
   const [loading, setLoading] = useState(!initialResult);
   const [error, setError] = useState<string | null>(null);
 
@@ -303,12 +343,6 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
   useEffect(() => {
     if (!initialResult) fetchResult();
   }, [fetchResult]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!dataRoot || job.state !== "failed") return;
-    if (initialLogs) return;
-    getJobLogs(dataRoot, job.jobId, job.state).then((c) => setRemoteLogs(c?.trim() || "")).catch(() => {});
-  }, [dataRoot, job.jobId, job.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const config = job.config;
 
@@ -339,21 +373,21 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
   }
 
   if (job.state === "failed" || result.status === "failed") {
-    return <RemoteFailedView job={job} result={result} logs={remoteLogs} onBack={onBack} config={config} />;
+    return <RemoteFailedView job={job} result={result} onBack={onBack} config={config} />;
   }
   if (result.job_type === "eval") return <RemoteEvalView job={job} result={result} onBack={onBack} config={config} />;
   if (INTERP_TYPES.has(result.job_type || "")) return <RemoteInterpView job={job} result={result} onBack={onBack} config={config} />;
   return <RemoteTrainingView job={job} result={result} onBack={onBack} config={config} />;
 }
 
-function RemoteFailedView({ job, result, logs, onBack, config }: { job: JobRecord; result: ResultData; logs: string; onBack: () => void; config: Record<string, unknown> }) {
+function RemoteFailedView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   return (
     <div className="panel stack-lg">
       <DetailHeader onBack={onBack} config={config} />
       <h3>Job Failed: {job.label || job.jobId}</h3>
       {result.error && <div className="error-alert-prominent">{result.error}</div>}
       {result.traceback && (<details><summary className="error-text">Full traceback</summary><pre className="console console-short">{result.traceback}</pre></details>)}
-      {logs && (<details><summary>Remote logs</summary><pre className="console console-short">{logs}</pre></details>)}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
 }
@@ -402,6 +436,7 @@ function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; resul
           </table>
         </div>
       )}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
 }
@@ -435,6 +470,7 @@ function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; r
         </div>
       )}
       {history && <TrainingCurvesView history={history} />}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
 }
@@ -454,6 +490,7 @@ function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; res
       {jobType === "logit-lens" && <LogitLensResults result={result as unknown as LogitLensResult} />}
       {jobType === "activation-pca" && <ActivationPcaResults result={result as unknown as PcaResult} />}
       {jobType === "activation-patch" && <ActivationPatchingResults result={result as unknown as PatchingResult} />}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
 }
