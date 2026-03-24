@@ -10,15 +10,31 @@ import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { activationPcaLabel } from "../../utils/jobLabels";
 
-export function ActivationPcaForm() {
+interface ActivationPcaFormProps {
+  prefill?: Record<string, unknown>;
+}
+
+export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
   const { dataRoot } = useCrucible();
   const navigate = useNavigate();
-  const [modelPath, setModelPath] = useState("");
-  const [dataset, setDataset] = useState("");
-  const [layerIndex, setLayerIndex] = useState("-1");
-  const [granularity, setGranularity] = useState("sample");
-  const [colorField, setColorField] = useState("");
-  const [maxSamples, setMaxSamples] = useState("500");
+  const [modelPath, setModelPath] = useState(
+    typeof prefill?.modelPath === "string" ? prefill.modelPath : "",
+  );
+  const [dataset, setDataset] = useState(
+    typeof prefill?.dataset === "string" ? prefill.dataset : "",
+  );
+  const [layerIndex, setLayerIndex] = useState(
+    typeof prefill?.layerIndex === "string" ? prefill.layerIndex : "-1",
+  );
+  const [granularity, setGranularity] = useState(
+    typeof prefill?.granularity === "string" ? prefill.granularity : "sample",
+  );
+  const [colorField, setColorField] = useState(
+    typeof prefill?.colorField === "string" ? prefill.colorField : "",
+  );
+  const [maxSamples, setMaxSamples] = useState(
+    typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "500",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,11 +48,25 @@ export function ActivationPcaForm() {
     return m;
   }, [modelPath, dataset, isRemote, clusterName]);
 
+  function snapshotConfig(): Record<string, unknown> {
+    return {
+      page: "interpretability",
+      tab: "activation-pca",
+      modelPath,
+      dataset,
+      layerIndex,
+      granularity,
+      colorField,
+      maxSamples,
+    };
+  }
+
   async function submit() {
     if (!dataRoot || missing.length > 0) return;
     setSubmitting(true);
     setError(null);
     try {
+      const cfg = snapshotConfig();
       if (isRemote && clusterName) {
         const methodArgs: Record<string, unknown> = {
           model_path: modelPath,
@@ -50,7 +80,7 @@ export function ActivationPcaForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "activation-pca", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       } else {
         const args = [
           "activation-pca",
@@ -62,7 +92,7 @@ export function ActivationPcaForm() {
           "--granularity", granularity,
         ];
         if (colorField.trim()) args.push("--color-field", colorField);
-        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       }
       navigate("/jobs");
     } catch (err) {

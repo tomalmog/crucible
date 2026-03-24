@@ -51,6 +51,7 @@ def _record_to_dict(record: JobRecord) -> dict[str, object]:
         "submit_phase": record.submit_phase,
         "is_sweep": record.is_sweep,
         "sweep_trial_count": record.sweep_trial_count,
+        "config": record.config,
     }
 
 
@@ -75,6 +76,7 @@ def _dict_to_record(raw: dict[str, object]) -> JobRecord:
         submit_phase=str(raw.get("submit_phase", "")),
         is_sweep=bool(raw.get("is_sweep", False)),
         sweep_trial_count=int(raw.get("sweep_trial_count", 0)),  # type: ignore[arg-type]
+        config=dict(raw.get("config", {}) or {}),  # type: ignore[arg-type]
     )
 
 

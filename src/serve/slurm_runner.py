@@ -90,7 +90,9 @@ class SlurmRunner:
                 data_root, spec, resources,
             )
 
-        unified = self._remote_to_unified(remote_record, label=spec.label)
+        unified = self._remote_to_unified(
+            remote_record, label=spec.label, config=spec.config,
+        )
         save_job(data_root, unified)
         return unified
 
@@ -206,7 +208,10 @@ class SlurmRunner:
             resources=resources,
         )
 
-    def _remote_to_unified(self, remote_record: object, label: str = "") -> JobRecord:
+    def _remote_to_unified(
+        self, remote_record: object, label: str = "",
+        config: dict[str, object] | None = None,
+    ) -> JobRecord:
         """Convert a RemoteJobRecord to a unified JobRecord."""
         from core.slurm_types import RemoteJobRecord
         if not isinstance(remote_record, RemoteJobRecord):
@@ -233,4 +238,5 @@ class SlurmRunner:
             submit_phase=remote_record.submit_phase,
             is_sweep=remote_record.is_sweep,
             sweep_trial_count=remote_record.sweep_array_size,
+            config=config or {},
         )

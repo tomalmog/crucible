@@ -244,7 +244,7 @@ def test_record_to_dict_has_all_keys() -> None:
         "label", "backend_job_id", "backend_cluster", "backend_output_dir",
         "backend_log_path", "model_path", "model_path_local", "model_name",
         "error_message", "progress_percent", "submit_phase", "is_sweep",
-        "sweep_trial_count",
+        "sweep_trial_count", "config",
     }
     assert set(d.keys()) == expected_keys
 

@@ -85,7 +85,7 @@ impl Default for CommandTaskStore {
 }
 
 impl CommandTaskStore {
-    pub fn start_task(&self, data_root: String, args: Vec<String>, label: String) -> CommandTaskStart {
+    pub fn start_task(&self, data_root: String, args: Vec<String>, label: String, config_json: Option<String>) -> CommandTaskStart {
         let command_name = args[0].clone();
         let task_id = self.generate_task_id();
         let estimated_total_seconds = self.estimate_for_command(&command_name);
@@ -101,7 +101,7 @@ impl CommandTaskStore {
         let task_store = self.clone();
         let task_id_for_thread = task_id.clone();
         std::thread::spawn(move || {
-            task_store.execute_task(task_id_for_thread, data_root, command_name, args, label);
+            task_store.execute_task(task_id_for_thread, data_root, command_name, args, label, config_json);
         });
 
         CommandTaskStart {
@@ -211,11 +211,11 @@ impl CommandTaskStore {
         Ok(())
     }
 
-    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String) {
+    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String, config_json: Option<String>) {
         // Write initial unified JobRecord for commands shown on Jobs page.
         // Skip "dispatch" — the Python dispatch command writes its own record.
         if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
-            write_job_record(&data_root, &task_id, &command_name, "running", "", "", &label);
+            write_job_record(&data_root, &task_id, &command_name, "running", "", "", &label, &config_json);
         }
 
         let working_directory = workspace_root_dir();
@@ -507,12 +507,17 @@ fn write_job_record(
     model_path: &str,
     error_message: &str,
     label: &str,
+    config_json: &Option<String>,
 ) {
     let jobs_dir = Path::new(data_root).join("jobs");
     if fs::create_dir_all(&jobs_dir).is_err() {
         return;
     }
     let now = utc_iso_now();
+    let config_value: serde_json::Value = config_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
     let record = serde_json::json!({
         "job_id": task_id,
         "backend": "local",
@@ -532,7 +537,8 @@ fn write_job_record(
         "progress_percent": if state == "running" { 0.0 } else { 100.0 },
         "submit_phase": "",
         "is_sweep": command == "sweep",
-        "sweep_trial_count": 0
+        "sweep_trial_count": 0,
+        "config": config_value
     });
     let path = jobs_dir.join(format!("{task_id}.json"));
     let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());

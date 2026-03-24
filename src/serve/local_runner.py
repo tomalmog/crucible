@@ -34,6 +34,7 @@ class LocalRunner:
             updated_at=ts,
             label=spec.label,
             is_sweep=spec.is_sweep,
+            config=spec.config,
         )
         save_job(data_root, record)
 

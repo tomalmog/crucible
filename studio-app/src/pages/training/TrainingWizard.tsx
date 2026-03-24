@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
@@ -60,24 +60,44 @@ interface TrainingWizardProps {
   method: TrainingMethod;
   dataRoot: string;
   onBack: () => void;
+  prefill?: Record<string, unknown>;
 }
 
-export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps) {
+export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWizardProps) {
   const methodInfo = TRAINING_METHODS.find((m) => m.id === method)!;
   const { refreshModels } = useCrucible();
   const navigate = useNavigate();
   const command = useCrucibleCommand();
   const registerCommand = useCrucibleCommand();
   const [step, setStep] = useState<Step>("config");
-  const [modelName, setModelName] = useState("My-Model-0");
+  const [modelName, setModelName] = useState(
+    typeof prefill?.modelName === "string" ? prefill.modelName : "My-Model-0",
+  );
   const [registered, setRegistered] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  const [remoteEnabled, setRemoteEnabled] = useState(false);
-  const [clusterConfig, setClusterConfig] = useState<ClusterSubmitConfig>(DEFAULT_CLUSTER_CONFIG);
+  const [remoteEnabled, setRemoteEnabled] = useState(
+    typeof prefill?.remoteEnabled === "boolean" ? prefill.remoteEnabled : false,
+  );
+  const [clusterConfig, setClusterConfig] = useState<ClusterSubmitConfig>(
+    prefill?.clusterConfig
+      ? { ...DEFAULT_CLUSTER_CONFIG, ...(prefill.clusterConfig as Partial<ClusterSubmitConfig>) }
+      : DEFAULT_CLUSTER_CONFIG,
+  );
   const [remoteSubmitting, setRemoteSubmitting] = useState(false);
   const config = useTrainingConfig(method, dataRoot);
   const { shared, setShared, extra, setExtra } = config;
   useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
+
+  // Apply prefilled shared/extra values once the config has loaded defaults
+  useEffect(() => {
+    if (!prefill || !config.isLoaded) return;
+    if (prefill.shared && typeof prefill.shared === "object") {
+      setShared({ ...shared, ...(prefill.shared as Partial<typeof shared>) });
+    }
+    if (prefill.extra && typeof prefill.extra === "object") {
+      setExtra({ ...extra, ...(prefill.extra as Record<string, string>) });
+    }
+  }, [config.isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle remote on/off based on dataset selection (local vs remote)
   const handleDatasetLocationChanged = useCallback((isRemote: boolean, cluster: string) => {
@@ -91,6 +111,18 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     cluster: remoteEnabled ? clusterConfig.cluster : "",
     onDatasetLocationChanged: handleDatasetLocationChanged,
   }), [remoteEnabled, clusterConfig.cluster, handleDatasetLocationChanged]);
+
+  function snapshotConfig(): Record<string, unknown> {
+    return {
+      page: "training",
+      method,
+      modelName,
+      shared: { ...shared },
+      extra: { ...extra },
+      remoteEnabled,
+      clusterConfig: { ...clusterConfig },
+    };
+  }
 
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
@@ -106,7 +138,8 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
     setRegistered(false);
     try {
       const args = buildTrainingArgs(method, shared, extra);
-      const status = await command.run(dataRoot, args, trainingLabel(method, modelName));
+      const cfg = snapshotConfig();
+      const status = await command.run(dataRoot, args, trainingLabel(method, modelName), cfg);
       setStep("done");
       if (status.status === "completed" && status.exit_code === 0) {
         const modelPath = parseModelPath(status.stdout);
@@ -137,6 +170,7 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
         extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
+      const cfg = snapshotConfig();
       const args = buildDispatchSpec(method, merged, "slurm", {
         label: modelName.trim() || undefined,
         clusterName: clusterConfig.cluster,
@@ -149,8 +183,9 @@ export function TrainingWizard({ method, dataRoot, onBack }: TrainingWizardProps
           time_limit: clusterConfig.timeLimit || "04:00:00",
           gpu_type: clusterConfig.gpuType || "",
         },
+        config: cfg,
       });
-      await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName));
+      await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       navigate("/jobs");
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));

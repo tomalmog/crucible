@@ -35,6 +35,7 @@ export interface JobRecord {
   submitPhase: string;
   isSweep: boolean;
   sweepTrialCount: number;
+  config: Record<string, unknown>;
 }
 
 export interface ResourceConfig {

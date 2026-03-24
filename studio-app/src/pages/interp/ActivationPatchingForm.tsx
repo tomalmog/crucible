@@ -9,13 +9,25 @@ import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { activationPatchingLabel } from "../../utils/jobLabels";
 
-export function ActivationPatchingForm() {
+interface ActivationPatchingFormProps {
+  prefill?: Record<string, unknown>;
+}
+
+export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps) {
   const { dataRoot } = useCrucible();
   const navigate = useNavigate();
-  const [modelPath, setModelPath] = useState("");
-  const [cleanText, setCleanText] = useState("");
-  const [corruptedText, setCorruptedText] = useState("");
-  const [metric, setMetric] = useState("logit_diff");
+  const [modelPath, setModelPath] = useState(
+    typeof prefill?.modelPath === "string" ? prefill.modelPath : "",
+  );
+  const [cleanText, setCleanText] = useState(
+    typeof prefill?.cleanText === "string" ? prefill.cleanText : "",
+  );
+  const [corruptedText, setCorruptedText] = useState(
+    typeof prefill?.corruptedText === "string" ? prefill.corruptedText : "",
+  );
+  const [metric, setMetric] = useState(
+    typeof prefill?.metric === "string" ? prefill.metric : "logit_diff",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,11 +42,23 @@ export function ActivationPatchingForm() {
     return m;
   }, [modelPath, cleanText, corruptedText, isRemote, clusterName]);
 
+  function snapshotConfig(): Record<string, unknown> {
+    return {
+      page: "interpretability",
+      tab: "activation-patching",
+      modelPath,
+      cleanText,
+      corruptedText,
+      metric,
+    };
+  }
+
   async function submit() {
     if (!dataRoot || missing.length > 0) return;
     setSubmitting(true);
     setError(null);
     try {
+      const cfg = snapshotConfig();
       if (isRemote && clusterName) {
         const methodArgs = {
           model_path: modelPath,
@@ -46,7 +70,7 @@ export function ActivationPatchingForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "activation-patch", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath), cfg);
       } else {
         const args = [
           "activation-patch",
@@ -56,7 +80,7 @@ export function ActivationPatchingForm() {
           "--output-dir", "./outputs/interp",
           "--metric", metric,
         ];
-        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath), cfg);
       }
       navigate("/jobs");
     } catch (err) {

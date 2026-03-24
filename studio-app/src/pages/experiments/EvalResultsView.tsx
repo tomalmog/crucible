@@ -14,22 +14,46 @@ const ALL_BENCHMARKS = [
   "mmlu", "gsm8k", "hellaswag", "arc", "truthfulqa", "winogrande", "humaneval",
 ] as const;
 
-export function EvalResultsView() {
+interface EvalResultsViewProps {
+  prefill?: Record<string, unknown>;
+}
+
+export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const { dataRoot, models } = useCrucible();
   const navigate = useNavigate();
-  const [modelPath, setModelPath] = useState("");
-  const [baseModelPath, setBaseModelPath] = useState("");
-  const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(
-    new Set(ALL_BENCHMARKS),
+  const [modelPath, setModelPath] = useState(
+    typeof prefill?.modelPath === "string" ? prefill.modelPath : "",
   );
-  const [maxSamples, setMaxSamples] = useState("");
-  const [cluster, setCluster] = useState("");
+  const [baseModelPath, setBaseModelPath] = useState(
+    typeof prefill?.baseModelPath === "string" ? prefill.baseModelPath : "",
+  );
+  const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(
+    Array.isArray(prefill?.selectedBenchmarks)
+      ? new Set(prefill.selectedBenchmarks as string[])
+      : new Set(ALL_BENCHMARKS),
+  );
+  const [maxSamples, setMaxSamples] = useState(
+    typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "",
+  );
+  const [cluster, setCluster] = useState(
+    typeof prefill?.cluster === "string" ? prefill.cluster : "",
+  );
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
-  const [partition, setPartition] = useState("");
-  const [gpusPerNode, setGpusPerNode] = useState("1");
-  const [gpuType, setGpuType] = useState("");
-  const [memory, setMemory] = useState("32G");
-  const [timeLimit, setTimeLimit] = useState("04:00:00");
+  const [partition, setPartition] = useState(
+    typeof prefill?.partition === "string" ? prefill.partition : "",
+  );
+  const [gpusPerNode, setGpusPerNode] = useState(
+    typeof prefill?.gpusPerNode === "string" ? prefill.gpusPerNode : "1",
+  );
+  const [gpuType, setGpuType] = useState(
+    typeof prefill?.gpuType === "string" ? prefill.gpuType : "",
+  );
+  const [memory, setMemory] = useState(
+    typeof prefill?.memory === "string" ? prefill.memory : "32G",
+  );
+  const [timeLimit, setTimeLimit] = useState(
+    typeof prefill?.timeLimit === "string" ? prefill.timeLimit : "04:00:00",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comboQuery, setComboQuery] = useState("");
@@ -37,13 +61,14 @@ export function EvalResultsView() {
   const comboRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch available clusters; set default only if no cluster is already selected
   useEffect(() => {
     if (!dataRoot) return;
     listClusters(dataRoot).then((c) => {
       setClusters(c);
       if (c.length > 0 && !cluster) setCluster(c[0].name);
     }).catch(() => setClusters([]));
-  }, [dataRoot]);
+  }, [dataRoot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -75,6 +100,22 @@ export function EvalResultsView() {
     return m;
   }, [modelPath, cluster, selectedBenchmarks]);
 
+  function snapshotConfig(): Record<string, unknown> {
+    return {
+      page: "benchmarks",
+      modelPath,
+      baseModelPath,
+      selectedBenchmarks: Array.from(selectedBenchmarks),
+      maxSamples,
+      cluster,
+      partition,
+      gpusPerNode,
+      gpuType,
+      memory,
+      timeLimit,
+    };
+  }
+
   async function submitEval() {
     if (!dataRoot || missing.length > 0) return;
     setSubmitting(true);
@@ -84,6 +125,7 @@ export function EvalResultsView() {
       const selectedEntry = models.find(
         (m) => m.remotePath === modelPath || m.modelPath === modelPath,
       );
+      const cfg = snapshotConfig();
       const args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
         modelName: selectedEntry?.modelName || undefined,
         baseModel: baseModelPath.trim() || undefined,
@@ -95,7 +137,7 @@ export function EvalResultsView() {
         timeLimit,
       });
       const selectedModelName = selectedEntry?.modelName || "model";
-      await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName));
+      await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName), cfg);
       navigate("/jobs");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

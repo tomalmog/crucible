@@ -56,10 +56,11 @@ pub fn start_crucible_command(
     data_root: String,
     args: Vec<String>,
     label: Option<String>,
+    config_json: Option<String>,
     task_store: State<'_, CommandTaskStore>,
 ) -> Result<CommandTaskStart, String> {
     validate_args(&args)?;
-    Ok(task_store.start_task(data_root, args, label.unwrap_or_default()))
+    Ok(task_store.start_task(data_root, args, label.unwrap_or_default(), config_json))
 }
 
 #[tauri::command]

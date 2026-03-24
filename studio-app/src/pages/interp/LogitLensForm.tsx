@@ -9,13 +9,25 @@ import { buildRemoteInterpArgs } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { logitLensLabel } from "../../utils/jobLabels";
 
-export function LogitLensForm() {
+interface LogitLensFormProps {
+  prefill?: Record<string, unknown>;
+}
+
+export function LogitLensForm({ prefill }: LogitLensFormProps) {
   const { dataRoot } = useCrucible();
   const navigate = useNavigate();
-  const [modelPath, setModelPath] = useState("");
-  const [inputText, setInputText] = useState("");
-  const [topK, setTopK] = useState("5");
-  const [layerIndices, setLayerIndices] = useState("");
+  const [modelPath, setModelPath] = useState(
+    typeof prefill?.modelPath === "string" ? prefill.modelPath : "",
+  );
+  const [inputText, setInputText] = useState(
+    typeof prefill?.inputText === "string" ? prefill.inputText : "",
+  );
+  const [topK, setTopK] = useState(
+    typeof prefill?.topK === "string" ? prefill.topK : "5",
+  );
+  const [layerIndices, setLayerIndices] = useState(
+    typeof prefill?.layerIndices === "string" ? prefill.layerIndices : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,11 +41,23 @@ export function LogitLensForm() {
     return m;
   }, [modelPath, inputText, isRemote, clusterName]);
 
+  function snapshotConfig(): Record<string, unknown> {
+    return {
+      page: "interpretability",
+      tab: "logit-lens",
+      modelPath,
+      inputText,
+      topK,
+      layerIndices,
+    };
+  }
+
   async function submit() {
     if (!dataRoot || missing.length > 0) return;
     setSubmitting(true);
     setError(null);
     try {
+      const cfg = snapshotConfig();
       if (isRemote && clusterName) {
         const methodArgs = {
           model_path: modelPath,
@@ -45,7 +69,7 @@ export function LogitLensForm() {
         const args = buildRemoteInterpArgs(
           clusterName, "logit-lens", JSON.stringify(methodArgs),
         );
-        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       } else {
         const args = [
           "logit-lens",
@@ -55,7 +79,7 @@ export function LogitLensForm() {
           "--top-k", topK || "5",
         ];
         if (layerIndices.trim()) args.push("--layer-indices", layerIndices);
-        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath));
+        await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       }
       navigate("/jobs");
     } catch (err) {

@@ -59,6 +59,7 @@ def run_dispatch_command(
         resources=resources,
         is_sweep=bool(raw.get("is_sweep", False)),
         sweep_trials=sweep_trials,
+        config=dict(raw.get("config", {})),
     )
 
     backend = get_backend(spec.backend)

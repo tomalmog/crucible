@@ -47,6 +47,7 @@ class JobSpec:
     resources: ResourceConfig | None = None
     is_sweep: bool = False
     sweep_trials: tuple[dict[str, object], ...] = ()
+    config: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -72,3 +73,4 @@ class JobRecord:
     submit_phase: str = ""
     is_sweep: bool = False
     sweep_trial_count: int = 0
+    config: dict[str, object] = field(default_factory=dict)

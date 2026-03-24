@@ -307,6 +307,7 @@ export function buildDispatchSpec(
     resources?: ResourceConfig;
     isSweep?: boolean;
     sweepTrials?: Record<string, unknown>[];
+    config?: Record<string, unknown>;
   },
 ): string[] {
   const spec: Record<string, unknown> = {
@@ -319,6 +320,7 @@ export function buildDispatchSpec(
   if (opts?.resources) spec.resources = opts.resources;
   if (opts?.isSweep) spec.is_sweep = true;
   if (opts?.sweepTrials) spec.sweep_trials = opts.sweepTrials;
+  if (opts?.config) spec.config = opts.config;
   return ["dispatch", "--spec", JSON.stringify(spec)];
 }
 

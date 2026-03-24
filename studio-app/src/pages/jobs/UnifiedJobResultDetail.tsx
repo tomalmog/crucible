@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Loader2, Trophy } from "lucide-react";
+import { useNavigate } from "react-router";
+import { ArrowLeft, Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { JobRecord } from "../../types/jobs";
 import type { CommandTaskStatus, TrainingHistory } from "../../types";
@@ -43,6 +44,30 @@ interface ResultData {
   [key: string]: unknown;
 }
 
+const CONFIG_PAGE_ROUTES: Record<string, string> = {
+  training: "/training",
+  benchmarks: "/benchmarks",
+  interpretability: "/interpretability",
+};
+
+function hasConfigData(config: Record<string, unknown>): boolean {
+  return Object.keys(config).length > 0 && typeof config.page === "string";
+}
+
+function RetryButton({ config }: { config: Record<string, unknown> }) {
+  const navigate = useNavigate();
+  const route = CONFIG_PAGE_ROUTES[config.page as string];
+  if (!route) return null;
+  return (
+    <button
+      className="btn btn-ghost btn-sm"
+      onClick={() => navigate(route, { state: { prefill: config } })}
+    >
+      <RotateCcw size={14} /> Retry with same settings
+    </button>
+  );
+}
+
 const TRAINING_TYPES = new Set([
   "train", "sft", "dpo-train", "rlhf-train", "lora-train",
   "distill", "domain-adapt", "grpo-train", "qlora-train",
@@ -62,6 +87,15 @@ function BackButton({ onBack }: { onBack: () => void }) {
     <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ justifySelf: "start" }}>
       <ArrowLeft size={14} /> Back to Jobs
     </button>
+  );
+}
+
+function DetailHeader({ onBack, config }: { onBack: () => void; config: Record<string, unknown> }) {
+  return (
+    <div className="flex-row" style={{ justifyContent: "space-between" }}>
+      <BackButton onBack={onBack} />
+      {hasConfigData(config) && <RetryButton config={config} />}
+    </div>
   );
 }
 
@@ -110,19 +144,20 @@ function LocalResultRouter({ job, localTask, onBack }: {
   const isTraining = TRAINING_TYPES.has(job.jobType);
   const isInterp = INTERP_TYPES.has(job.jobType);
   const isFailed = job.state === "failed" || localTask.status === "failed";
+  const config = job.config;
 
-  if (isFailed) return <LocalFailedView job={job} localTask={localTask} onBack={onBack} />;
-  if (isSweep) return <LocalSweepView job={job} localTask={localTask} onBack={onBack} />;
-  if (isInterp) return <LocalInterpView job={job} localTask={localTask} onBack={onBack} />;
-  if (isTraining) return <LocalTrainingView job={job} localTask={localTask} onBack={onBack} />;
-  return <LocalGenericView job={job} localTask={localTask} onBack={onBack} />;
+  if (isFailed) return <LocalFailedView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isSweep) return <LocalSweepView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isInterp) return <LocalInterpView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isTraining) return <LocalTrainingView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  return <LocalGenericView job={job} localTask={localTask} onBack={onBack} config={config} />;
 }
 
-function LocalFailedView({ job, localTask, onBack }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void }) {
+function LocalFailedView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const error = extractCrucibleError(localTask.stderr);
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>Job Failed: {job.label || job.jobType}</h3>
       {error && <div className="error-alert-prominent">{error}</div>}
       {localTask.stderr && (
@@ -135,7 +170,7 @@ function LocalFailedView({ job, localTask, onBack }: { job: JobRecord; localTask
   );
 }
 
-function LocalTrainingView({ job, localTask, onBack }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void }) {
+function LocalTrainingView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const result = useMemo(() => parseKeyValueOutput(localTask.stdout), [localTask.stdout]);
   const [history, setHistory] = useState<TrainingHistory | null>(null);
 
@@ -146,7 +181,7 @@ function LocalTrainingView({ job, localTask, onBack }: { job: JobRecord; localTa
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{job.label || job.jobType} — Result</h3>
       <div className="stats-grid">
         {result.epochs_completed && (
@@ -175,13 +210,13 @@ function LocalTrainingView({ job, localTask, onBack }: { job: JobRecord; localTa
   );
 }
 
-function LocalInterpView({ job, localTask, onBack }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void }) {
+function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const parsed = useMemo(() => { try { return JSON.parse(localTask.stdout); } catch { return null; } }, [localTask.stdout]);
   const label = INTERP_LABELS[job.jobType] ?? job.jobType;
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{label} — Result</h3>
       {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as LogitLensResult} />}
       {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as PcaResult} />}
@@ -194,7 +229,7 @@ function LocalInterpView({ job, localTask, onBack }: { job: JobRecord; localTask
 interface SweepTrial { trial_id: number; parameters: Record<string, number>; metric_value: number; model_path: string }
 interface SweepData { trials: SweepTrial[]; best_trial_id: number; best_parameters: Record<string, number>; best_metric_value: number }
 
-function LocalSweepView({ localTask, onBack }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void }) {
+function LocalSweepView({ localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const data = useMemo(() => {
     try {
       const lines = localTask.stdout.split("\n");
@@ -208,7 +243,7 @@ function LocalSweepView({ localTask, onBack }: { job: JobRecord; localTask: Comm
 
   if (!data) {
     return (
-      <div className="panel stack"><BackButton onBack={onBack} /><h3>Sweep Results</h3><pre className="console">{localTask.stdout}</pre></div>
+      <div className="panel stack"><DetailHeader onBack={onBack} config={config} /><h3>Sweep Results</h3><pre className="console">{localTask.stdout}</pre></div>
     );
   }
 
@@ -216,7 +251,7 @@ function LocalSweepView({ localTask, onBack }: { job: JobRecord; localTask: Comm
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>Sweep Results</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Total Trials</span><span className="metric-value">{data.trials.length}</span></div>
@@ -243,10 +278,10 @@ function LocalSweepView({ localTask, onBack }: { job: JobRecord; localTask: Comm
   );
 }
 
-function LocalGenericView({ job, localTask, onBack }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void }) {
+function LocalGenericView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{job.label || job.jobType} — Result</h3>
       {localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
       {localTask.stderr && (<details><summary>stderr</summary><pre className="console console-short">{localTask.stderr}</pre></details>)}
@@ -289,9 +324,11 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
     getJobLogs(dataRoot, job.jobId, job.state).then((c) => setRemoteLogs(c?.trim() || "")).catch(() => {});
   }, [dataRoot, job.jobId, job.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const config = job.config;
+
   if (loading) {
     return (
-      <div className="panel stack-lg"><BackButton onBack={onBack} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><Loader2 size={24} className="spin" /></div>
       </div>
     );
@@ -299,7 +336,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 
   if (error) {
     return (
-      <div className="panel stack-lg"><BackButton onBack={onBack} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
         <h3>{job.label || job.jobId} — Result</h3>
         <div className="error-alert-prominent">{error}</div>
       </div>
@@ -308,7 +345,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 
   if (!result || Object.keys(result).length === 0) {
     return (
-      <div className="panel stack-lg"><BackButton onBack={onBack} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
         <h3>{job.label || job.jobId} — Result</h3>
         <div className="empty-state"><p>No result.json found on remote cluster.</p></div>
       </div>
@@ -316,17 +353,17 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
   }
 
   if (job.state === "failed" || result.status === "failed") {
-    return <RemoteFailedView job={job} result={result} logs={remoteLogs} onBack={onBack} />;
+    return <RemoteFailedView job={job} result={result} logs={remoteLogs} onBack={onBack} config={config} />;
   }
-  if (result.job_type === "eval") return <RemoteEvalView job={job} result={result} onBack={onBack} />;
-  if (INTERP_TYPES.has(result.job_type || "")) return <RemoteInterpView job={job} result={result} onBack={onBack} />;
-  return <RemoteTrainingView job={job} result={result} onBack={onBack} />;
+  if (result.job_type === "eval") return <RemoteEvalView job={job} result={result} onBack={onBack} config={config} />;
+  if (INTERP_TYPES.has(result.job_type || "")) return <RemoteInterpView job={job} result={result} onBack={onBack} config={config} />;
+  return <RemoteTrainingView job={job} result={result} onBack={onBack} config={config} />;
 }
 
-function RemoteFailedView({ job, result, logs, onBack }: { job: JobRecord; result: ResultData; logs: string; onBack: () => void }) {
+function RemoteFailedView({ job, result, logs, onBack, config }: { job: JobRecord; result: ResultData; logs: string; onBack: () => void; config: Record<string, unknown> }) {
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>Job Failed: {job.label || job.jobId}</h3>
       {result.error && <div className="error-alert-prominent">{result.error}</div>}
       {result.traceback && (<details><summary className="error-text">Full traceback</summary><pre className="console console-short">{result.traceback}</pre></details>)}
@@ -339,7 +376,7 @@ function pct(b: EvalBenchmark): number {
   return b.num_examples > 0 ? (b.correct / b.num_examples) * 100 : 0;
 }
 
-function RemoteEvalView({ job, result, onBack }: { job: JobRecord; result: ResultData; onBack: () => void }) {
+function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   const benchmarks = (result.benchmarks || []).filter((b) => b.num_examples > 0);
   const baseBenchmarks = (result.base_benchmarks || []).filter((b) => b.num_examples > 0);
   const hasBase = baseBenchmarks.length > 0;
@@ -349,7 +386,7 @@ function RemoteEvalView({ job, result, onBack }: { job: JobRecord; result: Resul
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{job.label || job.jobId} — Evaluation Results</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
@@ -383,14 +420,14 @@ function RemoteEvalView({ job, result, onBack }: { job: JobRecord; result: Resul
   );
 }
 
-function RemoteTrainingView({ job, result, onBack }: { job: JobRecord; result: ResultData; onBack: () => void }) {
+function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   const history = result.training_history ?? null;
   const exclude = new Set(["status", "traceback", "error", "result", "training_history"]);
   const entries = Object.entries(result).filter(([k, v]) => !exclude.has(k) && v != null && v !== "" && typeof v !== "object");
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{job.label || job.jobId} — Training Result</h3>
       <div className="stats-grid">
         {result.epochs_completed != null && <div className="metric-card"><span className="metric-label">Epochs</span><span className="metric-value">{result.epochs_completed}</span></div>}
@@ -416,13 +453,13 @@ function RemoteTrainingView({ job, result, onBack }: { job: JobRecord; result: R
   );
 }
 
-function RemoteInterpView({ job, result, onBack }: { job: JobRecord; result: ResultData; onBack: () => void }) {
+function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   const jobType = result.job_type ?? "";
   const label = INTERP_LABELS[jobType] ?? jobType;
 
   return (
     <div className="panel stack-lg">
-      <BackButton onBack={onBack} />
+      <DetailHeader onBack={onBack} config={config} />
       <h3>{label} — Result</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Analysis</span><span className="metric-value text-sm">{label}</span></div>

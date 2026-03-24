@@ -33,6 +33,7 @@ pub struct JobRecordSummary {
     pub submit_phase: String,
     pub is_sweep: bool,
     pub sweep_trial_count: u64,
+    pub config: Value,
 }
 
 // ── Filesystem-only commands ───────────────────────────────────────────
@@ -210,6 +211,10 @@ fn parse_job_record(data: &Value) -> Result<JobRecordSummary, String> {
             .get("sweep_trial_count")
             .and_then(Value::as_u64)
             .unwrap_or(0),
+        config: obj
+            .get("config")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
     })
 }
 
