@@ -71,10 +71,11 @@ def _make_steering_hook(
     vec = vector.to(device)
 
     def hook(_module: Any, _input: Any, output: Any) -> Any:
+        target = output[0] if isinstance(output, tuple) else output
+        scaled = coefficient * vec.to(dtype=target.dtype)
         if isinstance(output, tuple):
-            modified = output[0] + coefficient * vec
-            return (modified,) + output[1:]
-        return output + coefficient * vec
+            return (output[0] + scaled,) + output[1:]
+        return output + scaled
 
     return hook
 

@@ -38,6 +38,7 @@ def run_linear_probe(
             options.max_samples, granularity="sample",
             label_field=options.label_field,
         )
+        X = X.to(dtype=torch.float32)
         result = _probe_layer(
             X, labels, layer_idx, target_layer,
             options.epochs, options.learning_rate,

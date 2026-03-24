@@ -29,6 +29,7 @@ def run_sae_train(
         model, tokenizer, records, target_layer,
         options.max_samples, granularity="sample",
     )
+    X = X.to(dtype=torch.float32)
 
     hidden_dim = X.shape[1]
     latent_dim = options.latent_dim if options.latent_dim > 0 else hidden_dim * 4

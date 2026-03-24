@@ -28,6 +28,7 @@ def run_activation_pca(
         model, tokenizer, records, target_layer, options.max_samples,
         granularity=options.granularity, label_field=options.color_field,
     )
+    stacked = stacked.to(dtype=torch.float32)
 
     n_components = min(2, stacked.shape[0], stacked.shape[1])
 

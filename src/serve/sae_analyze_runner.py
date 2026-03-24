@@ -40,8 +40,8 @@ def run_sae_analyze(options: SaeAnalyzeOptions) -> dict[str, Any]:
             model(ids)
             acts = extractor.get_activations()[target_layer]
 
-    # Mean-pool across sequence
-    pooled = acts[0].mean(dim=0).unsqueeze(0)
+    # Mean-pool across sequence, cast to SAE dtype (model may be bf16)
+    pooled = acts[0].mean(dim=0).unsqueeze(0).to(dtype=torch.float32)
 
     with torch.no_grad():
         reconstruction, latent = sae(pooled)
