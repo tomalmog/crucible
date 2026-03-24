@@ -101,37 +101,24 @@ def test_run_activation_pca_sample_granularity(tmp_path: Path) -> None:
     )
     records = [FakeRecord(text=f"Sample text number {i}") for i in range(5)]
 
-    # Mock the model loading and activation extraction
     fake_model = _make_fake_model()
     fake_tokenizer = MagicMock()
-    fake_tokenizer.encode.return_value = torch.tensor([[1, 2, 3, 4]])
 
     layers = ["transformer.h.0", "transformer.h.1"]
-    # Each call returns activations shaped [1, seq_len, hidden_dim]
-    torch.manual_seed(99)
-    fake_acts = {layers[1]: torch.randn(1, 4, 32)}
 
-    def make_extractor_ctx(model: Any, layer_names: list[str]) -> Any:
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.clear = MagicMock()
-        # Return different activations each time to avoid degenerate PCA
-        call_count = {"n": 0}
-        def get_acts() -> dict[str, Any]:
-            call_count["n"] += 1
-            torch.manual_seed(call_count["n"])
-            return {layers[1]: torch.randn(1, 4, 32)}
-        ctx.get_activations = get_acts
-        return ctx
+    # Build fake stacked activations (5 samples, hidden_dim=32)
+    torch.manual_seed(99)
+    stacked = torch.randn(5, 32)
+    labels = [""] * 5
+    snippets = [f"Sample text number {i}" for i in range(5)]
 
     with (
         patch("serve.activation_pca_runner._load_model_and_tokenizer",
               return_value=(fake_model, fake_tokenizer)),
         patch("serve.activation_pca_runner.discover_transformer_layers",
               return_value=layers),
-        patch("serve.activation_pca_runner.ActivationExtractor",
-              side_effect=make_extractor_ctx),
+        patch("serve.activation_pca_runner.collect_activations",
+              return_value=(stacked, labels, snippets)),
     ):
         result = run_activation_pca(options, records)
 
@@ -159,35 +146,26 @@ def test_run_activation_pca_token_granularity(tmp_path: Path) -> None:
 
     fake_model = _make_fake_model()
     fake_tokenizer = MagicMock()
-    fake_tokenizer.encode.return_value = torch.tensor([[10, 20, 30]])
-    fake_tokenizer.convert_ids_to_tokens.return_value = ["Ġtext", "Ġnumber", "Ġone"]
 
     layers = ["layer.0"]
 
-    def make_extractor_ctx(model: Any, layer_names: list[str]) -> Any:
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.clear = MagicMock()
-        call_count = {"n": 0}
-        def get_acts() -> dict[str, Any]:
-            call_count["n"] += 1
-            torch.manual_seed(call_count["n"] * 7)
-            return {"layer.0": torch.randn(1, 3, 16)}
-        ctx.get_activations = get_acts
-        return ctx
+    # 3 samples × 3 tokens = 9 token vectors, hidden_dim=16
+    torch.manual_seed(42)
+    stacked = torch.randn(9, 16)
+    labels = [""] * 9
+    snippets = ["tok"] * 9
 
     with (
         patch("serve.activation_pca_runner._load_model_and_tokenizer",
               return_value=(fake_model, fake_tokenizer)),
         patch("serve.activation_pca_runner.discover_transformer_layers",
               return_value=layers),
-        patch("serve.activation_pca_runner.ActivationExtractor",
-              side_effect=make_extractor_ctx),
+        patch("serve.activation_pca_runner.collect_activations",
+              return_value=(stacked, labels, snippets)),
     ):
         result = run_activation_pca(options, records)
 
-    # 3 samples × 3 tokens each = 9 points
+    # 9 points
     assert len(result["points"]) == 9
     assert result["granularity"] == "token"
 
@@ -196,28 +174,28 @@ def test_run_activation_pca_token_granularity(tmp_path: Path) -> None:
 
 
 def test_extract_texts_from_records() -> None:
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     records = [
         FakeRecord(text="Hello world"),
         FakeRecord(text=""),  # empty → skipped
         FakeRecord(text="Goodbye"),
     ]
-    texts = _extract_texts(records, max_samples=10)
+    texts = extract_texts(records, max_samples=10)
     assert texts == ["Hello world", "Goodbye"]
 
 
 def test_extract_texts_max_samples() -> None:
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     records = [FakeRecord(text=f"text {i}") for i in range(100)]
-    texts = _extract_texts(records, max_samples=3)
+    texts = extract_texts(records, max_samples=3)
     assert len(texts) == 3
 
 
 def test_extract_texts_prompt_response_records() -> None:
     """SFT/QLoRA/LoRA records with prompt field should be extracted."""
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     @dataclass
     class PromptRecord:
@@ -228,7 +206,7 @@ def test_extract_texts_prompt_response_records() -> None:
         PromptRecord(prompt="What is ML?", response="ML is..."),
         PromptRecord(prompt="Explain PCA"),
     ]
-    texts = _extract_texts(records, max_samples=10)
+    texts = extract_texts(records, max_samples=10)
     assert len(texts) == 2
     assert texts[0] == "What is ML?"
     assert texts[1] == "Explain PCA"
@@ -236,20 +214,20 @@ def test_extract_texts_prompt_response_records() -> None:
 
 def test_extract_texts_content_attribute() -> None:
     """Remote _SimpleRecord with .content should be extracted."""
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     class SimpleRec:
         def __init__(self, content: str) -> None:
             self.content = content
 
     records = [SimpleRec(content="Hello from remote")]
-    texts = _extract_texts(records, max_samples=10)
+    texts = extract_texts(records, max_samples=10)
     assert texts == ["Hello from remote"]
 
 
 def test_extract_texts_dict_records() -> None:
     """Plain dicts with various key names should be extracted."""
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     records = [
         {"text": "plain text"},
@@ -259,16 +237,16 @@ def test_extract_texts_dict_records() -> None:
         {"instruction": "Do X"},
         {"unrelated_key": "nothing here"},  # should be skipped
     ]
-    texts = _extract_texts(records, max_samples=10)
+    texts = extract_texts(records, max_samples=10)
     assert len(texts) == 5
 
 
 def test_extract_texts_nested_dict() -> None:
     """Records with nested dict text field should extract nested text."""
-    from serve.activation_pca_runner import _extract_texts
+    from serve.interp_data_utils import extract_texts
 
     records = [{"text": {"text": "nested content"}}]
-    texts = _extract_texts(records, max_samples=10)
+    texts = extract_texts(records, max_samples=10)
     assert texts == ["nested content"]
 
 
@@ -277,17 +255,25 @@ def test_extract_texts_empty_records_raises() -> None:
     from core.errors import CrucibleError
     from serve.activation_pca_runner import run_activation_pca
 
+    fake_model = _make_fake_model()
+    fake_tokenizer = MagicMock()
     options = ActivationPcaOptions(
         model_path="/fake", output_dir="/tmp/out", dataset_name="test",
     )
-    with pytest.raises(CrucibleError, match="No usable text"):
+    with (
+        patch("serve.activation_pca_runner._load_model_and_tokenizer",
+              return_value=(fake_model, fake_tokenizer)),
+        patch("serve.activation_pca_runner.discover_transformer_layers",
+              return_value=["layer.0"]),
+        pytest.raises(CrucibleError, match="No usable text"),
+    ):
         run_activation_pca(options, [])
 
 
 def test_get_color_label() -> None:
-    from serve.activation_pca_runner import _get_color_label
+    from serve.interp_data_utils import get_label
 
     records = [FakeRecord(text="x", metadata={"category": "A"})]
-    assert _get_color_label(records, 0, "category") == "A"
-    assert _get_color_label(records, 0, "") == ""
-    assert _get_color_label(records, 5, "category") == ""  # out of range
+    assert get_label(records, 0, "category") == "A"
+    assert get_label(records, 0, "") == ""
+    assert get_label(records, 5, "category") == ""  # out of range
