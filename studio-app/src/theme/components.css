@@ -2624,28 +2624,54 @@ label,
 
 .cluster-card-details {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px 24px;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
     font-size: 0.75rem;
+    max-width: 420px;
 }
 
 .cluster-card-detail {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 3px 0;
+    display: contents;
 }
 
 .cluster-card-detail-label {
     color: var(--text-tertiary);
     flex-shrink: 0;
+    padding: 2px 0;
 }
 
 .cluster-card-detail-value {
     color: var(--text);
     font-family: var(--font-mono);
-    text-align: right;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 0;
+}
+
+.cluster-card-gpus {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.cluster-card-gpu-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.cluster-gpu-tag {
+    font-family: var(--font-mono);
+    font-size: 0.675rem;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

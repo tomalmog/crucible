@@ -4,16 +4,14 @@ import { useJobs } from "../../hooks/useJobs";
 import { useRemoteJobs } from "../../hooks/useRemoteJobs";
 import { useUnifiedJobs } from "../../hooks/useUnifiedJobs";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandTaskStatus } from "../../types";
+import type { CommandTaskStatus } from "../../types";
 import type { RemoteJobRecord } from "../../types/remote";
 import type { JobRecord } from "../../types/jobs";
 import { syncRemoteJobStatus } from "../../api/remoteApi";
 import { Activity, Loader2 } from "lucide-react";
 import { TabBar } from "../../components/shared/TabBar";
-import { JobResultDetail } from "./JobResultDetail";
 import { RemoteJobResultDetail } from "./RemoteJobResultDetail";
 import { UnifiedJobResultDetail } from "./UnifiedJobResultDetail";
-import { JobRow } from "./JobRow";
 import { RemoteJobRow } from "./RemoteJobRow";
 import { UnifiedJobRow } from "./UnifiedJobRow";
 
@@ -21,21 +19,7 @@ type StatusFilter = "all" | "running" | "completed" | "failed";
 type LocationFilter = "all" | "local" | "remote";
 type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp";
 
-const TRAINING_COMMANDS = new Set([
-  "train", "sft", "dpo-train", "rlhf-train", "lora-train", "lora-merge",
-  "distill", "domain-adapt", "distributed-train", "grpo-train",
-  "qlora-train", "kto-train", "orpo-train", "multimodal-train", "rlvr-train",
-]);
-
 const INTERP_COMMANDS = new Set(["logit-lens", "activation-pca", "activation-patch"]);
-
-function classifyLocalJob(command: string): TaskTypeFilter {
-  if (command === "sweep") return "sweep";
-  if (command === "eval") return "eval";
-  if (INTERP_COMMANDS.has(command)) return "interp";
-  if (TRAINING_COMMANDS.has(command)) return "training";
-  return "training";
-}
 
 function classifyRemoteJob(job: RemoteJobRecord): TaskTypeFilter {
   if (job.isSweep) return "sweep";
@@ -79,15 +63,6 @@ export function jobAccentColor(status: string): string {
   }
 }
 
-export function extractCrucibleError(stderr: string): string | null {
-  const lines = stderr.split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const match = lines[i].match(/Crucible\w+Error:\s*(.+)/);
-    if (match) return match[1].trim();
-  }
-  return null;
-}
-
 function normalizeStatus(status: string): StatusFilter {
   if (status === "running" || status === "pending" || status === "submitting") return "running";
   if (status === "completed") return "completed";
@@ -95,20 +70,17 @@ function normalizeStatus(status: string): StatusFilter {
 }
 
 type MergedJob =
-  | { kind: "local"; job: CommandTaskStatus; sortKey: number }
   | { kind: "remote"; job: RemoteJobRecord; sortKey: number }
   | { kind: "unified"; job: JobRecord; localTask?: CommandTaskStatus; sortKey: number };
 
 export function JobsPage() {
-  const { jobs, kill, rename, remove } = useJobs();
+  const { jobs, kill, rename } = useJobs();
   const { dataRoot, refreshModels } = useCrucible();
   const { jobs: remoteJobs, isLoading: isRemoteLoading, refresh: refreshRemote, removeJob: removeRemoteJob, cancelJob: cancelRemoteJob } = useRemoteJobs(dataRoot);
   const { jobs: unifiedJobs, isLoading: isUnifiedLoading, refresh: refreshUnified, removeJob: removeUnifiedJob, cancel: cancelUnifiedJob } = useUnifiedJobs(dataRoot);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TaskTypeFilter>("all");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [viewingJob, setViewingJob] = useState<CommandTaskStatus | null>(null);
   const [viewingRemoteJob, setViewingRemoteJob] = useState<RemoteJobRecord | null>(null);
   const [viewingUnifiedJob, setViewingUnifiedJob] = useState<{ job: JobRecord; localTask?: CommandTaskStatus } | null>(null);
   const syncedRef = useRef<Set<string>>(new Set());
@@ -151,8 +123,7 @@ export function JobsPage() {
     return map;
   }, [jobs]);
 
-  // Collect IDs of unified jobs so we can de-dup legacy entries
-  const unifiedJobIds = useMemo(() => new Set(unifiedJobs.map((j) => j.jobId)), [unifiedJobs]);
+  // Collect IDs of unified jobs so we can de-dup legacy remote entries
   const unifiedBackendIds = useMemo(() => new Set(unifiedJobs.map((j) => j.backendJobId).filter(Boolean)), [unifiedJobs]);
 
   // Build merged sorted list
@@ -172,21 +143,6 @@ export function JobsPage() {
       items.push({ kind: "unified", job: j, localTask, sortKey: ts });
     }
 
-    // Legacy local jobs (from Rust task store) — skip if already in unified store
-    if (locationFilter !== "remote") {
-      const now = Date.now();
-      for (let i = 0; i < jobs.length; i++) {
-        const j = jobs[i];
-        if (unifiedJobIds.has(j.task_id)) continue; // already shown as unified
-        if (j.command === "dispatch") continue; // dispatch jobs are in unified store
-        if (statusFilter !== "all" && normalizeStatus(j.status) !== statusFilter) continue;
-        if (typeFilter !== "all" && classifyLocalJob(j.command) !== typeFilter) continue;
-        // Derive start time from elapsed_seconds (no createdAt on legacy local jobs)
-        const ts = now - j.elapsed_seconds * 1000;
-        items.push({ kind: "local", job: j, sortKey: ts });
-      }
-    }
-
     // Legacy remote jobs (from .crucible/remote-jobs/) — skip if already in unified store
     if (locationFilter !== "local") {
       for (const j of remoteJobs) {
@@ -200,24 +156,11 @@ export function JobsPage() {
 
     items.sort((a, b) => b.sortKey - a.sortKey);
     return items;
-  }, [jobs, remoteJobs, unifiedJobs, statusFilter, locationFilter, typeFilter, localTaskMap, unifiedJobIds, unifiedBackendIds]);
+  }, [remoteJobs, unifiedJobs, statusFilter, locationFilter, typeFilter, localTaskMap, unifiedBackendIds]);
 
   const runningCount = jobs.filter((j) => j.status === "running").length
     + remoteJobs.filter((j) => j.state === "running" || j.state === "pending" || j.state === "submitting").length
     + unifiedJobs.filter((j) => j.state === "running" || j.state === "pending" || j.state === "submitting").length;
-
-  function toggleExpand(taskId: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  }
-
-  if (viewingJob) {
-    return <JobResultDetail job={viewingJob} onBack={() => setViewingJob(null)} />;
-  }
 
   if (viewingRemoteJob) {
     return <RemoteJobResultDetail job={viewingRemoteJob} onBack={() => setViewingRemoteJob(null)} />;
@@ -295,20 +238,6 @@ export function JobsPage() {
                   onRefresh={refreshUnified}
                   onKill={item.localTask ? () => kill(item.localTask!.task_id) : undefined}
                   onRename={item.localTask ? (label) => rename(item.localTask!.task_id, label) : undefined}
-                />
-              );
-            }
-            if (item.kind === "local") {
-              return (
-                <JobRow
-                  key={item.job.task_id}
-                  job={item.job}
-                  isExpanded={expanded.has(item.job.task_id)}
-                  onToggle={() => toggleExpand(item.job.task_id)}
-                  onKill={() => kill(item.job.task_id)}
-                  onRename={(label) => rename(item.job.task_id, label)}
-                  onDelete={() => remove(item.job.task_id)}
-                  onView={() => setViewingJob(item.job)}
                 />
               );
             }

@@ -334,9 +334,9 @@ impl CommandTaskStore {
             let err_msg = if final_state == "failed" {
                 // Take last 200 chars of stderr as error message
                 let len = stderr_snapshot.len();
-                if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot }
+                if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
             } else { String::new() };
-            update_job_record(data_root, task_id, final_state, &model_path, &err_msg);
+            update_job_record(data_root, task_id, final_state, &model_path, &err_msg, &stdout_snapshot, &stderr_snapshot);
         }
     }
 
@@ -357,7 +357,7 @@ impl CommandTaskStore {
         }
         // Update unified JobRecord (skip dispatch — Python manages its own)
         if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name) {
-            update_job_record(data_root, task_id, "failed", "", &error_message);
+            update_job_record(data_root, task_id, "failed", "", &error_message, "", &error_message);
         }
     }
 
@@ -498,6 +498,12 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
     }
 }
 
+/// Resolve a possibly-relative data_root to an absolute path anchored at the workspace root.
+fn resolve_data_root(data_root: &str) -> PathBuf {
+    let raw = Path::new(data_root);
+    if raw.is_absolute() { raw.to_path_buf() } else { workspace_root_dir().join(raw) }
+}
+
 /// Write a unified JobRecord JSON to .crucible/jobs/ so the unified UI can see it.
 fn write_job_record(
     data_root: &str,
@@ -509,7 +515,7 @@ fn write_job_record(
     label: &str,
     config_json: &Option<String>,
 ) {
-    let jobs_dir = Path::new(data_root).join("jobs");
+    let jobs_dir = resolve_data_root(data_root).join("jobs");
     if fs::create_dir_all(&jobs_dir).is_err() {
         return;
     }
@@ -544,15 +550,17 @@ fn write_job_record(
     let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());
 }
 
-/// Update just the state, model_path, and error_message fields of an existing job record.
+/// Update just the state, model_path, error_message, and stdout/stderr of an existing job record.
 fn update_job_record(
     data_root: &str,
     task_id: &str,
     state: &str,
     model_path: &str,
     error_message: &str,
+    stdout: &str,
+    stderr: &str,
 ) {
-    let path = Path::new(data_root).join("jobs").join(format!("{task_id}.json"));
+    let path = resolve_data_root(data_root).join("jobs").join(format!("{task_id}.json"));
     if !path.exists() {
         return;
     }
@@ -574,6 +582,12 @@ fn update_job_record(
         }
         if !error_message.is_empty() {
             obj.insert("error_message".to_string(), serde_json::json!(error_message));
+        }
+        if !stdout.is_empty() {
+            obj.insert("stdout".to_string(), serde_json::json!(stdout));
+        }
+        if !stderr.is_empty() {
+            obj.insert("stderr".to_string(), serde_json::json!(stderr));
         }
     }
     let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());

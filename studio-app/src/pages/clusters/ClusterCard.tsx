@@ -10,6 +10,20 @@ interface ClusterCardProps {
   onEdit: () => void;
 }
 
+function truncateGpuName(name: string): string {
+  if (name.length <= 18) return name;
+  return name.slice(0, 16) + "…";
+}
+
+function formatValidatedDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
 export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit }: ClusterCardProps) {
   const isValidated = !!cluster.validatedAt;
   const [validating, setValidating] = useState(false);
@@ -94,7 +108,7 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
         </div>
       </div>
 
-      {/* Connection details — compact 2-column grid */}
+      {/* Connection details */}
       <div className="cluster-card-details">
         <div className="cluster-card-detail">
           <span className="cluster-card-detail-label">Host</span>
@@ -104,29 +118,35 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
           <span className="cluster-card-detail-label">Workspace</span>
           <span className="cluster-card-detail-value">{cluster.remoteWorkspace}</span>
         </div>
+        <div className="cluster-card-detail">
+          <span className="cluster-card-detail-label">Python</span>
+          <span className="cluster-card-detail-value">{cluster.pythonPath}</span>
+        </div>
         {cluster.defaultPartition && (
           <div className="cluster-card-detail">
             <span className="cluster-card-detail-label">Partition</span>
             <span className="cluster-card-detail-value">{cluster.defaultPartition}</span>
           </div>
         )}
-        {cluster.gpuTypes.length > 0 && (
-          <div className="cluster-card-detail">
-            <span className="cluster-card-detail-label">GPUs</span>
-            <span className="cluster-card-detail-value">{cluster.gpuTypes.join(", ")}</span>
-          </div>
-        )}
-        <div className="cluster-card-detail">
-          <span className="cluster-card-detail-label">Python</span>
-          <span className="cluster-card-detail-value">{cluster.pythonPath}</span>
-        </div>
         {isValidated && cluster.validatedAt && (
           <div className="cluster-card-detail">
             <span className="cluster-card-detail-label">Validated</span>
-            <span className="cluster-card-detail-value">{cluster.validatedAt}</span>
+            <span className="cluster-card-detail-value">{formatValidatedDate(cluster.validatedAt)}</span>
           </div>
         )}
       </div>
+      {cluster.gpuTypes.length > 0 && (
+        <div className="cluster-card-gpus">
+          <span className="cluster-card-detail-label">GPUs</span>
+          <div className="cluster-card-gpu-tags">
+            {cluster.gpuTypes.map((gpu) => (
+              <span key={gpu} className="cluster-gpu-tag" title={gpu}>
+                {truncateGpuName(gpu)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="cluster-card-actions">

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
-import { ArrowLeft, Loader2, RotateCcw, Trophy } from "lucide-react";
+import { Loader2, Trophy } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import type { JobRecord } from "../../types/jobs";
 import type { CommandTaskStatus, TrainingHistory } from "../../types";
@@ -11,6 +10,7 @@ import { LogitLensResults } from "../interp/LogitLensResults";
 import { ActivationPcaResults } from "../interp/ActivationPcaResults";
 import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
 import type { LogitLensResult, PcaResult, PatchingResult } from "../../types/interp";
+import { DetailHeader } from "./RetryButton";
 
 // ── Shared types/constants ─────────────────────────────────────────────
 
@@ -44,30 +44,6 @@ interface ResultData {
   [key: string]: unknown;
 }
 
-const CONFIG_PAGE_ROUTES: Record<string, string> = {
-  training: "/training",
-  benchmarks: "/benchmarks",
-  interpretability: "/interpretability",
-};
-
-function hasConfigData(config: Record<string, unknown>): boolean {
-  return Object.keys(config).length > 0 && typeof config.page === "string";
-}
-
-function RetryButton({ config }: { config: Record<string, unknown> }) {
-  const navigate = useNavigate();
-  const route = CONFIG_PAGE_ROUTES[config.page as string];
-  if (!route) return null;
-  return (
-    <button
-      className="btn btn-ghost btn-sm"
-      onClick={() => navigate(route, { state: { prefill: config } })}
-    >
-      <RotateCcw size={14} /> Retry with same settings
-    </button>
-  );
-}
-
 const TRAINING_TYPES = new Set([
   "train", "sft", "dpo-train", "rlhf-train", "lora-train",
   "distill", "domain-adapt", "grpo-train", "qlora-train",
@@ -81,23 +57,6 @@ const INTERP_LABELS: Record<string, string> = {
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
 };
-
-function BackButton({ onBack }: { onBack: () => void }) {
-  return (
-    <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ justifySelf: "start" }}>
-      <ArrowLeft size={14} /> Back to Jobs
-    </button>
-  );
-}
-
-function DetailHeader({ onBack, config }: { onBack: () => void; config: Record<string, unknown> }) {
-  return (
-    <div className="flex-row" style={{ justifyContent: "space-between" }}>
-      <BackButton onBack={onBack} />
-      {hasConfigData(config) && <RetryButton config={config} />}
-    </div>
-  );
-}
 
 function extractCrucibleError(stderr: string): string | null {
   const lines = stderr.split("\n");
@@ -130,7 +89,34 @@ export function UnifiedJobResultDetail({ job, localTask, onBack }: UnifiedJobRes
     return <LocalResultRouter job={job} localTask={localTask} onBack={onBack} />;
   }
 
+  if (isLocal) {
+    return <LocalResultFallback job={job} onBack={onBack} />;
+  }
+
   return <RemoteResultRouter job={job} onBack={onBack} />;
+}
+
+// ── Local result fallback (reconstruct from persisted stdout) ────────────
+
+function LocalResultFallback({ job, onBack }: { job: JobRecord; onBack: () => void }) {
+  // Build a synthetic CommandTaskStatus from persisted JobRecord data
+  // so we can reuse the exact same views as LocalResultRouter.
+  const syntheticTask = useMemo<CommandTaskStatus>(() => ({
+    task_id: job.jobId,
+    status: job.state === "completed" ? "completed" : "failed",
+    command: job.jobType,
+    args: [],
+    exit_code: job.state === "completed" ? 0 : 1,
+    stdout: job.stdout || "",
+    stderr: job.stderr || "",
+    elapsed_seconds: 0,
+    estimated_total_seconds: 0,
+    remaining_seconds: 0,
+    progress_percent: 100,
+    label: job.label || null,
+  }), [job]);
+
+  return <LocalResultRouter job={job} localTask={syntheticTask} onBack={onBack} />;
 }
 
 // ── Local result router (parse stdout) ─────────────────────────────────

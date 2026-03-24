@@ -315,8 +315,11 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
             </div>
           )}
           <pre className="console">{command.output}</pre>
-          <div className="row gap-top">
-            <button className="btn" onClick={onBack}>New Training</button>
+          <div className="flex-row" style={{ gap: "var(--space-sm)" }}>
+            <button className="btn" onClick={() => { command.reset(); setStep("config"); setStartError(null); }}>
+              <RotateCcw size={14} /> Retry with same settings
+            </button>
+            <button className="btn btn-ghost" onClick={onBack}>New Training</button>
           </div>
         </div>
       )}

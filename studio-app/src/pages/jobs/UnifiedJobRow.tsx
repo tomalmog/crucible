@@ -360,10 +360,7 @@ export function UnifiedJobRow({
           {job.jobType}{sweepTag}
           {isRemote && job.backendCluster && ` · ${job.backendCluster}`}
         </span>
-        <span>
-          {isLocal && localTask && (isFinished ? `took ${formatDur(localTask.elapsed_seconds)} · ` : `${formatDur(localTask.elapsed_seconds)} · `)}
-          {formatTimeAgo(job.createdAt)}
-        </span>
+        <span>{formatTimeAgo(job.createdAt)}</span>
       </div>
 
       {/* Submit / pending phase messages */}
