@@ -19,6 +19,7 @@ logging = ["structlog==25.1.0"]
 lance = ["pylance==0.23.2", "pyarrow==19.0.0"]
 serve = ["torch==2.6.0", "matplotlib==3.10.0"]
 onnx = ["onnx==1.17.0", "onnxruntime==1.20.1", "numpy==2.2.2"]
+gguf = ["gguf>=0.6.0"]
 tokenizers = ["tokenizers==0.22.2"]
 remote = ["paramiko==3.5.0"]
 eval = ["datasets>=3.0.0"]
@@ -65,5 +66,8 @@ module = [
   "paramiko",
   "paramiko.*",
   "datasets",
+  "gguf",
+  "safetensors",
+  "safetensors.*",
 ]
 ignore_missing_imports = true

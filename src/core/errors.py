@@ -157,3 +157,7 @@ class CrucibleJudgeError(CrucibleError):
 
 class CrucibleRemoteError(CrucibleError):
     """Raised for remote Slurm cluster operation failures."""
+
+
+class CrucibleExportError(CrucibleError):
+    """Raised for model export failures."""

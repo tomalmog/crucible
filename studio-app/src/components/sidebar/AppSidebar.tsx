@@ -4,7 +4,7 @@ import { SidebarNavItem } from "./SidebarNavItem";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
   Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
-  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
+  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, PackageOpen,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -113,6 +113,7 @@ export function AppSidebar() {
         <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
         <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
         <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
+        <SidebarNavItem to="/export" icon={<PackageOpen size={16} />} label="Export" />
 
         <span className="sidebar-section-label">Operations</span>
         <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
