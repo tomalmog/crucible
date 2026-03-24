@@ -1,10 +1,11 @@
-import { SharedTrainingConfig, TrainingMethod } from "../types/training";
+import { DEFAULT_SHARED_CONFIG, SharedTrainingConfig, TrainingMethod } from "../types/training";
 import type { ClusterSubmitConfig } from "../pages/training/ClusterSubmitSection";
 import type { BackendKind, ResourceConfig } from "../types/jobs";
 
-function appendOptional(args: string[], flag: string, value: string | undefined): void {
+function appendOptionalNonZero(args: string[], flag: string, value: string | undefined): void {
   const trimmed = (value ?? "").trim();
-  if (trimmed.length > 0 && trimmed !== "0") {
+  const num = Number(trimmed);
+  if (trimmed.length > 0 && (isNaN(num) || num > 0)) {
     args.push(flag, trimmed);
   }
 }
@@ -30,13 +31,13 @@ export function buildSharedTrainingArgs(
   appendOptionalRaw(args, "--hidden-dim", config.embeddingDim);
   appendOptionalRaw(args, "--attention-heads", config.numHeads);
   appendOptionalRaw(args, "--num-layers", config.numLayers);
-  if (config.mlpHiddenDim && config.mlpHiddenDim !== "512") {
+  if (config.mlpHiddenDim && config.mlpHiddenDim !== DEFAULT_SHARED_CONFIG.mlpHiddenDim) {
     args.push("--mlp-hidden-dim", config.mlpHiddenDim);
   }
-  if (config.mlpLayers && config.mlpLayers !== "1") {
+  if (config.mlpLayers && config.mlpLayers !== DEFAULT_SHARED_CONFIG.mlpLayers) {
     args.push("--mlp-layers", config.mlpLayers);
   }
-  appendOptional(args, "--checkpoint-every-epochs", config.checkpointEvery);
+  appendOptionalNonZero(args, "--checkpoint-every-epochs", config.checkpointEvery);
   if (config.resumeCheckpointPath) {
     args.push("--resume-checkpoint-path", config.resumeCheckpointPath);
   }
@@ -222,7 +223,9 @@ export function buildRemoteMethodArgs(
     if (BOOLEAN_FLAGS.has(flag)) {
       if (v === "true") out[flagToField(flag)] = true;
     } else {
-      out[flagToField(flag)] = v;
+      // Parse numeric strings so Python dataclasses get int/float, not str
+      const num = Number(v);
+      out[flagToField(flag)] = v !== "" && !isNaN(num) ? num : v;
     }
   }
 

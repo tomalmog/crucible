@@ -13,7 +13,12 @@ from typing import Any
 
 from core.errors import CrucibleSweepError
 from core.sweep_types import SweepConfig, SweepResult, SweepTrialResult
-from core.training_methods import TRAINING_METHOD_DISPATCH, TRAINING_METHOD_LABELS, dispatch_training
+from core.training_methods import (
+    TRAINING_METHOD_DISPATCH,
+    TRAINING_METHOD_LABELS,
+    _coerce_value,
+    dispatch_training,
+)
 from core.training_types import TrainingRunResult
 from serve.sweep_analysis import find_best_trial, rank_trials
 from serve.sweep_parameter_generator import generate_sweep_parameters
@@ -154,8 +159,12 @@ def _cast_field_value(
     name: str,
     value: float,
     options_class: type,
-) -> int | float:
+) -> Any:
     """Cast a swept parameter value to the correct type for the options class.
+
+    Delegates to the generic ``_coerce_value`` from training_methods so
+    that all type conversions (int, float, bool, tuple) are handled
+    consistently across sweeps and direct dispatch.
 
     Args:
         name: Field name.
@@ -163,12 +172,15 @@ def _cast_field_value(
         options_class: Target dataclass type.
 
     Returns:
-        Value cast to int or float as appropriate.
+        Value cast to the field's annotated type.
     """
-    field_info = options_class.__dataclass_fields__.get(name)
-    if field_info is not None and field_info.type in ("int", int):
-        return int(value)
-    return value
+    from typing import get_type_hints
+
+    hints = get_type_hints(options_class)
+    target_type = hints.get(name)
+    if target_type is None:
+        return value
+    return _coerce_value(value, target_type)
 
 
 def _extract_metric(

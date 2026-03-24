@@ -73,20 +73,25 @@ export interface SharedTrainingConfig {
   tensorboardDir: string;
 }
 
+/** Default values synced with Python constants.py.
+ *  Keep in sync: DEFAULT_BATCH_SIZE=16, DEFAULT_MAX_TOKEN_LENGTH=512,
+ *  DEFAULT_TRAIN_HIDDEN_DIM=256, DEFAULT_TRAIN_ATTENTION_HEADS=8,
+ *  DEFAULT_TRAIN_NUM_LAYERS=2, DEFAULT_TRAIN_MLP_HIDDEN_DIM=1024,
+ *  DEFAULT_TRAIN_MLP_LAYERS=2, DEFAULT_TRAIN_OPTIMIZER_TYPE="adam". */
 export const DEFAULT_SHARED_CONFIG: SharedTrainingConfig = {
   epochs: "3",
   learningRate: "0.001",
-  batchSize: "32",
-  optimizer: "adamw",
-  precision: "fp32",
+  batchSize: "16",
+  optimizer: "adam",
+  precision: "auto",
   outputDir: "./outputs/train",
-  maxTokenLength: "256",
-  embeddingDim: "128",
-  numHeads: "4",
-  numLayers: "4",
+  maxTokenLength: "512",
+  embeddingDim: "256",
+  numHeads: "8",
+  numLayers: "2",
   checkpointEvery: "1",
-  mlpHiddenDim: "512",
-  mlpLayers: "1",
+  mlpHiddenDim: "1024",
+  mlpLayers: "2",
   resumeCheckpointPath: "",
   wandbProject: "",
   tensorboardDir: "",
