@@ -156,27 +156,18 @@ export function SaeAnalyzeResults({ result }: { result: SaeAnalyzeResult }) {
           <h4 style={{ marginBottom: 8 }}>Top Features by Activation</h4>
           {result.top_features.map((f) => {
             const pct = Math.round((f.activation / maxActivation) * 100);
-            const hasTexts = f.associated_texts && f.associated_texts.length > 0;
+            const concept = f.concept && f.concept !== "unknown" ? f.concept : null;
             return (
-              <div key={f.feature_index} style={{ marginBottom: hasTexts ? 16 : 0 }}>
+              <div key={f.feature_index} style={{ marginBottom: 6 }}>
                 <div className="bar-row">
                   <div className="bar-label">
-                    <span>#{f.feature_index}</span>
+                    <span>#{f.feature_index}{concept ? ` \u2014 ${concept}` : ""}</span>
                     <strong>{f.activation.toFixed(4)}</strong>
                   </div>
                   <div className="bar-track">
                     <div className="bar-fill" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-                {hasTexts && (
-                  <div style={{ paddingLeft: 8, marginTop: 4 }}>
-                    {f.associated_texts!.map((t, i) => (
-                      <p key={i} className="text-secondary text-sm" style={{ margin: "2px 0", fontStyle: "italic" }}>
-                        "{t}"
-                      </p>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}

@@ -87,6 +87,7 @@ export interface SaeTrainResult {
 export interface SaeFeature {
   feature_index: number;
   activation: number;
+  concept?: string;
   associated_texts?: string[];
 }
 
