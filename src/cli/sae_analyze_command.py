@@ -15,6 +15,7 @@ def add_sae_analyze_command(
     parser.add_argument("--input-text", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--base-model", default=None)
+    parser.add_argument("--dataset", default="", help="Training dataset for feature associations")
     parser.add_argument("--top-k-features", type=int, default=10)
 
 
@@ -22,13 +23,20 @@ def run_sae_analyze_command(client: Any, args: Any) -> int:
     from core.sae_types import SaeAnalyzeOptions
     from serve.sae_analyze_runner import run_sae_analyze
 
+    records = None
+    ds_name = getattr(args, "dataset", "")
+    if ds_name:
+        _, recs = client.dataset(ds_name).load_records()
+        records = recs
+
     options = SaeAnalyzeOptions(
         model_path=args.model_path,
         output_dir=args.output_dir,
         sae_path=args.sae_path,
         input_text=args.input_text,
         base_model=getattr(args, "base_model", None),
+        dataset_name=ds_name,
         top_k_features=args.top_k_features,
     )
-    run_sae_analyze(options)
+    run_sae_analyze(options, records)
     return 0

@@ -26,4 +26,6 @@ class SaeAnalyzeOptions:
     sae_path: str
     input_text: str
     base_model: str | None = None
+    dataset_name: str = ""
     top_k_features: int = 10
+    top_k_texts: int = 3

@@ -108,6 +108,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
           methodArgs.sae_path = saePath;
           methodArgs.input_text = inputText;
           methodArgs.top_k_features = parseInt(topK || "10", 10);
+          if (dataset.trim()) methodArgs.dataset_name = dataset;
         }
         const args = buildRemoteInterpArgs(clusterName, method, JSON.stringify(methodArgs));
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
@@ -121,6 +122,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
         } else {
           args.push("--sae-path", saePath, "--input-text", inputText,
             "--top-k-features", topK || "10");
+          if (dataset.trim()) args.push("--dataset", dataset);
         }
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       }
@@ -182,6 +184,9 @@ export function SaeForm({ prefill }: SaeFormProps) {
           <>
             <FormField label="SAE Path" required hint="Path to trained .pt file">
               <input value={saePath} onChange={(e) => setSaePath(e.currentTarget.value)} placeholder="./outputs/interp/sae_model.pt" />
+            </FormField>
+            <FormField label="Dataset" hint="Training dataset for feature associations">
+              <DatasetSelect value={dataset} onChange={setDataset} />
             </FormField>
             <FormField label="Top K Features">
               <input type="number" min={1} value={topK} onChange={(e) => setTopK(e.currentTarget.value)} />

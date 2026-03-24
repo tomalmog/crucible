@@ -346,7 +346,13 @@ def main() -> None:
             k: v for k, v in ma.items()
             if k in SaeAnalyzeOptions.__dataclass_fields__
         })
-        return run_sae_analyze(opts)
+        records = None
+        raw_path = ma.get("raw_data_path", "")
+        if raw_path and os.path.isfile(raw_path):
+            print(f"CRUCIBLE_AGENT: Reading records from {raw_path}", flush=True)
+            records = _read_data_as_records(raw_path)
+            print(f"CRUCIBLE_AGENT: Loaded {len(records)} records for feature associations", flush=True)
+        return run_sae_analyze(opts, records)
 
     def _dispatch_steer_compute(ma):
         from core.steering_types import SteerComputeOptions
