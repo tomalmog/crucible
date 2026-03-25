@@ -10,21 +10,28 @@ from __future__ import annotations
 import re
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import generate_text, load_eval_model
+from eval.benchmarks._model_loader import EvalModel, generate_text, load_eval_model
 
 
-def run_gsm8k(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
+def run_gsm8k(
+    model_path: str,
+    *,
+    max_samples: int | None = None,
+    eval_model: EvalModel | None = None,
+) -> BenchmarkResult:
     """Run GSM8K benchmark against a model.
 
     Generates a chain-of-thought response for each problem,
     extracts the final number, and checks exact match.
     """
-    eval_model = load_eval_model(model_path)
+    if eval_model is None:
+        eval_model = load_eval_model(model_path)
     examples = _load_gsm8k_examples()
     if max_samples:
         examples = examples[:max_samples]
     correct = 0
-    for example in examples:
+    total = len(examples)
+    for idx, example in enumerate(examples):
         prompt = f"Question: {example['question']}\nAnswer: Let's solve step by step.\n"
         response = generate_text(eval_model, prompt, max_new_tokens=128)
         predicted = _extract_final_number(response)
@@ -32,7 +39,13 @@ def run_gsm8k(model_path: str, *, max_samples: int | None = None) -> BenchmarkRe
         if predicted is not None and expected is not None:
             if abs(predicted - expected) < 1e-6:
                 correct += 1
-    total = max(len(examples), 1)
+        if (idx + 1) % 50 == 0 or idx + 1 == total:
+            print(
+                f"  gsm8k: {idx + 1}/{total} problems, "
+                f"{correct} correct",
+                flush=True,
+            )
+    total = max(total, 1)
     score = round((correct / total) * 100, 2)
     return BenchmarkResult(
         benchmark_name="gsm8k",

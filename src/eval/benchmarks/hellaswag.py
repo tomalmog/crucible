@@ -8,16 +8,22 @@ Scores by comparing sequence loss (perplexity) across completions.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import compute_completion_loss, load_eval_model
+from eval.benchmarks._model_loader import EvalModel, compute_completion_loss, load_eval_model
 
 
-def run_hellaswag(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
+def run_hellaswag(
+    model_path: str,
+    *,
+    max_samples: int | None = None,
+    eval_model: EvalModel | None = None,
+) -> BenchmarkResult:
     """Run HellaSwag benchmark against a model.
 
     For each example, computes sequence loss for each completion
     option and picks the one with the lowest loss.
     """
-    eval_model = load_eval_model(model_path)
+    if eval_model is None:
+        eval_model = load_eval_model(model_path)
     examples = _load_hellaswag_examples()
     if max_samples:
         examples = examples[:max_samples]

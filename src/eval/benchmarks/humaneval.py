@@ -12,24 +12,31 @@ import tempfile
 from pathlib import Path
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import generate_text, load_eval_model
+from eval.benchmarks._model_loader import EvalModel, generate_text, load_eval_model
 
 
 _EXEC_TIMEOUT_SECONDS = 10
 
 
-def run_humaneval(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
+def run_humaneval(
+    model_path: str,
+    *,
+    max_samples: int | None = None,
+    eval_model: EvalModel | None = None,
+) -> BenchmarkResult:
     """Run HumanEval benchmark against a model.
 
     Generates function body completions for each problem and
     executes test cases in sandboxed subprocesses (pass@1).
     """
-    eval_model = load_eval_model(model_path)
+    if eval_model is None:
+        eval_model = load_eval_model(model_path)
     examples = _load_humaneval_examples()
     if max_samples:
         examples = examples[:max_samples]
     correct = 0
-    for example in examples:
+    total = len(examples)
+    for idx, example in enumerate(examples):
         prompt = str(example["prompt"])
         completion = generate_text(eval_model, prompt, max_new_tokens=256)
         full_code = prompt + completion
@@ -37,7 +44,13 @@ def run_humaneval(model_path: str, *, max_samples: int | None = None) -> Benchma
         entry_point = str(example["entry_point"])
         if _check_solution(full_code, test_code, entry_point):
             correct += 1
-    total = max(len(examples), 1)
+        if (idx + 1) % 10 == 0 or idx + 1 == total:
+            print(
+                f"  humaneval: {idx + 1}/{total} problems, "
+                f"{correct} passed",
+                flush=True,
+            )
+    total = max(total, 1)
     score = round((correct / total) * 100, 2)
     return BenchmarkResult(
         benchmark_name="humaneval",

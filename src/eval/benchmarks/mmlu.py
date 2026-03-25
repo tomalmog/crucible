@@ -11,23 +11,36 @@ from eval.benchmark_runner import BenchmarkResult
 from eval.benchmarks._model_loader import EvalModel, compute_logits, load_eval_model
 
 
-def run_mmlu(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
+def run_mmlu(
+    model_path: str,
+    *,
+    max_samples: int | None = None,
+    eval_model: EvalModel | None = None,
+) -> BenchmarkResult:
     """Run MMLU benchmark against a model.
 
     Loads the MMLU dataset, formats each question as a multiple-choice
     prompt, and scores by comparing model logits for answer tokens.
     """
-    eval_model = load_eval_model(model_path)
+    if eval_model is None:
+        eval_model = load_eval_model(model_path)
     examples = _load_mmlu_examples()
     if max_samples:
         examples = examples[:max_samples]
     correct = 0
-    for example in examples:
+    total = len(examples)
+    for idx, example in enumerate(examples):
         prompt = _format_prompt(example)
         predicted = _score_choices(eval_model, prompt)
         if predicted == example["answer"]:
             correct += 1
-    total = max(len(examples), 1)
+        if (idx + 1) % 500 == 0 or idx + 1 == total:
+            print(
+                f"  mmlu: {idx + 1}/{total} questions, "
+                f"{correct} correct",
+                flush=True,
+            )
+    total = max(total, 1)
     score = round((correct / total) * 100, 2)
     return BenchmarkResult(
         benchmark_name="mmlu",

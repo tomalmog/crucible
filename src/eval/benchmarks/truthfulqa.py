@@ -8,16 +8,22 @@ scoring where the model must select the single correct answer.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import compute_completion_loss, load_eval_model
+from eval.benchmarks._model_loader import EvalModel, compute_completion_loss, load_eval_model
 
 
-def run_truthfulqa(model_path: str, *, max_samples: int | None = None) -> BenchmarkResult:
+def run_truthfulqa(
+    model_path: str,
+    *,
+    max_samples: int | None = None,
+    eval_model: EvalModel | None = None,
+) -> BenchmarkResult:
     """Run TruthfulQA MC1 benchmark against a model.
 
     For each question, computes sequence loss for each answer
     option and picks the one with the lowest loss.
     """
-    eval_model = load_eval_model(model_path)
+    if eval_model is None:
+        eval_model = load_eval_model(model_path)
     examples = _load_truthfulqa_examples()
     if max_samples:
         examples = examples[:max_samples]
