@@ -30,6 +30,7 @@ def _cluster_to_dict(cluster: ClusterConfig) -> dict[str, object]:
         "name": cluster.name,
         "host": cluster.host,
         "user": cluster.user,
+        "ssh_port": cluster.ssh_port,
         "ssh_key_path": cluster.ssh_key_path,
         "password": cluster.password,
         "default_partition": cluster.default_partition,
@@ -40,6 +41,10 @@ def _cluster_to_dict(cluster: ClusterConfig) -> dict[str, object]:
         "remote_workspace": cluster.remote_workspace,
         "exclude_nodes": cluster.exclude_nodes,
         "validated_at": cluster.validated_at,
+        "backend": cluster.backend,
+        "docker_image": cluster.docker_image,
+        "api_endpoint": cluster.api_endpoint,
+        "api_token": cluster.api_token,
     }
 
 
@@ -49,6 +54,7 @@ def _dict_to_cluster(raw: dict[str, object]) -> ClusterConfig:
         name=str(raw["name"]),
         host=str(raw["host"]),
         user=str(raw["user"]),
+        ssh_port=int(raw.get("ssh_port", 22)),
         ssh_key_path=str(raw.get("ssh_key_path", "")),
         password=str(raw.get("password", "")),
         default_partition=str(raw.get("default_partition", "")),
@@ -59,6 +65,10 @@ def _dict_to_cluster(raw: dict[str, object]) -> ClusterConfig:
         remote_workspace=str(raw.get("remote_workspace", "~/crucible-jobs")),
         exclude_nodes=str(raw.get("exclude_nodes", "")),
         validated_at=str(raw.get("validated_at", "")),
+        backend=str(raw.get("backend", "slurm")),
+        docker_image=str(raw.get("docker_image", "")),
+        api_endpoint=str(raw.get("api_endpoint", "")),
+        api_token=str(raw.get("api_token", "")),
     )
 
 

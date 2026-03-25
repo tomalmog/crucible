@@ -1,8 +1,9 @@
-"""Run chat inference on a remote Slurm cluster via SSH.
+"""Run chat inference on a remote cluster via SSH.
 
 Connects to the cluster, ensures the crucible conda env and source
-bundle are present, then submits inference to a compute node
-via ``srun`` and streams tokens back to the caller.
+bundle are present, then runs inference.  For Slurm clusters the
+command is submitted via ``srun``; for SSH clusters the runner script
+executes directly on the remote host.
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ def stream_remote_chat(
         Stdout chunks from remote inference.
     """
     cluster = load_cluster(data_root, cluster_name)
+    is_ssh = cluster.backend == "ssh"
     tarball = build_agent_tarball(
         cache_dir=data_root / "cache" / "agent-bundles",
     )
@@ -54,18 +56,25 @@ def stream_remote_chat(
         saved_stdout = sys.stdout
         sys.stdout = sys.stderr
         try:
-            ensure_remote_env(session)
+            if is_ssh:
+                from serve.ssh_submit_helpers import provision_env
+                env_activate = provision_env(session, cluster)
+            else:
+                ensure_remote_env(session)
+                env_activate = ""
             bundle_dir = f"{cluster.remote_workspace}/{_BUNDLE_DIR_NAME}"
             _sync_bundle(session, tarball, bundle_dir)
             _upload_runner_script(session, bundle_dir, options)
         finally:
             sys.stdout = saved_stdout
-        command = _build_srun_command(
-            cluster.module_loads, bundle_dir, resources,
-            default_partition=cluster.default_partition,
-        )
-        # Use a longer timeout: env setup can take minutes, then
-        # srun may queue before the model runs.
+
+        if is_ssh:
+            command = _build_ssh_command(bundle_dir, env_activate)
+        else:
+            command = _build_srun_command(
+                cluster.module_loads, bundle_dir, resources,
+                default_partition=cluster.default_partition,
+            )
         yield from session.stream_command(command, timeout=1800)
 
 
@@ -123,6 +132,19 @@ def _upload_runner_script(
         top_k=options.top_k,
     )
     session.upload_text(script, f"{bundle_dir}/{_RUNNER_FILENAME}")
+
+
+def _build_ssh_command(
+    bundle_dir: str,
+    env_activate: str = "",
+) -> str:
+    """Build a direct command for SSH clusters (no Slurm)."""
+    parts: list[str] = []
+    if env_activate:
+        parts.append(env_activate)
+    parts.append(f"cd {bundle_dir}")
+    parts.append(f"python -u {_RUNNER_FILENAME}")
+    return " && ".join(parts)
 
 
 def _build_srun_command(

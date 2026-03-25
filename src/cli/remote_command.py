@@ -21,16 +21,25 @@ def add_remote_command(
     sub = remote.add_subparsers(dest="remote_action", required=True)
 
     # register-cluster
-    reg = sub.add_parser("register-cluster", help="Register a Slurm cluster")
+    reg = sub.add_parser("register-cluster", help="Register a remote cluster")
     reg.add_argument("--name", required=True, help="Unique cluster name")
-    reg.add_argument("--host", required=True, help="SSH hostname")
-    reg.add_argument("--user", required=True, help="SSH username")
+    reg.add_argument("--host", required=True, help="SSH hostname (or API host for http-api)")
+    reg.add_argument("--user", required=True, help="SSH username (or API user for http-api)")
+    reg.add_argument(
+        "--backend", default="slurm",
+        choices=["slurm", "ssh", "http-api"],
+        help="Backend type (default: slurm)",
+    )
+    reg.add_argument("--ssh-port", type=int, default=22, help="SSH port (default: 22)")
     reg.add_argument("--ssh-key", default="", help="Path to SSH private key")
     reg.add_argument("--password", default="", help="SSH password")
     reg.add_argument("--partition", default="", help="Default Slurm partition")
     reg.add_argument("--module-loads", default="", help="Comma-separated module load commands")
     reg.add_argument("--remote-workspace", default="~/crucible-jobs", help="Remote workspace path")
     reg.add_argument("--python-path", default="python3", help="Remote Python path")
+    reg.add_argument("--docker-image", default="", help="Docker image (ssh backend, optional)")
+    reg.add_argument("--api-endpoint", default="", help="API endpoint URL (http-api backend)")
+    reg.add_argument("--api-token", default="", help="API auth token (http-api backend)")
     reg.add_argument("--validate", action="store_true", help="Validate after registration")
 
     # list-clusters

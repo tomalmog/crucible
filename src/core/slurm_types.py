@@ -46,6 +46,7 @@ class ClusterConfig:
     name: str
     host: str
     user: str
+    ssh_port: int = 22
     ssh_key_path: str = ""
     password: str = ""
     default_partition: str = ""
@@ -56,6 +57,10 @@ class ClusterConfig:
     remote_workspace: str = "~/crucible-jobs"
     exclude_nodes: str = ""
     validated_at: str = ""
+    backend: str = "slurm"
+    docker_image: str = ""
+    api_endpoint: str = ""
+    api_token: str = ""
 
 
 @dataclass(frozen=True)
@@ -133,6 +138,8 @@ class ClusterValidationResult:
         cuda_ok: Whether CUDA is available via torch.
         cuda_version: Detected CUDA version string.
         slurm_ok: Whether sinfo/sbatch are available.
+        docker_ok: Whether Docker is available.
+        docker_gpu_ok: Whether Docker has GPU access.
         partitions: Discovered Slurm partitions.
         gpu_types: Discovered GPU types.
         module_suggestions: Suggested module load commands.
@@ -147,6 +154,8 @@ class ClusterValidationResult:
     cuda_ok: bool = False
     cuda_version: str = ""
     slurm_ok: bool = False
+    docker_ok: bool = False
+    docker_gpu_ok: bool = False
     partitions: tuple[str, ...] = ()
     gpu_types: tuple[str, ...] = ()
     module_suggestions: tuple[str, ...] = ()

@@ -50,19 +50,29 @@ class SshSession:
         hostname = self._cluster.host
         username = self._cluster.user
         config_key_filename: str | None = None
+        host_cfg: dict[str, object] = {}
         if os.path.isfile(ssh_config_path):
             import paramiko as pm
             ssh_config = pm.SSHConfig.from_path(ssh_config_path)
             host_cfg = ssh_config.lookup(self._cluster.host)
-            hostname = host_cfg.get("hostname", hostname)
+            hostname = host_cfg.get("hostname", hostname)  # type: ignore[assignment]
             if not username:
-                username = host_cfg.get("user", "")
+                username = host_cfg.get("user", "")  # type: ignore[assignment]
             if not self._cluster.ssh_key_path and "identityfile" in host_cfg:
                 files = host_cfg["identityfile"]
-                config_key_filename = os.path.expanduser(files[0]) if files else None
+                config_key_filename = os.path.expanduser(files[0]) if files else None  # type: ignore[index]
+
+        # Use explicit port, fall back to SSH config, then default 22
+        port = self._cluster.ssh_port
+        if not port or port == 22:
+            if "port" in host_cfg:
+                port = int(host_cfg["port"])  # type: ignore[arg-type]
+            else:
+                port = 22
 
         connect_kwargs: dict[str, object] = {
             "hostname": hostname,
+            "port": port,
             "username": username,
             "timeout": 15,
             "auth_timeout": 30,

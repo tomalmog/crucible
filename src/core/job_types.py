@@ -18,7 +18,7 @@ TERMINAL_JOB_STATES: frozenset[JobState] = frozenset({
     "completed", "failed", "cancelled",
 })
 
-BackendKind = Literal["local", "slurm", "docker-ssh", "http-api"]
+BackendKind = Literal["local", "slurm", "ssh", "http-api"]
 
 
 @dataclass(frozen=True)

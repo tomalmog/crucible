@@ -195,9 +195,13 @@ def _init_backends() -> None:
     from core.backend_registry import register_backend
     from serve.local_runner import LocalRunner
     from serve.slurm_runner import SlurmRunner
+    from serve.ssh_runner import SshRunner
+    from serve.http_api_runner import HttpApiRunner
 
     register_backend("local", LocalRunner())
     register_backend("slurm", SlurmRunner())
+    register_backend("ssh", SshRunner())
+    register_backend("http-api", HttpApiRunner())
 
 
 def main(argv: Sequence[str] | None = None) -> int:

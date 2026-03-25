@@ -30,6 +30,10 @@ def add_server_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
         "--host", type=str, default="0.0.0.0",
         help="Host to bind to (default: 0.0.0.0)",
     )
+    parser.add_argument(
+        "--token", type=str, default="",
+        help="API bearer token for job endpoints (sets CRUCIBLE_API_TOKEN)",
+    )
 
 
 def run_server_command(
@@ -56,8 +60,13 @@ def run_server_command(
             "Install it with: pip install uvicorn"
         ) from exc
 
+    import os
     from server.app import create_app
 
-    app = create_app()
+    if args.token:
+        os.environ["CRUCIBLE_API_TOKEN"] = args.token
+
+    data_root = str(client._config.data_root)
+    app = create_app(data_root=data_root)
     uvicorn.run(app, host=args.host, port=args.port)
     return 0

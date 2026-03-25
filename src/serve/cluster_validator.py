@@ -18,6 +18,57 @@ from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
 from serve.ssh_connection import SshSession
 
 
+def validate_ssh_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
+    """Validate an SSH cluster's readiness.
+
+    For Docker SSH: checks Docker and GPU access.
+    For bare SSH: tries conda provisioning first; if conda is unavailable
+    (cloud GPU providers), checks system Python for torch directly.
+    """
+    result = ClusterValidationResult(cluster_name=cluster.name)
+    errors: list[str] = []
+
+    with SshSession(cluster) as session:
+        if cluster.docker_image:
+            result = _check_ssh_python(session, cluster, result, errors)
+            result = _check_docker(session, result, errors)
+            if result.docker_ok:
+                result = _check_docker_gpu(session, cluster, result, errors)
+        else:
+            result = _validate_bare_ssh_env(
+                session, cluster, result, errors,
+            )
+
+    return replace(result, errors=tuple(errors))
+
+
+def _validate_bare_ssh_env(
+    session: SshSession,
+    cluster: ClusterConfig,
+    result: ClusterValidationResult,
+    errors: list[str],
+) -> ClusterValidationResult:
+    """Validate bare SSH environment — conda or system Python.
+
+    If conda is not installed, installs Miniconda automatically.
+    """
+    try:
+        ensure_remote_env(session)
+    except Exception:
+        # Conda not available — install it, then retry
+        try:
+            from serve.ssh_submit_helpers import _install_miniconda
+            _install_miniconda(session)
+            ensure_remote_env(session)
+        except Exception as exc:
+            errors.append(f"Failed to provision environment: {exc}")
+            return result
+
+    result = _check_python(session, cluster, result, errors)
+    result = _check_torch(session, cluster, result, errors)
+    return result
+
+
 def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     """Validate a remote cluster's readiness for Crucible jobs.
 
@@ -44,7 +95,6 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
         result = _check_torch(session, cluster, result, errors)
         result = _check_slurm(session, result, errors)
         result = _discover_gpu_types(session, result)
-        result = _suggest_modules(session, result)
 
     return replace(result, errors=tuple(errors))
 
@@ -128,7 +178,6 @@ def _check_slurm(
     if code != 0:
         errors.append("Slurm is not available (sinfo not found).")
         return result
-
     partitions = tuple(
         p.rstrip("*") for p in stdout.strip().splitlines() if p.strip()
     )
@@ -140,65 +189,64 @@ def _discover_gpu_types(
     result: ClusterValidationResult,
 ) -> ClusterValidationResult:
     """Discover available GPU types from Slurm GRES and node features."""
-    if not result.slurm_ok:
-        return result
+    from serve.slurm_discovery import discover_gpu_types, suggest_modules
+    result = discover_gpu_types(session, result)
+    return suggest_modules(session, result)
 
-    gpu_types: list[str] = []
 
-    # Method 1: parse GRES — gpu:type:count format
-    stdout, _, code = session.execute(
-        "sinfo --noheader -o '%G' | sort -u", timeout=15,
-    )
+def _check_ssh_python(
+    session: SshSession,
+    cluster: ClusterConfig,
+    result: ClusterValidationResult,
+    errors: list[str],
+) -> ClusterValidationResult:
+    """Check if Python is accessible on the remote host (no conda env)."""
+    py = cluster.python_path
+    stdout, stderr, code = session.execute(f"{py} --version", timeout=15)
     if code == 0:
-        for line in stdout.strip().splitlines():
-            line = line.strip()
-            if not line or line == "(null)":
-                continue
-            parts = line.split(":")
-            if len(parts) >= 3 and parts[0] == "gpu":
-                candidate = parts[1].split("(")[0]
-                if candidate and candidate not in gpu_types:
-                    gpu_types.append(candidate)
-
-    # Method 2: if GRES didn't have named types, check node features
-    if not gpu_types:
-        stdout, _, code = session.execute(
-            "sinfo --noheader -o '%f' | tr ',' '\\n' | sort -u", timeout=15,
-        )
-        if code == 0:
-            gpu_keywords = ("gpu", "a100", "a40", "v100", "h100", "l40",
-                            "t4", "rtx", "titan", "p100", "a10", "l4")
-            for line in stdout.strip().splitlines():
-                feat = line.strip().lower()
-                if not feat or feat == "(null)":
-                    continue
-                if any(kw in feat for kw in gpu_keywords):
-                    name = line.strip()
-                    if name not in gpu_types:
-                        gpu_types.append(name)
-
-    return replace(result, gpu_types=tuple(gpu_types))
+        version = stdout.strip() or stderr.strip()
+        return replace(result, python_ok=True, python_version=version)
+    errors.append(f"Python not found at '{py}': {stderr.strip()}")
+    return result
 
 
-def _suggest_modules(
+def _check_docker(
     session: SshSession,
     result: ClusterValidationResult,
+    errors: list[str],
 ) -> ClusterValidationResult:
-    """Suggest module load commands if modules system is available."""
-    stdout, _, code = session.execute("module avail 2>&1 | head -20", timeout=15)
+    """Check if Docker is installed and accessible."""
+    stdout, stderr, code = session.execute("docker --version", timeout=15)
     if code != 0:
+        errors.append(f"Docker not found: {stderr.strip()}")
         return result
+    version = stdout.strip()
+    return replace(result, docker_ok=True, python_version=version)
 
-    suggestions: list[str] = []
-    if not result.torch_ok:
-        # Look for cuda and python modules
-        for line in stdout.splitlines():
-            lower = line.lower()
-            if "cuda" in lower:
-                suggestions.append(f"module load {line.strip().split()[0]}")
-            if "python" in lower:
-                suggestions.append(f"module load {line.strip().split()[0]}")
-    return replace(result, module_suggestions=tuple(suggestions))
+
+def _check_docker_gpu(
+    session: SshSession,
+    cluster: ClusterConfig,
+    result: ClusterValidationResult,
+    errors: list[str],
+) -> ClusterValidationResult:
+    """Check if Docker has GPU access via nvidia-smi."""
+    from core.constants import DEFAULT_DOCKER_IMAGE
+
+    image = cluster.docker_image or DEFAULT_DOCKER_IMAGE
+    stdout, stderr, code = session.execute(
+        f"docker run --rm --gpus all {image} nvidia-smi --query-gpu=name --format=csv,noheader",
+        timeout=60,
+    )
+    if code != 0:
+        errors.append(f"Docker GPU access failed: {stderr.strip()}")
+        return result
+    gpu_names = [g.strip() for g in stdout.strip().splitlines() if g.strip()]
+    return replace(
+        result,
+        docker_gpu_ok=True,
+        gpu_types=tuple(dict.fromkeys(gpu_names)),
+    )
 
 
 def update_cluster_validated(cluster: ClusterConfig) -> ClusterConfig:

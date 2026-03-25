@@ -27,6 +27,8 @@ _BUNDLE_MODULES = (
 # Files within serve/ that should NOT be bundled (they are host-only)
 _SERVE_EXCLUDES = frozenset({
     "ssh_connection.py",
+    "ssh_runner.py",
+    "ssh_submit_helpers.py",
     "cluster_validator.py",
     "agent_bundler.py",
     "agent_entry_script.py",

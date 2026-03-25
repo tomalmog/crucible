@@ -219,10 +219,15 @@ def main() -> None:
         base_model_path = method_args.get("base_model_path") or None
         max_samples_val = method_args.get("max_samples")
         max_samples = int(max_samples_val) if max_samples_val else None
+
+        # Ensure output dir exists so incremental writes work
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
         try:
             eval_result = run_benchmarks(
                 model_path, benchmarks, base_model_path,
                 max_samples=max_samples,
+                output_path=output_path,
             )
             result_data = {
                 "status": "completed",
@@ -422,8 +427,22 @@ if __name__ == "__main__":
     try:
         main()
     except BaseException as exc:
+        import traceback as _tb
         print(f"CRUCIBLE_AGENT_ERROR: Unhandled {type(exc).__name__}: {exc}",
               file=sys.stderr, flush=True)
         _log_memory("on-crash")
+        # Write result.json so get_result() has something to read
+        _crash_result = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": _tb.format_exc(),
+        }
+        try:
+            _out = os.path.join(os.getcwd(), "output", "result.json")
+            os.makedirs(os.path.dirname(_out), exist_ok=True)
+            with open(_out, "w") as _f:
+                json.dump(_crash_result, _f, indent=2)
+        except Exception:
+            pass  # best-effort
         raise
 '''

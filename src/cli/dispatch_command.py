@@ -63,7 +63,30 @@ def run_dispatch_command(
     )
 
     backend = get_backend(spec.backend)
-    record = backend.submit(client._config.data_root, spec)
+    try:
+        record = backend.submit(client._config.data_root, spec)
+    except Exception as exc:
+        import traceback
+        print(f"DISPATCH_ERROR: {exc}", flush=True)
+        traceback.print_exc()
+        # SSH runner writes its own failed record; for other backends,
+        # create one here as a fallback.
+        if spec.backend != "ssh":
+            from store.job_store import generate_job_id, now_iso, save_job
+            from core.job_types import JobRecord
+            ts = now_iso()
+            save_job(client._config.data_root, JobRecord(
+                job_id=generate_job_id(),
+                backend=spec.backend,
+                job_type=spec.job_type,
+                state="failed",
+                created_at=ts,
+                updated_at=ts,
+                label=spec.label or spec.job_type,
+                backend_cluster=spec.cluster_name,
+                error_message=f"{type(exc).__name__}: {exc}",
+            ))
+        return 1
 
     result_dict = {
         "job_id": record.job_id,

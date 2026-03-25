@@ -75,11 +75,19 @@ def _handle_sync(data_root: object, job_id: str) -> int:
     root = Path(str(data_root))
     record = load_job(root, job_id)
     backend = get_backend(record.backend)  # type: ignore[arg-type]
-    new_state = backend.get_state(root, job_id)
+    try:
+        new_state = backend.get_state(root, job_id)
+    except Exception as exc:
+        import sys
+        print(f"sync error: {exc}", file=sys.stderr)
+        new_state = record.state
+    # Re-read record — get_state may have updated model_path
+    updated = load_job(root, job_id)
     print(json.dumps({
-        "job_id": record.job_id,
+        "job_id": updated.job_id,
         "state": new_state,
-        "backend": record.backend,
+        "backend": updated.backend,
+        "model_path": updated.model_path,
     }))
     return 0
 

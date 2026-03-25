@@ -29,11 +29,15 @@ def _import_fastapi() -> Any:
         ) from exc
 
 
-def create_app(config: DatabaseConfig | None = None) -> Any:
+def create_app(
+    config: DatabaseConfig | None = None,
+    data_root: str = "",
+) -> Any:
     """Create a configured FastAPI application.
 
     Args:
         config: Optional database configuration. Uses defaults if None.
+        data_root: Path to .crucible data root for job API routes.
 
     Returns:
         Configured FastAPI application instance.
@@ -54,19 +58,28 @@ def create_app(config: DatabaseConfig | None = None) -> Any:
     session_factory = create_session_factory(engine)
     init_database(engine)
 
-    _configure_routes(app, session_factory)
+    _configure_routes(app, session_factory, data_root=data_root)
     return app
 
 
-def _configure_routes(app: Any, session_factory: Any) -> None:
+def _configure_routes(
+    app: Any,
+    session_factory: Any,
+    data_root: str = "",
+) -> None:
     """Include all route modules on the application.
 
     Args:
         app: FastAPI application instance.
         session_factory: SQLAlchemy sessionmaker factory.
+        data_root: Path to .crucible data root for job API routes.
     """
     from server.routes_comments import create_comments_router
     from server.routes_runs import create_runs_router
 
     app.include_router(create_runs_router(session_factory))
     app.include_router(create_comments_router(session_factory))
+
+    if data_root:
+        from server.routes_jobs import create_jobs_router
+        app.include_router(create_jobs_router(data_root))

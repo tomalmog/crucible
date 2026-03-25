@@ -19,7 +19,11 @@ def _handle_register_cluster(
     from dataclasses import replace as dc_replace
 
     from core.slurm_types import ClusterConfig
-    from serve.cluster_validator import update_cluster_validated, validate_cluster
+    from serve.cluster_validator import (
+        update_cluster_validated,
+        validate_cluster,
+        validate_ssh_cluster,
+    )
     from store.cluster_registry import save_cluster
 
     from store.cluster_registry import load_cluster as _load_cluster
@@ -35,10 +39,17 @@ def _handle_register_cluster(
     except Exception:
         pass
 
+    backend = getattr(args, "backend", "slurm")
+
+    ssh_port = getattr(args, "ssh_port", 22) or 22
+    if ssh_port == 22 and existing:
+        ssh_port = existing.ssh_port or 22
+
     cluster = ClusterConfig(
         name=args.name,
         host=args.host,
         user=args.user,
+        ssh_port=ssh_port,
         ssh_key_path=args.ssh_key or (existing.ssh_key_path if existing else ""),
         password=args.password or (existing.password if existing else ""),
         default_partition=args.partition,
@@ -48,21 +59,42 @@ def _handle_register_cluster(
         partitions=existing.partitions if existing else (),
         gpu_types=existing.gpu_types if existing else (),
         validated_at=existing.validated_at if existing else "",
+        backend=backend,
+        docker_image=getattr(args, "docker_image", "")
+            or (existing.docker_image if existing else ""),
+        api_endpoint=getattr(args, "api_endpoint", "")
+            or (existing.api_endpoint if existing else ""),
+        api_token=getattr(args, "api_token", "")
+            or (existing.api_token if existing else ""),
     )
 
     if args.validate:
-        print(f"Validating cluster '{args.name}'...")
-        result = validate_cluster(cluster)
-        _print_validation(result)
-        if result.python_ok and result.slurm_ok:
-            cluster = update_cluster_validated(cluster)
-            if result.partitions:
-                cluster = dc_replace(cluster, partitions=result.partitions)
-            if result.gpu_types:
-                cluster = dc_replace(cluster, gpu_types=result.gpu_types)
+        if backend == "slurm":
+            print(f"Validating cluster '{args.name}'...")
+            result = validate_cluster(cluster)
+            _print_validation(result)
+            if result.python_ok and result.slurm_ok:
+                cluster = update_cluster_validated(cluster)
+                if result.partitions:
+                    cluster = dc_replace(cluster, partitions=result.partitions)
+                if result.gpu_types:
+                    cluster = dc_replace(cluster, gpu_types=result.gpu_types)
+            else:
+                import sys
+                print("Warning: Cluster validation had issues.", file=sys.stderr)
+        elif backend == "ssh":
+            print(f"Validating SSH cluster '{args.name}'...")
+            result = validate_ssh_cluster(cluster)
+            _print_ssh_validation(result)
+            if result.docker_ok or result.python_ok:
+                cluster = update_cluster_validated(cluster)
+                if result.gpu_types:
+                    cluster = dc_replace(cluster, gpu_types=result.gpu_types)
+            else:
+                import sys
+                print("Warning: Cluster validation had issues.", file=sys.stderr)
         else:
-            import sys
-            print("Warning: Cluster validation had issues.", file=sys.stderr)
+            print(f"Skipping validation for {backend} backend.")
 
     save_cluster(client._config.data_root, cluster)
     print(f"Cluster '{args.name}' registered.")
@@ -80,7 +112,7 @@ def _handle_list_clusters(
         return 0
     for c in clusters:
         validated = "validated" if c.validated_at else "not validated"
-        print(f"  {c.name}  {c.user}@{c.host}  [{validated}]")
+        print(f"  {c.name}  {c.user}@{c.host}  [{c.backend}]  [{validated}]")
     return 0
 
 
@@ -89,21 +121,36 @@ def _handle_validate_cluster(
 ) -> int:
     from dataclasses import replace as dc_replace
 
-    from serve.cluster_validator import update_cluster_validated, validate_cluster
+    from serve.cluster_validator import (
+        update_cluster_validated,
+        validate_cluster,
+        validate_ssh_cluster,
+    )
     from store.cluster_registry import load_cluster, save_cluster
 
     cluster = load_cluster(client._config.data_root, args.cluster)
-    print(f"Validating '{args.cluster}'...")
-    result = validate_cluster(cluster)
-    _print_validation(result)
+    backend = cluster.backend or "slurm"
 
-    if result.python_ok and result.slurm_ok:
-        updated = update_cluster_validated(cluster)
-        if result.partitions:
-            updated = dc_replace(updated, partitions=result.partitions)
-        if result.gpu_types:
-            updated = dc_replace(updated, gpu_types=result.gpu_types)
-        save_cluster(client._config.data_root, updated)
+    if backend == "ssh":
+        print(f"Validating SSH cluster '{args.cluster}'...")
+        result = validate_ssh_cluster(cluster)
+        _print_ssh_validation(result)
+        if result.docker_ok or result.python_ok:
+            updated = update_cluster_validated(cluster)
+            if result.gpu_types:
+                updated = dc_replace(updated, gpu_types=result.gpu_types)
+            save_cluster(client._config.data_root, updated)
+    else:
+        print(f"Validating '{args.cluster}'...")
+        result = validate_cluster(cluster)
+        _print_validation(result)
+        if result.python_ok and result.slurm_ok:
+            updated = update_cluster_validated(cluster)
+            if result.partitions:
+                updated = dc_replace(updated, partitions=result.partitions)
+            if result.gpu_types:
+                updated = dc_replace(updated, gpu_types=result.gpu_types)
+            save_cluster(client._config.data_root, updated)
     return 0
 
 
@@ -343,6 +390,22 @@ def _build_resources(args: argparse.Namespace) -> "SlurmResourceConfig":
         memory=args.memory,
         time_limit=args.time_limit,
     )
+
+
+def _print_ssh_validation(result: object) -> None:
+    """Print SSH cluster validation results."""
+    from core.slurm_types import ClusterValidationResult
+    if not isinstance(result, ClusterValidationResult):
+        return
+    print(f"  SSH: OK")
+    print(f"  Python: {'OK' if result.python_ok else 'MISSING'} {result.python_version}")
+    if result.docker_ok:
+        print(f"  Docker: OK")
+        print(f"  GPU Access: {'OK' if result.docker_gpu_ok else 'MISSING'}")
+    if result.gpu_types:
+        print(f"  GPUs: {', '.join(result.gpu_types)}")
+    for error in result.errors:
+        print(f"  ERROR: {error}")
 
 
 def _print_validation(result: object) -> None:

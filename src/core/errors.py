@@ -161,3 +161,7 @@ class CrucibleRemoteError(CrucibleError):
 
 class CrucibleExportError(CrucibleError):
     """Raised for model export failures."""
+
+
+class CrucibleDockerError(CrucibleRemoteError):
+    """Raised for Docker SSH backend failures."""
