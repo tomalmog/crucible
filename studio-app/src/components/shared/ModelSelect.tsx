@@ -1,6 +1,8 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
+import { listClusters } from "../../api/remoteApi";
+import type { ClusterConfig } from "../../types/remote";
 
 interface ModelSelectProps {
   value: string;
@@ -21,22 +23,33 @@ interface ModelOption {
  * Only allows picking from the model registry — no free text.
  */
 export function ModelSelect({ value, onChange, placeholder = "Select a model", remoteOnly = false, localOnly = false }: ModelSelectProps) {
-  const { models } = useCrucible();
+  const { models, dataRoot } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [clusters, setClusters] = useState<ClusterConfig[]>([]);
+
+  useEffect(() => {
+    if (dataRoot) listClusters(dataRoot).then(setClusters).catch(() => {});
+  }, [dataRoot]);
+
+  const hostToCluster = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clusters) map.set(c.host, c.name);
+    return map;
+  }, [clusters]);
 
   const pathToDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of models) {
       if (m.modelPath) map.set(m.modelPath, `${m.modelName} — Local`);
       if (m.remotePath) {
-        const host = m.remoteHost.split(".")[0] || "Remote";
-        map.set(m.remotePath, `${m.modelName} — ${host}`);
+        const label = hostToCluster.get(m.remoteHost) || m.remoteHost;
+        map.set(m.remotePath, `${m.modelName} — ${label}`);
       }
     }
     return map;
-  }, [models]);
+  }, [models, hostToCluster]);
 
   const displayValue = value ? (pathToDisplay.get(value) ?? value) : "";
 
@@ -63,13 +76,13 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
       if (!m.hasRemote || !m.remotePath) continue;
       const q = search.toLowerCase();
       if (!m.modelName.toLowerCase().includes(q)) continue;
-      const host = m.remoteHost.split(".")[0] || "Remote";
-      const list = groups.get(host) || [];
+      const label = hostToCluster.get(m.remoteHost) || m.remoteHost;
+      const list = groups.get(label) || [];
       list.push({ label: m.modelName, value: m.remotePath, section: "remote" });
-      groups.set(host, list);
+      groups.set(label, list);
     }
     return groups;
-  }, [models, search, localOnly]);
+  }, [models, search, localOnly, hostToCluster]);
 
   const localOptions = options.filter((o) => o.section === "local");
   const hasRemote = remoteGroups.size > 0;

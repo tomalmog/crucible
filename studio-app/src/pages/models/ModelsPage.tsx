@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { TabBar } from "../../components/shared/TabBar";
@@ -38,6 +38,11 @@ export function ModelsPage() {
   const [selectedCluster, setSelectedCluster] = useState("");
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
   const [transferError, setTransferError] = useState<string | null>(null);
+  const hostToCluster = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clusters) map.set(c.host, c.name);
+    return map;
+  }, [clusters]);
 
   useEffect(() => {
     listClusters(dataRoot)
@@ -129,8 +134,11 @@ export function ModelsPage() {
     );
   }
 
+  const clusterHost = clusters.find((c) => c.name === selectedCluster)?.host ?? selectedCluster;
   const filtered = models.filter((m) =>
-    locationTab === "local" ? m.hasLocal : m.hasRemote,
+    locationTab === "local"
+      ? m.hasLocal
+      : m.hasRemote && (!selectedCluster || m.remoteHost === clusterHost),
   );
 
   const emptyMsg = locationTab === "local"
@@ -184,7 +192,7 @@ export function ModelsPage() {
                 <>
                   {locationTab === "local" && m.hasRemote && <span className="badge">Also Remote</span>}
                   {locationTab === "remote" && m.remoteHost && (
-                    <span className="badge">{m.remoteHost.split(".")[0]}</span>
+                    <span className="badge">{hostToCluster.get(m.remoteHost) || m.remoteHost}</span>
                   )}
                   <span>{formatSize(m.sizeBytes)}</span>
                 </>
