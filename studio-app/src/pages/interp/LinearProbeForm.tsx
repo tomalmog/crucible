@@ -6,7 +6,7 @@ import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs } from "../../api/commandArgs";
+import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { jobLabel } from "../../utils/jobLabels";
 
@@ -41,7 +41,8 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isRemote, clusterName } = useInterpLocation(modelPath);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -78,9 +79,12 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
           epochs: parseInt(epochs || "10", 10),
           learning_rate: parseFloat(learningRate || "0.001"),
         };
-        const args = buildRemoteInterpArgs(
-          clusterName, "linear-probe", JSON.stringify(methodArgs),
-        );
+        const args = isSlurm
+          ? buildRemoteInterpArgs(clusterName, "linear-probe", JSON.stringify(methodArgs))
+          : buildDispatchSpec("linear-probe", methodArgs, clusterBackend as "ssh", {
+              label,
+              clusterName,
+            });
         await startCrucibleCommand(dataRoot, args, label, cfg);
       } else {
         const args = [
