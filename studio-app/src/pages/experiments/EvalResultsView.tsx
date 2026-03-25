@@ -6,7 +6,7 @@ import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { listClusters } from "../../api/remoteApi";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteEvalArgs } from "../../api/commandArgs";
+import { buildRemoteEvalArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { evalLabel } from "../../utils/jobLabels";
 import type { ClusterConfig } from "../../types/remote";
 
@@ -59,14 +59,21 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const [comboOpen, setComboOpen] = useState(false);
   const comboRef = useRef<HTMLDivElement>(null);
 
-  // Fetch available clusters; set default only if no cluster is already selected
+  // Fetch available clusters
   useEffect(() => {
     if (!dataRoot) return;
-    listClusters(dataRoot).then((c) => {
-      setClusters(c);
-      if (c.length > 0 && !cluster) setCluster(c[0].name);
-    }).catch(() => setClusters([]));
-  }, [dataRoot]); // eslint-disable-line react-hooks/exhaustive-deps
+    listClusters(dataRoot).then((c) => setClusters(c)).catch(() => setClusters([]));
+  }, [dataRoot]);
+
+  // Auto-detect cluster from selected model's remoteHost
+  useEffect(() => {
+    if (!modelPath || clusters.length === 0) return;
+    const entry = models.find((m) => m.remotePath === modelPath || m.modelPath === modelPath);
+    if (entry?.remoteHost) {
+      const match = clusters.find((c) => c.host === entry.remoteHost);
+      if (match) setCluster(match.name);
+    }
+  }, [modelPath, models, clusters]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -93,10 +100,9 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!modelPath.trim()) m.push("model");
-    if (!cluster) m.push("cluster");
     if (selectedBenchmarks.size === 0) m.push("benchmarks");
     return m;
-  }, [modelPath, cluster, selectedBenchmarks]);
+  }, [modelPath, selectedBenchmarks]);
 
   function snapshotConfig(): Record<string, unknown> {
     return {
@@ -115,7 +121,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   }
 
   async function submitEval() {
-    if (!dataRoot || missing.length > 0) return;
+    if (!dataRoot || missing.length > 0 || !cluster) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -124,17 +130,34 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         (m) => m.remotePath === modelPath || m.modelPath === modelPath,
       );
       const cfg = snapshotConfig();
-      const args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
-        modelName: selectedEntry?.modelName || undefined,
-        baseModel: baseModelPath.trim() || undefined,
-        maxSamples: maxSamples.trim() || undefined,
-        partition: partition || undefined,
-        gpusPerNode,
-        gpuType: gpuType || undefined,
-        memory,
-        timeLimit,
-      });
       const selectedModelName = selectedEntry?.modelName || "model";
+      const isSlurm = selectedCluster?.backend === "slurm";
+
+      let args: string[];
+      if (isSlurm) {
+        args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
+          modelName: selectedEntry?.modelName || undefined,
+          baseModel: baseModelPath.trim() || undefined,
+          maxSamples: maxSamples.trim() || undefined,
+          partition: partition || undefined,
+          gpusPerNode,
+          gpuType: gpuType || undefined,
+          memory,
+          timeLimit,
+        });
+      } else {
+        const methodArgs: Record<string, unknown> = {
+          model_path: modelPath,
+          benchmarks,
+        };
+        if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
+        if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
+        args = buildDispatchSpec("eval", methodArgs, selectedCluster?.backend ?? "ssh", {
+          label: evalLabel(selectedModelName),
+          clusterName: cluster,
+        });
+      }
+
       await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName), cfg);
       navigate("/jobs");
     } catch (err) {
@@ -225,52 +248,50 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         />
       </FormField>
 
-      <div className="grid-2">
-        <FormField label="Cluster" required>
-          <select value={cluster} onChange={(e) => setCluster(e.currentTarget.value)}>
-            {clusters.length === 0 && <option value="">No clusters registered</option>}
-            {clusters.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name} ({c.user}@{c.host})
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Partition">
-          <select value={partition} onChange={(e) => setPartition(e.currentTarget.value)}>
-            <option value="">Default</option>
-            {selectedCluster?.partitions.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="GPU Type">
-          <select value={gpuType} onChange={(e) => setGpuType(e.currentTarget.value)}>
-            <option value="">Any</option>
-            {selectedCluster?.gpuTypes.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="GPUs">
-          <input
-            type="number"
-            min={1}
-            value={gpusPerNode}
-            onChange={(e) => setGpusPerNode(e.currentTarget.value)}
-          />
-        </FormField>
-        <FormField label="Memory">
-          <input value={memory} onChange={(e) => setMemory(e.currentTarget.value)} />
-        </FormField>
-        <FormField label="Time Limit">
-          <input
-            value={timeLimit}
-            onChange={(e) => setTimeLimit(e.currentTarget.value)}
-            placeholder="HH:MM:SS"
-          />
-        </FormField>
-      </div>
+      {selectedCluster && (
+        <div className="info-banner">
+          Cluster: <strong>{selectedCluster.name}</strong> ({selectedCluster.user}@{selectedCluster.host})
+        </div>
+      )}
+
+      {selectedCluster?.backend === "slurm" && (
+        <div className="grid-2">
+          <FormField label="Partition">
+            <select value={partition} onChange={(e) => setPartition(e.currentTarget.value)}>
+              <option value="">Default</option>
+              {selectedCluster?.partitions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="GPU Type">
+            <select value={gpuType} onChange={(e) => setGpuType(e.currentTarget.value)}>
+              <option value="">Any</option>
+              {selectedCluster?.gpuTypes.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="GPUs">
+            <input
+              type="number"
+              min={1}
+              value={gpusPerNode}
+              onChange={(e) => setGpusPerNode(e.currentTarget.value)}
+            />
+          </FormField>
+          <FormField label="Memory">
+            <input value={memory} onChange={(e) => setMemory(e.currentTarget.value)} />
+          </FormField>
+          <FormField label="Time Limit">
+            <input
+              value={timeLimit}
+              onChange={(e) => setTimeLimit(e.currentTarget.value)}
+              placeholder="HH:MM:SS"
+            />
+          </FormField>
+        </div>
+      )}
     </CommandFormPanel>
   );
 }

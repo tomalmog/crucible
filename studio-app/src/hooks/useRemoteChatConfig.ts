@@ -11,6 +11,7 @@ export interface RemoteInferenceConfig {
 
 interface RemoteConfigState {
   clusterInfo: ClusterConfig | null;
+  isSlurm: boolean;
   config: RemoteInferenceConfig;
   setPartition: (v: string) => void;
   setGpuType: (v: string) => void;
@@ -45,6 +46,7 @@ export function useRemoteChatConfig(
 
   return {
     clusterInfo,
+    isSlurm: clusterInfo?.backend === "slurm",
     config: { partition, gpuType, memory, timeLimit },
     setPartition,
     setGpuType,

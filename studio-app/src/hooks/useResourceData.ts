@@ -3,7 +3,6 @@ import { useCrucible } from "../context/CrucibleContext";
 import { getStorageBreakdown, listOrphanedRuns } from "../api/resourcesApi";
 import { listClusters, getClusterInfo, getRemoteModelSizes, listRemoteDatasets } from "../api/remoteApi";
 import { useJobs } from "./useJobs";
-import { useRemoteJobs } from "./useRemoteJobs";
 import type { StorageBreakdown, OrphanedRun } from "../types/resources";
 import type { ClusterConfig, ClusterInfo, RemoteDatasetInfo } from "../types/remote";
 
@@ -17,7 +16,6 @@ export interface ClusterRemoteStorage {
 export function useResourceData() {
   const { dataRoot, hardwareProfile } = useCrucible();
   const { jobs } = useJobs();
-  const { jobs: remoteJobs } = useRemoteJobs(dataRoot);
 
   const [storage, setStorage] = useState<StorageBreakdown | null>(null);
   const [orphans, setOrphans] = useState<OrphanedRun[]>([]);
@@ -76,7 +74,6 @@ export function useResourceData() {
     clusters,
     remoteStorage,
     localJobs: jobs,
-    remoteJobs,
     loading,
     refresh,
   };

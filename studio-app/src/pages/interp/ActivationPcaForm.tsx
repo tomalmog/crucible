@@ -6,7 +6,7 @@ import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs } from "../../api/commandArgs";
+import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { activationPcaLabel } from "../../utils/jobLabels";
 
@@ -38,7 +38,8 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isRemote, clusterName } = useInterpLocation(modelPath);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -77,9 +78,12 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
           granularity,
         };
         if (colorField.trim()) methodArgs.color_field = colorField;
-        const args = buildRemoteInterpArgs(
-          clusterName, "activation-pca", JSON.stringify(methodArgs),
-        );
+        const args = isSlurm
+          ? buildRemoteInterpArgs(clusterName, "activation-pca", JSON.stringify(methodArgs))
+          : buildDispatchSpec("activation-pca", methodArgs, clusterBackend as "ssh", {
+              label: activationPcaLabel(modelPath),
+              clusterName,
+            });
         await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       } else {
         const args = [

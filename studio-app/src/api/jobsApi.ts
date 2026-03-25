@@ -23,7 +23,7 @@ export async function syncJobState(
 ): Promise<JobRecord> {
   const key = `sync-job-${jobId}`;
   if (bypassCache) invalidate(key);
-  const result = await cached(key, 10_000, () =>
+  const result = await cached(key, 4_000, () =>
     sshLimited(() =>
       invoke<JobRecord>("sync_unified_job_state", { dataRoot, jobId }),
     ),

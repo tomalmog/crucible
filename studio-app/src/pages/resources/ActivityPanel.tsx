@@ -1,19 +1,14 @@
 import { useNavigate } from "react-router";
 import type { CommandTaskStatus } from "../../types";
-import type { RemoteJobRecord } from "../../types/remote";
 
 interface ActivityPanelProps {
   localJobs: CommandTaskStatus[];
-  remoteJobs: RemoteJobRecord[];
 }
 
-export function ActivityPanel({ localJobs, remoteJobs }: ActivityPanelProps) {
+export function ActivityPanel({ localJobs }: ActivityPanelProps) {
   const navigate = useNavigate();
   const activeLocal = localJobs.filter((j) => j.status === "running");
-  const activeRemote = remoteJobs.filter(
-    (j) => j.state === "running" || j.state === "pending" || j.state === "submitting",
-  );
-  const totalActive = activeLocal.length + activeRemote.length;
+  const totalActive = activeLocal.length;
 
   return (
     <div className="resource-card">
@@ -35,13 +30,6 @@ export function ActivityPanel({ localJobs, remoteJobs }: ActivityPanelProps) {
               <span className="job-status-dot pulsing" style={{ background: "var(--accent)" }} />
               <span className="activity-job-name">{j.label || j.command}</span>
               <span className="activity-job-meta">{formatElapsed(j.elapsed_seconds)}</span>
-            </div>
-          ))}
-          {activeRemote.map((j) => (
-            <div key={j.jobId} className="activity-job">
-              <span className="job-status-dot pulsing" style={{ background: "var(--accent)" }} />
-              <span className="activity-job-name">{j.trainingMethod} @ {j.clusterName}</span>
-              <span className="activity-job-meta">{j.state}</span>
             </div>
           ))}
         </div>

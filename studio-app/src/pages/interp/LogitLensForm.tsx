@@ -5,7 +5,7 @@ import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs } from "../../api/commandArgs";
+import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { logitLensLabel } from "../../utils/jobLabels";
 
@@ -31,7 +31,8 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isRemote, clusterName } = useInterpLocation(modelPath);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -59,16 +60,19 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
     try {
       const cfg = snapshotConfig();
       if (isRemote && clusterName) {
-        const methodArgs = {
+        const methodArgs: Record<string, unknown> = {
           model_path: modelPath,
           input_text: inputText,
           output_dir: "./outputs/interp",
           top_k: parseInt(topK || "5", 10),
           layer_indices: layerIndices.trim(),
         };
-        const args = buildRemoteInterpArgs(
-          clusterName, "logit-lens", JSON.stringify(methodArgs),
-        );
+        const args = isSlurm
+          ? buildRemoteInterpArgs(clusterName, "logit-lens", JSON.stringify(methodArgs))
+          : buildDispatchSpec("logit-lens", methodArgs, clusterBackend as "ssh", {
+              label: logitLensLabel(modelPath),
+              clusterName,
+            });
         await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       } else {
         const args = [

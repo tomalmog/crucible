@@ -434,11 +434,22 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 }
 
 function RemoteFailedView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
+  const partialBenchmarks = (result.benchmarks || []).filter((b) => b.num_examples > 0);
+  const isPartialEval = partialBenchmarks.length > 0;
+
   return (
     <div className="panel stack-lg">
       <DetailHeader onBack={onBack} config={config} />
       <h3>Job Failed: {job.label || job.jobId}</h3>
       {result.error && <div className="error-alert-prominent">{result.error}</div>}
+      {isPartialEval && (
+        <>
+          <div className="info-banner">
+            Partial results: {partialBenchmarks.length} of {(result as any).benchmarks_total ?? "?"} benchmarks completed before failure
+          </div>
+          <BenchmarkBarChart benchmarks={partialBenchmarks} baseBenchmarks={[]} />
+        </>
+      )}
       {result.traceback && (<details><summary className="error-text">Full traceback</summary><pre className="console console-short">{result.traceback}</pre></details>)}
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
@@ -447,6 +458,93 @@ function RemoteFailedView({ job, result, onBack, config }: { job: JobRecord; res
 
 function pct(b: EvalBenchmark): number {
   return b.num_examples > 0 ? (b.correct / b.num_examples) * 100 : 0;
+}
+
+// ── SVG benchmark bar chart ─────────────────────────────────────────────
+
+const BAR_CHART_WIDTH = 1000;
+const BAR_CHART_HEIGHT = 400;
+const BAR_BOUNDS = { top: 58, right: 28, bottom: 100, left: 86 };
+const BAR_COLORS = [
+  "#769FCD", "#d97706", "#34d399", "#f87171", "#a78bfa", "#fb923c", "#38bdf8",
+];
+
+function BenchmarkBarChart({ benchmarks, baseBenchmarks }: {
+  benchmarks: EvalBenchmark[];
+  baseBenchmarks: EvalBenchmark[];
+}) {
+  if (benchmarks.length === 0) return null;
+  const hasBase = baseBenchmarks.length > 0;
+  const baseMap = new Map(baseBenchmarks.map((b) => [b.name, b]));
+
+  const chartW = BAR_CHART_WIDTH - BAR_BOUNDS.left - BAR_BOUNDS.right;
+  const chartH = BAR_CHART_HEIGHT - BAR_BOUNDS.top - BAR_BOUNDS.bottom;
+  const n = benchmarks.length;
+  const groupWidth = chartW / n;
+  const barWidth = hasBase ? groupWidth * 0.35 : groupWidth * 0.6;
+  const gap = hasBase ? groupWidth * 0.04 : 0;
+
+  const yTicks = [0, 25, 50, 75, 100];
+  const mapY = (v: number) => BAR_BOUNDS.top + chartH - (v / 100) * chartH;
+  const mapX = (i: number) => BAR_BOUNDS.left + groupWidth * i + groupWidth / 2;
+
+  return (
+    <div className="training-chart-card">
+      <svg viewBox={`0 0 ${BAR_CHART_WIDTH} ${BAR_CHART_HEIGHT}`} className="training-chart-svg">
+        <text className="training-chart-title" x={BAR_CHART_WIDTH / 2} y={30}>
+          Benchmark Scores
+        </text>
+        {yTicks.map((v) => (
+          <g key={`y-${v}`}>
+            <line className="training-grid-line" x1={BAR_BOUNDS.left} x2={BAR_CHART_WIDTH - BAR_BOUNDS.right} y1={mapY(v)} y2={mapY(v)} />
+            <text className="training-axis-tick training-axis-tick-y" x={BAR_BOUNDS.left - 10} y={mapY(v) + 4}>{v}%</text>
+          </g>
+        ))}
+        <line className="training-axis-line" x1={BAR_BOUNDS.left} x2={BAR_CHART_WIDTH - BAR_BOUNDS.right} y1={mapY(0)} y2={mapY(0)} />
+        <line className="training-axis-line" x1={BAR_BOUNDS.left} x2={BAR_BOUNDS.left} y1={BAR_BOUNDS.top} y2={mapY(0)} />
+        {benchmarks.map((b, i) => {
+          const cx = mapX(i);
+          const base = baseMap.get(b.name);
+          const color = BAR_COLORS[i % BAR_COLORS.length];
+          const score = pct(b);
+          const barH = (score / 100) * chartH;
+
+          if (hasBase && base) {
+            const baseScore = pct(base);
+            const baseH = (baseScore / 100) * chartH;
+            const leftX = cx - barWidth - gap / 2;
+            const rightX = cx + gap / 2;
+            return (
+              <g key={b.name}>
+                <rect x={leftX} y={mapY(score)} width={barWidth} height={barH} fill={color} rx={3} />
+                <text className="training-axis-tick" x={leftX + barWidth / 2} y={mapY(score) - 6} textAnchor="middle" style={{ fontSize: 11 }}>{score.toFixed(1)}%</text>
+                <rect x={rightX} y={mapY(baseScore)} width={barWidth} height={baseH} fill={color} rx={3} opacity={0.35} />
+                <text className="training-axis-tick" x={rightX + barWidth / 2} y={mapY(baseScore) - 6} textAnchor="middle" style={{ fontSize: 11 }}>{baseScore.toFixed(1)}%</text>
+                <text className="training-axis-tick training-axis-tick-x" x={cx} y={mapY(0) + 22}>{b.name.toUpperCase()}</text>
+              </g>
+            );
+          }
+
+          return (
+            <g key={b.name}>
+              <rect x={cx - barWidth / 2} y={mapY(score)} width={barWidth} height={barH} fill={color} rx={3} />
+              <text className="training-axis-tick" x={cx} y={mapY(score) - 6} textAnchor="middle" style={{ fontSize: 11 }}>{score.toFixed(1)}%</text>
+              <text className="training-axis-tick training-axis-tick-x" x={cx} y={mapY(0) + 22}>{b.name.toUpperCase()}</text>
+            </g>
+          );
+        })}
+        {hasBase && (
+          <g transform={`translate(${BAR_CHART_WIDTH - BAR_BOUNDS.right - 180}, ${BAR_BOUNDS.top - 28})`}>
+            <rect x={0} y={3} width={14} height={14} fill={BAR_COLORS[0]} rx={2} />
+            <text className="training-legend-label" x={20} y={14}>Model</text>
+            <rect x={80} y={3} width={14} height={14} fill={BAR_COLORS[0]} rx={2} opacity={0.35} />
+            <text className="training-legend-label" x={100} y={14}>Base</text>
+          </g>
+        )}
+        <text className="training-axis-label" x={24} y={BAR_CHART_HEIGHT / 2} transform={`rotate(-90 24 ${BAR_CHART_HEIGHT / 2})`}>Accuracy</text>
+      </svg>
+    </div>
+  );
 }
 
 function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
@@ -466,6 +564,7 @@ function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; resul
         <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}</span></div>
         {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
       </div>
+      <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={baseBenchmarks} />
       {benchmarks.length > 0 && (
         <div className="docs-table-wrap">
           <table className="docs-table">

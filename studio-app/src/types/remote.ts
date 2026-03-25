@@ -1,7 +1,10 @@
+export type ClusterBackend = "slurm" | "ssh" | "http-api";
+
 export interface ClusterConfig {
   name: string;
   host: string;
   user: string;
+  sshPort: number;
   defaultPartition: string;
   partitions: string[];
   gpuTypes: string[];
@@ -9,39 +12,16 @@ export interface ClusterConfig {
   pythonPath: string;
   remoteWorkspace: string;
   validatedAt: string;
+  backend: ClusterBackend;
+  dockerImage: string;
+  apiEndpoint: string;
+  apiToken: string;
 }
 
 export interface RemoteDatasetInfo {
   name: string;
   sizeBytes: number;
   syncedAt: string;
-}
-
-export type RemoteJobState =
-  | "pending"
-  | "submitting"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-export interface RemoteJobRecord {
-  jobId: string;
-  slurmJobId: string;
-  clusterName: string;
-  trainingMethod: string;
-  state: RemoteJobState;
-  submittedAt: string;
-  updatedAt: string;
-  remoteOutputDir: string;
-  remoteLogPath: string;
-  modelPathRemote: string;
-  modelPathLocal: string;
-  localVersionId: string;
-  modelName: string;
-  isSweep: boolean;
-  sweepArraySize: number;
-  submitPhase: string;
 }
 
 export interface ClusterValidationResult {

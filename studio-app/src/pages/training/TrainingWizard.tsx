@@ -171,7 +171,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
       } catch { /* ignore invalid JSON */ }
       const merged = { ...methodArgsObj, ...extraOverrides };
       const cfg = snapshotConfig();
-      const args = buildDispatchSpec(method, merged, "slurm", {
+      const args = buildDispatchSpec(method, merged, clusterConfig.backend, {
         label: modelName.trim() || undefined,
         clusterName: clusterConfig.cluster,
         resources: {

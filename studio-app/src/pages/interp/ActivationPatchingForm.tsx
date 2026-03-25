@@ -5,7 +5,7 @@ import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs } from "../../api/commandArgs";
+import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { activationPatchingLabel } from "../../utils/jobLabels";
 
@@ -31,7 +31,8 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isRemote, clusterName } = useInterpLocation(modelPath);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -60,16 +61,19 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
     try {
       const cfg = snapshotConfig();
       if (isRemote && clusterName) {
-        const methodArgs = {
+        const methodArgs: Record<string, unknown> = {
           model_path: modelPath,
           clean_text: cleanText,
           corrupted_text: corruptedText,
           output_dir: "./outputs/interp",
           metric,
         };
-        const args = buildRemoteInterpArgs(
-          clusterName, "activation-patch", JSON.stringify(methodArgs),
-        );
+        const args = isSlurm
+          ? buildRemoteInterpArgs(clusterName, "activation-patch", JSON.stringify(methodArgs))
+          : buildDispatchSpec("activation-patch", methodArgs, clusterBackend as "ssh", {
+              label: activationPatchingLabel(modelPath),
+              clusterName,
+            });
         await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath), cfg);
       } else {
         const args = [

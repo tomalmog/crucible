@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Loader2, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useTrainingCluster } from "../../context/TrainingClusterContext";
 import { listClusters, listRemoteDatasets } from "../../api/remoteApi";
-import type { ClusterConfig } from "../../types/remote";
-import type { RemoteDatasetInfo } from "../../types/remote";
+import type { ClusterConfig, RemoteDatasetInfo } from "../../types/remote";
 
 interface DatasetSelectProps {
   value: string;
@@ -16,24 +15,32 @@ interface DatasetOption {
   label: string;
   value: string;
   section: "local" | "remote";
+  cluster?: string;
+}
+
+interface ClusterDatasets {
+  cluster: string;
+  shortName: string;
+  datasets: RemoteDatasetInfo[];
 }
 
 /**
  * Searchable dropdown for selecting a dataset from the registry.
- * Always shows both local and remote datasets when clusters exist.
+ * Shows local datasets and remote datasets from ALL registered clusters.
  */
 export function DatasetSelect({ value, onChange, placeholder = "Select a dataset" }: DatasetSelectProps) {
   const { datasets, dataRoot } = useCrucible();
-  const { cluster: contextCluster, onDatasetLocationChanged } = useTrainingCluster();
+  const { onDatasetLocationChanged } = useTrainingCluster();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [pickedSection, setPickedSection] = useState<"local" | "remote">("local");
+  const [pickedCluster, setPickedCluster] = useState("");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
-  const [remoteDatasets, setRemoteDatasets] = useState<RemoteDatasetInfo[]>([]);
+  const [clusterDatasets, setClusterDatasets] = useState<ClusterDatasets[]>([]);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Always fetch clusters on mount so we can show remote datasets
+  // Fetch clusters on mount
   useEffect(() => {
     if (!dataRoot) return;
     listClusters(dataRoot)
@@ -41,22 +48,23 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
       .catch(() => setClusters([]));
   }, [dataRoot]);
 
-  // Fetch remote datasets: use context cluster if set, otherwise first available
-  const effectiveCluster = contextCluster || clusters[0]?.name || "";
-
+  // Fetch remote datasets from ALL clusters
   useEffect(() => {
-    if (!dataRoot || !effectiveCluster) {
-      setRemoteDatasets([]);
+    if (!dataRoot || clusters.length === 0) {
+      setClusterDatasets([]);
       return;
     }
     setIsLoadingRemote(true);
-    listRemoteDatasets(dataRoot, effectiveCluster)
-      .then(setRemoteDatasets)
-      .catch(() => setRemoteDatasets([]))
+    Promise.all(
+      clusters.map(async (c) => {
+        const ds = await listRemoteDatasets(dataRoot, c.name).catch(() => [] as RemoteDatasetInfo[]);
+        return { cluster: c.name, shortName: c.name.split(".")[0] || c.name, datasets: ds };
+      }),
+    )
+      .then(setClusterDatasets)
+      .catch(() => setClusterDatasets([]))
       .finally(() => setIsLoadingRemote(false));
-  }, [dataRoot, effectiveCluster]);
-
-  const clusterShortName = effectiveCluster.split(".")[0] || "Remote";
+  }, [dataRoot, clusters]);
 
   const options = useMemo(() => {
     const result: DatasetOption[] = [];
@@ -66,29 +74,49 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
         result.push({ label: d.name, value: d.name, section: "local" });
       }
     }
-    for (const d of remoteDatasets) {
-      if (d.name.toLowerCase().includes(q)) {
-        result.push({ label: d.name, value: d.name, section: "remote" });
+    for (const cd of clusterDatasets) {
+      for (const d of cd.datasets) {
+        if (d.name.toLowerCase().includes(q)) {
+          result.push({ label: d.name, value: d.name, section: "remote", cluster: cd.cluster });
+        }
       }
     }
     return result;
-  }, [datasets, remoteDatasets, search]);
+  }, [datasets, clusterDatasets, search]);
 
   // Map dataset name → display label (with location suffix)
   const valueToDisplay = useMemo(() => {
     const map = new Map<string, string>();
     for (const d of datasets) {
-      map.set(`local:${d.name}`, `${d.name} — Local`);
+      map.set(`local::${d.name}`, `${d.name} — Local`);
     }
-    for (const d of remoteDatasets) {
-      map.set(`remote:${d.name}`, `${d.name} — ${clusterShortName}`);
+    for (const cd of clusterDatasets) {
+      for (const d of cd.datasets) {
+        map.set(`remote:${cd.cluster}:${d.name}`, `${d.name} — ${cd.shortName}`);
+      }
     }
     return map;
-  }, [datasets, remoteDatasets, clusterShortName]);
+  }, [datasets, clusterDatasets]);
+
+  // Group remote options by cluster
+  const remoteGroups = useMemo(() => {
+    const groups = new Map<string, { shortName: string; items: DatasetOption[] }>();
+    for (const cd of clusterDatasets) {
+      const q = search.toLowerCase();
+      const filtered = cd.datasets.filter((d) => d.name.toLowerCase().includes(q));
+      if (filtered.length > 0) {
+        groups.set(cd.cluster, {
+          shortName: cd.shortName,
+          items: filtered.map((d) => ({ label: d.name, value: d.name, section: "remote" as const, cluster: cd.cluster })),
+        });
+      }
+    }
+    return groups;
+  }, [clusterDatasets, search]);
 
   const localOptions = options.filter((o) => o.section === "local");
-  const remoteOptions = options.filter((o) => o.section === "remote");
-  const hasResults = localOptions.length > 0 || remoteOptions.length > 0;
+  const hasRemote = remoteGroups.size > 0;
+  const hasResults = localOptions.length > 0 || hasRemote;
 
   function handleFocus() {
     clearTimeout(blurTimeout.current);
@@ -103,11 +131,12 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
     }, 150);
   }
 
-  function pick(name: string, section: "local" | "remote") {
+  function pick(name: string, section: "local" | "remote", cluster?: string) {
     onChange(name);
     setPickedSection(section);
+    setPickedCluster(cluster || "");
     if (onDatasetLocationChanged) {
-      onDatasetLocationChanged(section === "remote", effectiveCluster);
+      onDatasetLocationChanged(section === "remote", cluster || "");
     }
     setOpen(false);
     setSearch("");
@@ -120,12 +149,12 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
 
   function renderOptions(items: DatasetOption[]) {
     return items.map((o) => (
-      <li key={`${o.section}-${o.value}`}>
+      <li key={`${o.section}-${o.cluster || "local"}-${o.value}`}>
         <button
           type="button"
           className="dataset-select-option"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => pick(o.value, o.section)}
+          onClick={() => pick(o.value, o.section, o.cluster)}
         >
           {o.label}
         </button>
@@ -133,14 +162,16 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
     ));
   }
 
+  const displayKey = pickedSection === "local" ? `local::${value}` : `remote:${pickedCluster}:${value}`;
+
   return (
     <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
       <div className="dataset-select-input-wrap">
         <input
-          value={open ? search : (value ? (valueToDisplay.get(`${pickedSection}:${value}`) || value) : "")}
+          value={open ? search : (value ? (valueToDisplay.get(displayKey) || value) : "")}
           onChange={(e) => setSearch(e.currentTarget.value)}
           onClick={() => { if (!open) { setSearch(""); setOpen(true); } }}
-          placeholder={value ? (valueToDisplay.get(`${pickedSection}:${value}`) || value) : placeholder}
+          placeholder={value ? (valueToDisplay.get(displayKey) || value) : placeholder}
           readOnly={!open}
         />
         {value && !open ? (
@@ -161,14 +192,16 @@ export function DatasetSelect({ value, onChange, placeholder = "Select a dataset
           )}
           {isLoadingRemote ? (
             <li className="dataset-select-header" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {clusterShortName} <Loader2 size={12} className="spin" />
+              Loading clusters… <Loader2 size={12} className="spin" />
             </li>
-          ) : remoteOptions.length > 0 ? (
-            <>
-              <li className="dataset-select-header">{clusterShortName}</li>
-              {renderOptions(remoteOptions)}
-            </>
-          ) : null}
+          ) : (
+            Array.from(remoteGroups.entries()).map(([cluster, { shortName, items }]) => (
+              <React.Fragment key={cluster}>
+                <li className="dataset-select-header">{shortName}</li>
+                {renderOptions(items)}
+              </React.Fragment>
+            ))
+          )}
           {!hasResults && !isLoadingRemote && (
             <li className="dataset-select-empty">No datasets found</li>
           )}

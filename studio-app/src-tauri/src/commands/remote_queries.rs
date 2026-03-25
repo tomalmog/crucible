@@ -17,6 +17,7 @@ pub struct ClusterSummary {
     pub name: String,
     pub host: String,
     pub user: String,
+    pub ssh_port: u16,
     pub default_partition: String,
     pub partitions: Vec<String>,
     pub gpu_types: Vec<String>,
@@ -24,27 +25,10 @@ pub struct ClusterSummary {
     pub python_path: String,
     pub remote_workspace: String,
     pub validated_at: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoteJobSummary {
-    pub job_id: String,
-    pub slurm_job_id: String,
-    pub cluster_name: String,
-    pub training_method: String,
-    pub state: String,
-    pub submitted_at: String,
-    pub updated_at: String,
-    pub remote_output_dir: String,
-    pub remote_log_path: String,
-    pub model_path_remote: String,
-    pub model_path_local: String,
-    pub local_version_id: String,
-    pub model_name: String,
-    pub is_sweep: bool,
-    pub sweep_array_size: u64,
-    pub submit_phase: String,
+    pub backend: String,
+    pub docker_image: String,
+    pub api_endpoint: String,
+    pub api_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,52 +64,6 @@ pub fn list_clusters(data_root: String) -> Result<Vec<ClusterSummary>, String> {
     Ok(summaries)
 }
 
-#[tauri::command]
-pub fn list_remote_jobs(data_root: String) -> Result<Vec<RemoteJobSummary>, String> {
-    let jobs_dir = resolve_data_root_path(&data_root).join("remote-jobs");
-    if !jobs_dir.exists() {
-        return Ok(vec![]);
-    }
-    let mut summaries = Vec::new();
-    for entry in fs::read_dir(&jobs_dir)
-        .map_err(|e| format!("Failed to read remote-jobs dir: {e}"))?
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.extension().map_or(true, |ext| ext != "json") {
-            continue;
-        }
-        let data = read_json_file(&path)?;
-        summaries.push(parse_remote_job(&data)?);
-    }
-    summaries.sort_by(|a, b| b.submitted_at.cmp(&a.submitted_at));
-    Ok(summaries)
-}
-
-#[tauri::command]
-pub fn get_remote_job(data_root: String, job_id: String) -> Result<RemoteJobSummary, String> {
-    let job_path = resolve_data_root_path(&data_root)
-        .join("remote-jobs")
-        .join(format!("{job_id}.json"));
-    if !job_path.exists() {
-        return Err(format!("Remote job '{job_id}' not found"));
-    }
-    let data = read_json_file(&job_path)?;
-    parse_remote_job(&data)
-}
-
-#[tauri::command]
-pub fn delete_remote_job(data_root: String, job_id: String) -> Result<(), String> {
-    let job_path = resolve_data_root_path(&data_root)
-        .join("remote-jobs")
-        .join(format!("{job_id}.json"));
-    if !job_path.exists() {
-        return Err(format!("Remote job '{job_id}' not found"));
-    }
-    fs::remove_file(&job_path)
-        .map_err(|e| format!("Failed to delete {}: {e}", job_path.display()))
-}
-
 // ── JSON parsing helpers (pub(crate) for remote_cli_ops) ───────────────
 
 pub(crate) fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
@@ -136,6 +74,10 @@ pub(crate) fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
         name: str_field(obj, "name"),
         host: str_field(obj, "host"),
         user: str_field(obj, "user"),
+        ssh_port: obj
+            .get("ssh_port")
+            .and_then(Value::as_u64)
+            .unwrap_or(22) as u16,
         default_partition: str_field(obj, "default_partition"),
         partitions: str_array(obj, "partitions"),
         gpu_types: str_array(obj, "gpu_types"),
@@ -143,36 +85,13 @@ pub(crate) fn parse_cluster(data: &Value) -> Result<ClusterSummary, String> {
         python_path: str_field(obj, "python_path"),
         remote_workspace: str_field(obj, "remote_workspace"),
         validated_at: str_field(obj, "validated_at"),
-    })
-}
-
-pub(crate) fn parse_remote_job(data: &Value) -> Result<RemoteJobSummary, String> {
-    let obj = data
-        .as_object()
-        .ok_or_else(|| "Remote job entry is not an object".to_string())?;
-    Ok(RemoteJobSummary {
-        job_id: str_field(obj, "job_id"),
-        slurm_job_id: str_field(obj, "slurm_job_id"),
-        cluster_name: str_field(obj, "cluster_name"),
-        training_method: str_field(obj, "training_method"),
-        state: str_field(obj, "state"),
-        submitted_at: str_field(obj, "submitted_at"),
-        updated_at: str_field(obj, "updated_at"),
-        remote_output_dir: str_field(obj, "remote_output_dir"),
-        remote_log_path: str_field(obj, "remote_log_path"),
-        model_path_remote: str_field(obj, "model_path_remote"),
-        model_path_local: str_field(obj, "model_path_local"),
-        local_version_id: str_field(obj, "local_version_id"),
-        model_name: str_field(obj, "model_name"),
-        is_sweep: obj
-            .get("is_sweep")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        sweep_array_size: obj
-            .get("sweep_array_size")
-            .and_then(Value::as_u64)
-            .unwrap_or(0),
-        submit_phase: str_field(obj, "submit_phase"),
+        backend: {
+            let b = str_field(obj, "backend");
+            if b.is_empty() { "slurm".to_string() } else { b }
+        },
+        docker_image: str_field(obj, "docker_image"),
+        api_endpoint: str_field(obj, "api_endpoint"),
+        api_token: str_field(obj, "api_token"),
     })
 }
 

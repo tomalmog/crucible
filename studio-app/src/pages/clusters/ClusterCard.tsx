@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckCircle, XCircle, Trash2, RefreshCw, RotateCcw, Loader, Pencil } from "lucide-react";
-import type { ClusterConfig } from "../../types/remote";
+import type { ClusterConfig, ClusterBackend } from "../../types/remote";
 
 interface ClusterCardProps {
   cluster: ClusterConfig;
@@ -24,7 +24,14 @@ function formatValidatedDate(iso: string): string {
   }
 }
 
+function getBackendLabel(backend: ClusterBackend, dockerImage: string): string {
+  if (backend === "ssh") return dockerImage ? "SSH (Docker)" : "SSH";
+  if (backend === "slurm") return "Slurm";
+  return "HTTP API";
+}
+
 export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit }: ClusterCardProps) {
+  const backend = cluster.backend || "slurm";
   const isValidated = !!cluster.validatedAt;
   const [validating, setValidating] = useState(false);
   const [validateResult, setValidateResult] = useState<"success" | "error" | null>(null);
@@ -77,15 +84,16 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
             style={{ background: accentColor }}
           />
           <span className="cluster-card-name">{cluster.name}</span>
+          <span className="badge badge-muted">{getBackendLabel(backend, cluster.dockerImage)}</span>
           {isValidated ? (
             <span className="badge badge-success">
               <CheckCircle size={10} /> Validated
             </span>
-          ) : (
+          ) : backend !== "http-api" ? (
             <span className="badge badge-warning">
               <XCircle size={10} /> Not validated
             </span>
-          )}
+          ) : null}
         </div>
         <div className="flex-row">
           <button className="btn btn-ghost btn-sm btn-icon" onClick={onEdit} title="Edit cluster">
@@ -112,20 +120,38 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
       <div className="cluster-card-details">
         <div className="cluster-card-detail">
           <span className="cluster-card-detail-label">Host</span>
-          <span className="cluster-card-detail-value">{cluster.user}@{cluster.host}</span>
+          <span className="cluster-card-detail-value">
+            {cluster.user}@{cluster.host}{cluster.sshPort && cluster.sshPort !== 22 ? `:${cluster.sshPort}` : ""}
+          </span>
         </div>
-        <div className="cluster-card-detail">
-          <span className="cluster-card-detail-label">Workspace</span>
-          <span className="cluster-card-detail-value">{cluster.remoteWorkspace}</span>
-        </div>
-        <div className="cluster-card-detail">
-          <span className="cluster-card-detail-label">Python</span>
-          <span className="cluster-card-detail-value">{cluster.pythonPath}</span>
-        </div>
-        {cluster.defaultPartition && (
+        {backend !== "http-api" && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">Workspace</span>
+            <span className="cluster-card-detail-value">{cluster.remoteWorkspace}</span>
+          </div>
+        )}
+        {backend !== "http-api" && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">Python</span>
+            <span className="cluster-card-detail-value">{cluster.pythonPath}</span>
+          </div>
+        )}
+        {backend === "slurm" && cluster.defaultPartition && (
           <div className="cluster-card-detail">
             <span className="cluster-card-detail-label">Partition</span>
             <span className="cluster-card-detail-value">{cluster.defaultPartition}</span>
+          </div>
+        )}
+        {backend === "ssh" && cluster.dockerImage && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">Docker Image</span>
+            <span className="cluster-card-detail-value">{cluster.dockerImage}</span>
+          </div>
+        )}
+        {backend === "http-api" && cluster.apiEndpoint && (
+          <div className="cluster-card-detail">
+            <span className="cluster-card-detail-label">API Endpoint</span>
+            <span className="cluster-card-detail-value">{cluster.apiEndpoint}</span>
           </div>
         )}
         {isValidated && cluster.validatedAt && (
@@ -148,17 +174,21 @@ export function ClusterCard({ cluster, onRemove, onValidate, onResetEnv, onEdit 
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="cluster-card-actions">
-        <button className="btn btn-sm" onClick={handleValidate} disabled={validating}>
-          {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
-          {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
-        </button>
-        <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting}>
-          {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
-          {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
-        </button>
-      </div>
+      {/* Action buttons — validate for slurm + ssh, reset env for slurm only */}
+      {backend !== "http-api" && (
+        <div className="cluster-card-actions">
+          <button className="btn btn-sm" onClick={handleValidate} disabled={validating}>
+            {validating ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
+            {validating ? "Validating..." : validateResult === "success" ? "Validated!" : validateResult === "error" ? "Failed" : "Validate"}
+          </button>
+          {backend === "slurm" && (
+            <button className="btn btn-sm" onClick={handleResetEnv} disabled={resetting}>
+              {resetting ? <Loader size={12} className="spin" /> : <RotateCcw size={12} />}
+              {resetting ? "Resetting..." : resetResult === "success" ? "Env Reset!" : resetResult === "error" ? "Reset Failed" : "Reset Env"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Validation output */}
       {(validating || validateOutput) && (

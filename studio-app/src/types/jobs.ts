@@ -1,6 +1,6 @@
 /** Unified job types matching Python core.job_types. */
 
-export type BackendKind = "local" | "slurm" | "docker-ssh" | "http-api";
+export type BackendKind = "local" | "slurm" | "ssh" | "http-api";
 export type JobState =
   | "pending"
   | "submitting"

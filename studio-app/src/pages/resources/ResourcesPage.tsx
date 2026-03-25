@@ -15,7 +15,6 @@ export function ResourcesPage() {
     clusters,
     remoteStorage,
     localJobs,
-    remoteJobs,
     loading,
     refresh,
   } = useResourceData();
@@ -33,7 +32,7 @@ export function ResourcesPage() {
         <StoragePanel storage={storage} remoteStorage={remoteStorage} />
         <HardwarePanel hardware={hardware} clusters={clusters} />
         <ClusterInfoPanel remoteStorage={remoteStorage} clusters={clusters} loading={loading} />
-        <ActivityPanel localJobs={localJobs} remoteJobs={remoteJobs} />
+        <ActivityPanel localJobs={localJobs} />
         <CleanupPanel orphans={orphans} storage={storage} onRefresh={refresh} />
       </div>
     </>

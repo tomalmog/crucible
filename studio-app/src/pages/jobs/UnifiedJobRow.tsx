@@ -377,6 +377,9 @@ export function UnifiedJobRow({
       {isFailed && isRemote && job.submitPhase && (
         <div className="error-alert-prominent">{job.submitPhase}</div>
       )}
+      {isFailed && job.errorMessage && !job.submitPhase && (
+        <div className="error-alert-prominent">{job.errorMessage}</div>
+      )}
       {job.modelPath && isRemote && (
         <div className="run-row-path" style={{ opacity: 0.7, fontSize: "0.8rem" }}>
           Remote model: {job.modelPath}

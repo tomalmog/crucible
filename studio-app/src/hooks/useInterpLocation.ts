@@ -6,6 +6,7 @@ import type { ClusterConfig } from "../types/remote";
 interface InterpLocation {
   isRemote: boolean;
   clusterName: string;
+  clusterBackend: string;
 }
 
 /**
@@ -32,14 +33,15 @@ export function useInterpLocation(modelPath: string): InterpLocation {
     return map;
   }, [models]);
 
-  const resolveCluster = useCallback((host: string): string => {
+  const resolveCluster = useCallback((host: string): { name: string; backend: string } => {
     const match = clustersRef.current.find((c) => c.host === host);
-    return match?.name ?? "";
+    return { name: match?.name ?? "", backend: match?.backend ?? "slurm" };
   }, []);
 
   const remoteHost = remotePathMap.get(modelPath);
   if (!remoteHost) {
-    return { isRemote: false, clusterName: "" };
+    return { isRemote: false, clusterName: "", clusterBackend: "" };
   }
-  return { isRemote: true, clusterName: resolveCluster(remoteHost) };
+  const resolved = resolveCluster(remoteHost);
+  return { isRemote: true, clusterName: resolved.name, clusterBackend: resolved.backend };
 }

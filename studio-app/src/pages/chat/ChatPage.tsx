@@ -293,7 +293,7 @@ export function ChatPage() {
                 <input value={weightsPath} onChange={(e) => setWeightsPath(e.currentTarget.value)} placeholder="optional .pt or .safetensors path" />
               </FormField>
             </>}
-            {isRemoteModel && remote.clusterInfo && <>
+            {isRemoteModel && remote.clusterInfo && remote.isSlurm && <>
               <FormField label="Partition">
                 <select value={remote.config.partition} onChange={(e) => remote.setPartition(e.currentTarget.value)}>
                   <option value="">Default</option>
