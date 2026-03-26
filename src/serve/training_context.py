@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from core.types import TrainingOptions
-from serve.tokenization import SequenceBatch, VocabularyTokenizer
+from core.chat_types import ChatTokenizer
+from serve.tokenization import SequenceBatch
 from serve.training_hooks import TrainingHooks
 from serve.training_run_registry import TrainingRunRegistry
 
@@ -28,7 +29,7 @@ class TrainingRuntimeContext:
     loss_function: Any
     train_batches: list[SequenceBatch]
     validation_batches: list[SequenceBatch]
-    tokenizer: VocabularyTokenizer
+    tokenizer: ChatTokenizer
     options: TrainingOptions
     output_dir: Path
     device: Any

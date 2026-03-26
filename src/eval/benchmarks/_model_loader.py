@@ -271,6 +271,10 @@ def _detect_hf_base_model(model_path: str) -> str | None:
     Checks both ``base_model_path`` (used by LoRA/SFT/DPO) and
     ``initial_weights_path`` (used by QLoRA) so that all fine-tuned
     HuggingFace models are detected regardless of training method.
+
+    Handles remote cluster paths (e.g. ``/u201/.../openai-community_gpt2``)
+    by extracting the basename and trying it as a HuggingFace model ID,
+    including unsanitized variants (``org_model`` → ``org/model``).
     """
     from serve.hf_model_loader import is_huggingface_model_id
     from serve.training_metadata import load_training_config
@@ -280,8 +284,40 @@ def _detect_hf_base_model(model_path: str) -> str | None:
         return None
     for key in ("base_model_path", "initial_weights_path"):
         value = str(config.get(key, "") or "")
-        if value and is_huggingface_model_id(value):
+        if not value:
+            continue
+        if is_huggingface_model_id(value):
             return value
+        resolved = _resolve_remote_hf_id(value)
+        if resolved:
+            return resolved
+    return None
+
+
+def _resolve_remote_hf_id(remote_path: str) -> str | None:
+    """Try to recover a HuggingFace model ID from a remote cluster path.
+
+    Remote paths like ``/u201/.../openai-community_gpt2`` have the model
+    name as the basename, sanitized by ``sanitize_remote_name`` which
+    replaces ``/`` with ``_``.  Try unsanitizing first (``org_model`` →
+    ``org/model``) since that's the most common HF ID pattern, then
+    fall back to the raw basename (e.g. ``gpt2``).
+    """
+    from pathlib import Path as _Path
+    from serve.hf_model_loader import is_huggingface_model_id
+
+    basename = _Path(remote_path).name
+    if not basename:
+        return None
+    # Try unsanitizing first underscore → slash (e.g. "openai-community_gpt2" → "openai-community/gpt2")
+    idx = basename.find("_")
+    if idx > 0:
+        candidate = basename[:idx] + "/" + basename[idx + 1:]
+        if is_huggingface_model_id(candidate):
+            return candidate
+    # Fall back to basename directly (e.g. "gpt2")
+    if is_huggingface_model_id(basename):
+        return basename
     return None
 
 

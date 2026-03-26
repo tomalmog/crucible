@@ -28,15 +28,37 @@ def save_training_config(output_dir: Path, options: TrainingOptions) -> Path:
     return config_path
 
 
-def save_tokenizer_vocabulary(output_dir: Path, tokenizer: VocabularyTokenizer) -> Path:
-    """Persist fitted tokenizer vocabulary used during training."""
-    vocabulary_path = output_dir / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
-    payload = {
-        token: token_id
-        for token, token_id in sorted(tokenizer.vocabulary.items(), key=_sort_vocabulary_item)
-    }
-    vocabulary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return vocabulary_path
+def save_tokenizer_vocabulary(output_dir: Path, tokenizer: ChatTokenizer) -> Path:
+    """Persist fitted tokenizer vocabulary used during training.
+
+    For HuggingFace tokenizers (AutoTokenizerAdapter), saves via
+    ``save_pretrained`` so BPE merge rules are preserved.  For
+    Crucible VocabularyTokenizer, writes a flat ``{token: id}`` JSON.
+    """
+    from serve.huggingface_tokenizer import AutoTokenizerAdapter, HuggingFaceTokenizer
+
+    if isinstance(tokenizer, AutoTokenizerAdapter):
+        tokenizer._tokenizer.save_pretrained(str(output_dir))
+        return output_dir / "tokenizer.json"
+
+    if isinstance(tokenizer, HuggingFaceTokenizer):
+        tokenizer_path = output_dir / "tokenizer.json"
+        tokenizer._tokenizer.save(str(tokenizer_path))
+        return tokenizer_path
+
+    if isinstance(tokenizer, VocabularyTokenizer):
+        vocabulary_path = output_dir / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
+        payload = {
+            token: token_id
+            for token, token_id in sorted(tokenizer.vocabulary.items(), key=_sort_vocabulary_item)
+        }
+        vocabulary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        return vocabulary_path
+
+    raise CrucibleServeError(
+        f"Unknown tokenizer type {type(tokenizer).__name__}: "
+        "cannot save vocabulary."
+    )
 
 
 def load_training_config(model_path: str) -> dict[str, object] | None:
@@ -55,16 +77,17 @@ def load_training_config(model_path: str) -> dict[str, object] | None:
 def load_tokenizer(model_path: str) -> ChatTokenizer | None:
     """Load persisted training tokenizer located beside model weights.
 
-    Checks for Crucible vocab.json first, then HuggingFace tokenizer.json.
+    Checks for HuggingFace tokenizer.json first (preserves BPE encoding),
+    then falls back to Crucible vocab.json.
     Returns None if no vocabulary file exists next to the model.
     """
     artifact_dir = _artifact_dir(model_path)
-    vocabulary_path = artifact_dir / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
-    if vocabulary_path.exists():
-        return load_tokenizer_from_path(str(vocabulary_path))
     hf_tokenizer_path = artifact_dir / "tokenizer.json"
     if hf_tokenizer_path.exists():
         return load_tokenizer_from_path(str(hf_tokenizer_path))
+    vocabulary_path = artifact_dir / DEFAULT_TOKENIZER_VOCAB_FILE_NAME
+    if vocabulary_path.exists():
+        return load_tokenizer_from_path(str(vocabulary_path))
     return None
 
 

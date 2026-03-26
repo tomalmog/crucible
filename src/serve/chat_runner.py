@@ -20,6 +20,7 @@ from serve.chat_option_resolver import (
 )
 from serve.device_selection import resolve_execution_device
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model, load_huggingface_tokenizer
+from serve.huggingface_tokenizer import AutoTokenizerAdapter
 from serve.model_format import detect_model_format
 from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.onnx_chat_runner import run_onnx_chat
@@ -101,7 +102,7 @@ def _build_hf_runtime_context(
 
     # Load tokenizer
     hf_tokenizer = load_huggingface_tokenizer(model_id)
-    tokenizer = _HfTokenizerAdapter(hf_tokenizer)
+    tokenizer = AutoTokenizerAdapter(hf_tokenizer)
 
     max_context = getattr(model.config, "n_positions", None) or options.max_token_length
     return ChatRuntimeContext(
@@ -112,22 +113,6 @@ def _build_hf_runtime_context(
         device=device,
         max_context_tokens=max_context,
     )
-
-
-class _HfTokenizerAdapter:
-    """Adapts a HuggingFace tokenizer to the ChatTokenizer protocol."""
-
-    def __init__(self, hf_tokenizer: Any) -> None:
-        self._tokenizer = hf_tokenizer
-        vocab = hf_tokenizer.get_vocab()
-        self.vocabulary: dict[str, int] = dict(vocab)
-
-    def encode(self, text: str, max_token_length: int) -> list[int]:
-        ids = self._tokenizer.encode(text)
-        return ids[:max_token_length]
-
-    def decode(self, token_ids: list[int]) -> str:
-        return self._tokenizer.decode(token_ids)
 
 
 def _build_runtime_context(
@@ -169,15 +154,40 @@ def _detect_hf_base_model(model_path: str) -> str | None:
     """Check if model_path has a training_config with a HuggingFace base_model_path.
 
     Returns the base model ID if found, None otherwise.
+    Handles remote cluster paths by extracting the basename and trying
+    it as a HuggingFace model ID.
     """
     from serve.training_metadata import load_training_config
 
     config = load_training_config(model_path)
     if not config:
         return None
-    base = str(config.get("base_model_path", "") or "")
-    if base and is_huggingface_model_id(base):
-        return base
+    for key in ("base_model_path", "initial_weights_path"):
+        value = str(config.get(key, "") or "")
+        if not value:
+            continue
+        if is_huggingface_model_id(value):
+            return value
+        resolved = _resolve_remote_hf_id(value)
+        if resolved:
+            return resolved
+    return None
+
+
+def _resolve_remote_hf_id(remote_path: str) -> str | None:
+    """Try to recover a HuggingFace model ID from a remote cluster path."""
+    from pathlib import Path as _Path
+
+    basename = _Path(remote_path).name
+    if not basename:
+        return None
+    idx = basename.find("_")
+    if idx > 0:
+        candidate = basename[:idx] + "/" + basename[idx + 1:]
+        if is_huggingface_model_id(candidate):
+            return candidate
+    if is_huggingface_model_id(basename):
+        return basename
     return None
 
 

@@ -44,13 +44,14 @@ def fit_training_tokenizer(
     records: list[DataRecord],
     options: TrainingOptions,
     base_model: str | None = None,
-) -> VocabularyTokenizer:
+) -> ChatTokenizer:
     """Build or load tokenizer vocabulary for training.
 
     When ``options.tokenizer_path`` is set, loads a pre-trained tokenizer
     from the given path instead of fitting a new one from record texts.
     When ``base_model`` is a HuggingFace model ID and no explicit
-    tokenizer path is provided, auto-loads the HF tokenizer.
+    tokenizer path is provided, auto-loads the HF tokenizer (preserving
+    BPE subword encoding).
     """
     resolved = resolve_tokenizer(options.tokenizer_path, base_model)
     if resolved is not None:
@@ -63,26 +64,29 @@ def fit_training_tokenizer(
     return tokenizer
 
 
-def _load_tokenizer_from_option(tokenizer_path: str) -> VocabularyTokenizer:
+def _load_tokenizer_from_option(tokenizer_path: str) -> ChatTokenizer:
     """Load a pre-trained tokenizer from an explicit path.
 
     Supports Crucible vocab.json files and HuggingFace tokenizer.json files.
+    Returns a tokenizer satisfying the ChatTokenizer protocol, preserving
+    the original encoding (BPE for HuggingFace, whitespace for Crucible).
     """
     from serve.training_metadata import load_tokenizer_from_path
 
     loaded = load_tokenizer_from_path(tokenizer_path)
     if isinstance(loaded, VocabularyTokenizer):
         return loaded
-    # HuggingFace tokenizer — wrap into VocabularyTokenizer interface
-    return VocabularyTokenizer(vocabulary=loaded.vocabulary)
+    # HuggingFace tokenizer — already satisfies ChatTokenizer
+    return loaded
 
 
-def _load_hf_tokenizer_as_vocabulary(model_id: str) -> VocabularyTokenizer:
-    """Load a HuggingFace tokenizer and wrap it as a VocabularyTokenizer."""
+def _load_hf_tokenizer_as_vocabulary(model_id: str) -> ChatTokenizer:
+    """Load a HuggingFace AutoTokenizer, preserving BPE encoding."""
     from serve.hf_model_loader import load_huggingface_tokenizer
+    from serve.huggingface_tokenizer import AutoTokenizerAdapter
 
     hf_tok = load_huggingface_tokenizer(model_id)
-    return VocabularyTokenizer(vocabulary=dict(hf_tok.get_vocab()))
+    return AutoTokenizerAdapter(hf_tok)
 
 
 def validate_file_paths(**paths: str | None) -> None:

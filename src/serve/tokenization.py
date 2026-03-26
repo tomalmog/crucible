@@ -7,9 +7,12 @@ text records into next-token prediction sequences for training.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from core.types import DataRecord
+
+if TYPE_CHECKING:
+    from core.chat_types import ChatTokenizer
 
 
 @dataclass
@@ -85,7 +88,7 @@ class SequenceBatch:
 
 def build_training_sequences(
     records: list[DataRecord],
-    tokenizer: VocabularyTokenizer,
+    tokenizer: "ChatTokenizer",
     max_token_length: int,
 ) -> list[list[int]]:
     """Build token sequences from data records.

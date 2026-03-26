@@ -1,8 +1,8 @@
-"""HuggingFace tokenizer wrapper for chat inference.
+"""HuggingFace tokenizer wrappers for Crucible.
 
-This module wraps the ``tokenizers`` library to provide the same
-encode/decode/vocabulary interface that Crucible chat runners expect,
-enabling inference against externally trained models.
+Wraps both the ``tokenizers`` library and ``transformers.AutoTokenizer``
+to provide the same encode/decode/vocabulary interface (ChatTokenizer
+protocol) that Crucible training and chat runners expect.
 """
 
 from __future__ import annotations
@@ -48,6 +48,28 @@ class HuggingFaceTokenizer:
         Returns:
             Decoded text string.
         """
+        return str(self._tokenizer.decode(token_ids))
+
+
+class AutoTokenizerAdapter:
+    """Wraps a ``transformers.AutoTokenizer`` to satisfy ChatTokenizer.
+
+    Unlike ``HuggingFaceTokenizer`` (which wraps the low-level ``tokenizers``
+    library), this wraps the full ``transformers`` tokenizer — preserving BPE
+    subword encoding, special-token handling, and proper decode.
+    """
+
+    def __init__(self, hf_tokenizer: Any) -> None:
+        self._tokenizer: Any = hf_tokenizer
+        self.vocabulary: dict[str, int] = dict(hf_tokenizer.get_vocab())
+
+    def encode(self, text: str, max_token_length: int) -> list[int]:
+        ids: list[int] = self._tokenizer.encode(text)
+        if len(ids) > max_token_length:
+            return ids[:max_token_length]
+        return ids
+
+    def decode(self, token_ids: list[int]) -> str:
         return str(self._tokenizer.decode(token_ids))
 
 

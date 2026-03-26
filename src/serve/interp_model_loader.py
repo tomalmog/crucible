@@ -75,13 +75,33 @@ def _detect_hf_base_model(model_path: str) -> str | None:
     config = load_training_config(model_path)
     if not config:
         return None
-    base = str(config.get("base_model_path", "") or "")
-    if base and is_huggingface_model_id(base):
-        return base
-    # Also check initial_weights_path (used by QLoRA's TrainingOptions)
-    initial = str(config.get("initial_weights_path", "") or "")
-    if initial and is_huggingface_model_id(initial):
-        return initial
+    for key in ("base_model_path", "initial_weights_path"):
+        value = str(config.get(key, "") or "")
+        if not value:
+            continue
+        if is_huggingface_model_id(value):
+            return value
+        resolved = _resolve_remote_hf_id(value)
+        if resolved:
+            return resolved
+    return None
+
+
+def _resolve_remote_hf_id(remote_path: str) -> str | None:
+    """Try to recover a HuggingFace model ID from a remote cluster path."""
+    from pathlib import Path as _Path
+    from serve.hf_model_loader import is_huggingface_model_id
+
+    basename = _Path(remote_path).name
+    if not basename:
+        return None
+    idx = basename.find("_")
+    if idx > 0:
+        candidate = basename[:idx] + "/" + basename[idx + 1:]
+        if is_huggingface_model_id(candidate):
+            return candidate
+    if is_huggingface_model_id(basename):
+        return basename
     return None
 
 
