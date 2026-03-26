@@ -294,6 +294,17 @@ def _torch_install_spec(cuda_tag: str) -> str:
 
 def _create_env(session: SshSession) -> None:
     """Create the ``crucible`` conda env and install dependencies."""
+    # Accept conda ToS non-interactively (required since conda 25.x).
+    session.execute(
+        conda_cmd(
+            "conda config --set solver libmamba 2>/dev/null; "
+            "yes | conda tos accept --override-channels "
+            "--channel https://repo.anaconda.com/pkgs/main 2>/dev/null; "
+            "yes | conda tos accept --override-channels "
+            "--channel https://repo.anaconda.com/pkgs/r 2>/dev/null"
+        ),
+        timeout=30,
+    )
     _, stderr, code = session.execute(
         conda_cmd(f"conda create -n {ENV_NAME} python=3.11 -y"),
         timeout=300,
