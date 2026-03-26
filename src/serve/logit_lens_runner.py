@@ -92,7 +92,15 @@ def _resolve_layer_indices(
     all_layers: list[str], indices_str: str,
 ) -> list[str]:
     """Parse comma-separated layer indices into layer names."""
+    from core.errors import CrucibleServeError
+
     if not indices_str.strip():
         return all_layers
     indices = [int(i.strip()) for i in indices_str.split(",") if i.strip()]
-    return [all_layers[i] for i in indices if 0 <= i < len(all_layers)]
+    resolved = [all_layers[i] for i in indices if 0 <= i < len(all_layers)]
+    if not resolved:
+        raise CrucibleServeError(
+            f"No valid layer indices found. Model has {len(all_layers)} layers, "
+            f"requested: {indices_str}"
+        )
+    return resolved

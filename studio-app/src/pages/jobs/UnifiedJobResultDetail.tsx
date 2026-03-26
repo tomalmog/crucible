@@ -195,8 +195,11 @@ function LocalResultRouter({ job, localTask, onBack }: {
 
   const isExport = job.jobType === "onnx-export" || job.jobType === "safetensors-export" || job.jobType === "gguf-export" || job.jobType === "hf-export";
 
+  const isEval = job.jobType === "eval";
+
   if (isFailed) return <LocalFailedView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isSweep) return <LocalSweepView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isEval) return <LocalEvalView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isInterp) return <LocalInterpView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isExport) return <LocalExportView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isTraining) return <LocalTrainingView job={job} localTask={localTask} onBack={onBack} config={config} />;
@@ -355,6 +358,51 @@ function LocalSweepView({ localTask, onBack, config }: { job: JobRecord; localTa
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function parseEvalBenchmarks(stdout: string): EvalBenchmark[] {
+  const results: EvalBenchmark[] = [];
+  for (const line of stdout.split("\n")) {
+    const m = line.match(/^benchmark=(\S+)\s+score=([\d.]+)\s+examples=(\d+)\s+correct=(\d+)/);
+    if (m) {
+      results.push({ name: m[1], score: parseFloat(m[2]), num_examples: parseInt(m[3], 10), correct: parseInt(m[4], 10) });
+    }
+  }
+  return results;
+}
+
+function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
+  const benchmarks = useMemo(() => parseEvalBenchmarks(localTask.stdout), [localTask.stdout]);
+  const avgScore = benchmarks.length > 0
+    ? benchmarks.reduce((sum, b) => sum + pct(b), 0) / benchmarks.length : 0;
+
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} />
+      <h3>{job.label || job.jobType} — Evaluation Results</h3>
+      <div className="stats-grid">
+        <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
+        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}</span></div>
+      </div>
+      {benchmarks.length > 0 && <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={[]} />}
+      {benchmarks.length > 0 && (
+        <div className="docs-table-wrap">
+          <table className="docs-table">
+            <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th></tr></thead>
+            <tbody>{benchmarks.map((b) => (
+              <tr key={b.name}>
+                <td style={{ fontWeight: 500 }}>{b.name.toUpperCase()}</td>
+                <td>{pct(b).toFixed(1)}%</td>
+                <td>{b.correct}</td>
+                <td>{b.num_examples}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <LogsSection logs={localTask.stdout} />
     </div>
   );
 }

@@ -35,6 +35,7 @@ def test_save_and_load_training_config_round_trip(tmp_path: Path) -> None:
     assert payload == {
         "dataset_name": "demo",
         "output_dir": str(tmp_path),
+        "base_model_path": None,
         "architecture_path": None,
         "custom_loop_path": None,
         "hooks_path": None,

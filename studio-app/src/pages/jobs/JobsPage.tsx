@@ -86,14 +86,19 @@ export function JobsPage() {
 
     // Unified jobs (from .crucible/jobs/)
     for (const j of unifiedJobs) {
-      if (statusFilter !== "all" && normalizeStatus(j.state) !== statusFilter) continue;
-      const isRemote = j.backend !== "local";
+      const isLocal = j.backend === "local";
+      const localTask = isLocal ? localTaskMap.get(j.jobId) : undefined;
+      // Orphaned local job: state is "running" but no in-memory task (app was restarted)
+      const job = (isLocal && j.state === "running" && !localTask)
+        ? { ...j, state: "failed" as const, errorMessage: j.errorMessage || "Process lost — app was restarted while job was running." }
+        : j;
+      if (statusFilter !== "all" && normalizeStatus(job.state) !== statusFilter) continue;
+      const isRemote = !isLocal;
       if (locationFilter === "local" && isRemote) continue;
       if (locationFilter === "remote" && !isRemote) continue;
-      if (typeFilter !== "all" && classifyUnifiedJob(j) !== typeFilter) continue;
-      const ts = new Date(j.createdAt).getTime() || 0;
-      const localTask = j.backend === "local" ? localTaskMap.get(j.jobId) : undefined;
-      items.push({ kind: "unified", job: j, localTask, sortKey: ts });
+      if (typeFilter !== "all" && classifyUnifiedJob(job) !== typeFilter) continue;
+      const ts = new Date(job.createdAt).getTime() || 0;
+      items.push({ kind: "unified", job, localTask, sortKey: ts });
     }
 
     items.sort((a, b) => b.sortKey - a.sortKey);

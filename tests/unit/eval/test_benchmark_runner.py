@@ -27,7 +27,9 @@ def test_benchmark_result_fields() -> None:
     assert br.correct == 75
 
 
-def test_unknown_benchmark_skipped() -> None:
-    """Unknown benchmark names are skipped."""
-    result = run_benchmarks("model.pt", ["nonexistent"])
-    assert len(result.benchmark_results) == 0
+def test_unknown_benchmark_raises() -> None:
+    """Unknown benchmark names raise an error instead of silently succeeding."""
+    import pytest
+    from core.errors import CrucibleBenchmarkError
+    with pytest.raises(CrucibleBenchmarkError, match="No valid benchmark names"):
+        run_benchmarks("model.pt", ["nonexistent"])

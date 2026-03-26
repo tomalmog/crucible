@@ -4,11 +4,10 @@ import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
-import { listClusters } from "../../api/remoteApi";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteEvalArgs, buildDispatchSpec } from "../../api/commandArgs";
+import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { evalLabel } from "../../utils/jobLabels";
-import type { ClusterConfig } from "../../types/remote";
 
 const ALL_BENCHMARKS = [
   "mmlu", "gsm8k", "hellaswag", "arc", "truthfulqa", "winogrande", "humaneval",
@@ -35,10 +34,6 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const [maxSamples, setMaxSamples] = useState(
     typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "",
   );
-  const [cluster, setCluster] = useState(
-    typeof prefill?.cluster === "string" ? prefill.cluster : "",
-  );
-  const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [partition, setPartition] = useState(
     typeof prefill?.partition === "string" ? prefill.partition : "",
   );
@@ -59,21 +54,8 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const [comboOpen, setComboOpen] = useState(false);
   const comboRef = useRef<HTMLDivElement>(null);
 
-  // Fetch available clusters
-  useEffect(() => {
-    if (!dataRoot) return;
-    listClusters(dataRoot).then((c) => setClusters(c)).catch(() => setClusters([]));
-  }, [dataRoot]);
-
-  // Auto-detect cluster from selected model's remoteHost
-  useEffect(() => {
-    if (!modelPath || clusters.length === 0) return;
-    const entry = models.find((m) => m.remotePath === modelPath || m.modelPath === modelPath);
-    if (entry?.remoteHost) {
-      const match = clusters.find((c) => c.host === entry.remoteHost);
-      if (match) setCluster(match.name);
-    }
-  }, [modelPath, models, clusters]);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  const isSlurm = clusterBackend === "slurm";
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -85,8 +67,6 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-
-  const selectedCluster = clusters.find((c) => c.name === cluster);
 
   const toggleBenchmark = useCallback((name: string) => {
     setSelectedBenchmarks((prev) => {
@@ -101,8 +81,9 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     const m: string[] = [];
     if (!modelPath.trim()) m.push("model");
     if (selectedBenchmarks.size === 0) m.push("benchmarks");
+    if (isRemote && !clusterName) m.push("cluster");
     return m;
-  }, [modelPath, selectedBenchmarks]);
+  }, [modelPath, selectedBenchmarks, isRemote, clusterName]);
 
   function snapshotConfig(): Record<string, unknown> {
     return {
@@ -111,7 +92,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       baseModelPath,
       selectedBenchmarks: Array.from(selectedBenchmarks),
       maxSamples,
-      cluster,
+      cluster: clusterName,
       partition,
       gpusPerNode,
       gpuType,
@@ -121,7 +102,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   }
 
   async function submitEval() {
-    if (!dataRoot || missing.length > 0 || !cluster) return;
+    if (!dataRoot || missing.length > 0) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -131,31 +112,40 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       );
       const cfg = snapshotConfig();
       const selectedModelName = selectedEntry?.modelName || "model";
-      const isSlurm = selectedCluster?.backend === "slurm";
 
       let args: string[];
-      if (isSlurm) {
-        args = buildRemoteEvalArgs(cluster, modelPath, benchmarks, {
-          modelName: selectedEntry?.modelName || undefined,
-          baseModel: baseModelPath.trim() || undefined,
-          maxSamples: maxSamples.trim() || undefined,
-          partition: partition || undefined,
-          gpusPerNode,
-          gpuType: gpuType || undefined,
-          memory,
-          timeLimit,
-        });
+      if (isRemote && clusterName) {
+        if (isSlurm) {
+          args = buildRemoteEvalArgs(clusterName, modelPath, benchmarks, {
+            modelName: selectedEntry?.modelName || undefined,
+            baseModel: baseModelPath.trim() || undefined,
+            maxSamples: maxSamples.trim() || undefined,
+            partition: partition || undefined,
+            gpusPerNode,
+            gpuType: gpuType || undefined,
+            memory,
+            timeLimit,
+          });
+        } else {
+          const methodArgs: Record<string, unknown> = {
+            model_path: modelPath,
+            benchmarks,
+          };
+          if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
+          if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
+          args = buildDispatchSpec("eval", methodArgs, clusterBackend as "ssh", {
+            label: evalLabel(selectedModelName),
+            clusterName,
+          });
+        }
       } else {
-        const methodArgs: Record<string, unknown> = {
-          model_path: modelPath,
-          benchmarks,
-        };
-        if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
-        if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
-        args = buildDispatchSpec("eval", methodArgs, selectedCluster?.backend ?? "ssh", {
-          label: evalLabel(selectedModelName),
-          clusterName: cluster,
-        });
+        args = [
+          "eval",
+          "--model-path", modelPath,
+          "--benchmarks", benchmarks,
+        ];
+        if (baseModelPath.trim()) args.push("--base-model", baseModelPath.trim());
+        if (maxSamples.trim()) args.push("--max-samples", maxSamples);
       }
 
       await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName), cfg);
@@ -174,24 +164,29 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       title="Model Evaluation"
       missing={missing}
       isRunning={submitting}
-      submitLabel="Submit to Cluster"
+      submitLabel={isRemote ? "Submit to Cluster" : "Run Evaluation"}
       runningLabel="Submitting..."
       onSubmit={() => submitEval().catch(console.error)}
       error={error}
     >
       <div className="grid-2">
         <FormField label="Model" required>
-          <ModelSelect value={modelPath} onChange={setModelPath} remoteOnly />
+          <ModelSelect value={modelPath} onChange={setModelPath} />
         </FormField>
         <FormField label="Base Model" hint="optional, for comparison">
           <ModelSelect
             value={baseModelPath}
             onChange={setBaseModelPath}
             placeholder="select base model (optional)"
-            remoteOnly
           />
         </FormField>
       </div>
+
+      {isRemote && (
+        <div className="info-banner">
+          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
+        </div>
+      )}
 
       <FormField label="Benchmarks" required>
         <div className="bench-combo-wrap" ref={comboRef}>
@@ -248,28 +243,16 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         />
       </FormField>
 
-      {selectedCluster && (
-        <div className="info-banner">
-          Cluster: <strong>{selectedCluster.name}</strong> ({selectedCluster.user}@{selectedCluster.host})
-        </div>
-      )}
-
-      {selectedCluster?.backend === "slurm" && (
+      {isRemote && isSlurm && (
         <div className="grid-2">
           <FormField label="Partition">
             <select value={partition} onChange={(e) => setPartition(e.currentTarget.value)}>
               <option value="">Default</option>
-              {selectedCluster?.partitions.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
             </select>
           </FormField>
           <FormField label="GPU Type">
             <select value={gpuType} onChange={(e) => setGpuType(e.currentTarget.value)}>
               <option value="">Any</option>
-              {selectedCluster?.gpuTypes.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
             </select>
           </FormField>
           <FormField label="GPUs">

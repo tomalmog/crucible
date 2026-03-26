@@ -68,7 +68,7 @@ def test_resolve_rank_device_falls_back_to_cpu() -> None:
 
 
 def test_wrap_model_with_ddp_returns_wrapped_model() -> None:
-    """wrap_model_with_ddp should return a DDP-wrapped model."""
+    """wrap_model_with_ddp should return a DDP-wrapped model (CPU, no device_ids)."""
     torch_mod = _FakeTorch()
     model = MagicMock()
 
@@ -76,7 +76,8 @@ def test_wrap_model_with_ddp_returns_wrapped_model() -> None:
 
     assert isinstance(wrapped, _FakeDDP)
     assert wrapped.module is model
-    assert wrapped.device_ids == [1]
+    # CPU models don't get device_ids (gloo backend compatibility)
+    assert wrapped.device_ids is None
 
 
 def test_wrap_model_raises_when_parallel_unavailable() -> None:

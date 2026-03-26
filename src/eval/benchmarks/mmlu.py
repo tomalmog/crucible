@@ -80,7 +80,7 @@ def _score_choices(eval_model: EvalModel, prompt: str) -> int:
     choice_tokens = ["A", "B", "C", "D"]
     scores = []
     for token in choice_tokens:
-        token_ids = eval_model.tokenizer.encode(token, 1)
-        tid = token_ids[0] if token_ids else 0
+        token_ids = eval_model.tokenizer.encode(token, 10)
+        tid = token_ids[-1] if token_ids else 0
         scores.append(float(logits[tid].item()))
     return int(max(range(len(scores)), key=lambda i: scores[i]))

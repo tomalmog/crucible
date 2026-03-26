@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from core.errors import CrucibleDependencyError
+from core.errors import CrucibleBenchmarkError, CrucibleDependencyError
 
 if TYPE_CHECKING:
     from eval.benchmarks._model_loader import EvalModel
@@ -119,7 +119,13 @@ def run_benchmarks(
         "winogrande": run_winogrande,
     }
 
+    invalid = [b for b in benchmarks if b not in benchmark_map]
     valid = [b for b in benchmarks if b in benchmark_map]
+    if not valid:
+        raise CrucibleBenchmarkError(
+            f"No valid benchmark names provided. Invalid: {invalid}. "
+            f"Available: {list(benchmark_map)}"
+        )
 
     # Load model once for all benchmarks
     print(f"CRUCIBLE_AGENT: Loading model for evaluation...", flush=True)

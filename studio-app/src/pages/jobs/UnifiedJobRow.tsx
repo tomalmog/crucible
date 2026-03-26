@@ -284,7 +284,8 @@ export function UnifiedJobRow({
       onClick={() => {
         if (editing) return;
         if (isFinished) onView();
-        else if (isLocal) setLocalExpanded((p) => !p);
+        else if (isLocal && localTask) setLocalExpanded((p) => !p);
+        else if (isLocal && !localTask) onView(); // orphaned local job — view persisted data
         else toggleLogs();
       }}
     >
