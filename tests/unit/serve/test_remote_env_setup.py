@@ -52,6 +52,7 @@ class TestEnvCreation:
     def test_creates_env_when_missing(self) -> None:
         session = _make_session([
             ("base                  *  /opt/conda\n", "", 0),  # env list
+            ("", "", 0),  # conda tos accept
             ("", "", 0),  # conda create
             ("", "", 1),  # nvidia-smi (no GPU on login node)
             ("", "", 1),  # srun nvidia-smi (fallback)
@@ -60,7 +61,7 @@ class TestEnvCreation:
         ])
         ensure_remote_env(session)
         calls = session.execute.call_args_list
-        assert "conda create -n crucible python=3.11 -y" in calls[1].args[0]
+        assert "conda create -n crucible python=3.11 -y" in calls[2].args[0]
         torch_call = next(c for c in calls if "torch" in c.args[0] and "pip" in c.args[0])
         assert "cu124" in torch_call.args[0]
         pip_call = next(c for c in calls if "pyyaml" in c.args[0])
@@ -69,6 +70,7 @@ class TestEnvCreation:
     def test_creates_env_when_list_empty(self) -> None:
         session = _make_session([
             ("", "", 0),  # env list — no envs
+            ("", "", 0),  # conda tos accept
             ("", "", 0),  # conda create
             ("", "", 1),  # nvidia-smi
             ("", "", 1),  # srun nvidia-smi
@@ -76,12 +78,13 @@ class TestEnvCreation:
             ("", "", 0),  # pip install remaining
         ])
         ensure_remote_env(session)
-        assert session.execute.call_count == 6
+        assert session.execute.call_count == 7
 
     def test_commands_include_conda_init(self) -> None:
         """Conda commands should source conda.sh init first."""
         session = _make_session([
             ("", "", 0),  # env list
+            ("", "", 0),  # conda tos accept
             ("", "", 0),  # conda create
             ("", "", 1),  # nvidia-smi
             ("", "", 1),  # srun nvidia-smi
@@ -111,8 +114,10 @@ class TestErrors:
     def test_raises_when_create_fails(self) -> None:
         session = _make_session([
             ("base  /opt/conda\n", "", 0),             # env list
+            ("", "", 0),                                # conda tos accept (1st)
             ("", "PackagesNotFoundError", 1),           # conda create FAILS (1st)
             ("", "", 0),                                # _remove_env (retry)
+            ("", "", 0),                                # conda tos accept (2nd)
             ("", "PackagesNotFoundError", 1),           # conda create FAILS (2nd)
         ])
         with pytest.raises(CrucibleRemoteError, match="conda create failed"):
@@ -121,11 +126,13 @@ class TestErrors:
     def test_raises_when_torch_install_fails(self) -> None:
         session = _make_session([
             ("base  /opt/conda\n", "", 0),              # env list
+            ("", "", 0),                                # conda tos accept (1st)
             ("", "", 0),                                # conda create (1st)
             ("", "", 1),                                # nvidia-smi (1st)
             ("", "", 1),                                # srun nvidia-smi (1st)
             ("", "ERROR: No matching distribution", 1), # torch install FAILS (1st)
             ("", "", 0),                                # _remove_env (retry)
+            ("", "", 0),                                # conda tos accept (2nd)
             ("", "", 0),                                # conda create (2nd)
             ("", "", 1),                                # nvidia-smi (2nd)
             ("", "", 1),                                # srun nvidia-smi (2nd)
@@ -137,12 +144,14 @@ class TestErrors:
     def test_raises_when_pip_install_fails(self) -> None:
         session = _make_session([
             ("base  /opt/conda\n", "", 0),              # env list
+            ("", "", 0),                                # conda tos accept (1st)
             ("", "", 0),                                # conda create (1st)
             ("", "", 1),                                # nvidia-smi (1st)
             ("", "", 1),                                # srun nvidia-smi (1st)
             ("", "", 0),                                # torch install OK (1st)
             ("", "ERROR: No matching distribution", 1), # pip install FAILS (1st)
             ("", "", 0),                                # _remove_env (retry)
+            ("", "", 0),                                # conda tos accept (2nd)
             ("", "", 0),                                # conda create (2nd)
             ("", "", 1),                                # nvidia-smi (2nd)
             ("", "", 1),                                # srun nvidia-smi (2nd)

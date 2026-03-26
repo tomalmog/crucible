@@ -85,7 +85,11 @@ def compute_reference_log_probs(
         Summed log probability tensor of shape (batch,).
     """
     with torch_module.no_grad():
-        ref_logits = ref_model(input_ids)
+        if getattr(ref_model, "_is_hf_logits_wrapper", False):
+            attention_mask = (input_ids != 0).long()
+            ref_logits = ref_model(input_ids, attention_mask=attention_mask)
+        else:
+            ref_logits = ref_model(input_ids)
     return compute_log_probs_from_logits(
         torch_module, ref_logits, labels, prompt_length
     )

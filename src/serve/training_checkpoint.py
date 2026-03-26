@@ -116,7 +116,9 @@ def load_resume_checkpoint(
     global_step = _read_global_step(payload, resolved_path)
     best_validation_loss = _read_optional_float(payload, "best_validation_loss", resolved_path)
     scheduler_state = _read_optional_mapping(payload, "scheduler_state_dict", resolved_path)
-    _apply_state_dict(model, model_state, resolved_path, "model")
+    from serve.hf_model_loader import unwrap_hf_model
+
+    _apply_state_dict(unwrap_hf_model(model), model_state, resolved_path, "model")
     _apply_state_dict(optimizer, optimizer_state, resolved_path, "optimizer")
     if scheduler is not None and scheduler_state is not None:
         _apply_state_dict(scheduler, scheduler_state, resolved_path, "scheduler")
@@ -136,8 +138,10 @@ def _build_checkpoint_payload(
     global_step: int,
     best_validation_loss: float | None,
 ) -> dict[str, object]:
+    from serve.hf_model_loader import unwrap_hf_model
+
     payload = {
-        "model_state_dict": model.state_dict(),
+        "model_state_dict": unwrap_hf_model(model).state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "epoch": epoch,
         "global_step": global_step,

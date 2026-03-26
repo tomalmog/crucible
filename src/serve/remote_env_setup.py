@@ -22,6 +22,7 @@ ENV_NAME = "crucible"
 _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
     "transformers", "accelerate", "safetensors", "datasets",
+    "trl", "peft", "bitsandbytes",
 )
 # Mapping from pip package name to Python import name when they differ.
 _IMPORT_NAMES: dict[str, str] = {

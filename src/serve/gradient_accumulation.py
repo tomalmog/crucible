@@ -40,9 +40,12 @@ def run_accumulated_batch_step(
     Side-effects:
         Updates model gradients. Steps optimizer at accumulation boundary.
     """
-    inputs, targets = _tensorize_batch(context, batch)
+    inputs, targets, attention_mask = _tensorize_batch(context, batch)
     with _autocast_context(context):
-        logits = context.model(inputs)
+        if getattr(context.model, "_is_hf_logits_wrapper", False):
+            logits = context.model(inputs, attention_mask=attention_mask)
+        else:
+            logits = context.model(inputs)
         loss = context.loss_function(
             logits.reshape(-1, logits.shape[-1]),
             targets.reshape(-1),
@@ -73,7 +76,7 @@ def run_accumulated_batch_step(
 def _tensorize_batch(
     context: TrainingRuntimeContext,
     batch: SequenceBatch,
-) -> tuple[Any, Any]:
+) -> tuple[Any, Any, Any]:
     """Convert batch lists into padded tensors on target device."""
     torch_module = context.torch_module
     max_length = max(len(sequence) for sequence in batch.inputs)
@@ -85,7 +88,11 @@ def _tensorize_batch(
     target_tensor = torch_module.tensor(
         padded_targets, dtype=torch_module.long,
     ).to(context.device)
-    return input_tensor, target_tensor
+    try:
+        attention_mask = (input_tensor != 0).long()
+    except (AttributeError, TypeError):
+        attention_mask = None
+    return input_tensor, target_tensor, attention_mask
 
 
 def _autocast_context(context: TrainingRuntimeContext) -> Any:

@@ -3,6 +3,10 @@
 This module orchestrates distillation: loads teacher model in frozen eval
 mode, creates or loads student model, runs blended KL+CE training loop,
 and persists the trained student model artifacts.
+
+Distillation keeps the same Crucible implementation for BOTH HF and .pt
+paths since trl does not have a distillation trainer. The attention_mask
+and unwrap_hf_model fixes are applied for HF models.
 """
 
 from __future__ import annotations
@@ -137,6 +141,7 @@ def _execute_distillation(
         device=device,
     )
     optimizer = _build_optimizer(torch_module, student, options)
+    is_hf = use_hf_teacher or use_hf_student
     epoch_metrics = _run_distillation_loop(
         torch_module=torch_module,
         teacher=teacher,
@@ -148,6 +153,7 @@ def _execute_distillation(
         records=records,
         tokenizer=tokenizer,
         teacher_vocab_size=teacher_vocab_size,
+        is_hf=is_hf,
     )
     return _persist_outputs(
         output_dir=output_dir,
@@ -157,25 +163,14 @@ def _execute_distillation(
         run_id=run_id,
         tokenizer=tokenizer,
         training_options=training_options,
+        is_hf=is_hf,
     )
 
 
 def _infer_teacher_vocab_size(
     torch_module: Any, teacher_model_path: str, device: Any,
 ) -> int:
-    """Infer vocabulary size from teacher checkpoint embedding weights.
-
-    Args:
-        torch_module: Imported torch module.
-        teacher_model_path: Path to teacher model checkpoint.
-        device: Resolved training device.
-
-    Returns:
-        Teacher model vocabulary size.
-
-    Raises:
-        CrucibleDistillationError: If embedding shape cannot be determined.
-    """
+    """Infer vocabulary size from teacher checkpoint embedding weights."""
     state_dict = read_model_state_dict(torch_module, teacher_model_path, device)
     embedding_weight = state_dict.get("embedding.weight")
     if embedding_weight is None or not hasattr(embedding_weight, "shape"):
@@ -205,11 +200,7 @@ def _build_crucible_teacher(
     base_options: TrainingOptions,
     device: Any,
 ) -> tuple[Any, int, TrainingOptions]:
-    """Build teacher model from Crucible checkpoint with architecture inference.
-
-    Returns:
-        Tuple of (frozen_teacher, vocab_size, inferred_options).
-    """
+    """Build teacher model from Crucible checkpoint with architecture inference."""
     teacher, vocab_size, inferred_options = _build_crucible_model_from_checkpoint(
         torch_module, teacher_model_path, base_options, device,
     )
@@ -290,6 +281,14 @@ def _build_optimizer(
     )
 
 
+def _unwrap_hf_model(model: Any) -> Any:
+    """Unwrap HuggingFace model to get the raw forward-compatible module."""
+    inner = getattr(model, "model", None)
+    if inner is not None and hasattr(inner, "forward"):
+        return model
+    return model
+
+
 def _run_distillation_loop(
     torch_module: Any,
     teacher: Any,
@@ -301,15 +300,9 @@ def _run_distillation_loop(
     records: list[DataRecord],
     tokenizer: ChatTokenizer,
     teacher_vocab_size: int,
+    is_hf: bool = False,
 ) -> list[Any]:
-    """Run epoch-based distillation training loop.
-
-    Tokenizes records, builds batches, then runs forward passes through
-    both teacher and student models, computing blended KL+CE loss.
-
-    Returns:
-        List of EpochMetric objects.
-    """
+    """Run epoch-based distillation training loop."""
     from core.types import EpochMetric
 
     sequences = build_training_sequences(
@@ -356,6 +349,7 @@ def _run_distillation_loop(
                 options=options,
                 teacher_vocab_size=teacher_vocab_size,
                 training=True,
+                is_hf=is_hf,
             )
             val_loss = _run_distillation_pass(
                 torch_module=torch_module,
@@ -368,6 +362,7 @@ def _run_distillation_loop(
                 options=options,
                 teacher_vocab_size=teacher_vocab_size,
                 training=False,
+                is_hf=is_hf,
             )
             emit_progress(
                 "training_epoch_completed",
@@ -391,7 +386,7 @@ def _run_distillation_loop(
                 epoch, global_step, None,
             )
     except KeyboardInterrupt:
-        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
+        print("\nTraining interrupted -- saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
         emergency_dir = checkpoint_dir or ensure_checkpoint_dir(Path(options.output_dir))
         emergency_path = save_epoch_checkpoint(
@@ -414,12 +409,9 @@ def _run_distillation_pass(
     options: DistillationOptions,
     teacher_vocab_size: int,
     training: bool,
+    is_hf: bool = False,
 ) -> float:
-    """Run one train or validation pass over distillation batches.
-
-    Returns:
-        Average loss across batches.
-    """
+    """Run one train or validation pass over distillation batches."""
     if not batches:
         return 0.0
     student.train(mode=training)
@@ -433,8 +425,18 @@ def _run_distillation_pass(
         )
         with autocast_ctx:
             with torch_module.no_grad():
-                teacher_logits = teacher(inputs)
-            student_logits = student(inputs)
+                if is_hf:
+                    attention_mask = (inputs != 0).long()
+                    teacher_out = teacher(input_ids=inputs, attention_mask=attention_mask)
+                    teacher_logits = teacher_out.logits
+                else:
+                    teacher_logits = teacher(inputs)
+            if is_hf:
+                attention_mask = (inputs != 0).long()
+                student_out = student(input_ids=inputs, attention_mask=attention_mask)
+                student_logits = student_out.logits
+            else:
+                student_logits = student(inputs)
             # Clamp targets to student vocab for hard CE loss
             student_vocab = student_logits.shape[-1]
             if student_vocab < teacher_vocab_size:
@@ -470,11 +472,7 @@ def _run_distillation_pass(
 def _tensorize_distill_batch(
     torch_module: Any, batch: Any, device: Any, vocab_size: int,
 ) -> tuple[Any, Any]:
-    """Convert a SequenceBatch into padded input/target tensors.
-
-    Clamps target values to valid vocabulary indices so cross-entropy
-    does not encounter out-of-range labels.
-    """
+    """Convert a SequenceBatch into padded input/target tensors."""
     max_len = max(len(s) for s in batch.inputs)
     padded_in = [s + [0] * (max_len - len(s)) for s in batch.inputs]
     padded_tgt = [s + [0] * (max_len - len(s)) for s in batch.targets]
@@ -507,8 +505,14 @@ def _persist_outputs(
     run_id: str,
     tokenizer: Any = None,
     training_options: Any = None,
+    is_hf: bool = False,
 ) -> TrainingRunResult:
     """Save student model, training history, tokenizer, and config."""
+    if is_hf:
+        # For HF models, unwrap and save the underlying model
+        inner = getattr(student, "base_model", None)
+        if inner is not None and hasattr(inner, "merge_and_unload"):
+            student = student.merge_and_unload()
     model_path = save_model_weights(output_dir, torch_module, student)
     history_path = save_training_history(output_dir, epoch_metrics, [])
     if tokenizer is not None:

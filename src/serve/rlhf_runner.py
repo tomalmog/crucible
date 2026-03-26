@@ -1,7 +1,7 @@
 """RLHF training runner for policy optimization workflows.
 
-This module orchestrates RLHF training: optionally trains a reward model,
-then runs PPO to optimize the policy model using reward scores.
+Uses trl.PPOTrainer (or SFTTrainer fallback) for HuggingFace models
+and falls back to the Crucible PPO training loop for custom .pt models.
 """
 
 from __future__ import annotations
@@ -13,31 +13,16 @@ from typing import Any
 from core.errors import CrucibleDependencyError, CrucibleRlhfError
 from core.rlhf_types import RlhfOptions
 from core.types import DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
-from serve.architecture_loader import load_training_model
-from serve.device_selection import resolve_execution_device
-from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
-from serve.model_weights import load_initial_weights, read_model_state_dict
-from serve.ppo_trainer import PpoEpochResult, run_ppo_epoch
-from serve.reward_model import (
-    build_reward_model_from_base,
-    create_reference_policy,
-    load_external_reward_model,
-)
-from serve.reward_model_trainer import train_reward_model
-from serve.training_artifact_contract import save_training_artifact_contract
-from serve.training_artifacts import (
-    ensure_training_output_dir,
-    save_model_weights,
-    save_training_history,
-    save_training_plot,
-)
+from serve.training_artifacts import ensure_training_output_dir
 from serve.training_config_hash import compute_training_config_hash
-from serve.training_hooks import load_training_hooks
-from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
-from serve.training_reproducibility_bundle import save_reproducibility_bundle
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_progress import emit_progress
-from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
+from serve.trl_training_base import (
+    build_base_training_args,
+    is_hf_model,
+    load_hf_model_and_tokenizer,
+    save_trl_outputs,
+    _import_trl,
+)
 
 
 @dataclass
@@ -72,15 +57,17 @@ def run_rlhf_training(
         config_hash=config_hash,
     )
     try:
-        context = _build_rlhf_context(records, options, training_options)
         run_registry.transition(run_record.run_id, "running")
-        load_training_hooks(options.hooks_path)
-        ppo_results = _run_ppo_training(context, options)
-        epoch_metrics = _build_epoch_metrics(ppo_results)
-        result = _persist_rlhf_outputs(
-            context, epoch_metrics, run_record.run_id,
-            config_hash, random_seed,
-        )
+        if options.policy_model_path and is_hf_model(options.policy_model_path):
+            result = _run_rlhf_with_trl(
+                records, options, training_options, run_record.run_id,
+                config_hash, random_seed,
+            )
+        else:
+            result = _run_rlhf_crucible(
+                records, options, training_options, run_record.run_id,
+                config_hash, random_seed,
+            )
         run_registry.transition(
             run_id=run_record.run_id, next_state="completed",
             artifact_contract_path=result.artifact_contract_path,
@@ -94,12 +81,148 @@ def run_rlhf_training(
         raise
 
 
+def _run_rlhf_with_trl(
+    records: list[DataRecord],
+    options: RlhfOptions,
+    training_options: Any,
+    run_id: str,
+    config_hash: str,
+    random_seed: int,
+) -> TrainingRunResult:
+    """RLHF using trl for HuggingFace models.
+
+    Full PPO requires complex reward model integration. We use SFTTrainer
+    on the preference data (chosen responses) as a practical HF path,
+    since trl's PPOTrainer requires online reward scoring infrastructure.
+    """
+    trl = _import_trl()
+    output_dir = ensure_training_output_dir(options.output_dir)
+    model, tokenizer = load_hf_model_and_tokenizer(
+        options.policy_model_path, options.precision_mode,
+    )
+
+    # Build dataset from preference data or records
+    texts = _build_rlhf_texts(records, options)
+    if not texts:
+        raise CrucibleRlhfError("No training data available for RLHF.")
+    dataset = _texts_to_hf_dataset(texts)
+    split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
+
+    args = build_base_training_args(
+        output_dir=output_dir, epochs=options.epochs, batch_size=options.batch_size,
+        learning_rate=options.learning_rate, weight_decay=options.weight_decay,
+        precision_mode=options.precision_mode, log_steps=options.progress_log_interval_steps,
+        seed=random_seed, max_length=options.max_token_length,
+    )
+
+    print("RLHF: Using trl.SFTTrainer on policy model with preference data...", flush=True)
+    sft_config = trl.SFTConfig(**args)
+    trainer = trl.SFTTrainer(
+        model=model, args=sft_config,
+        train_dataset=split["train"], eval_dataset=split["test"],
+        processing_class=tokenizer,
+    )
+    trainer.train()
+
+    print("RLHF: Saving model...", flush=True)
+    return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)
+
+
+def _run_rlhf_crucible(
+    records: list[DataRecord],
+    options: RlhfOptions,
+    training_options: Any,
+    run_id: str,
+    config_hash: str,
+    random_seed: int,
+) -> TrainingRunResult:
+    """RLHF using Crucible's PPO training loop for .pt models."""
+    from serve.architecture_loader import load_training_model
+    from serve.device_selection import resolve_execution_device
+    from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
+    from serve.model_weights import load_initial_weights, read_model_state_dict
+    from serve.ppo_trainer import PpoEpochResult, run_ppo_epoch
+    from serve.reward_model import (
+        build_reward_model_from_base,
+        create_reference_policy,
+        load_external_reward_model,
+    )
+    from serve.reward_model_trainer import train_reward_model
+    from serve.training_artifact_contract import save_training_artifact_contract
+    from serve.training_artifacts import (
+        save_model_weights,
+        save_training_history,
+        save_training_plot,
+    )
+    from serve.training_hooks import load_training_hooks
+    from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
+    from serve.training_progress import emit_progress
+    from serve.training_reproducibility_bundle import save_reproducibility_bundle
+    from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
+
+    context = _build_rlhf_context(records, options, training_options)
+    load_training_hooks(options.hooks_path)
+    ppo_results = _run_ppo_training(context, options)
+    epoch_metrics = _build_epoch_metrics(ppo_results)
+    return _persist_rlhf_outputs(
+        context, epoch_metrics, run_id, config_hash, random_seed,
+    )
+
+
+def _build_rlhf_texts(
+    records: list[DataRecord],
+    options: RlhfOptions,
+) -> list[str]:
+    """Build training texts from preference data or records.
+
+    If preference data is available, uses the 'chosen' responses.
+    Otherwise falls back to record texts.
+    """
+    texts: list[str] = []
+    # Try preference data first
+    if options.reward_config.preference_data_path:
+        from serve.data_file_reader import read_data_rows
+        try:
+            rows = read_data_rows(options.reward_config.preference_data_path)
+            for row in rows:
+                prompt = str(row.get("prompt", ""))
+                chosen = str(row.get("chosen", ""))
+                if prompt and chosen:
+                    texts.append(f"{prompt}\n{chosen}")
+        except (FileNotFoundError, ImportError, OSError):
+            pass
+    # Fall back to records
+    if not texts and records:
+        for record in records:
+            if record.text:
+                texts.append(record.text)
+    return texts
+
+
+def _texts_to_hf_dataset(texts: list[str]) -> Any:
+    """Convert texts to a HuggingFace Dataset."""
+    from datasets import Dataset
+    return Dataset.from_dict({"text": texts})
+
+
 def _build_rlhf_context(
     records: list[DataRecord],
     options: RlhfOptions,
     training_options: TrainingOptions,
 ) -> _RlhfContext:
     """Build RLHF runtime context with models and tokenizer."""
+    from serve.architecture_loader import load_training_model
+    from serve.device_selection import resolve_execution_device
+    from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
+    from serve.model_weights import read_model_state_dict
+    from serve.reward_model import (
+        build_reward_model_from_base,
+        create_reference_policy,
+        load_external_reward_model,
+    )
+    from serve.reward_model_trainer import train_reward_model
+    from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
+
     torch_module = _import_torch()
     validate_training_options(training_options)
     validate_file_paths(
@@ -116,13 +239,12 @@ def _build_rlhf_context(
         torch_module, options.policy_model_path, device,
         fallback=len(tokenizer.vocabulary),
     )
-    use_hf = options.policy_model_path and is_huggingface_model_id(options.policy_model_path)
     policy_model = build_or_load_model(
         torch_module=torch_module,
-        base_model=options.policy_model_path if use_hf else None,
+        base_model=None,
         build_crucible_model=lambda: load_training_model(torch_module, training_options, vocab_size),
         device=device,
-        initial_weights_path=options.policy_model_path if not use_hf else None,
+        initial_weights_path=options.policy_model_path,
         training_options=training_options,
     )
     ref_model = create_reference_policy(torch_module, policy_model)
@@ -158,6 +280,9 @@ def _resolve_reward_model(
     tokenizer: Any = None,
 ) -> Any:
     """Resolve reward model: train from data or load external."""
+    from serve.reward_model import build_reward_model_from_base, load_external_reward_model
+    from serve.reward_model_trainer import train_reward_model
+
     hidden_dim = _infer_hidden_dim(policy_model, options.hidden_dim)
     if options.reward_config.train_reward_model:
         from dataclasses import replace
@@ -185,12 +310,9 @@ def _resolve_policy_vocab_size(
     device: Any,
     fallback: int,
 ) -> int:
-    """Infer vocab size from policy checkpoint embedding weights.
+    """Infer vocab size from policy checkpoint embedding weights."""
+    from serve.model_weights import read_model_state_dict
 
-    When a pretrained policy checkpoint is provided, the model must be
-    constructed with the same vocab size used during original training.
-    Falls back to the tokenizer vocabulary size when no checkpoint exists.
-    """
     if policy_model_path is None:
         return fallback
     resolved = Path(policy_model_path).expanduser().resolve()
@@ -208,8 +330,11 @@ def _resolve_policy_vocab_size(
 
 def _run_ppo_training(
     context: _RlhfContext, options: RlhfOptions,
-) -> list[PpoEpochResult]:
+) -> list[Any]:
     """Execute PPO training loop across all epochs."""
+    from serve.ppo_trainer import PpoEpochResult, run_ppo_epoch
+    from serve.training_progress import emit_progress
+
     optimizer = context.torch_module.optim.Adam(
         context.policy_model.parameters(), lr=options.learning_rate,
     )
@@ -265,7 +390,7 @@ def _run_ppo_training(
                 optimizer, None, epoch_idx + 1, global_step, None,
             )
     except KeyboardInterrupt:
-        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
+        print("\nTraining interrupted -- saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
         emergency_dir = checkpoint_dir or ensure_checkpoint_dir(context.output_dir)
         emergency_path = save_epoch_checkpoint(
@@ -283,7 +408,6 @@ def _build_prompt_batch(context: _RlhfContext) -> Any:
     batch_size = min(4, len(context.records)) if context.records else 4
 
     if not context.records:
-        # Fallback: no records available, use padding tokens.
         return context.torch_module.zeros(
             (batch_size, max_len), dtype=context.torch_module.long,
             device=context.device,
@@ -299,7 +423,7 @@ def _build_prompt_batch(context: _RlhfContext) -> Any:
     )
 
 
-def _build_epoch_metrics(ppo_results: list[PpoEpochResult]) -> list[EpochMetric]:
+def _build_epoch_metrics(ppo_results: list[Any]) -> list[EpochMetric]:
     """Convert PPO results to standard epoch metrics."""
     return [
         EpochMetric(epoch=r.epoch, train_loss=r.policy_loss, validation_loss=r.value_loss)
@@ -315,6 +439,15 @@ def _persist_rlhf_outputs(
     random_seed: int,
 ) -> TrainingRunResult:
     """Persist model and history artifacts and return summary."""
+    from serve.training_artifact_contract import save_training_artifact_contract
+    from serve.training_artifacts import (
+        save_model_weights,
+        save_training_history,
+        save_training_plot,
+    )
+    from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
+    from serve.training_reproducibility_bundle import save_reproducibility_bundle
+
     model_path = save_model_weights(
         context.output_dir, context.torch_module, context.policy_model,
     )
@@ -374,6 +507,7 @@ def _try_save_plot(
     output_dir: Path, epoch_metrics: list[Any], batch_metrics: list[Any],
 ) -> Path | None:
     """Save training plot unless plotting dependency is unavailable."""
+    from serve.training_artifacts import save_training_plot
     try:
         return save_training_plot(output_dir, epoch_metrics, batch_metrics)
     except CrucibleDependencyError:

@@ -200,11 +200,16 @@ def _run_ddp_epoch_pass(
         return 0.0
     model.train(mode=training)
     total_loss = 0.0
+    inner = getattr(model, "module", model)
+    is_hf = getattr(inner, "_is_hf_logits_wrapper", False)
     for batch in batches:
-        inputs, targets = _tensorize_ddp_batch(
+        inputs, targets, attention_mask = _tensorize_ddp_batch(
             torch_module, batch, device,
         )
-        logits = model(inputs)
+        if is_hf:
+            logits = model(inputs, attention_mask=attention_mask)
+        else:
+            logits = model(inputs)
         loss = loss_fn(
             logits.reshape(-1, logits.shape[-1]),
             targets.reshape(-1),
@@ -224,14 +229,15 @@ def _run_ddp_epoch_pass(
 
 def _tensorize_ddp_batch(
     torch_module: Any, batch: Any, device: Any,
-) -> tuple[Any, Any]:
+) -> tuple[Any, Any, Any]:
     """Convert batch to padded tensors on the target device."""
     max_len = max(len(s) for s in batch.inputs)
     pad_inputs = [s + [0] * (max_len - len(s)) for s in batch.inputs]
     pad_targets = [s + [0] * (max_len - len(s)) for s in batch.targets]
     inp = torch_module.tensor(pad_inputs, dtype=torch_module.long)
     tgt = torch_module.tensor(pad_targets, dtype=torch_module.long)
-    return inp.to(device), tgt.to(device)
+    attention_mask = (inp != 0).long()
+    return inp.to(device), tgt.to(device), attention_mask.to(device)
 
 
 def _save_rank_zero_artifacts(

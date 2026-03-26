@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import builtins
-from types import SimpleNamespace
 
 import pytest
 
@@ -11,8 +10,6 @@ from core.domain_adaptation_types import DomainAdaptationOptions
 from core.errors import CrucibleDependencyError
 from core.types import DataRecord, RecordMetadata, TrainingRunResult
 from serve.domain_adaptation_runner import run_domain_adaptation
-from serve.training_execution import TrainingLoopResult
-from serve.training_hooks import TrainingHooks
 from serve.training_run_registry import TrainingRunRegistry
 
 
@@ -57,17 +54,7 @@ def test_domain_adaptation_completed_lifecycle(monkeypatch, tmp_path) -> None:
         base_model_path="/tmp/base.pt",
     )
 
-    def _fake_build_context(*args, **kwargs):
-        return SimpleNamespace(hooks=TrainingHooks())
-
-    def _fake_loop(context):
-        return TrainingLoopResult(
-            epoch_metrics=[], batch_metrics=[],
-            checkpoint_dir=None, best_checkpoint_path=None,
-            resumed_from_checkpoint=None,
-        )
-
-    def _fake_persist(context, loop_result, run_id, *args, **kwargs):
+    def _fake_crucible(records, options, training_options, random_seed, run_id, config_hash, data_root):
         return TrainingRunResult(
             model_path=str(tmp_path / "out/model.pt"),
             history_path=str(tmp_path / "out/history.json"),
@@ -79,16 +66,8 @@ def test_domain_adaptation_completed_lifecycle(monkeypatch, tmp_path) -> None:
         )
 
     monkeypatch.setattr(
-        "serve.domain_adaptation_runner._build_adaptation_context",
-        _fake_build_context,
-    )
-    monkeypatch.setattr(
-        "serve.domain_adaptation_runner.run_training_loop",
-        _fake_loop,
-    )
-    monkeypatch.setattr(
-        "serve.domain_adaptation_runner._persist_adaptation_outputs",
-        _fake_persist,
+        "serve.domain_adaptation_runner._run_adaptation_crucible",
+        _fake_crucible,
     )
     result = run_domain_adaptation(
         records=_build_records(), options=options,
@@ -107,19 +86,12 @@ def test_domain_adaptation_failed_lifecycle(monkeypatch, tmp_path) -> None:
         base_model_path="/tmp/base.pt",
     )
 
-    def _fake_build_context(*args, **kwargs):
-        return SimpleNamespace(hooks=TrainingHooks())
-
-    def _fake_loop(context):
+    def _fake_crucible(*args, **kwargs):
         raise RuntimeError("loop-failed")
 
     monkeypatch.setattr(
-        "serve.domain_adaptation_runner._build_adaptation_context",
-        _fake_build_context,
-    )
-    monkeypatch.setattr(
-        "serve.domain_adaptation_runner.run_training_loop",
-        _fake_loop,
+        "serve.domain_adaptation_runner._run_adaptation_crucible",
+        _fake_crucible,
     )
     with pytest.raises(RuntimeError):
         run_domain_adaptation(

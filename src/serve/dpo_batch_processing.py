@@ -165,8 +165,14 @@ def _compute_batch_loss(
         rejected_labels = torch_module.tensor(
             [list(pair.rejected_labels)], device=context.device,
         )
-        chosen_logits = context.model(chosen_ids)
-        rejected_logits = context.model(rejected_ids)
+        if getattr(context.model, "_is_hf_logits_wrapper", False):
+            chosen_mask = (chosen_ids != 0).long()
+            rejected_mask = (rejected_ids != 0).long()
+            chosen_logits = context.model(chosen_ids, attention_mask=chosen_mask)
+            rejected_logits = context.model(rejected_ids, attention_mask=rejected_mask)
+        else:
+            chosen_logits = context.model(chosen_ids)
+            rejected_logits = context.model(rejected_ids)
         pi_chosen = compute_log_probs_from_logits(
             torch_module, chosen_logits, chosen_labels, pair.prompt_length,
         )

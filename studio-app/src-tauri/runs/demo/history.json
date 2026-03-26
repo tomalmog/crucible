@@ -1,9 +1,0 @@
-{
-  "epochs": [
-    {
-      "epoch": 1,
-      "train_loss": 9.157616,
-      "validation_loss": 8.281555
-    }
-  ]
-}

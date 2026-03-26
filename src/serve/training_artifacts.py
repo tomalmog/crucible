@@ -61,6 +61,10 @@ def save_training_history(
 def save_model_weights(output_dir: Path, torch_module: Any, model: Any) -> Path:
     """Persist model state dict to output directory.
 
+    If the model is wrapped (e.g. _HfLogitsWrapper), saves the inner
+    model's state_dict to avoid an extra key prefix that would make
+    the checkpoint unloadable by AutoModelForCausalLM.
+
     Args:
         output_dir: Training output directory.
         torch_module: Imported torch module.
@@ -69,8 +73,10 @@ def save_model_weights(output_dir: Path, torch_module: Any, model: Any) -> Path:
     Returns:
         Model file path.
     """
+    from serve.hf_model_loader import unwrap_hf_model
+
     model_path = output_dir / DEFAULT_TRAINED_MODEL_FILE_NAME
-    torch_module.save(model.state_dict(), str(model_path))
+    torch_module.save(unwrap_hf_model(model).state_dict(), str(model_path))
     return model_path
 
 

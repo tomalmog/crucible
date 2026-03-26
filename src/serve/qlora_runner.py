@@ -3,38 +3,32 @@
 This module orchestrates QLoRA training: loads a HuggingFace (or local)
 base model, applies quantization and LoRA adapters, trains on data,
 and persists artifacts.
+
+Uses trl.SFTTrainer + peft + bitsandbytes for HuggingFace models,
+and falls back to the Crucible custom training loop for .pt models.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from core.errors import CrucibleDependencyError, CrucibleQloraError, CrucibleServeError
 from core.lora_types import LoraConfig
 from core.qlora_types import QloraOptions
-from core.types import DataRecord, TrainingOptions, TrainingRunResult
-from serve.architecture_loader import load_training_model
-from serve.device_selection import resolve_execution_device
-from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
-from serve.lora_injection import (
-    collect_lora_parameters,
-    freeze_base_parameters,
-    inject_lora_adapters,
-)
-from serve.model_weights import load_initial_weights
-from serve.quantization_utils import QuantizationConfig, validate_quantization_config
+from core.types import DataRecord, TrainingRunResult
 from serve.sft_data_loader import load_sft_examples
-from serve.sft_tokenization import build_sft_sequences
 from serve.training_artifacts import ensure_training_output_dir
 from serve.training_config_hash import compute_training_config_hash
-from serve.training_context import TrainingRuntimeContext
-from serve.training_execution import run_training_loop
-from serve.training_hooks import invoke_hook, load_training_hooks
-from serve.training_optimization import build_training_optimization
-from serve.training_precision import build_training_precision_runtime
 from serve.training_run_registry import TrainingRunRegistry
-from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
+from serve.trl_training_base import (
+    build_base_training_args,
+    is_hf_model,
+    load_hf_model_and_tokenizer,
+    save_trl_outputs,
+    _import_trl,
+)
 
 
 def run_qlora_training(
@@ -43,14 +37,13 @@ def run_qlora_training(
     random_seed: int,
     data_root: Path,
 ) -> TrainingRunResult:
-    """Run a full QLoRA training workflow and persist run lifecycle metadata."""
-    quant_config = QuantizationConfig(
-        bits=options.quantization_bits,
-        quant_type=options.qlora_type,
-        double_quantize=options.double_quantize,
-    )
-    validate_quantization_config(quant_config)
-    training_options = _qlora_options_to_training_options(options)
+    """Run a full QLoRA training workflow and persist run lifecycle metadata.
+
+    Uses trl.SFTTrainer + peft + bitsandbytes for HuggingFace models.
+    Falls back to the Crucible custom training loop for .pt models.
+    """
+    from core.training_types import options_to_training_options
+    training_options = options_to_training_options(options, base_model_key="base_model_path")
     config_hash = compute_training_config_hash(training_options)
     run_registry = TrainingRunRegistry(data_root)
     run_record = run_registry.start_run(
@@ -59,29 +52,15 @@ def run_qlora_training(
         parent_model_path=options.base_model_path,
         config_hash=config_hash,
     )
-    context: TrainingRuntimeContext | None = None
     try:
-        context = _build_qlora_runtime_context(
-            records=records,
-            options=options,
-            training_options=training_options,
-            random_seed=random_seed,
-            run_id=run_record.run_id,
-            config_hash=config_hash,
-            run_registry=run_registry,
-        )
         run_registry.transition(run_record.run_id, "running")
-        invoke_hook("on_run_start", context.hooks.on_run_start, context)
-        loop_result = run_training_loop(context)
-        result = _persist_qlora_outputs(
-            context=context,
-            loop_result=loop_result,
-            options=options,
-            run_id=run_record.run_id,
-            config_hash=config_hash,
-            random_seed=random_seed,
-        )
-        invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
+        if options.base_model_path and is_hf_model(options.base_model_path):
+            result = _run_qlora_with_trl(options, run_record.run_id, random_seed)
+        else:
+            result = _run_qlora_crucible(
+                records, options, training_options, run_record.run_id,
+                config_hash, random_seed, run_registry,
+            )
         run_registry.transition(
             run_id=run_record.run_id,
             next_state="completed",
@@ -90,32 +69,160 @@ def run_qlora_training(
         )
         return result
     except Exception as error:
-        if context is not None:
-            try:
-                invoke_hook(
-                    "on_run_error",
-                    context.hooks.on_run_error,
-                    context,
-                    str(error),
-                )
-            except CrucibleServeError:
-                pass
         run_registry.transition(
             run_record.run_id, "failed", message=str(error),
         )
         raise
 
 
-def _build_qlora_runtime_context(
+# ── trl + peft + bitsandbytes path (HuggingFace models) ─────────────
+
+
+def _run_qlora_with_trl(
+    options: QloraOptions,
+    run_id: str,
+    random_seed: int,
+) -> TrainingRunResult:
+    """QLoRA fine-tuning using trl.SFTTrainer + peft + bitsandbytes."""
+    import torch
+    from peft import LoraConfig as PeftLoraConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    trl = _import_trl()
+
+    output_dir = ensure_training_output_dir(options.output_dir)
+
+    # 4-bit quantization config
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type=options.qlora_type,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=options.double_quantize,
+    )
+
+    print(f"Loading model {options.base_model_path} with 4-bit quantization...", flush=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        options.base_model_path,
+        quantization_config=bnb_config,
+        device_map="auto",
+    )
+    tokenizer = AutoTokenizer.from_pretrained(options.base_model_path)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    sft_examples = load_sft_examples(options.qlora_data_path)
+    if not sft_examples:
+        raise CrucibleQloraError("No QLoRA training examples found.")
+    dataset = _examples_to_hf_dataset(sft_examples)
+    split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
+
+    # Build peft LoraConfig from QLoRA options
+    lora_config = PeftLoraConfig(
+        r=options.lora_rank,
+        lora_alpha=options.lora_alpha,
+        lora_dropout=options.lora_dropout,
+        target_modules=list(options.lora_target_modules),
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    args = build_base_training_args(
+        output_dir=output_dir,
+        epochs=options.epochs,
+        batch_size=options.batch_size,
+        learning_rate=options.learning_rate,
+        weight_decay=options.weight_decay,
+        precision_mode=options.precision_mode,
+        log_steps=options.progress_log_interval_steps,
+        seed=random_seed,
+        max_length=options.max_token_length,
+    )
+    sft_config = trl.SFTConfig(**args)
+
+    print("QLoRA: Starting trl training...", flush=True)
+    trainer = trl.SFTTrainer(
+        model=model,
+        args=sft_config,
+        train_dataset=split["train"],
+        eval_dataset=split["test"],
+        processing_class=tokenizer,
+        peft_config=lora_config,
+    )
+    trainer.train()
+
+    # Save adapter config for compatibility
+    _save_adapter_config_json(output_dir, options)
+
+    print("QLoRA: Saving model...", flush=True)
+    from core.training_types import options_to_training_options
+    training_options = options_to_training_options(options, base_model_key="base_model_path")
+    return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)
+
+
+def _examples_to_hf_dataset(examples: list[Any]) -> Any:
+    """Convert SftExample list to a HuggingFace Dataset."""
+    from datasets import Dataset
+    texts = []
+    for ex in examples:
+        text = f"{ex.system_prompt}\n\n" if ex.system_prompt else ""
+        text += f"{ex.prompt}\n{ex.response}"
+        texts.append(text)
+    return Dataset.from_dict({"text": texts})
+
+
+def _save_adapter_config_json(output_dir: Path, options: QloraOptions) -> None:
+    """Save QLoRA adapter config JSON for compatibility with downstream tooling."""
+    config_data = {
+        "lora_rank": options.lora_rank,
+        "lora_alpha": options.lora_alpha,
+        "lora_dropout": options.lora_dropout,
+        "lora_target_modules": list(options.lora_target_modules),
+        "quantization_bits": options.quantization_bits,
+        "qlora_type": options.qlora_type,
+        "double_quantize": options.double_quantize,
+    }
+    config_path = output_dir / "adapter_config.json"
+    config_path.write_text(json.dumps(config_data, indent=2) + "\n", encoding="utf-8")
+
+
+# ── Crucible .pt path (existing custom loop) ────────────────────────
+
+
+def _run_qlora_crucible(
     records: list[DataRecord],
     options: QloraOptions,
-    training_options: TrainingOptions,
-    random_seed: int,
+    training_options: Any,
     run_id: str,
     config_hash: str,
+    random_seed: int,
     run_registry: TrainingRunRegistry,
-) -> TrainingRuntimeContext:
-    """Build runtime context for QLoRA training."""
+) -> TrainingRunResult:
+    """QLoRA training using the Crucible custom training loop for .pt models."""
+    from core.types import TrainingOptions
+    from serve.architecture_loader import load_training_model
+    from serve.device_selection import resolve_execution_device
+    from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
+    from serve.lora_injection import (
+        collect_lora_parameters,
+        freeze_base_parameters,
+        inject_lora_adapters,
+    )
+    from serve.model_weights import load_initial_weights
+    from serve.quantization_utils import QuantizationConfig, validate_quantization_config
+    from serve.sft_tokenization import build_sft_sequences
+    from serve.training_context import TrainingRuntimeContext
+    from serve.training_execution import run_training_loop
+    from serve.training_hooks import invoke_hook, load_training_hooks
+    from serve.training_optimization import build_training_optimization
+    from serve.training_precision import build_training_precision_runtime
+    from serve.training_setup import fit_training_tokenizer, validate_file_paths, validate_training_options
+
+    quant_config = QuantizationConfig(
+        bits=options.quantization_bits,
+        quant_type=options.qlora_type,
+        double_quantize=options.double_quantize,
+    )
+    validate_quantization_config(quant_config)
+
     torch_module = _import_torch()
     validate_training_options(training_options)
     validate_file_paths(
@@ -153,7 +260,7 @@ def _build_qlora_runtime_context(
     )
     hooks = load_training_hooks(options.hooks_path)
     loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=-100)
-    return TrainingRuntimeContext(
+    context = TrainingRuntimeContext(
         torch_module=torch_module,
         model=model,
         optimizer=optimizer,
@@ -171,12 +278,27 @@ def _build_qlora_runtime_context(
         hooks=hooks,
         run_registry=run_registry,
     )
+    invoke_hook("on_run_start", context.hooks.on_run_start, context)
+    loop_result = run_training_loop(context)
+    result = _persist_qlora_outputs(
+        context=context,
+        loop_result=loop_result,
+        options=options,
+        run_id=run_id,
+        config_hash=config_hash,
+        random_seed=random_seed,
+    )
+    invoke_hook("on_run_end", context.hooks.on_run_end, context, result)
+    return result
+
+
+# ── Crucible .pt helpers ─────────────────────────────────────────────
 
 
 def _load_qlora_base_model(
     torch_module: Any,
     options: QloraOptions,
-    training_options: TrainingOptions,
+    training_options: Any,
     tokenizer: Any,
     device: Any,
 ) -> Any:
@@ -186,6 +308,8 @@ def _load_qlora_base_model(
     HuggingFace models are wrapped so forward() returns raw logits,
     compatible with the standard Crucible training loop.
     """
+    from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model
+    from serve.architecture_loader import load_training_model
     if is_huggingface_model_id(options.base_model_path):
         hf_model = load_huggingface_model(
             options.base_model_path, device=device,
@@ -216,12 +340,14 @@ class _HfLogitsWrapper:
     with a .logits attribute. This thin wrapper bridges the two.
     """
 
+    _is_hf_logits_wrapper: bool = True
+
     def __init__(self, torch_module: Any, hf_model: Any) -> None:
         self._torch_module = torch_module
         self._hf_model = hf_model
 
-    def __call__(self, input_ids: Any) -> Any:
-        outputs = self._hf_model(input_ids=input_ids)
+    def __call__(self, input_ids: Any, attention_mask: Any = None) -> Any:
+        outputs = self._hf_model(input_ids=input_ids, attention_mask=attention_mask)
         return outputs.logits
 
     def __getattr__(self, name: str) -> Any:
@@ -326,6 +452,7 @@ def _build_qlora_batches(
 ) -> tuple[list[Any], list[Any]]:
     """Load data with prompt masking and build train/val batches."""
     from serve.tokenization import SequenceBatch
+    from serve.sft_tokenization import build_sft_sequences
 
     examples = load_sft_examples(data_path)
     sequences = build_sft_sequences(
@@ -356,7 +483,7 @@ def _build_qlora_batches(
 
 
 def _persist_qlora_outputs(
-    context: TrainingRuntimeContext,
+    context: Any,
     loop_result: Any,
     options: QloraOptions,
     run_id: str,
@@ -425,14 +552,6 @@ def _persist_qlora_outputs(
         best_checkpoint_path=base_result.best_checkpoint_path,
         run_id=run_id, artifact_contract_path=str(contract_path),
     )
-
-
-def _qlora_options_to_training_options(
-    options: QloraOptions,
-) -> TrainingOptions:
-    """Map QloraOptions to TrainingOptions."""
-    from core.training_types import options_to_training_options
-    return options_to_training_options(options, base_model_key="base_model_path")
 
 
 def _import_torch() -> Any:

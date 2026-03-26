@@ -149,6 +149,19 @@ def load_huggingface_tokenizer(model_id: str) -> Any:
     return tokenizer
 
 
+def unwrap_hf_model(model: Any) -> Any:
+    """Return the inner HF model if wrapped, otherwise the model itself.
+
+    Handles both the nn.Module wrapper from _make_logits_wrapper (stores
+    the HF model as .model) and the QLoRA wrapper (stores as ._hf_model).
+    This ensures state_dict() produces keys without an extra wrapper prefix.
+    """
+    inner = getattr(model, "model", None) or getattr(model, "_hf_model", None)
+    if inner is not None and hasattr(inner, "state_dict"):
+        return inner
+    return model
+
+
 def _make_logits_wrapper(hf_model: Any) -> Any:
     """Wrap a HuggingFace causal LM so forward() returns raw logits.
 
@@ -163,12 +176,14 @@ def _make_logits_wrapper(hf_model: Any) -> Any:
         raise CrucibleDependencyError("torch is required") from error
 
     class _HfLogitsWrapper(nn.Module):
+        _is_hf_logits_wrapper: bool = True
+
         def __init__(self, model: Any) -> None:
             super().__init__()
             self.model = model
 
-        def forward(self, input_ids: Any) -> Any:
-            outputs = self.model(input_ids=input_ids)
+        def forward(self, input_ids: Any, attention_mask: Any = None) -> Any:
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
             return outputs.logits
 
     return _HfLogitsWrapper(hf_model)
