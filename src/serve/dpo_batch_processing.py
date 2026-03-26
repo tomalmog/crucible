@@ -14,7 +14,7 @@ from core.training_types import EpochMetric
 from serve.dpo_loss import compute_dpo_loss, compute_log_probs_from_logits
 from serve.dpo_reference_model import compute_reference_log_probs
 from serve.dpo_tokenization import DpoTokenizedPair
-from serve.tokenization import VocabularyTokenizer
+from core.chat_types import ChatTokenizer
 from serve.training_progress import emit_progress
 from core.types import TrainingOptions
 
@@ -27,7 +27,7 @@ class DpoContext:
         torch_module: Any,
         model: Any,
         ref_model: Any,
-        tokenizer: VocabularyTokenizer,
+        tokenizer: ChatTokenizer,
         dpo_pairs: list[DpoTokenizedPair],
         output_dir: Path,
         device: Any,
@@ -74,60 +74,72 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
         method="dpo",
     )
     epoch_metrics: list[EpochMetric] = []
-    for epoch in range(start_epoch, options.epochs + 1):
-        context.model.train()
-        total_loss = 0.0
-        batch_count = 0
-        emit_progress(
-            "training_epoch_started",
-            epoch=epoch,
-            total_epochs=options.epochs,
-        )
-        for batch_start in range(
-            0, len(context.dpo_pairs), options.batch_size
-        ):
-            batch = context.dpo_pairs[
-                batch_start: batch_start + options.batch_size
-            ]
-            loss = _compute_batch_loss(
-                context, batch, options.beta, options.label_smoothing,
-            )
-            optimizer.zero_grad()
-            loss.backward()
-            torch_module.nn.utils.clip_grad_norm_(
-                context.model.parameters(), max_norm=1.0,
-            )
-            optimizer.step()
-            total_loss += loss.item()
-            batch_count += 1
-            global_step += 1
+    epoch = start_epoch
+    checkpoint_dir = None
+    try:
+        for epoch in range(start_epoch, options.epochs + 1):
+            context.model.train()
+            total_loss = 0.0
+            batch_count = 0
             emit_progress(
-                "training_batch_progress",
+                "training_epoch_started",
                 epoch=epoch,
                 total_epochs=options.epochs,
-                batch=batch_count,
-                total_batches=total_batches,
-                loss=round(loss.item(), 6),
             )
-        avg_loss = total_loss / max(batch_count, 1)
-        emit_progress(
-            "training_epoch_completed",
-            epoch=epoch,
-            total_epochs=options.epochs,
-            train_loss=round(avg_loss, 6),
-        )
-        epoch_metrics.append(EpochMetric(
-            epoch=epoch,
-            train_loss=avg_loss,
-            validation_loss=avg_loss,
-        ))
-        from pathlib import Path
+            for batch_start in range(
+                0, len(context.dpo_pairs), options.batch_size
+            ):
+                batch = context.dpo_pairs[
+                    batch_start: batch_start + options.batch_size
+                ]
+                loss = _compute_batch_loss(
+                    context, batch, options.beta, options.label_smoothing,
+                )
+                optimizer.zero_grad()
+                loss.backward()
+                torch_module.nn.utils.clip_grad_norm_(
+                    context.model.parameters(), max_norm=1.0,
+                )
+                optimizer.step()
+                total_loss += loss.item()
+                batch_count += 1
+                global_step += 1
+                emit_progress(
+                    "training_batch_progress",
+                    epoch=epoch,
+                    total_epochs=options.epochs,
+                    batch=batch_count,
+                    total_batches=total_batches,
+                    loss=round(loss.item(), 6),
+                )
+            avg_loss = total_loss / max(batch_count, 1)
+            emit_progress(
+                "training_epoch_completed",
+                epoch=epoch,
+                total_epochs=options.epochs,
+                train_loss=round(avg_loss, 6),
+            )
+            epoch_metrics.append(EpochMetric(
+                epoch=epoch,
+                train_loss=avg_loss,
+                validation_loss=avg_loss,
+            ))
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            checkpoint_dir = ensure_checkpoint_dir(Path(context.output_dir))
+            save_epoch_checkpoint(
+                checkpoint_dir, torch_module, context.model, optimizer, None,
+                epoch, global_step, None,
+            )
+    except KeyboardInterrupt:
+        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
-        checkpoint_dir = ensure_checkpoint_dir(Path(context.output_dir))
-        save_epoch_checkpoint(
-            checkpoint_dir, torch_module, context.model, optimizer, None,
+        emergency_dir = checkpoint_dir or ensure_checkpoint_dir(Path(context.output_dir))
+        emergency_path = save_epoch_checkpoint(
+            emergency_dir, torch_module, context.model, optimizer, None,
             epoch, global_step, None,
         )
+        print(f"Emergency checkpoint saved: {emergency_path}", flush=True)
+        raise
     return DpoLoopResult(epoch_metrics=epoch_metrics)
 
 

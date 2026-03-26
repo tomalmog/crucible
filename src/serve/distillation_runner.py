@@ -20,8 +20,8 @@ from serve.device_selection import resolve_execution_device
 from serve.hf_model_loader import build_or_load_model, is_huggingface_model_id
 from serve.distillation_loss import compute_distillation_loss
 from serve.model_weights import load_initial_weights, read_model_state_dict
+from core.chat_types import ChatTokenizer
 from serve.tokenization import (
-    VocabularyTokenizer,
     build_sequence_batches,
     build_training_sequences,
     split_sequences,
@@ -155,6 +155,8 @@ def _execute_distillation(
         student=student,
         epoch_metrics=epoch_metrics,
         run_id=run_id,
+        tokenizer=tokenizer,
+        training_options=training_options,
     )
 
 
@@ -297,7 +299,7 @@ def _run_distillation_loop(
     device: Any,
     options: DistillationOptions,
     records: list[DataRecord],
-    tokenizer: VocabularyTokenizer,
+    tokenizer: ChatTokenizer,
     teacher_vocab_size: int,
 ) -> list[Any]:
     """Run epoch-based distillation training loop.
@@ -334,57 +336,70 @@ def _run_distillation_loop(
         method="distillation",
     )
     epoch_metrics: list[EpochMetric] = []
-    for epoch in range(start_epoch, options.epochs + 1):
-        emit_progress(
-            "training_epoch_started",
-            epoch=epoch,
-            total_epochs=options.epochs,
-        )
-        train_loss = _run_distillation_pass(
-            torch_module=torch_module,
-            teacher=teacher,
-            student=student,
-            optimizer=optimizer,
-            precision_runtime=precision_runtime,
-            batches=train_batches,
-            device=device,
-            options=options,
-            teacher_vocab_size=teacher_vocab_size,
-            training=True,
-        )
-        val_loss = _run_distillation_pass(
-            torch_module=torch_module,
-            teacher=teacher,
-            student=student,
-            optimizer=optimizer,
-            precision_runtime=precision_runtime,
-            batches=val_batches,
-            device=device,
-            options=options,
-            teacher_vocab_size=teacher_vocab_size,
-            training=False,
-        )
-        emit_progress(
-            "training_epoch_completed",
-            epoch=epoch,
-            total_epochs=options.epochs,
-            train_loss=round(train_loss, 6),
-            validation_loss=round(val_loss, 6),
-        )
-        epoch_metrics.append(
-            EpochMetric(
+    epoch = start_epoch
+    checkpoint_dir = None
+    try:
+        for epoch in range(start_epoch, options.epochs + 1):
+            emit_progress(
+                "training_epoch_started",
                 epoch=epoch,
+                total_epochs=options.epochs,
+            )
+            train_loss = _run_distillation_pass(
+                torch_module=torch_module,
+                teacher=teacher,
+                student=student,
+                optimizer=optimizer,
+                precision_runtime=precision_runtime,
+                batches=train_batches,
+                device=device,
+                options=options,
+                teacher_vocab_size=teacher_vocab_size,
+                training=True,
+            )
+            val_loss = _run_distillation_pass(
+                torch_module=torch_module,
+                teacher=teacher,
+                student=student,
+                optimizer=optimizer,
+                precision_runtime=precision_runtime,
+                batches=val_batches,
+                device=device,
+                options=options,
+                teacher_vocab_size=teacher_vocab_size,
+                training=False,
+            )
+            emit_progress(
+                "training_epoch_completed",
+                epoch=epoch,
+                total_epochs=options.epochs,
                 train_loss=round(train_loss, 6),
                 validation_loss=round(val_loss, 6),
             )
-        )
-        global_step += 1
+            epoch_metrics.append(
+                EpochMetric(
+                    epoch=epoch,
+                    train_loss=round(train_loss, 6),
+                    validation_loss=round(val_loss, 6),
+                )
+            )
+            global_step += 1
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
+            save_epoch_checkpoint(
+                checkpoint_dir, torch_module, student, optimizer, None,
+                epoch, global_step, None,
+            )
+    except KeyboardInterrupt:
+        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
-        checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
-        save_epoch_checkpoint(
-            checkpoint_dir, torch_module, student, optimizer, None,
+        emergency_dir = checkpoint_dir or ensure_checkpoint_dir(Path(options.output_dir))
+        emergency_path = save_epoch_checkpoint(
+            emergency_dir, torch_module, student, optimizer, None,
             epoch, global_step, None,
         )
+        print(f"Emergency checkpoint saved: {emergency_path}", flush=True)
+        raise
     return epoch_metrics
 
 
@@ -490,10 +505,18 @@ def _persist_outputs(
     student: Any,
     epoch_metrics: list[Any],
     run_id: str,
+    tokenizer: Any = None,
+    training_options: Any = None,
 ) -> TrainingRunResult:
-    """Save student model and training history artifacts."""
+    """Save student model, training history, tokenizer, and config."""
     model_path = save_model_weights(output_dir, torch_module, student)
     history_path = save_training_history(output_dir, epoch_metrics, [])
+    if tokenizer is not None:
+        from serve.training_metadata import save_tokenizer_vocabulary
+        save_tokenizer_vocabulary(output_dir, tokenizer)
+    if training_options is not None:
+        from serve.training_metadata import save_training_config
+        save_training_config(output_dir, training_options)
     return TrainingRunResult(
         model_path=str(model_path),
         history_path=str(history_path),

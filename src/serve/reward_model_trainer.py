@@ -22,6 +22,7 @@ def train_reward_model(
     base_model: Any,
     options: RlhfOptions,
     device: Any,
+    tokenizer: Any,
 ) -> Any:
     """Train a reward model from preference data.
 
@@ -33,6 +34,7 @@ def train_reward_model(
         base_model: Base language model for feature extraction.
         options: RLHF training options with reward config.
         device: Torch device for training.
+        tokenizer: Tokenizer for encoding text (uses ChatTokenizer protocol).
 
     Returns:
         Trained reward model.
@@ -40,6 +42,10 @@ def train_reward_model(
     Raises:
         CrucibleRlhfError: If preference data is missing or invalid.
     """
+    if tokenizer is None:
+        raise CrucibleRlhfError(
+            "Tokenizer required for reward model training"
+        )
     preference_path = options.reward_config.preference_data_path
     if preference_path is None:
         raise CrucibleRlhfError(
@@ -52,7 +58,7 @@ def train_reward_model(
     )
     reward_model = reward_model.to(device)
     _run_reward_training_loop(
-        torch_module, reward_model, pairs, options, device,
+        torch_module, reward_model, pairs, options, device, tokenizer,
     )
     return reward_model
 
@@ -130,6 +136,7 @@ def _run_reward_training_loop(
     pairs: list[dict[str, str]],
     options: RlhfOptions,
     device: Any,
+    tokenizer: Any = None,
 ) -> None:
     """Run the reward model training loop.
 
@@ -141,6 +148,7 @@ def _run_reward_training_loop(
         pairs: Preference pair dicts.
         options: RLHF training options.
         device: Torch device.
+        tokenizer: Tokenizer for encoding text.
     """
     reward_model.train()
     optimizer = torch_module.optim.Adam(
@@ -154,7 +162,7 @@ def _run_reward_training_loop(
         for start in range(0, len(pairs), batch_size):
             batch = pairs[start : start + batch_size]
             chosen_scores, rejected_scores = _score_batch(
-                torch_module, reward_model, batch, device,
+                torch_module, reward_model, batch, device, tokenizer,
             )
             target = torch_module.ones(
                 chosen_scores.size(0), device=device,
@@ -175,6 +183,7 @@ def _score_batch(
     reward_model: Any,
     batch: list[dict[str, str]],
     device: Any,
+    tokenizer: Any = None,
 ) -> tuple[Any, Any]:
     """Score chosen and rejected sequences for a batch.
 
@@ -183,15 +192,18 @@ def _score_batch(
         reward_model: Reward model producing scalar scores.
         batch: List of preference pair dicts.
         device: Torch device.
+        tokenizer: Tokenizer for encoding text.
 
     Returns:
         Tuple of (chosen_scores, rejected_scores) tensors.
     """
     chosen_ids = _encode_texts(
-        torch_module, [p["prompt"] + " " + p["chosen"] for p in batch], device,
+        torch_module, [p["prompt"] + " " + p["chosen"] for p in batch],
+        device, tokenizer,
     )
     rejected_ids = _encode_texts(
-        torch_module, [p["prompt"] + " " + p["rejected"] for p in batch], device,
+        torch_module, [p["prompt"] + " " + p["rejected"] for p in batch],
+        device, tokenizer,
     )
     chosen_scores = reward_model(chosen_ids)
     rejected_scores = reward_model(rejected_ids)
@@ -202,21 +214,26 @@ def _encode_texts(
     torch_module: Any,
     texts: list[str],
     device: Any,
+    tokenizer: Any = None,
 ) -> Any:
-    """Simple character-level encoding for reward model training.
+    """Encode texts using the training tokenizer.
 
     Args:
         torch_module: Imported torch module.
         texts: List of text strings to encode.
         device: Torch device.
+        tokenizer: Tokenizer for encoding (ChatTokenizer protocol).
 
     Returns:
         Tensor of token ids [batch, max_len].
     """
-    max_len = 64
+    max_len = 128
     batch_ids = []
     for text in texts:
-        ids = [ord(c) % 256 for c in text[:max_len]]
+        if tokenizer is not None:
+            ids = tokenizer.encode(text, max_len)
+        else:
+            ids = [ord(c) % 256 for c in text[:max_len]]
         ids = ids + [0] * (max_len - len(ids))
-        batch_ids.append(ids)
+        batch_ids.append(ids[:max_len])
     return torch_module.tensor(batch_ids, dtype=torch_module.long, device=device)

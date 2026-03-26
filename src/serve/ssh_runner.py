@@ -220,7 +220,10 @@ class SshRunner:
                     "logs_tail": log_out.strip() if log_out else "",
                 }
 
-        return json.loads(stdout)  # type: ignore[no-any-return]
+        try:
+            return json.loads(stdout)  # type: ignore[no-any-return]
+        except json.JSONDecodeError:
+            return {"status": "pending", "error": "result.json not yet parseable"}
 
     @staticmethod
     def _init_job(

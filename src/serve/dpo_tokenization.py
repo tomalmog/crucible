@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from core.chat_types import ChatTokenizer
 from core.dpo_types import DpoExample
-from serve.tokenization import VocabularyTokenizer
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ IGNORE_INDEX = -100
 
 def build_dpo_pairs(
     examples: list[DpoExample],
-    tokenizer: VocabularyTokenizer,
+    tokenizer: ChatTokenizer,
     max_length: int,
 ) -> list[DpoTokenizedPair]:
     """Tokenize DPO examples into preference pairs.
@@ -63,7 +63,7 @@ def build_dpo_pairs(
 
 def _build_single_pair(
     example: DpoExample,
-    tokenizer: VocabularyTokenizer,
+    tokenizer: ChatTokenizer,
     max_length: int,
 ) -> DpoTokenizedPair | None:
     """Tokenize one DPO example into a preference pair."""

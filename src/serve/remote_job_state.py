@@ -108,7 +108,7 @@ def sync_final_state(
     crucible_state = slurm_state_to_crucible(slurm_state)
 
     if crucible_state != record.state:
-        extra_fields = _build_state_transition_fields(
+        crucible_state, extra_fields = _build_state_transition_fields(
             session, record, crucible_state, data_root,
             slurm_state, slurm_exit, slurm_reason,
         )
@@ -131,8 +131,12 @@ def _build_state_transition_fields(
     slurm_state: str,
     slurm_exit: str,
     slurm_reason: str,
-) -> dict[str, str]:
-    """Build extra fields dict for a state transition update."""
+) -> tuple[RemoteJobState, dict[str, str]]:
+    """Build extra fields dict for a state transition update.
+
+    Returns:
+        Tuple of (possibly overridden crucible_state, extra_fields dict).
+    """
     extra_fields: dict[str, str] = {}
 
     # Check result.json — agent may have failed even if Slurm says COMPLETED
@@ -167,7 +171,7 @@ def _build_state_transition_fields(
         if error_summary:
             extra_fields["submit_phase"] = f"Failed: {error_summary}"
 
-    return extra_fields
+    return crucible_state, extra_fields
 
 
 def query_sacct_details(session: SshSession, slurm_job_id: str) -> str:

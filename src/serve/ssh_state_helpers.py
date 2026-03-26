@@ -96,6 +96,25 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
             f"kill -0 {pid} 2>/dev/null", timeout=10,
         )
         if code == 0:
+            # Guard against PID reuse: if log file hasn't been modified
+            # in 30+ minutes, the original process likely exited and the
+            # PID was reassigned to an unrelated process.
+            mtime_out, _, mtime_code = session.execute(
+                f"stat -c %Y {log_path} 2>/dev/null || stat -f %m {log_path} 2>/dev/null",
+                timeout=10,
+            )
+            if mtime_code == 0 and mtime_out.strip():
+                import time
+                try:
+                    mtime = int(mtime_out.strip())
+                    if time.time() - mtime > 1800:
+                        _log.warning(
+                            "Job %s PID %s alive but log stale (>30min) — likely PID reuse",
+                            record.job_id, pid,
+                        )
+                        return "failed"
+                except ValueError:
+                    pass
             return "running"
 
     return "failed"

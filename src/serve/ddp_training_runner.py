@@ -120,6 +120,8 @@ def _run_ddp_workflow(
         epoch_metrics=epoch_metrics,
         output_dir=output_dir,
         rank=rank,
+        tokenizer=tokenizer,
+        options=options,
     )
 
 
@@ -137,7 +139,10 @@ def _wrap_model_with_ddp(
         raise CrucibleDistributedError(
             "DistributedDataParallel is not available in torch.nn.parallel."
         )
-    return ddp_class(model, device_ids=[rank])
+    ddp_kwargs: dict[str, Any] = {}
+    if str(model.parameters().__next__().device).startswith("cuda"):
+        ddp_kwargs["device_ids"] = [rank]
+    return ddp_class(model, **ddp_kwargs)
 
 
 def _run_ddp_epochs(
@@ -206,8 +211,13 @@ def _run_ddp_epoch_pass(
         )
         total_loss += float(loss.item())
         if training:
+            if not torch_module.isfinite(loss):
+                raise RuntimeError("DDP training diverged: loss is nan/inf")
             optimizer.zero_grad()
             loss.backward()
+            torch_module.nn.utils.clip_grad_norm_(
+                model.parameters(), max_norm=1.0,
+            )
             optimizer.step()
     return total_loss / len(batches)
 
@@ -230,6 +240,8 @@ def _save_rank_zero_artifacts(
     epoch_metrics: list[dict[str, float]],
     output_dir: Path,
     rank: int,
+    tokenizer: Any = None,
+    options: Any = None,
 ) -> TrainingRunResult:
     """Save training artifacts only on rank 0."""
     from core.types import EpochMetric
@@ -254,6 +266,12 @@ def _save_rank_zero_artifacts(
         history_path = save_training_history(
             output_dir, metrics, [],
         )
+        if tokenizer is not None:
+            from serve.training_metadata import save_tokenizer_vocabulary
+            save_tokenizer_vocabulary(output_dir, tokenizer)
+        if options is not None:
+            from serve.training_metadata import save_training_config
+            save_training_config(output_dir, options)
         return TrainingRunResult(
             model_path=str(model_path),
             history_path=str(history_path),
