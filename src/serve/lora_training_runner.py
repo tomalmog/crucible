@@ -99,12 +99,19 @@ def _run_lora_with_trl(
     dataset = _examples_to_hf_dataset(sft_examples)
     split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
 
-    # Build peft LoraConfig from Crucible LoraConfig
+    # Build peft LoraConfig from Crucible LoraConfig.
+    # If the user-specified target_modules don't exist in the model
+    # (e.g. default "q_proj"/"v_proj" on a GPT-2 model that uses "c_attn"),
+    # fall back to "all-linear" which lets peft auto-detect all Linear layers.
+    target_mods: list[str] | str = list(options.lora_config.target_modules)
+    model_names = {name for name, _ in model.named_modules()}
+    if not any(any(t in n for t in target_mods) for n in model_names):
+        target_mods = "all-linear"
     lora_config = PeftLoraConfig(
         r=options.lora_config.rank,
         lora_alpha=options.lora_config.alpha,
         lora_dropout=options.lora_config.dropout,
-        target_modules=list(options.lora_config.target_modules),
+        target_modules=target_mods,
         bias="none",
         task_type="CAUSAL_LM",
     )

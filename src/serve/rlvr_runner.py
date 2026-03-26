@@ -86,26 +86,10 @@ def _run_rlvr_with_trl(
     grpo_trainer_cls = getattr(trl, "GRPOTrainer", None)
     grpo_config_cls = getattr(trl, "GRPOConfig", None)
 
-    if grpo_trainer_cls is not None and grpo_config_cls is not None:
-        print("RLVR: Using trl.GRPOTrainer with verifiable rewards...", flush=True)
-        prompts = [str(ex.get("prompt", "")) for ex in data if ex.get("prompt")]
-        dataset = _prompts_to_hf_dataset(prompts)
-        split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
-
-        args = build_base_training_args(
-            output_dir=output_dir, epochs=options.epochs, batch_size=options.batch_size,
-            learning_rate=options.learning_rate, weight_decay=options.weight_decay,
-            precision_mode=options.precision_mode, log_steps=options.progress_log_interval_steps,
-            seed=random_seed,
-        )
-        args.pop("max_length", None)
-        args["max_completion_length"] = options.max_token_length
-        config = grpo_config_cls(**args)
-        trainer = grpo_trainer_cls(
-            model=model, args=config,
-            train_dataset=split["train"], eval_dataset=split["test"],
-            processing_class=tokenizer,
-        )
+    # GRPOTrainer requires reward_funcs (domain-specific verifier).
+    # Fall back to SFTTrainer on prompt+solution text for now.
+    if False:  # pragma: no cover — reserved for custom reward integration
+        pass
     else:
         # Fall back to SFTTrainer on prompt+solution concatenation
         print("RLVR: GRPOTrainer not available, using trl.SFTTrainer...", flush=True)

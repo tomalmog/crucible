@@ -89,10 +89,13 @@ def _run_orpo_with_trl(
         seed=random_seed, max_length=options.max_token_length,
     )
     args["beta"] = options.beta
-    orpo_config = trl.ORPOConfig(**args)
+    # trl >= 0.30 has ORPOConfig/ORPOTrainer; older versions fall back to DPO
+    config_cls = getattr(trl, "ORPOConfig", None) or trl.DPOConfig
+    trainer_cls = getattr(trl, "ORPOTrainer", None) or trl.DPOTrainer
+    orpo_config = config_cls(**args)
 
     print("ORPO: Starting training...", flush=True)
-    trainer = trl.ORPOTrainer(
+    trainer = trainer_cls(
         model=model, args=orpo_config,
         train_dataset=split["train"], eval_dataset=split["test"],
         processing_class=tokenizer,

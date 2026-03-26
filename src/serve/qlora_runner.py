@@ -115,12 +115,17 @@ def _run_qlora_with_trl(
     dataset = _examples_to_hf_dataset(sft_examples)
     split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
 
-    # Build peft LoraConfig from QLoRA options
+    # Build peft LoraConfig from QLoRA options.
+    # Fall back to "all-linear" if the specified target modules don't exist.
+    target_mods: list[str] | str = list(options.lora_target_modules)
+    model_names = {name for name, _ in model.named_modules()}
+    if not any(any(t in n for t in target_mods) for n in model_names):
+        target_mods = "all-linear"
     lora_config = PeftLoraConfig(
         r=options.lora_rank,
         lora_alpha=options.lora_alpha,
         lora_dropout=options.lora_dropout,
-        target_modules=list(options.lora_target_modules),
+        target_modules=target_mods,
         bias="none",
         task_type="CAUSAL_LM",
     )

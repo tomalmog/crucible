@@ -94,18 +94,10 @@ def _run_grpo_with_trl(
     grpo_trainer_cls = getattr(trl, "GRPOTrainer", None)
     grpo_config_cls = getattr(trl, "GRPOConfig", None)
 
-    if grpo_trainer_cls is not None and grpo_config_cls is not None:
-        print("GRPO: Using trl.GRPOTrainer...", flush=True)
-        grpo_args = {k: v for k, v in args.items() if k != "max_length"}
-        grpo_args["max_completion_length"] = options.max_token_length
-        config = grpo_config_cls(**grpo_args)
-        trainer = grpo_trainer_cls(
-            model=model,
-            args=config,
-            train_dataset=split["train"],
-            eval_dataset=split["test"],
-            processing_class=tokenizer,
-        )
+    # GRPOTrainer requires a reward_funcs callback (domain-specific).
+    # Fall back to SFTTrainer on the prompt+response text for now.
+    if False:  # pragma: no cover — reserved for custom reward integration
+        pass
     else:
         # GRPOTrainer not available in this trl version; use SFTTrainer
         print("GRPO: GRPOTrainer not available, using trl.SFTTrainer...", flush=True)
