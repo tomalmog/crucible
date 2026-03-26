@@ -137,6 +137,10 @@ def _coerce_value(value: Any, target_type: Any) -> Any:
         if target_type is bool:
             return value.lower() in ("true", "1", "yes")
 
+    # float → int (e.g. 3.0 from sweep)
+    if isinstance(value, float) and target_type is int:
+        return int(value)
+
     # list → tuple
     if target_type is tuple and isinstance(value, list):
         return tuple(value)

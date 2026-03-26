@@ -76,6 +76,7 @@ def run_qlora_training(
         result = _persist_qlora_outputs(
             context=context,
             loop_result=loop_result,
+            options=options,
             run_id=run_record.run_id,
             config_hash=config_hash,
             random_seed=random_seed,
@@ -357,6 +358,7 @@ def _build_qlora_batches(
 def _persist_qlora_outputs(
     context: TrainingRuntimeContext,
     loop_result: Any,
+    options: QloraOptions,
     run_id: str,
     config_hash: str,
     random_seed: int,
@@ -371,8 +373,12 @@ def _persist_qlora_outputs(
 
     # Save adapter separately, then merge into base for a usable model
     from serve.lora_adapter_io import merge_lora_into_base, save_lora_adapter
-    from core.lora_types import LoraConfig
-    qlora_config = LoraConfig(rank=getattr(context.options, 'lora_rank', 8))
+    qlora_config = LoraConfig(
+        rank=options.lora_rank,
+        alpha=options.lora_alpha,
+        dropout=options.lora_dropout,
+        target_modules=options.lora_target_modules,
+    )
     save_lora_adapter(context.torch_module, context.model, context.output_dir, qlora_config)
     merged_path = str(context.output_dir / "model.pt")
     merge_lora_into_base(context.torch_module, context.model, merged_path)
@@ -425,30 +431,8 @@ def _qlora_options_to_training_options(
     options: QloraOptions,
 ) -> TrainingOptions:
     """Map QloraOptions to TrainingOptions."""
-    return TrainingOptions(
-        dataset_name=options.dataset_name,
-        output_dir=options.output_dir,
-        epochs=options.epochs,
-        learning_rate=options.learning_rate,
-        batch_size=options.batch_size,
-        max_token_length=options.max_token_length,
-        validation_split=options.validation_split,
-        precision_mode=options.precision_mode,
-        optimizer_type=options.optimizer_type,
-        weight_decay=options.weight_decay,
-        hidden_dim=options.hidden_dim,
-        num_layers=options.num_layers,
-        attention_heads=options.attention_heads,
-        mlp_hidden_dim=options.mlp_hidden_dim,
-        mlp_layers=options.mlp_layers,
-        hooks_path=options.hooks_path,
-        initial_weights_path=options.base_model_path,
-        checkpoint_every_epochs=options.checkpoint_every_epochs,
-        save_best_checkpoint=options.save_best_checkpoint,
-        progress_log_interval_steps=options.progress_log_interval_steps,
-        tokenizer_path=options.tokenizer_path,
-        resume_checkpoint_path=options.resume_checkpoint_path,
-    )
+    from core.training_types import options_to_training_options
+    return options_to_training_options(options, base_model_key="base_model_path")
 
 
 def _import_torch() -> Any:

@@ -67,6 +67,7 @@ class TrainingOptions:
 
     dataset_name: str
     output_dir: str
+    base_model_path: str | None = None
     architecture_path: str | None = None
     custom_loop_path: str | None = None
     hooks_path: str | None = None
@@ -104,6 +105,37 @@ class TrainingOptions:
     tokenizer_path: str | None = None
     wandb_project: str | None = None
     tensorboard_dir: str | None = None
+
+
+def options_to_training_options(
+    source: object,
+    base_model_key: str = "base_model",
+) -> TrainingOptions:
+    """Build TrainingOptions by copying matching fields from any method Options.
+
+    Iterates over TrainingOptions fields and pulls values from *source*
+    where a matching attribute exists.  The *base_model_key* parameter
+    specifies which field on *source* maps to ``base_model_path`` (since
+    some methods call it ``base_model``, others ``base_model_path``, and
+    RLHF uses ``policy_model_path``).
+
+    This replaces 10 hand-written conversion functions, ensuring that new
+    fields added to TrainingOptions are automatically picked up by all
+    training methods without needing per-method updates.
+    """
+    import dataclasses
+
+    kwargs: dict[str, object] = {}
+    for field in dataclasses.fields(TrainingOptions):
+        if field.name == "base_model_path":
+            val = getattr(source, base_model_key, None)
+            if val is not None:
+                kwargs["base_model_path"] = str(val)
+            continue
+        val = getattr(source, field.name, dataclasses.MISSING)
+        if val is not dataclasses.MISSING:
+            kwargs[field.name] = val
+    return TrainingOptions(**kwargs)
 
 
 @dataclass(frozen=True)

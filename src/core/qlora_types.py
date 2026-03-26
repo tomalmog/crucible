@@ -20,7 +20,6 @@ from core.constants import (
     DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS,
     DEFAULT_TRAIN_EPOCHS,
     DEFAULT_TRAIN_HIDDEN_DIM,
-    DEFAULT_TRAIN_LEARNING_RATE,
     DEFAULT_TRAIN_MLP_HIDDEN_DIM,
     DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS,
@@ -60,7 +59,7 @@ class QloraOptions:
     lora_dropout: float = DEFAULT_LORA_DROPOUT
     lora_target_modules: tuple[str, ...] = DEFAULT_LORA_TARGET_MODULES
     epochs: int = DEFAULT_TRAIN_EPOCHS
-    learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
+    learning_rate: float = 2e-4
     batch_size: int = DEFAULT_BATCH_SIZE
     max_token_length: int = DEFAULT_MAX_TOKEN_LENGTH
     validation_split: float = DEFAULT_TRAIN_VALIDATION_SPLIT

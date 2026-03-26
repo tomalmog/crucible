@@ -159,13 +159,13 @@ def _build_kto_batches(
                 text = ex.prompt + " " + ex.response
                 ids = tokenizer.encode(text, options.max_token_length)
                 padded = ids + [0] * (options.max_token_length - len(ids))
-                all_inputs.append(padded)
+                all_inputs.append(padded[:-1])
                 if ex.is_desirable:
-                    all_targets.append(list(padded))
+                    all_targets.append(padded[1:])
                 else:
                     # Mark undesirable targets as -1 so the loss function
                     # can detect them and flip the gradient direction.
-                    all_targets.append([-1] * len(padded))
+                    all_targets.append([-1] * (len(padded) - 1))
             batches.append(SequenceBatch(inputs=all_inputs, targets=all_targets))
         return batches
 
@@ -234,22 +234,8 @@ def _persist_kto_outputs(
 
 def _kto_options_to_training_options(options: KtoOptions) -> TrainingOptions:
     """Map KtoOptions to TrainingOptions."""
-    return TrainingOptions(
-        dataset_name=options.dataset_name, output_dir=options.output_dir,
-        epochs=options.epochs,
-        learning_rate=options.learning_rate, batch_size=options.batch_size,
-        max_token_length=options.max_token_length, validation_split=options.validation_split,
-        precision_mode=options.precision_mode, optimizer_type=options.optimizer_type,
-        weight_decay=options.weight_decay, hidden_dim=options.hidden_dim,
-        num_layers=options.num_layers, attention_heads=options.attention_heads,
-        mlp_hidden_dim=options.mlp_hidden_dim, mlp_layers=options.mlp_layers,
-        hooks_path=options.hooks_path, initial_weights_path=options.initial_weights_path,
-        checkpoint_every_epochs=options.checkpoint_every_epochs,
-        save_best_checkpoint=options.save_best_checkpoint,
-        progress_log_interval_steps=options.progress_log_interval_steps,
-        tokenizer_path=options.tokenizer_path,
-        resume_checkpoint_path=options.resume_checkpoint_path,
-    )
+    from core.training_types import options_to_training_options
+    return options_to_training_options(options)
 
 
 def _import_torch() -> Any:

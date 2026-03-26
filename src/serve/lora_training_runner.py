@@ -90,6 +90,11 @@ def run_lora_training(
             requested_mode=options.precision_mode,
             device=device,
         )
+        tokenizer = _load_lora_tokenizer(options)
+        if tokenizer is None:
+            raise CrucibleServeError(
+                "No tokenizer found. Provide --tokenizer-path or use a HuggingFace model ID."
+            )
         epoch_metrics = _run_lora_training_loop(
             torch_module=torch_module,
             model=model,
@@ -97,6 +102,7 @@ def run_lora_training(
             precision_runtime=precision_runtime,
             device=device,
             options=options,
+            tokenizer=tokenizer,
         )
         adapter_info = save_lora_adapter(
             torch_module, model, output_dir, lora_config,
@@ -109,7 +115,6 @@ def run_lora_training(
         model_path = Path(merged_path)
         # Save tokenizer and training config alongside the model
         from serve.training_metadata import save_tokenizer_vocabulary, save_training_config
-        tokenizer = _load_lora_tokenizer(options)
         if tokenizer is not None:
             save_tokenizer_vocabulary(output_dir, tokenizer)
         save_training_config(output_dir, inferred_options or options)
@@ -367,6 +372,7 @@ def _run_lora_training_loop(
     precision_runtime: Any,
     device: Any,
     options: LoraTrainingOptions,
+    tokenizer: ChatTokenizer | None = None,
 ) -> list[Any]:
     """Run training loop for LoRA fine-tuning.
 
@@ -377,7 +383,8 @@ def _run_lora_training_loop(
     """
     from core.types import EpochMetric
 
-    tokenizer = _load_lora_tokenizer(options)
+    if tokenizer is None:
+        tokenizer = _load_lora_tokenizer(options)
     if tokenizer is None:
         raise CrucibleServeError(
             "No tokenizer found. Provide --tokenizer-path or use a HuggingFace model ID."
@@ -415,85 +422,96 @@ def _run_lora_training_loop(
         method="lora",
     )
     epoch_metrics = []
+    epoch = start_epoch
     model.train()
-    for epoch in range(start_epoch, options.epochs + 1):
-        total_loss = 0.0
-        num_batches = 0
-        total_batches = len(batches)
-        emit_progress(
-            "training_epoch_started",
-            epoch=epoch,
-            total_epochs=options.epochs,
-        )
-        for batch_inputs, batch_labels in batches:
-            max_len = max(len(s) for s in batch_inputs)
-            input_t = torch_module.tensor(
-                [s + [0] * (max_len - len(s)) for s in batch_inputs],
-                dtype=torch_module.long, device=device,
-            )
-            label_t = torch_module.tensor(
-                [s + [-100] * (max_len - len(s)) for s in batch_labels],
-                dtype=torch_module.long, device=device,
-            )
-            optimizer.zero_grad()
-            try:
-                logits = model(input_t)
-                if hasattr(logits, "logits"):
-                    logits = logits.logits
-                shift_logits = logits[:, :-1, :].contiguous()
-                shift_labels = label_t[:, 1:].contiguous()
-                loss = loss_fn(
-                    shift_logits.view(-1, shift_logits.size(-1)),
-                    shift_labels.view(-1),
-                )
-                loss.backward()
-                torch_module.nn.utils.clip_grad_norm_(
-                    model.parameters(), max_norm=1.0,
-                )
-                optimizer.step()
-            except RuntimeError as runtime_err:
-                if "out of memory" in str(runtime_err).lower():
-                    raise CrucibleServeError(
-                        "GPU out of memory during LoRA training. Try: "
-                        "--batch-size (smaller), --max-token-length (shorter), "
-                        "or reduce --lora-rank."
-                    ) from runtime_err
-                raise
-            batch_loss = loss.item()
-            if math.isnan(batch_loss) or math.isinf(batch_loss):
-                raise CrucibleTrainingDivergedError(
-                    f"LoRA training diverged: loss is {batch_loss} at epoch {epoch}. "
-                    "Try reducing --learning-rate or checking your data."
-                )
-            total_loss += batch_loss
-            num_batches += 1
-            global_step += 1
+    try:
+        for epoch in range(start_epoch, options.epochs + 1):
+            total_loss = 0.0
+            num_batches = 0
+            total_batches = len(batches)
             emit_progress(
-                "training_batch_progress",
+                "training_epoch_started",
                 epoch=epoch,
                 total_epochs=options.epochs,
-                batch=num_batches,
-                total_batches=total_batches,
-                loss=round(batch_loss, 6),
             )
-            if is_mps:
-                torch_module.mps.empty_cache()
-        avg_loss = total_loss / max(num_batches, 1)
-        epoch_metrics.append(
-            EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=avg_loss)
-        )
-        emit_progress(
-            "training_epoch_completed",
-            epoch=epoch,
-            total_epochs=options.epochs,
-            train_loss=round(avg_loss, 6),
-        )
+            for batch_inputs, batch_labels in batches:
+                max_len = max(len(s) for s in batch_inputs)
+                input_t = torch_module.tensor(
+                    [s + [0] * (max_len - len(s)) for s in batch_inputs],
+                    dtype=torch_module.long, device=device,
+                )
+                label_t = torch_module.tensor(
+                    [s + [-100] * (max_len - len(s)) for s in batch_labels],
+                    dtype=torch_module.long, device=device,
+                )
+                optimizer.zero_grad()
+                try:
+                    logits = model(input_t)
+                    if hasattr(logits, "logits"):
+                        logits = logits.logits
+                    shift_logits = logits[:, :-1, :].contiguous()
+                    shift_labels = label_t[:, 1:].contiguous()
+                    loss = loss_fn(
+                        shift_logits.view(-1, shift_logits.size(-1)),
+                        shift_labels.view(-1),
+                    )
+                    loss.backward()
+                    torch_module.nn.utils.clip_grad_norm_(
+                        model.parameters(), max_norm=1.0,
+                    )
+                    optimizer.step()
+                except RuntimeError as runtime_err:
+                    if "out of memory" in str(runtime_err).lower():
+                        raise CrucibleServeError(
+                            "GPU out of memory during LoRA training. Try: "
+                            "--batch-size (smaller), --max-token-length (shorter), "
+                            "or reduce --lora-rank."
+                        ) from runtime_err
+                    raise
+                batch_loss = loss.item()
+                if math.isnan(batch_loss) or math.isinf(batch_loss):
+                    raise CrucibleTrainingDivergedError(
+                        f"LoRA training diverged: loss is {batch_loss} at epoch {epoch}. "
+                        "Try reducing --learning-rate or checking your data."
+                    )
+                total_loss += batch_loss
+                num_batches += 1
+                global_step += 1
+                emit_progress(
+                    "training_batch_progress",
+                    epoch=epoch,
+                    total_epochs=options.epochs,
+                    batch=num_batches,
+                    total_batches=total_batches,
+                    loss=round(batch_loss, 6),
+                )
+                if is_mps:
+                    torch_module.mps.empty_cache()
+            avg_loss = total_loss / max(num_batches, 1)
+            epoch_metrics.append(
+                EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=avg_loss)
+            )
+            emit_progress(
+                "training_epoch_completed",
+                epoch=epoch,
+                total_epochs=options.epochs,
+                train_loss=round(avg_loss, 6),
+            )
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            if checkpoint_dir is None:
+                checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
+            save_epoch_checkpoint(
+                checkpoint_dir, torch_module, model, optimizer, None, epoch, global_step, None,
+            )
+    except KeyboardInterrupt:
+        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
-        if checkpoint_dir is None:
-            checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
-        save_epoch_checkpoint(
-            checkpoint_dir, torch_module, model, optimizer, None, epoch, global_step, None,
+        emergency_dir = checkpoint_dir or ensure_checkpoint_dir(Path(options.output_dir))
+        emergency_path = save_epoch_checkpoint(
+            emergency_dir, torch_module, model, optimizer, None, epoch, global_step, None,
         )
+        print(f"Emergency checkpoint saved: {emergency_path}", flush=True)
+        raise
     return epoch_metrics
 
 

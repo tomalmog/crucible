@@ -18,7 +18,6 @@ from core.constants import (
     DEFAULT_TRAIN_CHECKPOINT_EVERY_EPOCHS,
     DEFAULT_TRAIN_EPOCHS,
     DEFAULT_TRAIN_HIDDEN_DIM,
-    DEFAULT_TRAIN_LEARNING_RATE,
     DEFAULT_TRAIN_MLP_HIDDEN_DIM,
     DEFAULT_TRAIN_MLP_LAYERS,
     DEFAULT_TRAIN_NUM_LAYERS,
@@ -49,7 +48,7 @@ class DistillationOptions:
     temperature: float = DEFAULT_DISTILLATION_TEMPERATURE
     alpha: float = DEFAULT_DISTILLATION_ALPHA
     epochs: int = DEFAULT_TRAIN_EPOCHS
-    learning_rate: float = DEFAULT_TRAIN_LEARNING_RATE
+    learning_rate: float = 5e-5
     batch_size: int = DEFAULT_BATCH_SIZE
     max_token_length: int = DEFAULT_MAX_TOKEN_LENGTH
     validation_split: float = DEFAULT_TRAIN_VALIDATION_SPLIT

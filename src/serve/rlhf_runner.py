@@ -52,6 +52,7 @@ class _RlhfContext:
     output_dir: Path
     device: Any
     training_options: TrainingOptions
+    records: list[DataRecord] | None = None
 
 
 def run_rlhf_training(
@@ -126,13 +127,14 @@ def _build_rlhf_context(
     )
     ref_model = create_reference_policy(torch_module, policy_model)
     reward_model = _resolve_reward_model(
-        torch_module, policy_model, options, device,
+        torch_module, policy_model, options, device, tokenizer,
     )
     return _RlhfContext(
         torch_module=torch_module, policy_model=policy_model,
         reward_model=reward_model, ref_model=ref_model,
         tokenizer=tokenizer, output_dir=output_dir,
         device=device, training_options=training_options,
+        records=records,
     )
 
 
@@ -153,6 +155,7 @@ def _resolve_reward_model(
     policy_model: Any,
     options: RlhfOptions,
     device: Any,
+    tokenizer: Any = None,
 ) -> Any:
     """Resolve reward model: train from data or load external."""
     hidden_dim = _infer_hidden_dim(policy_model, options.hidden_dim)
@@ -160,7 +163,7 @@ def _resolve_reward_model(
         from dataclasses import replace
         patched = replace(options, hidden_dim=hidden_dim)
         return train_reward_model(
-            torch_module, policy_model, patched, device,
+            torch_module, policy_model, patched, device, tokenizer,
         )
     if options.reward_config.reward_model_path:
         reward_model = build_reward_model_from_base(
@@ -228,45 +231,71 @@ def _run_ppo_training(
         method="rlhf",
     )
     results: list[PpoEpochResult] = []
-    for epoch_idx in range(start_epoch - 1, options.epochs):
-        emit_progress(
-            "training_epoch_started",
-            epoch=epoch_idx + 1,
-            total_epochs=options.epochs,
-        )
-        result = run_ppo_epoch(
-            torch_module=context.torch_module,
-            policy_model=context.policy_model,
-            reward_model=context.reward_model,
-            ref_model=context.ref_model,
-            prompts=prompts, ppo_config=options.ppo_config,
-            optimizer=optimizer, device=context.device,
-            epoch=epoch_idx + 1,
-        )
-        results.append(result)
-        global_step += 1
-        emit_progress(
-            "training_epoch_completed",
-            epoch=result.epoch,
-            total_epochs=options.epochs,
-            train_loss=round(result.policy_loss, 6),
-            mean_reward=round(result.mean_reward, 6),
-        )
+    epoch_idx = start_epoch - 1
+    checkpoint_dir = None
+    try:
+        for epoch_idx in range(start_epoch - 1, options.epochs):
+            emit_progress(
+                "training_epoch_started",
+                epoch=epoch_idx + 1,
+                total_epochs=options.epochs,
+            )
+            result = run_ppo_epoch(
+                torch_module=context.torch_module,
+                policy_model=context.policy_model,
+                reward_model=context.reward_model,
+                ref_model=context.ref_model,
+                prompts=prompts, ppo_config=options.ppo_config,
+                optimizer=optimizer, device=context.device,
+                epoch=epoch_idx + 1,
+            )
+            results.append(result)
+            global_step += 1
+            emit_progress(
+                "training_epoch_completed",
+                epoch=result.epoch,
+                total_epochs=options.epochs,
+                train_loss=round(result.policy_loss, 6),
+                mean_reward=round(result.mean_reward, 6),
+            )
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            checkpoint_dir = ensure_checkpoint_dir(context.output_dir)
+            save_epoch_checkpoint(
+                checkpoint_dir, context.torch_module, context.policy_model,
+                optimizer, None, epoch_idx + 1, global_step, None,
+            )
+    except KeyboardInterrupt:
+        print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
-        checkpoint_dir = ensure_checkpoint_dir(context.output_dir)
-        save_epoch_checkpoint(
-            checkpoint_dir, context.torch_module, context.policy_model,
+        emergency_dir = checkpoint_dir or ensure_checkpoint_dir(context.output_dir)
+        emergency_path = save_epoch_checkpoint(
+            emergency_dir, context.torch_module, context.policy_model,
             optimizer, None, epoch_idx + 1, global_step, None,
         )
+        print(f"Emergency checkpoint saved: {emergency_path}", flush=True)
+        raise
     return results
 
 
 def _build_prompt_batch(context: _RlhfContext) -> Any:
-    """Build a simple prompt batch from tokenizer vocabulary."""
-    vocab_size = len(context.tokenizer.vocabulary)
-    batch_size = min(4, vocab_size)
-    return context.torch_module.randint(
-        0, vocab_size, (batch_size, 16), device=context.device,
+    """Build prompt batch from training data records."""
+    max_len = context.training_options.max_token_length
+    batch_size = min(4, len(context.records)) if context.records else 4
+
+    if not context.records:
+        # Fallback: no records available, use padding tokens.
+        return context.torch_module.zeros(
+            (batch_size, max_len), dtype=context.torch_module.long,
+            device=context.device,
+        )
+
+    token_ids = []
+    for record in context.records[:batch_size]:
+        ids = context.tokenizer.encode(record.text, max_len)
+        ids = ids + [0] * (max_len - len(ids))
+        token_ids.append(ids)
+    return context.torch_module.tensor(
+        token_ids, dtype=context.torch_module.long, device=context.device,
     )
 
 
@@ -325,30 +354,8 @@ def _persist_rlhf_outputs(
 
 def _rlhf_options_to_training_options(options: RlhfOptions) -> TrainingOptions:
     """Map RlhfOptions to TrainingOptions for reuse of shared components."""
-    return TrainingOptions(
-        dataset_name=options.dataset_name,
-        output_dir=options.output_dir,
-        epochs=options.epochs,
-        learning_rate=options.learning_rate,
-        batch_size=options.batch_size,
-        max_token_length=options.max_token_length,
-        validation_split=options.validation_split,
-        precision_mode=options.precision_mode,
-        optimizer_type=options.optimizer_type,
-        weight_decay=options.weight_decay,
-        hidden_dim=options.hidden_dim,
-        num_layers=options.num_layers,
-        attention_heads=options.attention_heads,
-        mlp_hidden_dim=options.mlp_hidden_dim,
-        mlp_layers=options.mlp_layers,
-        hooks_path=options.hooks_path,
-        initial_weights_path=options.initial_weights_path,
-        checkpoint_every_epochs=options.checkpoint_every_epochs,
-        save_best_checkpoint=options.save_best_checkpoint,
-        progress_log_interval_steps=options.progress_log_interval_steps,
-        tokenizer_path=options.tokenizer_path,
-        resume_checkpoint_path=options.resume_checkpoint_path,
-    )
+    from core.training_types import options_to_training_options
+    return options_to_training_options(options, base_model_key="policy_model_path")
 
 
 def _import_torch() -> Any:
