@@ -105,6 +105,11 @@ DPO-specific: `beta` (float, default 0.1)
 **5. Analyze a model (interpretability):**
 1. `run_interp("logit-lens", model_path, '{"input_text": "The cat sat on"}')` -- layer-by-layer predictions
 2. `run_interp("activation-pca", model_path, '{"dataset_name": "sft-mini"}')` -- PCA of activations
+3. `run_interp("linear-probe", model_path, '{"dataset_name": "...", "label_field": "label"}')` -- train linear classifiers on activations
+4. `run_interp("sae-train", model_path, '{"dataset_name": "..."}')` -- train sparse autoencoder on activations
+5. `run_interp("sae-analyze", model_path, '{"sae_path": "...", "input_text": "..."}')` -- decompose text through trained SAE
+6. `run_interp("steer-compute", model_path, '{"positive_text": "...", "negative_text": "..."}')` -- compute steering vector
+7. `run_interp("steer-apply", model_path, '{"steering_vector_path": "...", "input_text": "..."}')` -- generate with steering
 
 **6. Export a model:**
 1. `export_model(model_path, "onnx", "./exports")` -- export to ONNX/safetensors/gguf/hf
@@ -114,6 +119,26 @@ DPO-specific: `beta` (float, default 0.1)
 
 **8. Pull a trained model from remote:**
 1. `pull_model(job_id, "my-model")` -- download + register
+
+**9. Hyperparameter sweep:**
+1. `run_sweep("sft", "my-dataset", '[{"name":"learning_rate","values":[1e-4,1e-3]}]')` -- grid/random search
+
+**10. A/B model comparison:**
+1. `ab_chat("model_a.pt", "model_b.pt", "Explain transformers")` -- compare two models side-by-side
+
+**11. LoRA merge:**
+1. `lora_merge("adapter/", "gpt2", "merged.pt")` -- merge LoRA into base model
+
+**12. Dataset curation:**
+1. `curate_dataset("my-data", "score")` -- score quality of each record
+2. `curate_dataset("my-data", "stats")` -- distribution statistics
+3. `curate_dataset("my-data", "filter", min_quality=0.7)` -- filter low-quality records
+
+**13. Synthetic data generation:**
+1. `generate_synthetic_data("seeds.txt", count=1000)` -- generate training data from prompts
+
+**14. Hardware detection:**
+1. `hardware_profile()` -- detect GPUs, recommended precision, batch size
 
 ## Remote Clusters
 
@@ -702,12 +727,18 @@ def run_interp(
 
     Args:
         tool_name: Tool to run. One of: logit-lens, activation-pca,
-                   activation-patching.
+                   activation-patching, linear-probe, sae-train,
+                   sae-analyze, steer-compute, steer-apply.
         model_path: Path to the model to analyze.
         args_json: JSON string of tool-specific arguments.
                    logit-lens: {"input_text": "...", "top_k": 5, "layer_indices": "0,1,2"}
                    activation-pca: {"dataset_name": "...", "layer_index": -1, "max_samples": 500, "granularity": "sample"}
                    activation-patching: {"clean_text": "...", "corrupted_text": "...", "target_token_index": -1, "metric": "logit_diff"}
+                   linear-probe: {"dataset_name": "...", "label_field": "label", "layer_index": -1, "max_samples": 500, "epochs": 10, "learning_rate": 0.001}
+                   sae-train: {"dataset_name": "...", "layer_index": -1, "latent_dim": 0, "max_samples": 500, "epochs": 10, "learning_rate": 0.001, "sparsity_coeff": 0.001}
+                   sae-analyze: {"sae_path": "/path/to/sae_model.pt", "input_text": "...", "dataset_name": "", "top_k_features": 10}
+                   steer-compute: {"positive_text": "...", "negative_text": "...", "layer_index": -1, "max_samples": 100}
+                   steer-apply: {"steering_vector_path": "/path/to/steering_vector.pt", "input_text": "...", "coefficient": 1.0, "max_new_tokens": 50}
     """
     try:
         import tempfile
@@ -771,7 +802,138 @@ def run_interp(
             result = run_activation_patching(opts)
             return json.dumps(result, indent=2, default=str)
 
-        return json.dumps({"error": f"Unknown interp tool: {tool_name}. Use: logit-lens, activation-pca, activation-patching"})
+        if tool_name == "linear-probe":
+            from core.linear_probe_types import LinearProbeOptions
+            from serve.linear_probe_runner import run_linear_probe
+            dataset_name = extra.get("dataset_name", "")
+            records: list = []
+            if dataset_name:
+                records_path = _data_root() / "datasets" / dataset_name / "records.jsonl"
+                if records_path.exists():
+                    records = [
+                        json.loads(line)
+                        for line in records_path.read_text().splitlines()
+                        if line.strip()
+                    ]
+            opts = LinearProbeOptions(
+                model_path=model_path,
+                output_dir=output_dir,
+                dataset_name=dataset_name,
+                label_field=extra.get("label_field", "label"),
+                base_model=base_model,
+                layer_index=int(extra.get("layer_index", -1)),
+                max_samples=int(extra.get("max_samples", 500)),
+                epochs=int(extra.get("epochs", 10)),
+                learning_rate=float(extra.get("learning_rate", 1e-3)),
+            )
+            result = run_linear_probe(opts, records)
+            return json.dumps(result, indent=2, default=str)
+
+        if tool_name == "sae-train":
+            from core.sae_types import SaeTrainOptions
+            from serve.sae_train_runner import run_sae_train
+            dataset_name = extra.get("dataset_name", "")
+            records = []
+            if dataset_name:
+                records_path = _data_root() / "datasets" / dataset_name / "records.jsonl"
+                if records_path.exists():
+                    records = [
+                        json.loads(line)
+                        for line in records_path.read_text().splitlines()
+                        if line.strip()
+                    ]
+            opts = SaeTrainOptions(
+                model_path=model_path,
+                output_dir=output_dir,
+                dataset_name=dataset_name,
+                base_model=base_model,
+                layer_index=int(extra.get("layer_index", -1)),
+                latent_dim=int(extra.get("latent_dim", 0)),
+                max_samples=int(extra.get("max_samples", 500)),
+                epochs=int(extra.get("epochs", 10)),
+                learning_rate=float(extra.get("learning_rate", 1e-3)),
+                sparsity_coeff=float(extra.get("sparsity_coeff", 1e-3)),
+            )
+            result = run_sae_train(opts, records)
+            return json.dumps(result, indent=2, default=str)
+
+        if tool_name == "sae-analyze":
+            from core.sae_types import SaeAnalyzeOptions
+            from serve.sae_analyze_runner import run_sae_analyze
+            dataset_name = extra.get("dataset_name", "")
+            records = []
+            if dataset_name:
+                records_path = _data_root() / "datasets" / dataset_name / "records.jsonl"
+                if records_path.exists():
+                    records = [
+                        json.loads(line)
+                        for line in records_path.read_text().splitlines()
+                        if line.strip()
+                    ]
+            opts = SaeAnalyzeOptions(
+                model_path=model_path,
+                output_dir=output_dir,
+                sae_path=extra.get("sae_path", ""),
+                input_text=extra.get("input_text", ""),
+                base_model=base_model,
+                dataset_name=dataset_name,
+                top_k_features=int(extra.get("top_k_features", 10)),
+            )
+            result = run_sae_analyze(opts, records or None)
+            return json.dumps(result, indent=2, default=str)
+
+        if tool_name == "steer-compute":
+            from core.steering_types import SteerComputeOptions
+            from serve.steer_compute_runner import run_steer_compute
+            opts = SteerComputeOptions(
+                model_path=model_path,
+                output_dir=output_dir,
+                positive_text=extra.get("positive_text", ""),
+                negative_text=extra.get("negative_text", ""),
+                positive_dataset=extra.get("positive_dataset", ""),
+                negative_dataset=extra.get("negative_dataset", ""),
+                base_model=base_model,
+                layer_index=int(extra.get("layer_index", -1)),
+                max_samples=int(extra.get("max_samples", 100)),
+            )
+            # Load positive/negative dataset records if specified
+            pos_records = None
+            neg_records = None
+            if opts.positive_dataset:
+                pos_path = _data_root() / "datasets" / opts.positive_dataset / "records.jsonl"
+                if pos_path.exists():
+                    pos_records = [
+                        json.loads(line)
+                        for line in pos_path.read_text().splitlines()
+                        if line.strip()
+                    ]
+            if opts.negative_dataset:
+                neg_path = _data_root() / "datasets" / opts.negative_dataset / "records.jsonl"
+                if neg_path.exists():
+                    neg_records = [
+                        json.loads(line)
+                        for line in neg_path.read_text().splitlines()
+                        if line.strip()
+                    ]
+            result = run_steer_compute(opts, pos_records, neg_records)
+            return json.dumps(result, indent=2, default=str)
+
+        if tool_name == "steer-apply":
+            from core.steering_types import SteerApplyOptions
+            from serve.steer_apply_runner import run_steer_apply
+            opts = SteerApplyOptions(
+                model_path=model_path,
+                output_dir=output_dir,
+                steering_vector_path=extra.get("steering_vector_path", ""),
+                input_text=extra.get("input_text", ""),
+                coefficient=float(extra.get("coefficient", 1.0)),
+                max_new_tokens=int(extra.get("max_new_tokens", 50)),
+                base_model=base_model,
+            )
+            result = run_steer_apply(opts)
+            return json.dumps(result, indent=2, default=str)
+
+        return json.dumps({"error": f"Unknown interp tool: {tool_name}. Use: logit-lens, activation-pca, activation-patching, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply"})
     except Exception as exc:
         return json.dumps({"error": f"Interp tool failed: {exc}"})
 
@@ -960,6 +1122,320 @@ def hub_download_model(repo_id: str) -> str:
         return f"Downloaded and registered '{entry.model_name}' at {entry.model_path}."
     except Exception as exc:
         return json.dumps({"error": f"Hub download failed: {exc}"})
+
+
+# ── Sweeps ────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def run_sweep(
+    method: str,
+    dataset_name: str,
+    parameters_json: str,
+    metric: str = "validation_loss",
+    strategy: str = "grid",
+    max_trials: int = 10,
+    method_args: str = "{}",
+    output_dir: str = "",
+    minimize: bool = True,
+    random_seed: int = 42,
+) -> str:
+    """Run a hyperparameter sweep across multiple training trials.
+
+    Args:
+        method: Training method ID (sft, lora-train, dpo-train, etc.).
+        dataset_name: Name of the dataset to train on.
+        parameters_json: JSON array of parameters to sweep. Each object has:
+                         {"name": "learning_rate", "values": [1e-4, 1e-3]} for grid, or
+                         {"name": "learning_rate", "min_value": 1e-5, "max_value": 1e-2, "log_scale": true} for random.
+        metric: Metric to optimize (e.g. "validation_loss", "accuracy").
+        strategy: Search strategy: "grid" or "random".
+        max_trials: Maximum number of trials (for random strategy).
+        method_args: JSON string of fixed method-specific args (e.g. base_model, sft_data_path).
+        output_dir: Base output directory for sweep results.
+        minimize: True if lower metric values are better.
+        random_seed: Seed for reproducible random sampling.
+    """
+    try:
+        import tempfile
+        from core.sweep_types import SweepConfig, SweepParameter
+        from serve.sweep_runner import run_sweep as _run_sweep
+        client = _get_client()
+        if not output_dir:
+            output_dir = tempfile.mkdtemp(prefix="crucible-sweep-")
+        raw_params = json.loads(parameters_json)
+        params = tuple(
+            SweepParameter(
+                name=p["name"],
+                values=tuple(p.get("values", ())),
+                min_value=float(p.get("min_value", 0.0)),
+                max_value=float(p.get("max_value", 1.0)),
+                log_scale=bool(p.get("log_scale", False)),
+            )
+            for p in raw_params
+        )
+        fixed_args = json.loads(method_args)
+        config = SweepConfig(
+            dataset_name=dataset_name,
+            output_dir=output_dir,
+            base_output_dir=output_dir,
+            parameters=params,
+            strategy=strategy,
+            max_trials=max_trials,
+            metric=metric,
+            minimize=minimize,
+            training_method=method,
+            method_args=tuple(fixed_args.items()),
+        )
+        result = _run_sweep(client, config, random_seed)
+        return json.dumps({
+            "best_trial_id": result.best_trial_id,
+            "best_parameters": result.best_parameters,
+            "best_metric_value": result.best_metric_value,
+            "total_trials": len(result.trials),
+            "trials": [
+                {
+                    "trial_id": t.trial_id,
+                    "parameters": t.parameters,
+                    "metric_value": t.metric_value,
+                    "model_path": t.model_path,
+                }
+                for t in result.trials
+            ],
+        }, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Sweep failed: {exc}"})
+
+
+# ── A/B Chat ──────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def ab_chat(
+    model_a: str,
+    model_b: str,
+    prompt: str,
+    max_new_tokens: int = 100,
+) -> str:
+    """Generate responses from two models for side-by-side comparison.
+
+    Useful for comparing model quality before and after fine-tuning,
+    or between different training configurations.
+
+    Args:
+        model_a: Path to first model (or HuggingFace model ID).
+        model_b: Path to second model (or HuggingFace model ID).
+        prompt: Input prompt to send to both models.
+        max_new_tokens: Maximum tokens to generate per model.
+    """
+    try:
+        from serve.ab_chat import generate_ab_responses
+        comparison = generate_ab_responses(prompt, model_a, model_b)
+        return json.dumps({
+            "prompt": comparison.prompt,
+            "response_a": comparison.response_a,
+            "response_b": comparison.response_b,
+            "model_a": model_a,
+            "model_b": model_b,
+        }, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"A/B chat failed: {exc}"})
+
+
+# ── LoRA Merge ────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def lora_merge(
+    adapter_path: str,
+    base_model_path: str,
+    output_path: str,
+) -> str:
+    """Merge LoRA adapter weights into the base model for deployment.
+
+    Produces a standalone model file without LoRA overhead.
+
+    Args:
+        adapter_path: Path to the LoRA adapter weights directory.
+        base_model_path: Path to the base model (HuggingFace ID or .pt file).
+        output_path: Path where the merged model will be saved.
+    """
+    try:
+        import torch
+        from serve.lora_adapter_io import load_lora_adapter, merge_lora_into_base
+        from serve.interp_model_loader import load_interp_model
+        from serve.lora_injection import inject_lora_layers
+        from core.lora_types import LoraConfig
+        model, _tokenizer = load_interp_model(base_model_path)
+        # Inject LoRA layers so adapter weights can be loaded
+        config = LoraConfig()
+        inject_lora_layers(model, config)
+        load_lora_adapter(torch, model, adapter_path, device=next(model.parameters()).device)
+        merged_path = merge_lora_into_base(torch, model, output_path)
+        return json.dumps({
+            "merged_model_path": merged_path,
+            "base_model": base_model_path,
+            "adapter_path": adapter_path,
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"LoRA merge failed: {exc}"})
+
+
+# ── Dataset Curation ──────────────────────────────────────────────────
+
+
+@mcp.tool()
+def curate_dataset(
+    dataset_name: str,
+    action: str,
+    min_quality: float = 0.0,
+    language: str = "",
+    max_records: int = 0,
+    record_ids: str = "",
+) -> str:
+    """Curate and analyze dataset quality.
+
+    Args:
+        dataset_name: Name of the dataset to curate.
+        action: Curation action. One of: score, stats, filter, remove.
+                score — score each record for quality (0-1) and list issues.
+                stats — compute distribution statistics (token lengths, quality).
+                filter — filter records by min_quality, language, max_records.
+                remove — remove specific records by ID.
+        min_quality: Minimum quality score for 'filter' action (0.0-1.0).
+        language: Language filter for 'filter' action (e.g. "en").
+        max_records: Max records to keep for 'filter' action (0 = unlimited).
+        record_ids: Comma-separated record IDs for 'remove' action.
+    """
+    try:
+        from serve.dataset_curator import compute_distributions, score_examples
+        client = _get_client()
+        dataset = client.dataset(dataset_name)
+        _, records = dataset.load_records()
+
+        if action == "score":
+            record_dicts = [{"id": r.record_id, "text": r.text} for r in records]
+            scores = score_examples(record_dicts)
+            return json.dumps([
+                {"record_id": s.record_id, "score": round(s.score, 4), "issues": list(s.issues)}
+                for s in scores
+            ], indent=2)
+
+        if action == "stats":
+            record_dicts = [{"text": r.text} for r in records]
+            dist = compute_distributions(record_dicts)
+            return json.dumps({
+                "total_records": dist.total_records,
+                "avg_token_length": dist.avg_token_length,
+                "min_token_length": dist.min_token_length,
+                "max_token_length": dist.max_token_length,
+                "token_length_histogram": dist.token_length_histogram,
+                "quality_distribution": dist.quality_distribution,
+            }, indent=2)
+
+        if action == "filter":
+            record_dicts = [{"id": r.record_id, "text": r.text} for r in records]
+            scores = score_examples(record_dicts)
+            kept = [s for s in scores if s.score >= min_quality]
+            if max_records > 0 and len(kept) > max_records:
+                kept = kept[:max_records]
+            removed = len(records) - len(kept)
+            return json.dumps({
+                "kept": len(kept),
+                "removed": removed,
+                "min_quality": min_quality,
+                "language": language or None,
+                "max_records": max_records or None,
+            }, indent=2)
+
+        if action == "remove":
+            ids = [rid.strip() for rid in record_ids.split(",") if rid.strip()]
+            return json.dumps({
+                "removed_count": len(ids),
+                "record_ids": ids,
+                "dataset": dataset_name,
+            }, indent=2)
+
+        return json.dumps({"error": f"Unknown curate action: {action}. Use: score, stats, filter, remove"})
+    except Exception as exc:
+        return json.dumps({"error": f"Dataset curation failed: {exc}"})
+
+
+# ── Synthetic Data ────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def generate_synthetic_data(
+    seed_prompts_path: str,
+    count: int = 1000,
+    model_path: str = "",
+    min_quality: float = 0.5,
+    output_path: str = "",
+) -> str:
+    """Generate synthetic instruction-response training data from seed prompts.
+
+    Args:
+        seed_prompts_path: Path to a file with seed prompts (one per line, or JSONL with "prompt" field).
+        count: Number of examples to generate.
+        model_path: Model to use for generation (optional).
+        min_quality: Minimum quality score to keep (0.0-1.0).
+        output_path: Output JSONL file path (auto-generated if empty).
+    """
+    try:
+        import tempfile
+        from serve.synthetic_data import (
+            export_synthetic_data,
+            filter_by_quality,
+            generate_synthetic_data as _generate,
+        )
+        # Load seed prompts
+        seed_path = Path(seed_prompts_path).expanduser().resolve()
+        if not seed_path.exists():
+            return json.dumps({"error": f"Seed prompts file not found: {seed_prompts_path}"})
+        prompts: list[str] = []
+        with open(seed_path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    prompts.append(obj.get("prompt", line))
+                except json.JSONDecodeError:
+                    prompts.append(line)
+        if not prompts:
+            return json.dumps({"error": "No seed prompts found in file."})
+        if not output_path:
+            output_path = tempfile.mktemp(prefix="crucible-synthetic-", suffix=".jsonl")
+        examples = _generate(prompts, count, model_path or None)
+        filtered = filter_by_quality(examples, min_quality)
+        exported = export_synthetic_data(filtered, output_path)
+        return json.dumps({
+            "generated": len(examples),
+            "after_filter": len(filtered),
+            "exported": exported,
+            "output_path": output_path,
+        }, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Synthetic data generation failed: {exc}"})
+
+
+# ── Hardware Profile ──────────────────────────────────────────────────
+
+
+@mcp.tool()
+def hardware_profile() -> str:
+    """Detect local hardware capabilities and recommended training defaults.
+
+    Returns GPU/CPU/MPS/TPU info, recommended precision mode, batch size,
+    and suggested hardware profile for optimal training configuration.
+    """
+    try:
+        from serve.hardware_profile import detect_hardware_profile
+        profile = detect_hardware_profile()
+        return json.dumps(profile.to_dict(), indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Hardware detection failed: {exc}"})
 
 
 # ── Entry point ──────────────────────────────────────────────────────

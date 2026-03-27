@@ -57,7 +57,7 @@ Crucible .pt models use the custom training loop.
 - Job store: `src/store/job_store.py`
 - Config: `src/core/config.py`
 
-## MCP Server (27 tools)
+## MCP Server (33 tools)
 
 `crucible mcp-server` starts the MCP server for Claude Code integration.
 
@@ -75,16 +75,17 @@ Crucible .pt models use the custom training loop.
 ```
 
 **Tools by category:**
-- **Datasets:** list_datasets, ingest_dataset, delete_dataset, push_dataset, list_remote_datasets
-- **Models:** list_models, register_model, delete_model, pull_model, merge_models
-- **Training:** train (local, any method), submit_remote_training (GPU cluster)
+- **Datasets:** list_datasets, ingest_dataset, delete_dataset, push_dataset, list_remote_datasets, curate_dataset, generate_synthetic_data
+- **Models:** list_models, register_model, delete_model, pull_model, merge_models, lora_merge
+- **Training:** train (local, any of 13 methods), submit_remote_training (GPU cluster), run_sweep
 - **Jobs:** list_jobs, job_status, job_logs, job_result, cancel_job, delete_job
 - **Eval:** run_benchmark, submit_remote_eval
-- **Interp:** run_interp (logit-lens, activation-pca, activation-patching)
+- **Interp:** run_interp (all 8 tools: logit-lens, activation-pca, activation-patching, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply)
 - **Export:** export_model (onnx, safetensors, gguf, hf)
-- **Chat:** chat
+- **Chat:** chat, ab_chat
 - **Clusters:** list_clusters, cluster_info
 - **Hub:** hub_search_models, hub_download_model
+- **System:** hardware_profile
 
 The MCP server's `instructions` field contains the full reference for data formats,
 training methods, arguments, and workflows. Claude reads this at session start.
