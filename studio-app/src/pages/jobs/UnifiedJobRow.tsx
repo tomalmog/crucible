@@ -392,8 +392,8 @@ export function UnifiedJobRow({
         </div>
       )}
 
-      {/* Progress strip (local running jobs) */}
-      {isLocal && localTask && localTask.status === "running" && (
+      {/* Progress strip (local running jobs, not pending dispatch) */}
+      {isLocal && localTask && localTask.status === "running" && job.state !== "pending" && (
         <>
           <div className="job-progress-strip">
             <div className="job-progress-strip-fill" style={{ width: `${localTask.progress_percent}%` }} />
@@ -405,8 +405,8 @@ export function UnifiedJobRow({
         </>
       )}
 
-      {/* Inline metrics (local running jobs with training progress) */}
-      {isLocal && localTask && localTask.status === "running" && progress && (
+      {/* Inline metrics (local running jobs with training progress, not pending) */}
+      {isLocal && localTask && localTask.status === "running" && progress && job.state !== "pending" && (
         <div className="job-progress-meta">
           <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
           {progress.loss != null && <span>Loss: {progress.loss.toFixed(4)}</span>}
