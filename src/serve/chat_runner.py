@@ -24,6 +24,7 @@ from serve.huggingface_tokenizer import AutoTokenizerAdapter
 from serve.model_format import detect_model_format
 from serve.model_weights import load_initial_weights, read_model_state_dict
 from serve.onnx_chat_runner import run_onnx_chat
+from serve.tokenization import collect_stop_token_ids
 from serve.training_setup import validate_training_options
 
 
@@ -245,11 +246,12 @@ def _generate_response_text(context: ChatRuntimeContext) -> str:
     prompt_ids = context.tokenizer.encode(options.prompt, context.max_context_tokens)
     if not prompt_ids:
         prompt_ids = [1]
+    stop_ids = collect_stop_token_ids(context.tokenizer)
     generated_ids: list[int] = []
     context_ids = list(prompt_ids)
     for _ in range(options.max_new_tokens):
         next_token_id = _sample_next_token(context, context_ids)
-        if next_token_id == 0:
+        if next_token_id in stop_ids:
             break
         context_ids.append(next_token_id)
         generated_ids.append(next_token_id)

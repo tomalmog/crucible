@@ -86,8 +86,11 @@ def _generate_tokens(
     hook_layer: str = "", hook_fn: Any = None,
 ) -> Tensor:
     """Simple greedy generation loop."""
+    from serve.tokenization import collect_stop_token_ids
+
     current_ids = input_ids.clone()
     hook_handle = None
+    stop_ids = collect_stop_token_ids(tokenizer)
 
     if hook_layer and hook_fn:
         module = _get_module_by_name(model, hook_layer)
@@ -103,9 +106,7 @@ def _generate_tokens(
                     logits = outputs
                 next_token = logits[0, -1].argmax(dim=-1, keepdim=True)
                 current_ids = torch.cat([current_ids, next_token.unsqueeze(0)], dim=1)
-                # Stop on EOS if tokenizer has it
-                eos_id = getattr(tokenizer, "eos_token_id", None)
-                if eos_id is not None and int(next_token) == eos_id:
+                if int(next_token) in stop_ids:
                     break
     finally:
         if hook_handle:

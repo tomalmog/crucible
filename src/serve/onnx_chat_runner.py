@@ -14,6 +14,7 @@ from core.chat_types import ChatOptions, ChatTokenizer
 from core.errors import CrucibleDependencyError, CrucibleServeError
 from core.types import DataRecord
 from serve.chat_option_resolver import resolve_chat_tokenizer, resolve_chat_training_options
+from serve.tokenization import collect_stop_token_ids
 
 
 @dataclass
@@ -122,10 +123,11 @@ def _generate_response_text(context: OnnxChatContext) -> str:
     options = context.options
     prompt_ids = context.tokenizer.encode(options.prompt, context.max_context_tokens)
     context_ids = prompt_ids if prompt_ids else [1]
+    stop_ids = collect_stop_token_ids(context.tokenizer)
     generated_ids: list[int] = []
     for _ in range(options.max_new_tokens):
         next_token_id = _sample_next_token(context, context_ids)
-        if next_token_id == 0:
+        if next_token_id in stop_ids:
             break
         context_ids.append(next_token_id)
         generated_ids.append(next_token_id)
@@ -198,3 +200,5 @@ def _is_word_level_tokenizer(tokenizer: Any) -> bool:
     from serve.tokenization import VocabularyTokenizer
 
     return isinstance(tokenizer, VocabularyTokenizer)
+
+

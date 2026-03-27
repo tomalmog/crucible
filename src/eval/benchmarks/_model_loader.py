@@ -226,11 +226,12 @@ def generate_text(
     Returns:
         Generated text (excluding prompt).
     """
+    from serve.tokenization import collect_stop_token_ids
+
     torch = eval_model.torch_module
     context_ids = eval_model.tokenizer.encode(prompt, eval_model.max_token_length)
     generated: list[int] = []
-
-    eos_id = getattr(eval_model.tokenizer, "eos_token_id", 0)
+    stop_ids = collect_stop_token_ids(eval_model.tokenizer)
 
     for _ in range(max_new_tokens):
         window = context_ids[-(eval_model.max_token_length):]
@@ -239,7 +240,7 @@ def generate_text(
             output = eval_model.model(tensor)
         logits = output.logits if hasattr(output, "logits") else output
         next_id = int(logits[0, -1, :].argmax().item())
-        if next_id == 0 or next_id == eos_id:
+        if next_id in stop_ids:
             break
         context_ids.append(next_id)
         generated.append(next_id)
