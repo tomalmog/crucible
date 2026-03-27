@@ -244,6 +244,10 @@ def generate_text(
         context_ids.append(next_id)
         generated.append(next_id)
 
+    # Free CUDA cache to prevent fragmentation across repeated generation calls
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return eval_model.tokenizer.decode(generated)
 
 

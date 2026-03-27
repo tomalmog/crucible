@@ -10,6 +10,21 @@ type DownloadStatus = "idle" | "downloading" | "done" | "error";
 type Destination = "local" | "remote";
 type DownloadKind = "model" | "dataset";
 
+function _extractErrorMessage(stderr: string | undefined): string {
+  if (!stderr) return "";
+  const lines = stderr.split("\n");
+  // Walk backwards to find the last CrucibleError or Python exception line
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const crucible = line.match(/Crucible\w+Error:\s*(.+)/);
+    if (crucible) return crucible[1];
+    const pyErr = line.match(/^\w+Error:\s*(.+)/);
+    if (pyErr) return line;
+  }
+  return stderr.slice(-300);
+}
+
 interface DownloadModalProps {
   repoId: string;
   targetDir: string;
@@ -72,7 +87,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
 
       const success = status.status === "completed";
       setDlStatus(success ? "done" : "error");
-      if (!success) setStatusMsg(status.stderr?.slice(0, 300) || "Download failed");
+      if (!success) setStatusMsg(_extractErrorMessage(status.stderr) || "Download failed");
       if (success) {
         setStatusMsg("Complete!");
         onComplete();

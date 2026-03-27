@@ -187,12 +187,18 @@ def _run_snapshot_download(
     repo_type: str = "model",
 ) -> None:
     """Execute ``huggingface_hub.snapshot_download`` on the remote."""
+    import os
+
     rev_arg = f', revision="{revision}"' if revision else ""
     type_arg = f', repo_type="{repo_type}"' if repo_type != "model" else ""
+    token_arg = ""
+    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or ""
+    if hf_token:
+        token_arg = f', token="{hf_token}"'
     script = (
         "from huggingface_hub import snapshot_download; "
         f'p = snapshot_download("{repo_id}", '
-        f'local_dir="{target_dir}"{rev_arg}{type_arg}); '
+        f'local_dir="{target_dir}"{rev_arg}{type_arg}{token_arg}); '
         f'print("downloaded_to=" + str(p))'
     )
     stdout, stderr, code = session.execute(

@@ -84,7 +84,7 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
             status = result.get("status", "")
             if status == "completed":
                 return "completed"
-            if status in ("failed", "partial"):
+            if status == "failed":
                 return "failed"
         except (json.JSONDecodeError, ValueError):
             pass

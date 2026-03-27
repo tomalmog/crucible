@@ -7,6 +7,7 @@ function completions and runs test cases in isolated subprocesses.
 
 from __future__ import annotations
 
+import resource
 import subprocess
 import tempfile
 from pathlib import Path
@@ -16,6 +17,7 @@ from eval.benchmarks._model_loader import EvalModel, generate_text, load_eval_mo
 
 
 _EXEC_TIMEOUT_SECONDS = 10
+_EXEC_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024  # 512 MB
 
 
 def run_humaneval(
@@ -61,6 +63,11 @@ def run_humaneval(
     )
 
 
+def _limit_subprocess_memory() -> None:
+    """Cap virtual memory so generated code cannot OOM the parent process."""
+    resource.setrlimit(resource.RLIMIT_AS, (_EXEC_MEMORY_LIMIT_BYTES, _EXEC_MEMORY_LIMIT_BYTES))
+
+
 def _check_solution(code: str, test_code: str, entry_point: str) -> bool:
     """Execute generated code with test cases in an isolated subprocess."""
     script = f"{code}\n\n{test_code}\n\ncheck({entry_point})\n"
@@ -74,6 +81,7 @@ def _check_solution(code: str, test_code: str, entry_point: str) -> bool:
             ["python", str(tmp_path)],
             capture_output=True,
             timeout=_EXEC_TIMEOUT_SECONDS,
+            preexec_fn=_limit_subprocess_memory,
             check=False,
         )
         return result.returncode == 0
