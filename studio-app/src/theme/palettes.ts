@@ -1,6 +1,7 @@
 /**
  * Color palette definitions for the palette switcher.
- * Each palette generates a full set of CSS custom property overrides.
+ * Each palette generates CSS custom property overrides for both
+ * light and dark themes, derived from a compact seed.
  */
 
 export interface ColorPalette {
@@ -8,6 +9,7 @@ export interface ColorPalette {
   name: string;
   preview: [string, string, string, string];
   vars: Record<string, string>;
+  darkVars: Record<string, string>;
 }
 
 /* ---- Color math helpers ---- */
@@ -75,6 +77,8 @@ function gray(h: number, s: number, l: number): string {
 
 function makePalette(p: PaletteSeed): ColorPalette {
   const { grayH: h, grayS: s } = p;
+  const darkBg = gray(h, s, 8);
+  const darkSidebar = gray(h, s, 5);
   return {
     id: p.id,
     name: p.name,
@@ -110,6 +114,38 @@ function makePalette(p: PaletteSeed): ColorPalette {
       "--shadow-sm": "0 1px 2px rgba(0,0,0,0.05)",
       "--shadow-md": "0 2px 8px rgba(0,0,0,0.08)",
       "--shadow-lg": "0 8px 24px rgba(0,0,0,0.12)",
+    },
+    darkVars: {
+      "--gray-50":  gray(h, s, 8),
+      "--gray-100": gray(h, s, 11),
+      "--gray-150": gray(h, s, 14),
+      "--gray-200": gray(h, s, 18),
+      "--gray-300": gray(h, s, 24),
+      "--gray-400": gray(h, s, 35),
+      "--gray-500": gray(h, s, 49),
+      "--gray-600": gray(h, s, 64),
+      "--gray-700": gray(h, s, 72),
+      "--gray-800": gray(h, s, 82),
+      "--gray-900": gray(h, s, 90),
+      "--gray-950": gray(h, s, 95),
+      "--accent-hue": p.accentLight,
+      "--accent-light": p.accent,
+      "--accent-dark": p.accentLight,
+      "--bg-base": darkBg,
+      "--bg-input": gray(h, s, 11),
+      "--sidebar-bg": darkSidebar,
+      "--sidebar-bg-hover": shiftLight(darkSidebar, 5),
+      "--sidebar-bg-active": shiftLight(darkSidebar, 10),
+      "--sidebar-text": gray(h, s, 60),
+      "--sidebar-text-active": gray(h, s, 92),
+      "--sidebar-text-dim": gray(h, s, 35),
+      "--sidebar-border": "rgba(255,255,255,0.06)",
+      "--text-inverse": darkBg,
+      "--accent-muted": hexToRgba(p.accentLight, 0.15),
+      "--chart-2": p.accentLight,
+      "--shadow-sm": "0 1px 2px rgba(0,0,0,0.3)",
+      "--shadow-md": "0 2px 8px rgba(0,0,0,0.4)",
+      "--shadow-lg": "0 8px 24px rgba(0,0,0,0.5)",
     },
   };
 }

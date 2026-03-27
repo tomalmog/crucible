@@ -96,38 +96,12 @@
 }
 
 [data-theme="dark"] {
-    /* ── Foundation ── */
-    --bg-base: #1e1408;
-    --bg-surface: #28190a;
-    --bg-elevated: #352210;
-    --bg-hover: #352210;
-    --bg-active: #4a3218;
-    --bg-input: #28190a;
+    /* Foundation, grays, sidebar, borders, text, accent, and shadows
+       are all provided by the active palette's darkVars (inline styles).
+       Only semantic colors need a CSS-level dark override. */
 
-    /* ── Sidebar ── */
-    --sidebar-bg: #140d04;
-    --sidebar-bg-hover: #28190a;
-    --sidebar-bg-active: #38240D;
-    --sidebar-text: #a89680;
-    --sidebar-text-active: #FDFBD4;
-    --sidebar-text-dim: #6b5538;
-    --sidebar-border: rgba(253, 251, 212, 0.06);
-
-    /* ── Borders ── */
-    --border: #4a3218;
-    --border-light: #3a2610;
-    --border-hover: #5c4025;
-
-    /* ── Text ── */
-    --text: #FDFBD4;
-    --text-secondary: #c4a882;
-    --text-tertiary: #7a6040;
-
-    /* ── Accent ── */
-    --accent: #d46a15;
-    --accent-hover: #e88030;
-    --accent-muted: rgba(212, 106, 21, 0.15);
-    --accent-text: #e88030;
+    --accent-hover: var(--accent-light);
+    --accent-text: var(--accent-light);
 
     /* ── Semantic ── */
     --success: #4ade80;
@@ -136,9 +110,4 @@
     --warning-muted: rgba(251, 191, 36, 0.1);
     --error: #f87171;
     --error-muted: rgba(248, 113, 113, 0.1);
-
-    /* ── Shadows ── */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
