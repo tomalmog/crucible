@@ -85,7 +85,7 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
         if (layerIndices.trim()) args.push("--layer-indices", layerIndices);
         await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       }
-      navigate("/jobs");
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

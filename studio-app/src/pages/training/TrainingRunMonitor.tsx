@@ -1,15 +1,9 @@
-import { useEffect, useRef, useMemo } from "react";
-import { CommandProgress } from "../../components/shared/CommandProgress";
-import { formatDuration } from "../../components/shared/formatDuration";
-
-interface TrainingRunMonitorProps {
-  command: {
-    isRunning: boolean;
-    status: { progress_percent: number; elapsed_seconds: number; remaining_seconds: number } | null;
-    output: string;
-    error: string | null;
-  };
-}
+/**
+ * Training progress parsing utilities.
+ *
+ * Used by UnifiedJobRow to extract epoch/batch/loss info from
+ * training stdout for inline display on the Jobs page.
+ */
 
 export interface TrainingProgress {
   epoch: number;
@@ -49,121 +43,4 @@ export function parseTrainingProgress(stdout: string): TrainingProgress | null {
     }
   }
   return null;
-}
-
-export function TrainingRunMonitor({ command }: TrainingRunMonitorProps) {
-  const consoleRef = useRef<HTMLPreElement>(null);
-  const progress = useMemo(
-    () => parseTrainingProgress(command.output),
-    [command.output],
-  );
-
-  // Auto-scroll console to bottom when new output arrives
-  useEffect(() => {
-    if (consoleRef.current) {
-      consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
-    }
-  }, [command.output]);
-
-  const epochPercent = progress
-    ? (progress.epoch / progress.totalEpochs) * 100
-    : null;
-
-  return (
-    <div className="stack-lg">
-      {progress && (
-        <div className="panel">
-          <h4 className="panel-title">Training Progress</h4>
-          <div className="training-progress-grid">
-            <div className="progress-bar">
-              <div className="progress-bar-header">
-                <span className="progress-label">
-                  Epoch {progress.epoch} / {progress.totalEpochs}
-                </span>
-                <span className="progress-value">
-                  {epochPercent !== null ? `${epochPercent.toFixed(0)}%` : ""}
-                </span>
-              </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, epochPercent ?? 0))}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {progress.batch != null && progress.totalBatches != null && (
-              <div className="progress-bar">
-                <div className="progress-bar-header">
-                  <span className="progress-label">
-                    Batch {progress.batch} / {progress.totalBatches}
-                  </span>
-                  <span className="progress-value">
-                    {((progress.batch / progress.totalBatches) * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="progress-track">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        (progress.batch / progress.totalBatches) * 100,
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="training-metrics">
-              {progress.loss != null && (
-                <span>
-                  Loss: <strong>{progress.loss.toFixed(4)}</strong>
-                </span>
-              )}
-              {progress.validationLoss != null && (
-                <span>
-                  Val Loss: <strong>{progress.validationLoss.toFixed(4)}</strong>
-                </span>
-              )}
-              {progress.meanReward != null && (
-                <span>
-                  Reward: <strong>{progress.meanReward.toFixed(4)}</strong>
-                </span>
-              )}
-              {progress.etaSeconds != null && (
-                <span>ETA: {formatDuration(progress.etaSeconds)}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!progress && command.status && (
-        <CommandProgress
-          label="Training in progress..."
-          percent={command.status.progress_percent}
-          elapsed={command.status.elapsed_seconds}
-          remaining={command.status.remaining_seconds}
-        />
-      )}
-
-      <div className="panel">
-        <h4 className="panel-title">Console Output</h4>
-        <pre className="console-tall" ref={consoleRef}>
-          {command.output || "Waiting for output..."}
-        </pre>
-      </div>
-
-      {command.error && (
-        <div className="panel">
-          <h4 className="panel-title error-text">Error</h4>
-          <p className="error-text text-sm">{command.error}</p>
-        </div>
-      )}
-    </div>
-  );
 }

@@ -149,7 +149,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       }
 
       await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName), cfg);
-      navigate("/jobs");
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

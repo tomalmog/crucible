@@ -100,7 +100,7 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
         ];
         await startCrucibleCommand(dataRoot, args, label, cfg);
       }
-      navigate("/jobs");
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

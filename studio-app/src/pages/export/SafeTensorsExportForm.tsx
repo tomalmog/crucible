@@ -55,7 +55,7 @@ export function SafeTensorsExportForm() {
       const label = jobLabel("safetensors-export", modelPath);
       const cfg = snapshotConfig();
       await startCrucibleCommand(dataRoot, args, label, cfg);
-      navigate("/jobs");
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

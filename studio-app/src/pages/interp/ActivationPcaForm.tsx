@@ -98,7 +98,7 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
         if (colorField.trim()) args.push("--color-field", colorField);
         await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       }
-      navigate("/jobs");
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

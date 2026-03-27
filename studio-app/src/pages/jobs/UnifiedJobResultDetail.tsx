@@ -210,7 +210,7 @@ function LocalFailedView({ job, localTask, onBack, config }: { job: JobRecord; l
   const error = extractCrucibleError(localTask.stderr);
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>Job Failed: {job.label || job.jobType}</h3>
       {error && <div className="error-alert-prominent">{error}</div>}
       {localTask.stderr && (
@@ -232,7 +232,7 @@ function LocalTrainingView({ job, localTask, onBack, config }: { job: JobRecord;
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobType} — Result</h3>
       <div className="stats-grid">
         {result.epochs_completed && (
@@ -267,7 +267,7 @@ function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; l
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{label} — Result</h3>
       {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as LogitLensResult} />}
       {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as PcaResult} />}
@@ -298,7 +298,7 @@ function LocalExportView({ job, localTask, onBack, config }: { job: JobRecord; l
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || exportLabel} — Result</h3>
       {parsed && job.jobType === "onnx-export" && <OnnxExportResults result={parsed as OnnxExportResult} />}
       {parsed && job.jobType === "safetensors-export" && <SafeTensorsExportResults result={parsed as SafeTensorsExportResult} />}
@@ -313,7 +313,7 @@ function LocalExportView({ job, localTask, onBack, config }: { job: JobRecord; l
 interface SweepTrial { trial_id: number; parameters: Record<string, number>; metric_value: number; model_path: string }
 interface SweepData { trials: SweepTrial[]; best_trial_id: number; best_parameters: Record<string, number>; best_metric_value: number }
 
-function LocalSweepView({ localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
+function LocalSweepView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const data = useMemo(() => {
     try {
       const lines = localTask.stdout.split("\n");
@@ -327,7 +327,7 @@ function LocalSweepView({ localTask, onBack, config }: { job: JobRecord; localTa
 
   if (!data) {
     return (
-      <div className="panel stack"><DetailHeader onBack={onBack} config={config} /><h3>Sweep Results</h3><pre className="console">{localTask.stdout}</pre></div>
+      <div className="panel stack"><DetailHeader onBack={onBack} config={config} jobType={job.jobType} /><h3>Sweep Results</h3><pre className="console">{localTask.stdout}</pre></div>
     );
   }
 
@@ -335,7 +335,7 @@ function LocalSweepView({ localTask, onBack, config }: { job: JobRecord; localTa
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>Sweep Results</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Total Trials</span><span className="metric-value">{data.trials.length}</span></div>
@@ -380,7 +380,7 @@ function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; loc
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobType} — Evaluation Results</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
@@ -410,7 +410,7 @@ function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; loc
 function LocalGenericView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobType} — Result</h3>
       {localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
       {localTask.stderr && (<details><summary>stderr</summary><pre className="console console-short">{localTask.stderr}</pre></details>)}
@@ -449,7 +449,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 
   if (loading) {
     return (
-      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><Loader2 size={24} className="spin" /></div>
       </div>
     );
@@ -457,7 +457,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 
   if (error) {
     return (
-      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
         <h3>{job.label || job.jobId} — Result</h3>
         <div className="error-alert-prominent">{error}</div>
       </div>
@@ -466,7 +466,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
 
   if (!result || Object.keys(result).length === 0) {
     return (
-      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} />
+      <div className="panel stack-lg"><DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
         <h3>{job.label || job.jobId} — Result</h3>
         <div className="empty-state"><p>No result.json found on remote cluster.</p></div>
       </div>
@@ -487,7 +487,7 @@ function RemoteFailedView({ job, result, onBack, config }: { job: JobRecord; res
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>Job Failed: {job.label || job.jobId}</h3>
       {result.error && <div className="error-alert-prominent">{result.error}</div>}
       {isPartialEval && (
@@ -605,7 +605,7 @@ function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; resul
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobId} — Evaluation Results</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
@@ -648,7 +648,7 @@ function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; r
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobId} — Training Result</h3>
       <div className="stats-grid">
         {result.epochs_completed != null && <div className="metric-card"><span className="metric-label">Epochs</span><span className="metric-value">{result.epochs_completed}</span></div>}
@@ -681,7 +681,7 @@ function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; res
 
   return (
     <div className="panel stack-lg">
-      <DetailHeader onBack={onBack} config={config} />
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{label} — Result</h3>
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Analysis</span><span className="metric-value text-sm">{label}</span></div>

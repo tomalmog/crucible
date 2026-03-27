@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { useUnifiedJobs } from "../../hooks/useUnifiedJobs";
@@ -65,10 +66,13 @@ type MergedJob =
   | { kind: "unified"; job: JobRecord; localTask?: CommandTaskStatus; sortKey: number };
 
 export function JobsPage() {
+  const location = useLocation();
+  const navState = location.state as { statusFilter?: StatusFilter } | null;
+  if (navState) window.history.replaceState({}, "");
   const { jobs, kill, rename } = useJobs();
   const { dataRoot } = useCrucible();
   const { jobs: unifiedJobs, isLoading: isUnifiedLoading, refresh: refreshUnified, removeJob: removeUnifiedJob, cancel: cancelUnifiedJob } = useUnifiedJobs(dataRoot);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(navState?.statusFilter ?? "all");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TaskTypeFilter>("all");
   const [viewingUnifiedJob, setViewingUnifiedJob] = useState<{ job: JobRecord; localTask?: CommandTaskStatus } | null>(null);
