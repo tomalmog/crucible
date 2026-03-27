@@ -5,6 +5,7 @@ import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
   Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, PackageOpen,
+  LayoutDashboard,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -102,6 +103,8 @@ export function AppSidebar() {
       </div>
 
       <nav className="sidebar-nav">
+        <SidebarNavItem to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" />
+
         <span className="sidebar-section-label">Workspace</span>
         <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
         <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />

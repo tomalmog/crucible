@@ -11,23 +11,19 @@ export function useUnifiedJobs(dataRoot: string) {
   const [isLoading, setIsLoading] = useState(true);
   const hasFetched = useRef(false);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     if (!dataRoot) return;
-    listJobs(dataRoot)
-      .then((result) => {
-        setJobs(result);
-        if (!hasFetched.current) {
-          hasFetched.current = true;
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        setJobs([]);
-        if (!hasFetched.current) {
-          hasFetched.current = true;
-          setIsLoading(false);
-        }
-      });
+    try {
+      const result = await listJobs(dataRoot);
+      setJobs(result);
+    } catch {
+      setJobs([]);
+    } finally {
+      if (!hasFetched.current) {
+        hasFetched.current = true;
+        setIsLoading(false);
+      }
+    }
   }, [dataRoot]);
 
   useEffect(() => {

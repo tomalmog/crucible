@@ -15,13 +15,15 @@ import { ResourcesPage } from "./pages/resources/ResourcesPage";
 import { InterpPage } from "./pages/interp/InterpPage";
 import { UITestPage } from "./pages/ui-test/UITestPage";
 import { ExportPage } from "./pages/export/ExportPage";
+import { DashboardPage } from "./pages/dashboard/DashboardPage";
 
 export const router = createHashRouter([
   {
     path: "/",
     Component: App,
     children: [
-      { index: true, Component: TrainingPage },
+      { index: true, Component: DashboardPage },
+      { path: "dashboard", Component: DashboardPage },
       { path: "training", Component: TrainingPage },
       { path: "datasets", Component: DatasetsPage },
       { path: "models", Component: ModelsPage },
