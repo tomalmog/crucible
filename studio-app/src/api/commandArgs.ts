@@ -163,21 +163,6 @@ export function buildCloudArgs(subcommand: string, extra: Record<string, string>
   return args;
 }
 
-export function buildSuggestArgs(extra: Record<string, string>): string[] {
-  const args = ["suggest"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
-
-export function buildSyntheticArgs(extra: Record<string, string>): string[] {
-  const args = ["synthetic"];
-  for (const [key, value] of Object.entries(extra)) {
-    appendOptionalRaw(args, key, value);
-  }
-  return args;
-}
 
 
 /** Flag-to-dataclass-field mapping for extra (method-specific) flags. */

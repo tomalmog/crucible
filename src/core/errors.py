@@ -127,28 +127,12 @@ class CrucibleEvalError(CrucibleError):
     """Raised for evaluation harness failures."""
 
 
-class CrucibleCurateError(CrucibleError):
-    """Raised for dataset curation failures."""
-
-
 class CrucibleMergeError(CrucibleError):
     """Raised for model merging failures."""
 
 
-class CrucibleCloudError(CrucibleError):
-    """Raised for cloud burst operation failures."""
-
-
 class CrucibleCostError(CrucibleError):
     """Raised for cost tracking failures."""
-
-
-class CrucibleSyntheticError(CrucibleError):
-    """Raised for synthetic data generation failures."""
-
-
-class CrucibleRecipeError(CrucibleError):
-    """Raised for training recipe failures."""
 
 
 class CrucibleJudgeError(CrucibleError):
