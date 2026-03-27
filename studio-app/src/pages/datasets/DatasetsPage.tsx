@@ -8,6 +8,7 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { IngestModal } from "../../components/shared/IngestModal";
 import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { formatSize } from "../../components/shared/RegistryRow";
+import { ClusterSelect } from "../../components/shared/ClusterSelect";
 import { DatasetDashboard } from "./DatasetDashboard";
 import { SampleInspector } from "./SampleInspector";
 import { FilterForm } from "./FilterForm";
@@ -160,6 +161,9 @@ export function DatasetsPage() {
   return (
     <>
       <PageHeader title="Datasets">
+        {clusters.length > 0 && (
+          <ClusterSelect clusters={clusters} value={selectedCluster} onChange={setSelectedCluster} />
+        )}
         <button
           className="btn"
           onClick={() => handleRefresh().catch(console.error)}
@@ -175,18 +179,6 @@ export function DatasetsPage() {
         onChange={setLocationTab}
         format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
       />
-
-      {clusters.length > 1 && (
-        <select
-          value={selectedCluster}
-          onChange={(e) => setSelectedCluster(e.target.value)}
-          style={{ marginBottom: 12, width: "100%" }}
-        >
-          {clusters.map((c) => (
-            <option key={c.name} value={c.name}>{c.name}</option>
-          ))}
-        </select>
-      )}
 
       {transferError && (
         <p className="error-text" style={{ marginBottom: 8 }}>{transferError}</p>

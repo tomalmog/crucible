@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { ClusterSelect } from "../../components/shared/ClusterSelect";
 import type { ClusterRemoteStorage } from "../../hooks/useResourceData";
 import type { ClusterConfig, ClusterInfo, PartitionInfo } from "../../types/remote";
 
@@ -40,7 +41,7 @@ export function ClusterInfoPanel({ remoteStorage, clusters, loading }: ClusterIn
         <h3 className="resource-card-title">Cluster</h3>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <ClusterSelect
-            clusters={withInfo}
+            clusters={withInfo.map((rs) => rs.cluster)}
             value={current.cluster.name}
             onChange={setSelected}
           />
@@ -61,65 +62,6 @@ export function ClusterInfoPanel({ remoteStorage, clusters, loading }: ClusterIn
   );
 }
 
-interface ClusterSelectProps {
-  clusters: ClusterRemoteStorage[];
-  value: string;
-  onChange: (name: string) => void;
-}
-
-function ClusterSelect({ clusters, value, onChange }: ClusterSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const filtered = clusters.filter((rs) =>
-    rs.cluster.name.toLowerCase().includes(query.toLowerCase()),
-  );
-
-  function handleFocus(): void {
-    clearTimeout(blurTimeout.current);
-    setQuery("");
-    setOpen(true);
-  }
-
-  function handleBlur(): void {
-    blurTimeout.current = setTimeout(() => setOpen(false), 150);
-  }
-
-  function pick(name: string): void {
-    onChange(name);
-    setQuery("");
-    setOpen(false);
-  }
-
-  return (
-    <div className="dataset-select" onFocus={handleFocus} onBlur={handleBlur}>
-      <input
-        value={open ? query : value}
-        onChange={(e) => setQuery(e.currentTarget.value)}
-        placeholder="Search clusters…"
-        readOnly={!open}
-        style={{ minWidth: 120, fontSize: "0.75rem" }}
-      />
-      {open && filtered.length > 0 && (
-        <ul className="dataset-select-dropdown">
-          {filtered.map((rs) => (
-            <li key={rs.cluster.name}>
-              <button
-                type="button"
-                className="dataset-select-option"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pick(rs.cluster.name)}
-              >
-                {rs.cluster.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 function GpuAvailability({ info }: { info: ClusterInfo }) {
   return (
