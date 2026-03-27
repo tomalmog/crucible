@@ -370,9 +370,9 @@ export function UnifiedJobRow({
           {job.submitPhase}
         </div>
       )}
-      {job.state === "pending" && isRemote && (
+      {job.state === "pending" && (
         <div className="run-row-path" style={{ color: "var(--accent)", animation: "pulse 1.5s ease-in-out infinite" }}>
-          Queued — waiting for resources...
+          {job.submitPhase || (isRemote ? "Queued — waiting for resources..." : "Starting...")}
         </div>
       )}
       {isFailed && isRemote && job.submitPhase && (

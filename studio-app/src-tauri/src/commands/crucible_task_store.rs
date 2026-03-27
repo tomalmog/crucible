@@ -217,10 +217,23 @@ impl CommandTaskStore {
     }
 
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String, config_json: Option<String>) {
-        // Write initial unified JobRecord for commands shown on Jobs page.
-        // Skip "dispatch" — the Python dispatch command writes its own record.
-        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
-            write_job_record(&data_root, &task_id, &command_name, "running", "", "", &label, &config_json);
+        // Write initial unified JobRecord so the job appears on the Jobs page immediately.
+        // For dispatch commands, write as "pending" — Python will create the real job record.
+        if JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
+            let initial_state = if command_name == "dispatch" { "pending" } else { "running" };
+            write_job_record(&data_root, &task_id, &command_name, initial_state, "", "", &label, &config_json);
+            // For dispatch, set a submit_phase so the UI shows a spinner with context
+            if command_name == "dispatch" {
+                let task_path = resolve_data_root(&data_root).join("jobs").join(format!("{task_id}.json"));
+                if let Ok(contents) = fs::read_to_string(&task_path) {
+                    if let Ok(mut record) = serde_json::from_str::<serde_json::Value>(&contents) {
+                        if let Some(obj) = record.as_object_mut() {
+                            obj.insert("submit_phase".to_string(), serde_json::json!("Starting..."));
+                        }
+                        let _ = fs::write(&task_path, serde_json::to_string_pretty(&record).unwrap_or_default());
+                    }
+                }
+            }
         }
 
         let working_directory = workspace_root_dir();
@@ -333,15 +346,30 @@ impl CommandTaskStore {
         if let Some(observed_seconds) = observed_elapsed_seconds {
             self.update_duration_estimate(command_name, observed_seconds);
         }
-        // Update unified JobRecord (skip dispatch — Python manages its own)
-        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name) {
-            let model_path = extract_model_path(&stdout_snapshot);
-            let err_msg = if final_state == "failed" {
-                // Take last 200 chars of stderr as error message
-                let len = stderr_snapshot.len();
-                if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
-            } else { String::new() };
-            update_job_record(data_root, task_id, final_state, &model_path, &err_msg, &stdout_snapshot, &stderr_snapshot);
+        if JOBS_PAGE_COMMANDS.contains(&command_name) {
+            if command_name == "dispatch" {
+                // Dispatch: Python creates real job-XXXX records.
+                // Remove the temporary pending record — the real job is visible now.
+                // If Python failed before creating a real record, keep ours as "failed".
+                let task_path = resolve_data_root(data_root).join("jobs").join(format!("{task_id}.json"));
+                if final_state == "completed" {
+                    let _ = fs::remove_file(&task_path);
+                } else {
+                    // Python never created a job record — mark ours as failed with error info
+                    let err_msg = {
+                        let len = stderr_snapshot.len();
+                        if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
+                    };
+                    update_job_record(data_root, task_id, "failed", "", &err_msg, &stdout_snapshot, &stderr_snapshot);
+                }
+            } else {
+                let model_path = extract_model_path(&stdout_snapshot);
+                let err_msg = if final_state == "failed" {
+                    let len = stderr_snapshot.len();
+                    if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
+                } else { String::new() };
+                update_job_record(data_root, task_id, final_state, &model_path, &err_msg, &stdout_snapshot, &stderr_snapshot);
+            }
         }
     }
 
@@ -360,8 +388,8 @@ impl CommandTaskStore {
         if let Some(observed_seconds) = observed_elapsed_seconds {
             self.update_duration_estimate(command_name, observed_seconds);
         }
-        // Update unified JobRecord (skip dispatch — Python manages its own)
-        if command_name != "dispatch" && JOBS_PAGE_COMMANDS.contains(&command_name) {
+        // Update unified JobRecord — dispatch failures need to be visible too
+        if JOBS_PAGE_COMMANDS.contains(&command_name) {
             update_job_record(data_root, task_id, "failed", "", &error_message, "", &error_message);
         }
     }
