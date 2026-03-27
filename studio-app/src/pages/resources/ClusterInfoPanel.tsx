@@ -54,8 +54,7 @@ export function ClusterInfoPanel({ remoteStorage, clusters, loading }: ClusterIn
         <>
           <GpuAvailability info={info} />
           <NodeHealth info={info} />
-          <PartitionOverview partitions={info.partitions} />
-          <GpuHardware partitions={info.partitions} />
+          <PartitionTable partitions={info.partitions} />
         </>
       )}
     </div>
@@ -165,60 +164,59 @@ function NodeHealth({ info }: { info: ClusterInfo }) {
   );
 }
 
-function PartitionOverview({ partitions }: { partitions: PartitionInfo[] }) {
+function parseGpuConfig(gres: string): { type: string; count: number }[] {
+  const gpus: { type: string; count: number }[] = [];
+  for (const part of gres.split(",")) {
+    const match = part.match(/gpu:([^:]+):(\d+)/);
+    if (match) gpus.push({ type: match[1], count: parseInt(match[2], 10) });
+  }
+  return gpus;
+}
+
+function formatGpuType(raw: string): string {
+  return raw.replace(/gpu$/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function PartitionTable({ partitions }: { partitions: PartitionInfo[] }) {
   if (partitions.length === 0) return null;
+  const hasGpus = partitions.some((p) => p.gpuConfig);
 
   return (
     <div className="resource-section">
       <div className="resource-section-header">
         <span className="resource-section-title">Partitions</span>
       </div>
-      <table className="overview-table">
-        <thead>
-          <tr>
-            <td className="overview-label">Name</td>
-            <td className="overview-label">Nodes</td>
-            <td className="overview-label">GPUs (idle / total)</td>
-          </tr>
-        </thead>
-        <tbody>
-          {partitions.map((p) => (
-            <tr key={p.name}>
-              <td className="overview-value">
-                {p.name}{p.isDefault ? " *" : ""}
-              </td>
-              <td className="overview-value">{p.totalNodes}</td>
-              <td className="overview-value">
-                {p.totalGpus > 0 ? `${p.idleGpus} / ${p.totalGpus}` : "—"}
-              </td>
+      <div className="docs-table-wrap">
+        <table className="docs-table">
+          <thead>
+            <tr>
+              <th>Partition</th>
+              <th>Nodes</th>
+              <th>GPUs (idle / total)</th>
+              {hasGpus && <th>GPU Types</th>}
+              {hasGpus && <th>Memory</th>}
+              {hasGpus && <th>CPUs</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function GpuHardware({ partitions }: { partitions: PartitionInfo[] }) {
-  const gpuPartitions = partitions.filter((p) => p.gpuConfig);
-  if (gpuPartitions.length === 0) return null;
-
-  return (
-    <div className="resource-section">
-      <div className="resource-section-header">
-        <span className="resource-section-title">GPU Hardware</span>
-      </div>
-      <div className="hw-grid">
-        {gpuPartitions.map((p) => (
-          <div className="hw-item" key={p.name}>
-            <span className="hw-item-label">{p.name}</span>
-            <span className="hw-item-value">{p.gpuConfig}</span>
-            <span className="hw-item-label">Memory</span>
-            <span className="hw-item-value">{formatMemory(p.memoryMb)}</span>
-            <span className="hw-item-label">CPUs/Node</span>
-            <span className="hw-item-value">{p.cpusPerNode}</span>
-          </div>
-        ))}
+          </thead>
+          <tbody>
+            {partitions.map((p) => {
+              const gpus = p.gpuConfig ? parseGpuConfig(p.gpuConfig) : [];
+              const gpuSummary = gpus.length > 0
+                ? gpus.map((g) => `${g.count}× ${formatGpuType(g.type)}`).join(", ")
+                : "";
+              return (
+                <tr key={p.name}>
+                  <td style={{ fontWeight: 500 }}>{p.name}{p.isDefault ? " *" : ""}</td>
+                  <td>{p.totalNodes}</td>
+                  <td>{p.totalGpus > 0 ? `${p.idleGpus} / ${p.totalGpus}` : "—"}</td>
+                  {hasGpus && <td>{gpuSummary || "—"}</td>}
+                  {hasGpus && <td>{p.gpuConfig ? formatMemory(p.memoryMb) : "—"}</td>}
+                  {hasGpus && <td>{p.gpuConfig ? p.cpusPerNode : "—"}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
