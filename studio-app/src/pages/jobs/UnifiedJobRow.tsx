@@ -18,6 +18,7 @@ import {
   XCircle,
   Pencil,
   X,
+  Loader2,
 } from "lucide-react";
 
 const ACTIVE_STATES = new Set(["running", "pending"]);
@@ -292,7 +293,11 @@ export function UnifiedJobRow({
       {/* Line 1: status dot + name | secondary actions + status */}
       <div className="run-row-header">
         <div className="flex-row">
-          <span className={"job-status-dot" + (isRunning ? " pulsing" : "")} />
+          {job.state === "pending" ? (
+            <Loader2 size={10} className="spin" style={{ color: "var(--text-tertiary)", marginRight: 6 }} />
+          ) : (
+            <span className={"job-status-dot" + (isRunning ? " pulsing" : "")} />
+          )}
           {isLocal && editing ? (
             <div className="flex-row-tight" onClick={(e) => e.stopPropagation()}>
               <input
