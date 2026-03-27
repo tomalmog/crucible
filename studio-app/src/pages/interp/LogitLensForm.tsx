@@ -28,6 +28,9 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
   const [layerIndices, setLayerIndices] = useState(
     typeof prefill?.layerIndices === "string" ? prefill.layerIndices : "",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +53,7 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
       inputText,
       topK,
       layerIndices,
+      baseModel,
     };
   }
 
@@ -67,6 +71,7 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
           top_k: parseInt(topK || "5", 10),
           layer_indices: layerIndices.trim(),
         };
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         const args = isSlurm
           ? buildRemoteInterpArgs(clusterName, "logit-lens", JSON.stringify(methodArgs))
           : buildDispatchSpec("logit-lens", methodArgs, clusterBackend as "ssh", {
@@ -83,6 +88,7 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
           "--top-k", topK || "5",
         ];
         if (layerIndices.trim()) args.push("--layer-indices", layerIndices);
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });
@@ -134,6 +140,13 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
           value={layerIndices}
           onChange={(e) => setLayerIndices(e.currentTarget.value)}
           placeholder="e.g. 0,3,5,11"
+        />
+      </FormField>
+      <FormField label="Base Model" hint="for LoRA/QLoRA models">
+        <input
+          value={baseModel}
+          onChange={(e) => setBaseModel(e.currentTarget.value)}
+          placeholder="optional — HuggingFace ID or path"
         />
       </FormField>
     </CommandFormPanel>

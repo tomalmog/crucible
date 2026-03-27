@@ -50,6 +50,64 @@ def add_ingest_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     )
 
 
+def add_dataset_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """Register dataset subcommand with list and delete actions."""
+    parser = subparsers.add_parser("dataset", help="Dataset operations")
+    sub = parser.add_subparsers(dest="dataset_action", required=True)
+    sub.add_parser("list", help="List local datasets.")
+    delete = sub.add_parser("delete", help="Delete a local dataset.")
+    delete.add_argument("--name", required=True, help="Dataset name to delete")
+
+
+def run_dataset_command(client: CrucibleClient, args: argparse.Namespace) -> int:
+    """Dispatch dataset subcommands."""
+    action = args.dataset_action
+    if action == "list":
+        return _handle_dataset_list(client)
+    if action == "delete":
+        return _handle_dataset_delete(client, args.name)
+    return 1
+
+
+def _handle_dataset_list(client: CrucibleClient) -> int:
+    """List all locally ingested datasets."""
+    from pathlib import Path
+
+    datasets_dir = client._config.data_root / "datasets"
+    if not datasets_dir.is_dir():
+        print("No datasets.")
+        return 0
+    names = sorted(d.name for d in datasets_dir.iterdir() if d.is_dir())
+    if not names:
+        print("No datasets.")
+        return 0
+    for name in names:
+        manifest = datasets_dir / name / "manifest.json"
+        if manifest.exists():
+            import json
+            data = json.loads(manifest.read_text())
+            count = data.get("record_count", "?")
+            source = data.get("source_uri", "")
+            print(f"  {name}  ({count} records)  {source}")
+        else:
+            print(f"  {name}")
+    return 0
+
+
+def _handle_dataset_delete(client: CrucibleClient, name: str) -> int:
+    """Delete a local dataset."""
+    import shutil
+    from pathlib import Path
+
+    dataset_dir = client._config.data_root / "datasets" / name
+    if not dataset_dir.is_dir():
+        print(f"Dataset '{name}' not found.")
+        return 1
+    shutil.rmtree(dataset_dir)
+    print(f"Deleted dataset '{name}'.")
+    return 0
+
+
 def add_export_training_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register export-training subcommand."""
     parser = subparsers.add_parser(

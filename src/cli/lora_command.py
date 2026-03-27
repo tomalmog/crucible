@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 
+from cli.training_output import print_and_register
 from core.constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_LORA_ALPHA,
@@ -70,10 +71,7 @@ def run_lora_train_command(client: CrucibleClient, args: argparse.Namespace) -> 
         hooks_path=args.hooks_file,
     )
     result = client.lora_train(options)
-    print(f"model_path={result.model_path}")
-    print(f"history_path={result.history_path}")
-    print(f"epochs_completed={result.epochs_completed}")
-    print(f"run_id={result.run_id or '-'}")
+    print_and_register(client, result, args.model_name)
     return 0
 
 
@@ -141,6 +139,9 @@ def add_lora_train_command(subparsers: argparse._SubParsersAction[argparse.Argum
                         default=DEFAULT_TRAIN_PROGRESS_LOG_INTERVAL_STEPS)
     parser.add_argument("--hooks-file", help="Optional hooks module path")
     parser.add_argument("--resume-checkpoint-path", default=None, help="Path to checkpoint to resume training from")
+    parser.add_argument("--model-name", default=None, help="Name for model registry (auto-derived if not set)")
+    parser.add_argument("--wandb-project", default=None, help="W&B project name for experiment tracking")
+    parser.add_argument("--tensorboard-dir", default=None, help="TensorBoard log directory for experiment tracking")
 
 
 def add_lora_merge_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

@@ -38,6 +38,9 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
   const [learningRate, setLearningRate] = useState(
     typeof prefill?.learningRate === "string" ? prefill.learningRate : "0.001",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +60,7 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
     return {
       page: "interpretability",
       tab: "linear-probe",
-      modelPath, dataset, labelField, layerIndex, maxSamples, epochs, learningRate,
+      modelPath, dataset, labelField, layerIndex, maxSamples, epochs, learningRate, baseModel,
     };
   }
 
@@ -79,6 +82,7 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
           epochs: parseInt(epochs || "10", 10),
           learning_rate: parseFloat(learningRate || "0.001"),
         };
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         const args = isSlurm
           ? buildRemoteInterpArgs(clusterName, "linear-probe", JSON.stringify(methodArgs))
           : buildDispatchSpec("linear-probe", methodArgs, clusterBackend as "ssh", {
@@ -98,6 +102,7 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
           "--epochs", epochs || "10",
           "--learning-rate", learningRate || "0.001",
         ];
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, label, cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });
@@ -147,6 +152,13 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
         </FormField>
         <FormField label="Learning Rate">
           <input type="number" step="0.0001" value={learningRate} onChange={(e) => setLearningRate(e.currentTarget.value)} />
+        </FormField>
+        <FormField label="Base Model" hint="for LoRA/QLoRA models">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional — HuggingFace ID or path"
+          />
         </FormField>
       </div>
       {isRemote && (

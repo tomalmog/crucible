@@ -48,6 +48,15 @@ class LocalRunner:
                 state="completed",
                 model_path=model_path,
             )
+            # Auto-register in model registry
+            if model_path:
+                from store.model_registry import ModelRegistry
+                try:
+                    model_name = spec.label or spec.job_type
+                    registry = ModelRegistry(data_root)
+                    registry.register_model(model_name, model_path, run_id=result.run_id)
+                except Exception:
+                    pass
             print(f"model_path={model_path}")
             print(f"job_id={job_id}")
         except Exception as exc:

@@ -13,6 +13,8 @@ export function KtoTrainForm({ extra, setExtra }: KtoTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
+  const hasModel = (extra["--base-model"] ?? "").trim().length > 0;
+
   return (
     <div className="stack-sm">
       <div className="grid-2">
@@ -24,6 +26,9 @@ export function KtoTrainForm({ extra, setExtra }: KtoTrainFormProps) {
         </FormField>
         <FormField label="Initial Weights">
           <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        </FormField>
+        <FormField label="Tokenizer Path" hint={hasModel ? "auto-loaded from model" : undefined}>
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasModel ? "auto-loaded from model" : "auto-detect"} disabled={hasModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
         <FormField label="Beta">
           <input value={extra["--beta"] ?? "0.1"} onChange={(e) => update("--beta", e.currentTarget.value)} />

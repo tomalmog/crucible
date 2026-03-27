@@ -31,6 +31,9 @@ export function DistillTrainForm({ extra, setExtra }: DistillTrainFormProps) {
         <FormField label="Alpha">
           <input value={extra["--alpha"] ?? "0.5"} onChange={(e) => update("--alpha", e.currentTarget.value)} />
         </FormField>
+        <FormField label="Initial Weights">
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        </FormField>
         <FormField label="Tokenizer Path">
           <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder="auto-detect" filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>

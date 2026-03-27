@@ -1,6 +1,7 @@
 import { DatasetSelect } from "../../../components/shared/DatasetSelect";
 import { FormField } from "../../../components/shared/FormField";
 import { ModelSelect } from "../../../components/shared/ModelSelect";
+import { PathInput } from "../../../components/shared/PathInput";
 
 interface QloraTrainFormProps {
   extra: Record<string, string>;
@@ -12,6 +13,8 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
+  const hasModel = (extra["--base-model-path"] ?? "").trim().length > 0;
+
   return (
     <div className="stack-sm">
       <div className="grid-2">
@@ -20,6 +23,12 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
         </FormField>
         <FormField label="Base Model" required>
           <ModelSelect value={extra["--base-model-path"] ?? ""} onChange={(v) => update("--base-model-path", v)} />
+        </FormField>
+        <FormField label="Initial Weights">
+          <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        </FormField>
+        <FormField label="Tokenizer Path" hint={hasModel ? "auto-loaded from model" : undefined}>
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasModel ? "auto-loaded from model" : "auto-detect"} disabled={hasModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
         <FormField label="Quantization Bits">
           <select value={extra["--quantization-bits"] ?? "4"} onChange={(e) => update("--quantization-bits", e.currentTarget.value)}>
@@ -32,6 +41,12 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
             <option value="nf4">NF4</option>
             <option value="fp4">FP4</option>
           </select>
+        </FormField>
+        <FormField label="Double Quantization" hint="double-quantize QLoRA quantization constants">
+          <label className="toggle-row">
+            <input type="checkbox" checked={(extra["--double-quantize"] ?? "true") === "true"} onChange={(e) => update("--double-quantize", e.currentTarget.checked ? "true" : "false")} />
+            <span>{(extra["--double-quantize"] ?? "true") === "true" ? "Enabled" : "Disabled"}</span>
+          </label>
         </FormField>
         <FormField label="LoRA Rank">
           <input type="number" value={extra["--lora-rank"] ?? "8"} onChange={(e) => update("--lora-rank", e.currentTarget.value)} />

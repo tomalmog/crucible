@@ -35,6 +35,9 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
   const [maxSamples, setMaxSamples] = useState(
     typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "500",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +62,7 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
       granularity,
       colorField,
       maxSamples,
+      baseModel,
     };
   }
 
@@ -78,6 +82,7 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
           granularity,
         };
         if (colorField.trim()) methodArgs.color_field = colorField;
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         const args = isSlurm
           ? buildRemoteInterpArgs(clusterName, "activation-pca", JSON.stringify(methodArgs))
           : buildDispatchSpec("activation-pca", methodArgs, clusterBackend as "ssh", {
@@ -96,6 +101,7 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
           "--granularity", granularity,
         ];
         if (colorField.trim()) args.push("--color-field", colorField);
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });
@@ -149,6 +155,13 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
             value={colorField}
             onChange={(e) => setColorField(e.currentTarget.value)}
             placeholder="e.g. label, category"
+          />
+        </FormField>
+        <FormField label="Base Model" hint="for LoRA/QLoRA models">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional — HuggingFace ID or path"
           />
         </FormField>
       </div>

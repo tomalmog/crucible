@@ -22,8 +22,10 @@ from cli.compare_command import add_compare_command, run_compare_command
 from cli.compute_command import add_compute_command, run_compute_command
 from cli.curate_command import add_curate_command, run_curate_command
 from cli.data_commands import (
+    add_dataset_command,
     add_export_training_command,
     add_ingest_command,
+    run_dataset_command,
     run_export_training_command,
     run_ingest_command,
 )
@@ -89,7 +91,7 @@ from store.dataset_sdk import CrucibleClient
 _CommandHandler = Callable[..., int]
 
 _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.ArgumentParser]], None], ...] = (
-    add_ingest_command,
+    add_ingest_command, add_dataset_command,
     add_export_training_command, add_run_spec_command, add_verify_command,
     add_hardware_profile_command, add_train_command, add_sft_command,
     add_dpo_command, add_distillation_command, add_domain_adapt_command,
@@ -118,6 +120,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
     """Build command name -> handler mapping."""
     return {
         "ingest": run_ingest_command,
+        "dataset": run_dataset_command,
         "export-training": run_export_training_command,
         "train": run_train_command,
         "sft": run_sft_command,
@@ -180,6 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     for registrar in _COMMAND_REGISTRARS:
         registrar(subparsers)
+    subparsers.add_parser("mcp-server", help="Start the Crucible MCP server for Claude Code integration")
     return parser
 
 
@@ -208,6 +212,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the Crucible CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    # MCP server runs standalone — no client or backends needed
+    if args.command == "mcp-server":
+        from serve.mcp_server import run_mcp_server
+        run_mcp_server()
+        return 0
     _init_backends()
     client = _build_client(args.data_root)
     dispatch = _build_dispatch_table()

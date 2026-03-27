@@ -48,6 +48,13 @@ export function buildSharedTrainingArgs(
 
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   "--train-reward-model",
+  "--packing",
+]);
+
+/** Boolean flags that map to --flag / --no-flag depending on value. */
+const NEGATABLE_FLAGS: ReadonlyMap<string, string> = new Map([
+  ["--mask-prompt-tokens", "--no-mask-prompt-tokens"],
+  ["--double-quantize", "--no-double-quantize"],
 ]);
 
 export function buildTrainingArgs(
@@ -59,6 +66,8 @@ export function buildTrainingArgs(
   for (const [key, value] of Object.entries(extra)) {
     if (BOOLEAN_FLAGS.has(key)) {
       if (value === "true") args.push(key);
+    } else if (NEGATABLE_FLAGS.has(key)) {
+      args.push(value === "true" ? key : NEGATABLE_FLAGS.get(key)!);
     } else {
       appendOptionalRaw(args, key, value);
     }
@@ -82,7 +91,7 @@ export function buildFilterArgs(
   dataset: string,
   extra: Record<string, string>,
 ): string[] {
-  const args = ["filter", "--dataset", dataset];
+  const args = ["curate", "filter", "--dataset", dataset];
   for (const [key, value] of Object.entries(extra)) {
     appendOptionalRaw(args, key, value);
   }

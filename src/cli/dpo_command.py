@@ -30,6 +30,7 @@ from core.constants import (
     SUPPORTED_TRAIN_OPTIMIZER_TYPES,
     SUPPORTED_TRAIN_PRECISION_MODES,
 )
+from cli.training_output import print_and_register
 from core.dpo_types import DpoOptions
 from core.training_types import OptimizerType, PrecisionMode
 from store.dataset_sdk import CrucibleClient
@@ -75,14 +76,7 @@ def run_dpo_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         progress_log_interval_steps=args.progress_log_interval_steps,
     )
     result = client.dpo_train(options)
-    print(f"model_path={result.model_path}")
-    print(f"history_path={result.history_path}")
-    print(f"plot_path={result.plot_path or '-'}")
-    print(f"epochs_completed={result.epochs_completed}")
-    print(f"checkpoint_dir={result.checkpoint_dir or '-'}")
-    print(f"best_checkpoint_path={result.best_checkpoint_path or '-'}")
-    print(f"run_id={result.run_id or '-'}")
-    print(f"artifact_contract_path={result.artifact_contract_path or '-'}")
+    print_and_register(client, result, args.model_name)
     return 0
 
 
@@ -208,4 +202,16 @@ def add_dpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     parser.add_argument(
         "--resume-checkpoint-path", default=None,
         help="Path to checkpoint to resume training from",
+    )
+    parser.add_argument(
+        "--model-name", default=None,
+        help="Name for model registry (auto-derived if not set)",
+    )
+    parser.add_argument(
+        "--wandb-project", default=None,
+        help="W&B project name for experiment tracking",
+    )
+    parser.add_argument(
+        "--tensorboard-dir", default=None,
+        help="TensorBoard log directory for experiment tracking",
     )

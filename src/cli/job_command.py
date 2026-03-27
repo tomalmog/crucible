@@ -29,6 +29,13 @@ def add_job_command(
     result = sub.add_parser("result", help="Fetch job result.")
     result.add_argument("--job-id", required=True)
 
+    delete = sub.add_parser("delete", help="Delete a job record.")
+    delete.add_argument("--job-id", required=True)
+
+    rename = sub.add_parser("rename", help="Rename a job.")
+    rename.add_argument("--job-id", required=True)
+    rename.add_argument("--label", required=True, help="New job label.")
+
 
 def run_job_command(
     client: CrucibleClient, args: argparse.Namespace,
@@ -47,6 +54,10 @@ def run_job_command(
         return _handle_logs(data_root, args.job_id, args.tail)
     if action == "result":
         return _handle_result(data_root, args.job_id)
+    if action == "delete":
+        return _handle_delete(data_root, args.job_id)
+    if action == "rename":
+        return _handle_rename(data_root, args.job_id, args.label)
     return 1
 
 
@@ -128,4 +139,22 @@ def _handle_result(data_root: object, job_id: str) -> int:
     backend = get_backend(record.backend)  # type: ignore[arg-type]
     result = backend.get_result(root, job_id)
     print(f"CRUCIBLE_JSON:{json.dumps(result)}")
+    return 0
+
+
+def _handle_delete(data_root: object, job_id: str) -> int:
+    from pathlib import Path
+    from store.job_store import delete_job
+
+    delete_job(Path(str(data_root)), job_id)
+    print(f"Deleted job {job_id}.")
+    return 0
+
+
+def _handle_rename(data_root: object, job_id: str, label: str) -> int:
+    from pathlib import Path
+    from store.job_store import update_job
+
+    update_job(Path(str(data_root)), job_id, label=label)
+    print(f"Renamed job {job_id} to '{label}'.")
     return 0

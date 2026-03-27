@@ -28,6 +28,9 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
   const [metric, setMetric] = useState(
     typeof prefill?.metric === "string" ? prefill.metric : "logit_diff",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +54,7 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
       cleanText,
       corruptedText,
       metric,
+      baseModel,
     };
   }
 
@@ -68,6 +72,7 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
           output_dir: "./outputs/interp",
           metric,
         };
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         const args = isSlurm
           ? buildRemoteInterpArgs(clusterName, "activation-patch", JSON.stringify(methodArgs))
           : buildDispatchSpec("activation-patch", methodArgs, clusterBackend as "ssh", {
@@ -84,6 +89,7 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
           "--output-dir", "./outputs/interp",
           "--metric", metric,
         ];
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath), cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });
@@ -113,6 +119,13 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
             <option value="logit_diff">Logit Difference</option>
             <option value="prob">Max Probability</option>
           </select>
+        </FormField>
+        <FormField label="Base Model" hint="for LoRA/QLoRA models">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional — HuggingFace ID or path"
+          />
         </FormField>
       </div>
       {isRemote && (

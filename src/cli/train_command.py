@@ -40,7 +40,7 @@ from core.constants import (
     SUPPORTED_TRAIN_PRECISION_MODES,
     SUPPORTED_TRAIN_SCHEDULER_TYPES,
 )
-from core.training_types import TrainingRunResult
+from cli.training_output import print_and_register
 from core.types import (
     OptimizerType,
     PositionEmbeddingType,
@@ -58,21 +58,8 @@ def run_train_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     if args.auto_config:
         options = apply_hardware_auto_config(options)
     result = client.train(options)
-    _print_training_result(result)
+    print_and_register(client, result, args.model_name)
     return 0
-
-
-def _print_training_result(result: TrainingRunResult) -> None:
-    """Print training result summary to stdout."""
-    print(f"model_path={result.model_path}")
-    print(f"history_path={result.history_path}")
-    print(f"plot_path={result.plot_path or '-'}")
-    print(f"epochs_completed={result.epochs_completed}")
-    print(f"checkpoint_dir={result.checkpoint_dir or '-'}")
-    print(f"best_checkpoint_path={result.best_checkpoint_path or '-'}")
-    print(f"resumed_from_checkpoint={result.resumed_from_checkpoint or '-'}")
-    print(f"run_id={result.run_id or '-'}")
-    print(f"artifact_contract_path={result.artifact_contract_path or '-'}")
 
 
 def _build_training_options(args: argparse.Namespace) -> TrainingOptions:
@@ -274,6 +261,10 @@ def add_train_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         action="store_true",
         default=False,
         help="Auto-configure training defaults from detected hardware profile",
+    )
+    parser.add_argument(
+        "--model-name", default=None,
+        help="Name for model registry (auto-derived if not set)",
     )
     parser.add_argument(
         "--wandb-project",

@@ -71,6 +71,9 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
   const [maxNewTokens, setMaxNewTokens] = useState(
     typeof prefill?.maxNewTokens === "string" ? prefill.maxNewTokens : "50",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
   const isSlurm = clusterBackend === "slurm";
@@ -101,7 +104,7 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
     return {
       page: "interpretability", tab, steerMode: mode, computeSource,
       modelPath, positiveText, negativeText, positiveDataset, negativeDataset,
-      layerIndex, maxSamples, vectorPath, inputText, coefficient, maxNewTokens,
+      layerIndex, maxSamples, vectorPath, inputText, coefficient, maxNewTokens, baseModel,
     };
   }
 
@@ -116,6 +119,7 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
 
       if (isRemote && clusterName) {
         const methodArgs: Record<string, unknown> = { model_path: modelPath, output_dir: "./outputs/interp" };
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         if (mode === "compute") {
           if (computeSource === "simple") {
             methodArgs.positive_text = positiveText;
@@ -141,6 +145,7 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       } else {
         const args: string[] = [method, "--model-path", modelPath, "--output-dir", "./outputs/interp"];
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         if (mode === "compute") {
           if (computeSource === "simple") {
             args.push("--positive-text", positiveText, "--negative-text", negativeText);
@@ -180,6 +185,13 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
       <div className="grid-2">
         <FormField label="Model" required>
           <ModelSelect value={modelPath} onChange={setModelPath} />
+        </FormField>
+        <FormField label="Base Model" hint="for LoRA/QLoRA models">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional — HuggingFace ID or path"
+          />
         </FormField>
 
         {mode === "compute" && (

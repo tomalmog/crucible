@@ -63,6 +63,9 @@ export function SaeForm({ prefill }: SaeFormProps) {
   const [topK, setTopK] = useState(
     typeof prefill?.topK === "string" ? prefill.topK : "10",
   );
+  const [baseModel, setBaseModel] = useState(
+    typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
+  );
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
   const isSlurm = clusterBackend === "slurm";
@@ -82,7 +85,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
     return {
       page: "interpretability", tab, saeMode: mode,
       modelPath, dataset, layerIndex, latentDim, maxSamples, epochs,
-      learningRate, sparsityCoeff, saePath, inputText, topK,
+      learningRate, sparsityCoeff, saePath, inputText, topK, baseModel,
     };
   }
 
@@ -97,6 +100,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
 
       if (isRemote && clusterName) {
         const methodArgs: Record<string, unknown> = { model_path: modelPath, output_dir: "./outputs/interp" };
+        if (baseModel.trim()) methodArgs.base_model = baseModel;
         if (mode === "train") {
           methodArgs.dataset_name = dataset;
           methodArgs.layer_index = parseInt(layerIndex || "-1", 10);
@@ -120,6 +124,7 @@ export function SaeForm({ prefill }: SaeFormProps) {
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       } else {
         const args: string[] = [method, "--model-path", modelPath, "--output-dir", "./outputs/interp"];
+        if (baseModel.trim()) args.push("--base-model", baseModel);
         if (mode === "train") {
           args.push("--dataset", dataset, "--layer-index", layerIndex || "-1",
             "--latent-dim", latentDim || "0", "--max-samples", maxSamples || "500",
@@ -158,6 +163,13 @@ export function SaeForm({ prefill }: SaeFormProps) {
       <div className="grid-2">
         <FormField label="Model" required>
           <ModelSelect value={modelPath} onChange={setModelPath} />
+        </FormField>
+        <FormField label="Base Model" hint="for LoRA/QLoRA models">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional — HuggingFace ID or path"
+          />
         </FormField>
 
         {mode === "train" && (

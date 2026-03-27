@@ -13,6 +13,8 @@ export function GrpoTrainForm({ extra, setExtra }: GrpoTrainFormProps) {
     setExtra({ ...extra, [key]: value });
   }
 
+  const hasModel = (extra["--base-model"] ?? "").trim().length > 0;
+
   return (
     <div className="stack-sm">
       <div className="grid-2">
@@ -24,6 +26,9 @@ export function GrpoTrainForm({ extra, setExtra }: GrpoTrainFormProps) {
         </FormField>
         <FormField label="Initial Weights">
           <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to start from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
+        </FormField>
+        <FormField label="Tokenizer Path" hint={hasModel ? "auto-loaded from model" : undefined}>
+          <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder={hasModel ? "auto-loaded from model" : "auto-detect"} disabled={hasModel && !(extra["--tokenizer-path"] ?? "").trim()} filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>
         <FormField label="Reward Function Path">
           <PathInput value={extra["--reward-function-path"] ?? ""} onChange={(v) => update("--reward-function-path", v)} placeholder="optional — /path/to/reward.py" filters={[{ name: "Python", extensions: ["py"] }]} />
