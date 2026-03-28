@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useUnifiedJobs } from "../../hooks/useUnifiedJobs";
 import { getJobResult } from "../../api/jobsApi";
@@ -193,35 +193,34 @@ function JobSelector({ evalJobs, checkedIds, loadingIds, results, onToggle }: {
 }) {
   return (
     <div className="panel stack">
-      <h3>Eval Jobs</h3>
-      <div className="stack-sm" style={{ maxHeight: 480, overflowY: "auto" }}>
+      <h3>Eval Jobs ({evalJobs.length})</h3>
+      <div style={{ maxHeight: 480, overflowY: "auto" }}>
         {evalJobs.map((j) => {
           const checked = checkedIds.has(j.jobId);
           const loading = loadingIds.has(j.jobId);
           const r = results.get(j.jobId);
           const disabled = !checked && checkedIds.size >= MAX_SELECTED;
           return (
-            <label
+            <div
               key={j.jobId}
-              className="form-field"
-              style={{ display: "flex", alignItems: "center", gap: 8, opacity: disabled ? 0.5 : 1, cursor: disabled ? "not-allowed" : "pointer" }}
+              className={`orphan-row ${checked ? "orphan-row-selected" : ""}`}
+              style={disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => !disabled && onToggle(j.jobId)}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={disabled}
-                onChange={() => onToggle(j.jobId)}
-              />
-              <span style={{ flex: 1 }}>
-                <strong>{j.label || j.jobId.slice(0, 8)}</strong>
-                <br />
-                <span className="text-secondary text-xs">{new Date(j.createdAt).toLocaleDateString()}</span>
+              <span className={`orphan-check ${checked ? "orphan-check-active" : ""}`}>
+                {checked && <Check size={10} />}
               </span>
-              {loading && <Loader2 className="spinner" size={14} />}
+              <span className="orphan-row-name" style={{ color: "var(--text)" }}>
+                {j.label || j.jobId.slice(0, 8)}
+              </span>
+              <span className="orphan-row-meta">
+                {new Date(j.createdAt).toLocaleDateString()}
+              </span>
+              {loading && <Loader2 className="spin" size={14} />}
               {!loading && r && r.average_score != null && (
                 <span className="badge badge-success">{r.average_score.toFixed(1)}%</span>
               )}
-            </label>
+            </div>
           );
         })}
       </div>
