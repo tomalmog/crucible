@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
+from cli.agent_command import add_agent_chat_command, run_agent_chat_command
 from cli.activation_pca_command import add_activation_pca_command, run_activation_pca_command
 from cli.activation_patching_command import (
     add_activation_patching_command,
@@ -112,6 +113,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_onnx_export_command,
     add_safetensors_export_command, add_gguf_export_command,
     add_hf_export_command,
+    add_agent_chat_command,
 )
 
 
@@ -171,6 +173,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "safetensors-export": run_safetensors_export_command,
         "gguf-export": run_gguf_export_command,
         "hf-export": run_hf_export_command,
+        "agent-chat": run_agent_chat_command,
     }
 
 

@@ -119,8 +119,12 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
     setStartError(null);
     try {
       const cfg = snapshotConfig();
+      // Derive a unique output directory from the model name so each
+      // training run saves to its own folder instead of overwriting.
+      const safeName = modelName.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "model";
+      const uniqueShared = { ...shared, outputDir: `./outputs/${safeName}` };
       if (remoteEnabled) {
-        const methodArgsObj = buildMethodArgs(shared, extra);
+        const methodArgsObj = buildMethodArgs(uniqueShared, extra);
         let extraOverrides: Record<string, unknown> = {};
         try {
           extraOverrides = JSON.parse(clusterConfig.extraMethodArgs);
@@ -142,7 +146,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
         });
         await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       } else {
-        const args = buildTrainingArgs(method, shared, extra);
+        const args = buildTrainingArgs(method, uniqueShared, extra);
         await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });

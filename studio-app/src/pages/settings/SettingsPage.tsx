@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Eye, EyeOff } from "lucide-react";
+
+const AGENT_API_KEY = "crucible_anthropic_api_key";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
@@ -11,6 +13,11 @@ export function SettingsPage() {
   const { dataRoot, setDataRoot, refreshDatasets, hardwareProfile, refreshHardwareProfile } = useCrucible();
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [paletteId, setPaletteId] = useState(getPaletteId());
+  const [agentProvider, setAgentProvider] = useState(() => localStorage.getItem("crucible_agent_provider") ?? "anthropic");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(AGENT_API_KEY) ?? "");
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem("crucible_agent_ollama_model") ?? "llama3.1");
+  const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem("crucible_agent_ollama_url") ?? "http://localhost:11434");
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
@@ -67,6 +74,74 @@ export function SettingsPage() {
           <button className="btn gap-top-sm" onClick={() => refreshDatasets().catch(console.error)}>
             Refresh Datasets
           </button>
+        </div>
+
+        <div className="panel">
+          <h3 className="panel-title">AI Agent</h3>
+          <FormField label="Provider">
+            <select
+              value={agentProvider}
+              onChange={(e) => {
+                const val = e.target.value;
+                setAgentProvider(val);
+                localStorage.setItem("crucible_agent_provider", val);
+              }}
+            >
+              <option value="anthropic">Anthropic (Claude API)</option>
+              <option value="ollama">Ollama (Local)</option>
+            </select>
+          </FormField>
+          {agentProvider === "anthropic" && (
+            <FormField label="Anthropic API Key">
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type={apiKeyVisible ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setApiKey(val);
+                    localStorage.setItem(AGENT_API_KEY, val);
+                  }}
+                  placeholder="sk-ant-..."
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                  title={apiKeyVisible ? "Hide" : "Show"}
+                >
+                  {apiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <p className="ff-hint">Also checks ANTHROPIC_API_KEY env var.</p>
+            </FormField>
+          )}
+          {agentProvider === "ollama" && (
+            <>
+              <FormField label="Model">
+                <input
+                  value={ollamaModel}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setOllamaModel(val);
+                    localStorage.setItem("crucible_agent_ollama_model", val);
+                  }}
+                  placeholder="llama3.1"
+                />
+              </FormField>
+              <FormField label="Ollama URL">
+                <input
+                  value={ollamaUrl}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setOllamaUrl(val);
+                    localStorage.setItem("crucible_agent_ollama_url", val);
+                  }}
+                  placeholder="http://localhost:11434"
+                />
+              </FormField>
+            </>
+          )}
         </div>
 
         <HardwareProfileView

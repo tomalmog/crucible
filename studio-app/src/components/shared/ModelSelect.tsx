@@ -14,18 +14,25 @@ interface ModelSelectProps {
 
 interface ModelOption {
   label: string;
-  value: string;
+  /** Unique key: "local::<name>" or "remote::<name>::<host>" */
+  key: string;
+  /** Actual path passed to onChange */
+  path: string;
   section: "local" | "remote";
 }
 
 /**
  * Searchable dropdown for selecting a registered model.
- * Only allows picking from the model registry — no free text.
+ *
+ * Internally tracks selection by model name (unique) rather than path,
+ * because multiple models can share the same output path.
+ * The onChange callback still receives the file path for CLI use.
  */
 export function ModelSelect({ value, onChange, placeholder = "Select a model", remoteOnly = false, localOnly = false }: ModelSelectProps) {
   const { models, dataRoot } = useCrucible();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
   const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
 
@@ -39,54 +46,59 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
     return map;
   }, [clusters]);
 
-  const pathToDisplay = useMemo(() => {
-    const map = new Map<string, string>();
+  // Build options keyed by name (unique) instead of path (can collide)
+  const { allOptions, keyToDisplay, pathToKey } = useMemo(() => {
+    const opts: ModelOption[] = [];
+    const display = new Map<string, string>();
+    const p2k = new Map<string, string>();
     for (const m of models) {
-      if (m.modelPath) map.set(m.modelPath, `${m.modelName} — Local`);
-      if (m.remotePath) {
-        const label = hostToCluster.get(m.remoteHost) || m.remoteHost;
-        map.set(m.remotePath, `${m.modelName} — ${label}`);
-      }
-    }
-    return map;
-  }, [models, hostToCluster]);
-
-  const displayValue = value ? (pathToDisplay.get(value) ?? value) : "";
-
-  const options = useMemo(() => {
-    const result: ModelOption[] = [];
-    const q = search.toLowerCase();
-    for (const m of models) {
-      if (!m.modelName.toLowerCase().includes(q)) continue;
       if (!remoteOnly && m.hasLocal && m.modelPath) {
-        result.push({ label: m.modelName, value: m.modelPath, section: "local" });
+        const key = `local::${m.modelName}`;
+        opts.push({ label: m.modelName, key, path: m.modelPath, section: "local" });
+        display.set(key, `${m.modelName} — Local`);
+        // Only set path→key if not already set (avoids collision overwrite)
+        if (!p2k.has(m.modelPath)) p2k.set(m.modelPath, key);
       }
       if (!localOnly && m.hasRemote && m.remotePath) {
-        result.push({ label: m.modelName, value: m.remotePath, section: "remote" });
+        const clusterLabel = hostToCluster.get(m.remoteHost) || m.remoteHost;
+        const key = `remote::${m.modelName}::${m.remoteHost}`;
+        opts.push({ label: m.modelName, key, path: m.remotePath, section: "remote" });
+        display.set(key, `${m.modelName} — ${clusterLabel}`);
+        if (!p2k.has(m.remotePath)) p2k.set(m.remotePath, key);
       }
     }
-    return result;
-  }, [models, search, remoteOnly, localOnly]);
+    return { allOptions: opts, keyToDisplay: display, pathToKey: p2k };
+  }, [models, remoteOnly, localOnly, hostToCluster]);
 
-  // Group remote models by cluster hostname
+  // Sync selectedKey from the value prop (path) on mount or external changes
+  useEffect(() => {
+    if (!value) { setSelectedKey(""); return; }
+    const mapped = pathToKey.get(value);
+    if (mapped && !selectedKey) setSelectedKey(mapped);
+  }, [value, pathToKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const displayValue = selectedKey ? (keyToDisplay.get(selectedKey) ?? "") : "";
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? allOptions.filter((o) => o.label.toLowerCase().includes(q)) : allOptions;
+  }, [allOptions, search]);
+
+  const localOptions = filtered.filter((o) => o.section === "local");
   const remoteGroups = useMemo(() => {
     const groups = new Map<string, ModelOption[]>();
-    if (localOnly) return groups;
-    for (const m of models) {
-      if (!m.hasRemote || !m.remotePath) continue;
-      const q = search.toLowerCase();
-      if (!m.modelName.toLowerCase().includes(q)) continue;
-      const label = hostToCluster.get(m.remoteHost) || m.remoteHost;
+    for (const o of filtered) {
+      if (o.section !== "remote") continue;
+      const clusterLabel = o.key.split("::")[2] || "";
+      const label = hostToCluster.get(clusterLabel) || clusterLabel;
       const list = groups.get(label) || [];
-      list.push({ label: m.modelName, value: m.remotePath, section: "remote" });
+      list.push(o);
       groups.set(label, list);
     }
     return groups;
-  }, [models, search, localOnly, hostToCluster]);
+  }, [filtered, hostToCluster]);
 
-  const localOptions = options.filter((o) => o.section === "local");
-  const hasRemote = remoteGroups.size > 0;
-  const hasResults = localOptions.length > 0 || hasRemote;
+  const hasResults = localOptions.length > 0 || remoteGroups.size > 0;
 
   function handleFocus(): void {
     clearTimeout(blurTimeout.current);
@@ -95,31 +107,30 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
   }
 
   function handleBlur(): void {
-    blurTimeout.current = setTimeout(() => {
-      setOpen(false);
-      setSearch("");
-    }, 150);
+    blurTimeout.current = setTimeout(() => { setOpen(false); setSearch(""); }, 150);
   }
 
-  function pick(modelPath: string): void {
-    onChange(modelPath);
+  function pick(option: ModelOption): void {
+    setSelectedKey(option.key);
+    onChange(option.path);
     setOpen(false);
     setSearch("");
   }
 
   function clear(): void {
+    setSelectedKey("");
     onChange("");
     setSearch("");
   }
 
   function renderOptions(items: ModelOption[]) {
     return items.map((o) => (
-      <li key={o.value}>
+      <li key={o.key}>
         <button
           type="button"
           className="dataset-select-option"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => pick(o.value)}
+          onClick={() => pick(o)}
         >
           {o.label}
         </button>
@@ -137,7 +148,7 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
           placeholder={displayValue || placeholder}
           readOnly={!open}
         />
-        {value && !open ? (
+        {selectedKey && !open ? (
           <button type="button" className="dataset-select-clear" onMouseDown={(e) => e.preventDefault()} onClick={clear}>
             <X size={14} />
           </button>

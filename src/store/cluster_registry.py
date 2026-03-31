@@ -141,7 +141,7 @@ def list_clusters(data_root: Path) -> tuple[ClusterConfig, ...]:
 
 
 def remove_cluster(data_root: Path, name: str) -> None:
-    """Remove a cluster configuration from disk.
+    """Remove a cluster configuration and its associated remote models.
 
     Args:
         data_root: Root .crucible directory.
@@ -153,4 +153,21 @@ def remove_cluster(data_root: Path, name: str) -> None:
     target = _cluster_path(data_root, name)
     if not target.exists():
         raise CrucibleRemoteError(f"Cluster '{name}' not found.")
+    # Get the host before deleting so we can purge associated models
+    cluster = load_cluster(data_root, name)
     target.unlink()
+    _purge_remote_models(data_root, cluster.host)
+
+
+def _purge_remote_models(data_root: Path, host: str) -> None:
+    """Remove model registry entries whose remote_host matches the given host."""
+    from store.model_registry import ModelRegistry
+
+    registry = ModelRegistry(data_root)
+    for entry in registry.list_models():
+        if entry.remote_host != host:
+            continue
+        if entry.location_type == "remote":
+            registry.delete_model(entry.model_name)
+        elif entry.location_type == "both":
+            registry.update_model_to_local_only(entry.model_name)

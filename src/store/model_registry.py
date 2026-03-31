@@ -110,6 +110,20 @@ class ModelRegistry:
         save_model_entry(self._models_root, updated)
         return updated
 
+    def update_model_to_local_only(self, model_name: str) -> ModelEntry:
+        """Strip remote info from a model, keeping only the local path."""
+        from dataclasses import replace
+
+        existing = self.get_model(model_name)
+        updated = replace(
+            existing,
+            location_type="local",
+            remote_host="",
+            remote_path="",
+        )
+        save_model_entry(self._models_root, updated)
+        return updated
+
     def list_models(self) -> tuple[ModelEntry, ...]:
         """List all registered model entries."""
         entries: list[ModelEntry] = []

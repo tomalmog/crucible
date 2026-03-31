@@ -18,6 +18,14 @@
     grid-template-columns: var(--sidebar-collapsed-width) 1fr;
 }
 
+.app-shell.agent-open {
+    grid-template-columns: var(--sidebar-width) 1fr 380px;
+}
+
+.app-shell.sidebar-collapsed.agent-open {
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr 380px;
+}
+
 /* ─── Sidebar (dark themed) ─── */
 
 .app-sidebar {

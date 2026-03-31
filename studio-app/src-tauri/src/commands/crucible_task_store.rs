@@ -236,6 +236,23 @@ impl CommandTaskStore {
             }
         }
 
+        // Write payload file for agent-chat so the CLI can read it
+        let mut args = args;
+        if command_name == "agent-chat" {
+            if let Some(ref json) = config_json {
+                let payload_dir = resolve_data_root(&data_root).join("agent");
+                let _ = fs::create_dir_all(&payload_dir);
+                let payload_path = payload_dir.join("_payload.json");
+                let _ = fs::write(&payload_path, json);
+                // Replace --payload-file value with the actual written path
+                args = vec![
+                    "agent-chat".to_string(),
+                    "--payload-file".to_string(),
+                    payload_path.to_string_lossy().to_string(),
+                ];
+            }
+        }
+
         let working_directory = workspace_root_dir();
         let crucible_bin = resolve_crucible_binary(&working_directory);
         let spawn_result = Command::new(crucible_bin)

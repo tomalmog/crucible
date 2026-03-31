@@ -5,7 +5,7 @@ import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
   Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, PackageOpen,
-  LayoutDashboard,
+  LayoutDashboard, Bot,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -131,6 +131,13 @@ export function AppSidebar() {
       </nav>
 
       <div className="sidebar-footer">
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => window.dispatchEvent(new CustomEvent("agent-toggle"))}
+          title="Toggle AI Agent"
+        >
+          <Bot size={16} />
+        </button>
         <button
           className="sidebar-collapse-btn"
           onClick={toggleCollapsed}
