@@ -101,10 +101,14 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
   // Auto-refresh models by polling index.json mtime every 5s
   const lastModelMtime = useRef<string>("");
   useEffect(() => {
+    // Seed the initial mtime immediately so the first interval poll can detect changes
+    getModelIndexMtime(dataRoot)
+      .then((mtime) => { lastModelMtime.current = mtime; })
+      .catch(() => {});
     const poll = setInterval(async () => {
       try {
         const mtime = await getModelIndexMtime(dataRoot);
-        if (lastModelMtime.current && mtime !== lastModelMtime.current) {
+        if (mtime !== lastModelMtime.current) {
           refreshModels().catch(console.error);
         }
         lastModelMtime.current = mtime;

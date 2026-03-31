@@ -12,7 +12,7 @@ import { ClusterSelect } from "../../components/shared/ClusterSelect";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
-import { listClusters } from "../../api/remoteApi";
+import { listClusters, getRemoteModelSizes } from "../../api/remoteApi";
 import { ModelOverview } from "./ModelOverview";
 import { ModelMergeForm } from "./ModelMergeForm";
 import type { ModelEntry } from "../../types/models";
@@ -37,6 +37,7 @@ export function ModelsPage() {
 
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
+  const [remoteSizes, setRemoteSizes] = useState<Record<string, number>>({});
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
   const [transferError, setTransferError] = useState<string | null>(null);
   const hostToCluster = useMemo(() => {
@@ -53,6 +54,22 @@ export function ModelsPage() {
       })
       .catch(console.error);
   }, [dataRoot]);
+
+  const fetchRemoteSizes = useCallback(async (bypassCache?: boolean) => {
+    if (!selectedCluster) return;
+    try {
+      const sizes = await getRemoteModelSizes(dataRoot, selectedCluster, bypassCache);
+      setRemoteSizes(sizes);
+    } catch {
+      setRemoteSizes({});
+    }
+  }, [dataRoot, selectedCluster]);
+
+  useEffect(() => {
+    if (locationTab === "remote" && selectedCluster) {
+      fetchRemoteSizes().catch(console.error);
+    }
+  }, [locationTab, selectedCluster, fetchRemoteSizes]);
 
   const pollUntilDone = useCallback(async (taskId: string) => {
     while (true) {
@@ -122,6 +139,9 @@ export function ModelsPage() {
   async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
     await refreshModels();
+    if (locationTab === "remote") {
+      await fetchRemoteSizes(true);
+    }
     setIsRefreshing(false);
   }
 
@@ -186,7 +206,7 @@ export function ModelsPage() {
                   {locationTab === "remote" && m.remoteHost && (
                     <span className="badge">{hostToCluster.get(m.remoteHost) || m.remoteHost}</span>
                   )}
-                  <span>{formatSize(m.sizeBytes)}</span>
+                  <span>{formatSize(locationTab === "remote" ? (remoteSizes[m.modelName] ?? m.sizeBytes) : m.sizeBytes)}</span>
                 </>
               }
               actions={

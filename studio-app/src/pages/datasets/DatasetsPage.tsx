@@ -48,11 +48,11 @@ export function DatasetsPage() {
       .catch(console.error);
   }, [dataRoot]);
 
-  const fetchRemote = useCallback(async () => {
+  const fetchRemote = useCallback(async (bypassCache?: boolean) => {
     if (!selectedCluster) return;
     setLoadingRemote(true);
     try {
-      setRemoteDatasets(await listRemoteDatasets(dataRoot, selectedCluster));
+      setRemoteDatasets(await listRemoteDatasets(dataRoot, selectedCluster, bypassCache));
     } catch {
       setRemoteDatasets([]);
     } finally {
@@ -97,7 +97,7 @@ export function DatasetsPage() {
   async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
     if (locationTab === "remote") {
-      await fetchRemote();
+      await fetchRemote(true);
     } else {
       await refreshDatasets();
     }

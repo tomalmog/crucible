@@ -36,16 +36,16 @@ export function useResourceData() {
     }
   }, [dataRoot]);
 
-  const loadRemote = useCallback(async () => {
+  const loadRemote = useCallback(async (bypassCache?: boolean) => {
     try {
       const cls = await listClusters(dataRoot);
       setClusters(cls);
       const remote: ClusterRemoteStorage[] = await Promise.all(
         cls.map(async (c) => {
           const [datasets, modelSizes, clusterInfo] = await Promise.all([
-            listRemoteDatasets(dataRoot, c.name).catch(() => [] as RemoteDatasetInfo[]),
-            getRemoteModelSizes(dataRoot, c.name).catch(() => ({}) as Record<string, number>),
-            getClusterInfo(dataRoot, c.name).catch(() => null as ClusterInfo | null),
+            listRemoteDatasets(dataRoot, c.name, bypassCache).catch(() => [] as RemoteDatasetInfo[]),
+            getRemoteModelSizes(dataRoot, c.name, bypassCache).catch(() => ({}) as Record<string, number>),
+            getClusterInfo(dataRoot, c.name, bypassCache).catch(() => null as ClusterInfo | null),
           ]);
           return { cluster: c, datasets, modelSizes, clusterInfo };
         }),
@@ -57,15 +57,17 @@ export function useResourceData() {
     }
   }, [dataRoot]);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (bypassCache?: boolean) => {
     setLoading(true);
-    await Promise.all([loadLocal(), loadRemote()]);
+    await Promise.all([loadLocal(), loadRemote(bypassCache)]);
     setLoading(false);
   }, [loadLocal, loadRemote]);
 
+  const refresh = useCallback(() => load(true), [load]);
+
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    load();
+  }, [load]);
 
   return {
     storage,
