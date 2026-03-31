@@ -279,7 +279,10 @@ fn read_json_file(path: &Path) -> Result<Value, String> {
 }
 
 fn safe_filename(name: &str) -> String {
-    name.replace('/', "--")
+    // Must match Python's sanitize_remote_name: re.sub(r"[^a-zA-Z0-9_.\-]", "_", name)
+    name.chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-' { c } else { '_' })
+        .collect()
 }
 
 /// Get the size of a model path (file or directory).
