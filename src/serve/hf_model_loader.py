@@ -73,12 +73,16 @@ def load_huggingface_model(
             "Install with: pip install transformers"
         ) from error
 
-    # Check if model uses quantization that requires CUDA (FP8, etc.)
-    # and force CPU if we're on a non-CUDA device.
-    load_kwargs: dict[str, Any] = {
-        "device_map": "auto",
-        "dtype": "auto",
-    }
+    # Determine device placement. Use CUDA if available, otherwise CPU.
+    # MPS (Apple Metal) has incomplete op coverage for many HF models
+    # (e.g. Qwen, Llama attention patterns), causing matmul dimension
+    # errors at inference time. Force CPU to avoid silent failures.
+    import torch as _torch
+    load_kwargs: dict[str, Any] = {"dtype": "auto"}
+    if _torch.cuda.is_available():
+        load_kwargs["device_map"] = "auto"
+    else:
+        load_kwargs["device_map"] = "cpu"
     try:
         config = AutoConfig.from_pretrained(model_id)
         quant_config = getattr(config, "quantization_config", None)
@@ -90,9 +94,7 @@ def load_huggingface_model(
                 quant_type = getattr(quant_config, "quant_method", "")
             _MPS_INCOMPATIBLE_QUANT = {"compressed-tensors", "fp8", "fbgemm_fp8"}
             if quant_type in _MPS_INCOMPATIBLE_QUANT:
-                import torch
-                if not torch.cuda.is_available():
-                    load_kwargs["device_map"] = "cpu"
+                load_kwargs["device_map"] = "cpu"
     except Exception:
         pass
 
