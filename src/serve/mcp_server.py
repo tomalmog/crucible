@@ -160,6 +160,83 @@ The remote env auto-installs torch, trl, peft, transformers in a conda env.
 """)
 
 
+def _try_auto_register_remote(data_root: Path, job: Any, model_path: str | None = None) -> None:
+    """Auto-register a remote model in the local registry if not already there."""
+    try:
+        from store.model_registry import ModelRegistry
+        from store.cluster_registry import load_cluster
+        registry = ModelRegistry(data_root)
+        model_name = job.label or job.model_name or f"remote-{job.job_type}-{job.job_id[:16]}"
+        # Check if already registered
+        try:
+            registry.get_model(model_name)
+            return  # already registered
+        except Exception:
+            pass
+        mp = model_path or job.model_path
+        if not mp:
+            return
+        cluster_name = job.backend_cluster or getattr(job, "cluster_name", "")
+        if cluster_name:
+            cluster = load_cluster(data_root, cluster_name)
+            registry.register_remote_model(
+                model_name=model_name,
+                remote_host=cluster.host,
+                remote_path=mp,
+                run_id=job.job_id,
+            )
+        else:
+            registry.register_model(model_name, mp, run_id=job.job_id)
+    except Exception:
+        pass
+
+
+def _run_with_job(job_type: str, label: str, fn: Any, config: dict | None = None) -> str:
+    """Run a function wrapped in job record creation.
+
+    Creates a job record before running, updates it on completion/failure.
+    This makes MCP-initiated operations visible on the Jobs page.
+    """
+    from store.job_store import generate_job_id, now_iso, save_job, update_job
+    from core.job_types import JobRecord as JR
+
+    root = _data_root()
+    job_id = generate_job_id()
+    ts = now_iso()
+    save_job(root, JR(
+        job_id=job_id, backend="local", job_type=job_type,
+        state="running", created_at=ts, updated_at=ts,
+        label=label, config=config or {},
+    ))
+    try:
+        result = fn()
+        model_path = ""
+        if isinstance(result, dict):
+            model_path = result.get("model_path", "")
+        update_job(root, job_id, state="completed", model_path=model_path)
+        # Write result as stdout so the UI can display it
+        _write_job_stdout(root, job_id, json.dumps(result, indent=2, default=str) if isinstance(result, dict) else str(result))
+        if isinstance(result, dict):
+            result["job_id"] = job_id
+        return json.dumps(result, indent=2, default=str) if isinstance(result, dict) else str(result)
+    except Exception as exc:
+        update_job(root, job_id, state="failed", error_message=f"{type(exc).__name__}: {exc}")
+        return json.dumps({"error": str(exc), "job_id": job_id})
+
+
+def _write_job_stdout(data_root: Path, job_id: str, stdout: str) -> None:
+    """Write stdout to the job JSON as an extra field."""
+    job_path = data_root / "jobs" / f"{job_id}.json"
+    if not job_path.exists():
+        return
+    try:
+        data = json.loads(job_path.read_text())
+        data["stdout"] = stdout
+        job_path.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass
+
+
 def _get_client():
     from core.config import CrucibleConfig
     from store.dataset_sdk import CrucibleClient
@@ -339,6 +416,43 @@ def delete_model(model_name: str) -> str:
 
 
 @mcp.tool()
+def register_remote_model(
+    model_name: str,
+    cluster_name: str,
+    remote_path: str,
+) -> str:
+    """Register a model that exists on a remote cluster without downloading it.
+
+    Use this when a model was trained on a cluster and you want it visible
+    in the UI model list without pulling the full weights to local disk.
+
+    Args:
+        model_name: Display name for the model.
+        cluster_name: Name of the cluster where the model lives.
+        remote_path: Path to the model on the cluster (e.g. /path/to/output/model.pt).
+    """
+    try:
+        from store.model_registry import ModelRegistry
+        from store.cluster_registry import load_cluster
+        root = _data_root()
+        cluster = load_cluster(root, cluster_name)
+        registry = ModelRegistry(root)
+        entry = registry.register_remote_model(
+            model_name=model_name,
+            remote_host=cluster.host,
+            remote_path=remote_path,
+        )
+        return json.dumps({
+            "model_name": entry.model_name,
+            "location_type": entry.location_type,
+            "remote_host": entry.remote_host,
+            "remote_path": entry.remote_path,
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to register remote model: {exc}"})
+
+
+@mcp.tool()
 def pull_model(job_id: str, model_name: str = "") -> str:
     """Pull a trained model from a remote cluster after a completed job.
 
@@ -391,21 +505,25 @@ def train(
         from store.model_registry import ModelRegistry
         client = _get_client()
         kwargs = json.loads(method_args)
-        result = dispatch_training(client, method, kwargs)
-        # Auto-register the trained model
-        if result.model_path:
-            try:
-                name = kwargs.get("model_name") or method
-                registry = ModelRegistry(_data_root())
-                registry.register_model(name, str(result.model_path), run_id=result.run_id)
-            except Exception:
-                pass
-        return json.dumps({
-            "status": "completed",
-            "model_path": str(result.model_path),
-            "history_path": str(result.history_path),
-            "epochs_completed": result.epochs_completed,
-        })
+
+        def do_train():
+            result = dispatch_training(client, method, kwargs)
+            if result.model_path:
+                try:
+                    name = kwargs.get("model_name") or method
+                    registry = ModelRegistry(_data_root())
+                    registry.register_model(name, str(result.model_path), run_id=result.run_id)
+                except Exception:
+                    pass
+            return {
+                "status": "completed",
+                "model_path": str(result.model_path),
+                "history_path": str(result.history_path),
+                "epochs_completed": result.epochs_completed,
+            }
+
+        label = kwargs.get("model_name") or method
+        return _run_with_job(method, label, do_train, {"method": method, **kwargs})
     except Exception as exc:
         return json.dumps({"error": f"Training failed: {exc}"})
 
@@ -489,15 +607,30 @@ def list_jobs() -> str:
 
 @mcp.tool()
 def job_status(job_id: str) -> str:
-    """Get the current status of a job.
+    """Get the current status of a job, syncing from the remote backend if needed.
+
+    Automatically registers the model when a remote job completes.
 
     Args:
         job_id: The job ID to check.
     """
     try:
         _ensure_backends()
+        from core.backend_registry import get_backend
         from store.job_store import load_job
-        job = load_job(_data_root(), job_id)
+        root = _data_root()
+        job = load_job(root, job_id)
+        # Sync state from backend for non-terminal jobs
+        if job.state in ("running", "pending", "submitting"):
+            try:
+                backend = get_backend(job.backend)
+                backend.get_state(root, job_id)
+                job = load_job(root, job_id)  # re-read after sync
+            except Exception:
+                pass
+        # Auto-register model for completed remote jobs
+        if job.state == "completed" and job.model_path and job.backend != "local":
+            _try_auto_register_remote(root, job)
         return json.dumps({
             "job_id": job.job_id,
             "state": job.state,
@@ -530,7 +663,7 @@ def job_logs(job_id: str, tail: int = 100) -> str:
 
 @mcp.tool()
 def job_result(job_id: str) -> str:
-    """Get the result of a completed job.
+    """Get the result of a completed job. Auto-registers remote models.
 
     Args:
         job_id: The job ID.
@@ -539,9 +672,15 @@ def job_result(job_id: str) -> str:
         _ensure_backends()
         from core.backend_registry import get_backend
         from store.job_store import load_job
-        job = load_job(_data_root(), job_id)
+        root = _data_root()
+        job = load_job(root, job_id)
         backend = get_backend(job.backend)
-        result = backend.get_result(_data_root(), job_id)
+        result = backend.get_result(root, job_id)
+        # Auto-register model for completed remote jobs
+        if job.backend != "local" and isinstance(result, dict):
+            model_path = result.get("model_path", "")
+            if model_path and result.get("status") == "completed":
+                _try_auto_register_remote(root, job, model_path)
         return json.dumps(result, indent=2, default=str)
     except Exception as exc:
         return json.dumps({"error": f"Failed to get job result: {exc}"})
@@ -600,19 +739,27 @@ def run_benchmark(
     try:
         from eval.benchmark_runner import run_benchmarks
         benchmark_list = [b.strip() for b in benchmarks.split(",")]
-        result = run_benchmarks(
-            model_path, benchmark_list,
-            max_samples=max_samples if max_samples > 0 else None,
-        )
-        return json.dumps({
-            "model_path": result.model_path,
-            "average_score": result.average_score,
-            "benchmarks": [
-                {"name": r.benchmark_name, "score": r.score,
-                 "correct": r.correct, "total": r.num_examples}
-                for r in result.benchmark_results
-            ],
-        }, indent=2)
+
+        def do_work():
+            result = run_benchmarks(
+                model_path, benchmark_list,
+                max_samples=max_samples if max_samples > 0 else None,
+            )
+            return {
+                "model_path": result.model_path,
+                "average_score": result.average_score,
+                "benchmarks": [
+                    {"name": r.benchmark_name, "score": r.score,
+                     "correct": r.correct, "total": r.num_examples}
+                    for r in result.benchmark_results
+                ],
+            }
+
+        label = Path(model_path).stem if "/" in model_path or os.sep in model_path else model_path
+        return _run_with_job("eval", label, do_work, {
+            "model_path": model_path, "benchmarks": benchmarks,
+            "max_samples": max_samples,
+        })
     except Exception as exc:
         return json.dumps({"error": f"Benchmark failed: {exc}"})
 
@@ -745,6 +892,8 @@ def run_interp(
         extra = json.loads(args_json)
         output_dir = extra.pop("output_dir", None) or tempfile.mkdtemp(prefix="crucible-interp-")
         base_model = extra.pop("base_model", None)
+        label = Path(model_path).stem if "/" in model_path or os.sep in model_path else model_path
+        config_dict = {"tool": tool_name, "model_path": model_path, **extra}
 
         if tool_name == "logit-lens":
             from core.logit_lens_types import LogitLensOptions
@@ -757,8 +906,9 @@ def run_interp(
                 top_k=int(extra.get("top_k", 5)),
                 layer_indices=extra.get("layer_indices", ""),
             )
-            result = run_logit_lens(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_logit_lens(opts)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "activation-pca":
             from core.activation_pca_types import ActivationPcaOptions
@@ -784,8 +934,9 @@ def run_interp(
                 granularity=extra.get("granularity", "sample"),
                 color_field=extra.get("color_field", ""),
             )
-            result = run_activation_pca(opts, records)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_activation_pca(opts, records)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "activation-patching":
             from core.activation_patching_types import ActivationPatchingOptions
@@ -799,8 +950,9 @@ def run_interp(
                 base_model=base_model,
                 metric=extra.get("metric", "logit_diff"),
             )
-            result = run_activation_patching(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_activation_patching(opts)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "linear-probe":
             from core.linear_probe_types import LinearProbeOptions
@@ -826,8 +978,9 @@ def run_interp(
                 epochs=int(extra.get("epochs", 10)),
                 learning_rate=float(extra.get("learning_rate", 1e-3)),
             )
-            result = run_linear_probe(opts, records)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_linear_probe(opts, records)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "sae-train":
             from core.sae_types import SaeTrainOptions
@@ -854,8 +1007,9 @@ def run_interp(
                 learning_rate=float(extra.get("learning_rate", 1e-3)),
                 sparsity_coeff=float(extra.get("sparsity_coeff", 1e-3)),
             )
-            result = run_sae_train(opts, records)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_sae_train(opts, records)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "sae-analyze":
             from core.sae_types import SaeAnalyzeOptions
@@ -879,8 +1033,9 @@ def run_interp(
                 dataset_name=dataset_name,
                 top_k_features=int(extra.get("top_k_features", 10)),
             )
-            result = run_sae_analyze(opts, records or None)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_sae_analyze(opts, records or None)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "steer-compute":
             from core.steering_types import SteerComputeOptions
@@ -915,8 +1070,9 @@ def run_interp(
                         for line in neg_path.read_text().splitlines()
                         if line.strip()
                     ]
-            result = run_steer_compute(opts, pos_records, neg_records)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_steer_compute(opts, pos_records, neg_records)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         if tool_name == "steer-apply":
             from core.steering_types import SteerApplyOptions
@@ -930,8 +1086,9 @@ def run_interp(
                 max_new_tokens=int(extra.get("max_new_tokens", 50)),
                 base_model=base_model,
             )
-            result = run_steer_apply(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_steer_apply(opts)
+            return _run_with_job(tool_name, label, do_work, config_dict)
 
         return json.dumps({"error": f"Unknown interp tool: {tool_name}. Use: logit-lens, activation-pca, activation-patching, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply"})
     except Exception as exc:
@@ -961,34 +1118,40 @@ def export_model(
         resolved = resolve_model_path(model_path, data_root)
         if not output_dir:
             output_dir = tempfile.mkdtemp(prefix=f"crucible-export-{format}-")
+        label = Path(model_path).stem if "/" in model_path or os.sep in model_path else model_path
+        config_dict = {"model_path": model_path, "format": format, "output_dir": output_dir}
 
         if format == "onnx":
             from core.onnx_export_types import OnnxExportOptions
             from serve.onnx_exporter import run_onnx_export
             opts = OnnxExportOptions(model_path=resolved, output_dir=output_dir)
-            result = run_onnx_export(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_onnx_export(opts)
+            return _run_with_job(f"{format}-export", label, do_work, config_dict)
 
         if format == "safetensors":
             from core.safetensors_export_types import SafeTensorsExportOptions
             from serve.safetensors_exporter import run_safetensors_export
             opts = SafeTensorsExportOptions(model_path=resolved, output_dir=output_dir)
-            result = run_safetensors_export(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_safetensors_export(opts)
+            return _run_with_job(f"{format}-export", label, do_work, config_dict)
 
         if format == "gguf":
             from core.gguf_export_types import GgufExportOptions
             from serve.gguf_exporter import run_gguf_export
             opts = GgufExportOptions(model_path=resolved, output_dir=output_dir)
-            result = run_gguf_export(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_gguf_export(opts)
+            return _run_with_job(f"{format}-export", label, do_work, config_dict)
 
         if format == "hf":
             from core.hf_export_types import HfExportOptions
             from serve.hf_exporter import run_hf_export
             opts = HfExportOptions(model_path=resolved, output_dir=output_dir)
-            result = run_hf_export(opts)
-            return json.dumps(result, indent=2, default=str)
+            def do_work():
+                return run_hf_export(opts)
+            return _run_with_job(f"{format}-export", label, do_work, config_dict)
 
         return json.dumps({"error": f"Unknown format: {format}. Use: onnx, safetensors, gguf, hf"})
     except Exception as exc:
@@ -1022,18 +1185,24 @@ def merge_models(
         weight_tuple: tuple[float, ...] = ()
         if weights:
             weight_tuple = tuple(float(w.strip()) for w in weights.split(","))
-        config = MergeConfig(
+        merge_cfg = MergeConfig(
             model_paths=paths,
             method=method,
             weights=weight_tuple,
             output_path=output,
         )
-        result = _merge(config)
-        return json.dumps({
-            "output_path": result.output_path,
-            "method": result.method,
-            "num_models": result.num_models,
-            "num_parameters": result.num_parameters,
+
+        def do_work():
+            result = _merge(merge_cfg)
+            return {
+                "output_path": result.output_path,
+                "method": result.method,
+                "num_models": result.num_models,
+                "num_parameters": result.num_parameters,
+            }
+
+        return _run_with_job("merge", "model-merge", do_work, {
+            "model_paths": list(paths), "method": method, "output": output,
         })
     except Exception as exc:
         return json.dumps({"error": f"Model merge failed: {exc}"})
@@ -1187,22 +1356,29 @@ def run_sweep(
             training_method=method,
             method_args=tuple(fixed_args.items()),
         )
-        result = _run_sweep(client, config, random_seed)
-        return json.dumps({
-            "best_trial_id": result.best_trial_id,
-            "best_parameters": result.best_parameters,
-            "best_metric_value": result.best_metric_value,
-            "total_trials": len(result.trials),
-            "trials": [
-                {
-                    "trial_id": t.trial_id,
-                    "parameters": t.parameters,
-                    "metric_value": t.metric_value,
-                    "model_path": t.model_path,
-                }
-                for t in result.trials
-            ],
-        }, indent=2)
+
+        def do_work():
+            result = _run_sweep(client, config, random_seed)
+            return {
+                "best_trial_id": result.best_trial_id,
+                "best_parameters": result.best_parameters,
+                "best_metric_value": result.best_metric_value,
+                "total_trials": len(result.trials),
+                "trials": [
+                    {
+                        "trial_id": t.trial_id,
+                        "parameters": t.parameters,
+                        "metric_value": t.metric_value,
+                        "model_path": t.model_path,
+                    }
+                    for t in result.trials
+                ],
+            }
+
+        return _run_with_job("sweep", method, do_work, {
+            "method": method, "dataset_name": dataset_name,
+            "strategy": strategy, "max_trials": max_trials,
+        })
     except Exception as exc:
         return json.dumps({"error": f"Sweep failed: {exc}"})
 
@@ -1266,16 +1442,24 @@ def lora_merge(
         from serve.interp_model_loader import load_interp_model
         from serve.lora_injection import inject_lora_layers
         from core.lora_types import LoraConfig
-        model, _tokenizer = load_interp_model(base_model_path)
-        # Inject LoRA layers so adapter weights can be loaded
-        config = LoraConfig()
-        inject_lora_layers(model, config)
-        load_lora_adapter(torch, model, adapter_path, device=next(model.parameters()).device)
-        merged_path = merge_lora_into_base(torch, model, output_path)
-        return json.dumps({
-            "merged_model_path": merged_path,
-            "base_model": base_model_path,
-            "adapter_path": adapter_path,
+
+        def do_work():
+            model, _tokenizer = load_interp_model(base_model_path)
+            # Inject LoRA layers so adapter weights can be loaded
+            lora_cfg = LoraConfig()
+            inject_lora_layers(model, lora_cfg)
+            load_lora_adapter(torch, model, adapter_path, device=next(model.parameters()).device)
+            merged_path = merge_lora_into_base(torch, model, output_path)
+            return {
+                "merged_model_path": merged_path,
+                "base_model": base_model_path,
+                "adapter_path": adapter_path,
+            }
+
+        label = Path(base_model_path).stem if "/" in base_model_path or os.sep in base_model_path else base_model_path
+        return _run_with_job("lora-merge", label, do_work, {
+            "adapter_path": adapter_path, "base_model_path": base_model_path,
+            "output_path": output_path,
         })
     except Exception as exc:
         return json.dumps({"error": f"LoRA merge failed: {exc}"})

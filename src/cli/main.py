@@ -5,9 +5,12 @@ This module maps argparse commands onto SDK calls via a dispatch table.
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import replace
 from pathlib import Path
 from typing import Callable, Sequence
+
+from core.job_types import JobRecord
 
 from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
 from cli.agent_command import add_agent_chat_command, run_agent_chat_command
@@ -194,6 +197,19 @@ _TRAINING_COMMANDS = frozenset({
     "multimodal-train", "rlvr-train", "distributed-train",
 })
 
+# Commands that produce results visible in the UI and need job tracking.
+# When run from CLI/MCP (no Tauri task store), these get wrapped with
+# automatic job record creation so the UI can display them.
+_JOB_TRACKED_COMMANDS = frozenset({
+    *_TRAINING_COMMANDS,
+    "eval", "benchmark", "sweep",
+    "logit-lens", "activation-pca", "activation-patch",
+    "linear-probe", "sae-train", "sae-analyze",
+    "steer-compute", "steer-apply",
+    "onnx-export", "safetensors-export", "gguf-export", "hf-export",
+    "merge", "lora-merge",
+})
+
 
 def _init_backends() -> None:
     """Register all execution backends."""
@@ -218,6 +234,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from serve.mcp_server import run_mcp_server
         run_mcp_server()
         return 0
+    # Agent chat runs standalone
+    if args.command == "agent-chat":
+        _init_backends()
+        client = _build_client(args.data_root)
+        dispatch = _build_dispatch_table()
+        return dispatch["agent-chat"](client, args)
     _init_backends()
     client = _build_client(args.data_root)
     dispatch = _build_dispatch_table()
@@ -227,7 +249,150 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if args.command in _TRAINING_COMMANDS:
         emit_progress("training_preparing", method=args.command)
+    # Skip job tracking if a Tauri task store is managing this process
+    # (detected by the CRUCIBLE_TASK_ID env var set by the Rust task store)
+    if args.command in _JOB_TRACKED_COMMANDS and "CRUCIBLE_TASK_ID" not in os.environ:
+        return _run_with_job_tracking(client, args, handler)
     return handler(client, args)
+
+
+def _run_with_job_tracking(
+    client: CrucibleClient,
+    args: argparse.Namespace,
+    handler: _CommandHandler,
+) -> int:
+    """Wrap a CLI handler with job record creation and stdout capture.
+
+    Creates a job record before running, captures stdout/stderr into
+    the record, and updates the record when the handler finishes or
+    fails. This makes CLI/MCP-initiated operations visible on the
+    Jobs page in Studio.
+    """
+    import io
+    import sys
+    import traceback
+
+    from store.job_store import generate_job_id, now_iso, save_job, update_job
+
+    job_id = generate_job_id()
+    ts = now_iso()
+    label = getattr(args, "model_name", None) or args.command
+    config = _snapshot_args(args)
+
+    # Create initial job record
+    save_job(client._config.data_root, JobRecord(
+        job_id=job_id,
+        backend="local",
+        job_type=args.command,
+        state="running",
+        created_at=ts,
+        updated_at=ts,
+        label=label,
+        config=config,
+    ))
+
+    # Capture stdout while still printing to terminal
+    real_stdout = sys.stdout
+    real_stderr = sys.stderr
+    stdout_capture = io.StringIO()
+    stderr_capture = io.StringIO()
+
+    class TeeWriter:
+        def __init__(self, real: object, capture: io.StringIO) -> None:
+            self._real = real
+            self._capture = capture
+        def write(self, s: str) -> int:
+            self._real.write(s)  # type: ignore[union-attr]
+            self._capture.write(s)
+            return len(s)
+        def flush(self) -> None:
+            self._real.flush()  # type: ignore[union-attr]
+            self._capture.flush()
+        def isatty(self) -> bool:
+            return getattr(self._real, "isatty", lambda: False)()
+        def fileno(self) -> int:
+            return getattr(self._real, "fileno", lambda: -1)()
+        @property
+        def encoding(self) -> str:
+            return getattr(self._real, "encoding", "utf-8")
+
+    sys.stdout = TeeWriter(real_stdout, stdout_capture)  # type: ignore[assignment]
+    sys.stderr = TeeWriter(real_stderr, stderr_capture)  # type: ignore[assignment]
+
+    try:
+        exit_code = handler(client, args)
+        sys.stdout = real_stdout
+        sys.stderr = real_stderr
+
+        stdout_str = stdout_capture.getvalue()
+        stderr_str = stderr_capture.getvalue()
+        model_path = _extract_field(stdout_str, "model_path")
+        state = "completed" if exit_code == 0 else "failed"
+
+        update_job(
+            client._config.data_root, job_id,
+            state=state,
+            model_path=model_path,
+        )
+        # Write stdout/stderr to the job JSON (not on the dataclass,
+        # but the Rust UI reads them as extra JSON fields)
+        _write_job_extra_fields(client._config.data_root, job_id, stdout_str, stderr_str)
+        return exit_code
+    except Exception as exc:
+        sys.stdout = real_stdout
+        sys.stderr = real_stderr
+        stderr_str = stderr_capture.getvalue() + "\n" + traceback.format_exc()
+        update_job(
+            client._config.data_root, job_id,
+            state="failed",
+            error_message=f"{type(exc).__name__}: {exc}",
+        )
+        _write_job_extra_fields(
+            client._config.data_root, job_id,
+            stdout_capture.getvalue(), stderr_str,
+        )
+        raise
+
+
+def _write_job_extra_fields(
+    data_root: Path, job_id: str, stdout: str, stderr: str,
+) -> None:
+    """Write stdout/stderr to the job JSON as extra fields.
+
+    The Rust UI reads these from the JSON directly (they're not part
+    of the Python JobRecord dataclass). This ensures CLI-created jobs
+    have the same stdout/stderr data as Tauri-created ones.
+    """
+    import json
+    job_path = data_root / "jobs" / f"{job_id}.json"
+    if not job_path.exists():
+        return
+    try:
+        data = json.loads(job_path.read_text())
+        if stdout:
+            data["stdout"] = stdout
+        if stderr:
+            data["stderr"] = stderr
+        job_path.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass
+
+
+def _extract_field(stdout: str, field: str) -> str:
+    """Extract a key=value field from stdout output."""
+    for line in stdout.splitlines():
+        if line.startswith(f"{field}="):
+            return line[len(field) + 1:].strip()
+    return ""
+
+
+def _snapshot_args(args: argparse.Namespace) -> dict[str, object]:
+    """Snapshot CLI args into a config dict for retry-with-same-settings."""
+    config: dict[str, object] = {"page": "training", "method": args.command}
+    for key, value in vars(args).items():
+        if key not in ("command", "func") and value is not None:
+            config[key] = value
+    return config
 
 
 def _build_client(data_root: str | None) -> CrucibleClient:

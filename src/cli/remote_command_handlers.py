@@ -345,6 +345,21 @@ def _handle_pull_model(client: CrucibleClient, args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_register_model(client: CrucibleClient, args: argparse.Namespace) -> int:
+    """Register a remote model without downloading it."""
+    from store.cluster_registry import load_cluster
+    from store.model_registry import ModelRegistry
+    cluster = load_cluster(client._config.data_root, args.cluster)
+    registry = ModelRegistry(client._config.data_root)
+    entry = registry.register_remote_model(
+        model_name=args.model_name,
+        remote_host=cluster.host,
+        remote_path=args.remote_path,
+    )
+    print(f"Registered '{entry.model_name}' (remote: {entry.remote_host}:{entry.remote_path})")
+    return 0
+
+
 def _handle_remote_chat(
     client: CrucibleClient, args: argparse.Namespace,
 ) -> int:

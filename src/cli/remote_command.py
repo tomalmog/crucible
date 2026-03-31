@@ -101,6 +101,12 @@ def add_remote_command(
     pm.add_argument("--job-id", required=True, help="Remote job ID")
     pm.add_argument("--model-name", default=None, help="Name to register model under (auto-generated if omitted)")
 
+    # register-model (register a remote model without downloading)
+    rm = sub.add_parser("register-model", help="Register a remote model without downloading it")
+    rm.add_argument("--cluster", required=True, help="Cluster name")
+    rm.add_argument("--remote-path", required=True, help="Path to model on the cluster")
+    rm.add_argument("--model-name", required=True, help="Name for the model registry")
+
     # dataset-push
     dp = sub.add_parser("dataset-push", help="Push a dataset to a remote cluster")
     dp.add_argument("--cluster", required=True, help="Cluster name")
@@ -191,6 +197,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         _handle_logs,
         _handle_pull_model,
         _handle_register_cluster,
+        _handle_register_model,
         _handle_remote_chat,
         _handle_remove_cluster,
         _handle_reset_env,
@@ -226,6 +233,7 @@ def run_remote_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         "cancel": _handle_cancel,
         "push-model": _handle_push_model,
         "pull-model": _handle_pull_model,
+        "register-model": _handle_register_model,
         "dataset-push": _handle_dataset_push,
         "dataset-list": _handle_dataset_list,
         "dataset-pull": _handle_dataset_pull,

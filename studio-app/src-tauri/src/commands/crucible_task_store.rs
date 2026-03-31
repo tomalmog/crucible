@@ -258,6 +258,7 @@ impl CommandTaskStore {
         let spawn_result = Command::new(crucible_bin)
             .current_dir(working_directory)
             .env("PYTHONUNBUFFERED", "1")
+            .env("CRUCIBLE_TASK_ID", &task_id)
             .arg("--data-root")
             .arg(&data_root)
             .args(args)
