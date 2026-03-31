@@ -22,10 +22,20 @@ def run_merge_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         output_path=args.output,
     )
     result = merge_models(config)
+    print(f"model_path={result.output_path}")
     print(f"output_path={result.output_path}")
     print(f"method={result.method}")
     print(f"num_models={result.num_models}")
     print(f"num_parameters={result.num_parameters}")
+    # Auto-register the merged model
+    try:
+        from store.model_registry import ModelRegistry
+        name = getattr(args, "model_name", None) or f"merged-{args.method}"
+        registry = ModelRegistry(client._config.data_root)
+        registry.register_model(name, result.output_path)
+        print(f"model_name={name}")
+    except Exception:
+        pass
     return 0
 
 
@@ -40,3 +50,4 @@ def add_merge_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     )
     parser.add_argument("--weights", default=None, help="Comma-separated per-model weights")
     parser.add_argument("--output", default="./merged_model.pt", help="Output path for merged model")
+    parser.add_argument("--model-name", default=None, help="Name for model registry (auto-derived if not set)")

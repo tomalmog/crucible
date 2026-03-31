@@ -1193,9 +1193,18 @@ def merge_models(
         )
 
         def do_work():
+            from store.model_registry import ModelRegistry
             result = _merge(merge_cfg)
+            # Auto-register the merged model
+            try:
+                registry = ModelRegistry(_data_root())
+                name = f"merged-{method}"
+                registry.register_model(name, result.output_path)
+            except Exception:
+                pass
             return {
                 "output_path": result.output_path,
+                "model_path": result.output_path,
                 "method": result.method,
                 "num_models": result.num_models,
                 "num_parameters": result.num_parameters,
@@ -1286,9 +1295,17 @@ def hub_download_model(repo_id: str) -> str:
         repo_id: HuggingFace model ID (e.g. 'gpt2', 'meta-llama/Llama-2-7b').
     """
     try:
-        from serve.hub_download import download_and_register_model
-        entry = download_and_register_model(_data_root(), repo_id)
-        return f"Downloaded and registered '{entry.model_name}' at {entry.model_path}."
+        from serve.huggingface_hub import download_model
+        from store.model_registry import ModelRegistry
+        root = _data_root()
+        target_dir = str(root / "pulled-models")
+        path = download_model(repo_id, target_dir, None)
+        registry = ModelRegistry(root)
+        entry = registry.register_model(repo_id, path)
+        return json.dumps({
+            "model_name": entry.model_name,
+            "model_path": entry.model_path,
+        })
     except Exception as exc:
         return json.dumps({"error": f"Hub download failed: {exc}"})
 
@@ -1444,14 +1461,22 @@ def lora_merge(
         from core.lora_types import LoraConfig
 
         def do_work():
+            from store.model_registry import ModelRegistry
             model, _tokenizer = load_interp_model(base_model_path)
-            # Inject LoRA layers so adapter weights can be loaded
             lora_cfg = LoraConfig()
             inject_lora_layers(model, lora_cfg)
             load_lora_adapter(torch, model, adapter_path, device=next(model.parameters()).device)
             merged_path = merge_lora_into_base(torch, model, output_path)
+            # Auto-register the merged model
+            try:
+                name = f"merged-{Path(base_model_path).stem}"
+                registry = ModelRegistry(_data_root())
+                registry.register_model(name, merged_path)
+            except Exception:
+                pass
             return {
                 "merged_model_path": merged_path,
+                "model_path": merged_path,
                 "base_model": base_model_path,
                 "adapter_path": adapter_path,
             }
