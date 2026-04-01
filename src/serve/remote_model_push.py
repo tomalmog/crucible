@@ -6,6 +6,7 @@ extract on the remote, and return the remote path.
 
 from __future__ import annotations
 
+import shlex
 import tarfile
 import tempfile
 from pathlib import Path
@@ -97,7 +98,8 @@ def _upload_directory(
 
     print("Extracting on remote...", flush=True)
     _, stderr, code = session.execute(
-        f"tar -xzf {remote_tar} -C {remote_dir} && rm -f {remote_tar}",
+        f"tar -xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_dir)}"
+        f" && rm -f {shlex.quote(remote_tar)}",
     )
     if code != 0:
         raise CrucibleRemoteError(

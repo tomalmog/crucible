@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+
 from core.errors import CrucibleDockerError
 from core.job_types import JobState
 
@@ -41,9 +43,9 @@ def build_docker_run_cmd(
     """
     parts = ["docker", "run", "-d", gpu_flags]
     for host_path, container_path in volumes:
-        parts.append(f"-v {host_path}:{container_path}")
-    parts.append(f"-w {workdir}")
-    parts.append(image)
+        parts.append(f"-v {shlex.quote(host_path + ':' + container_path)}")
+    parts.append(f"-w {shlex.quote(workdir)}")
+    parts.append(shlex.quote(image))
     parts.append(f"bash -c {_shell_quote(command)}")
     return " ".join(parts)
 

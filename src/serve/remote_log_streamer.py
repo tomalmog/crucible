@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Generator
 from pathlib import Path
 
@@ -72,7 +73,7 @@ def fetch_remote_logs(
         if not log_path:
             return "[no log path available — job may still be submitting]"
 
-        _, _, code = session.execute(f"test -f {log_path}", timeout=10)
+        _, _, code = session.execute(f"test -f {shlex.quote(log_path)}", timeout=10)
         if code != 0:
             sacct_info = query_sacct_details(session, record.slurm_job_id)
             return (
@@ -91,7 +92,7 @@ def _wait_for_log_file(
     log_path: str,
 ) -> Generator[str, None, None]:
     """Wait for a log file to appear, yielding status messages."""
-    _, _, code = session.execute(f"test -f {log_path}", timeout=10)
+    _, _, code = session.execute(f"test -f {shlex.quote(log_path)}", timeout=10)
     if code == 0:
         return
 
@@ -99,7 +100,7 @@ def _wait_for_log_file(
     import time
     for _ in range(30):
         time.sleep(2)
-        _, _, code = session.execute(f"test -f {log_path}", timeout=10)
+        _, _, code = session.execute(f"test -f {shlex.quote(log_path)}", timeout=10)
         if code == 0:
             return
     yield "[log file not found after 60s]"
@@ -107,14 +108,14 @@ def _wait_for_log_file(
 
 def _log_file_exists(session: SshSession, log_path: str) -> bool:
     """Check if a log file exists on the remote."""
-    _, _, code = session.execute(f"test -f {log_path}", timeout=10)
+    _, _, code = session.execute(f"test -f {shlex.quote(log_path)}", timeout=10)
     return code == 0
 
 
 def _discover_slurm_log(session: SshSession, workdir: str) -> str:
     """Try to find a slurm-*.out file in the remote workdir."""
     stdout, _, code = session.execute(
-        f"ls -1t {workdir}/slurm-*.out 2>/dev/null | head -1",
+        f"ls -1t {shlex.quote(workdir)}/slurm-*.out 2>/dev/null | head -1",
         timeout=10,
     )
     if code == 0 and stdout.strip():

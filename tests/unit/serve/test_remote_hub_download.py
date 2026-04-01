@@ -59,20 +59,32 @@ def test_ensure_hf_hub_installed_raises_on_install_failure() -> None:
 
 def test_run_snapshot_download_success() -> None:
     """No error when download reports the target path."""
-    session = _make_session([("downloaded_to=/scratch/models/test", "", 0)])
+    session = _make_session([
+        ("downloaded_to=/scratch/models/test", "", 0),  # main download
+        ("", "", 0),  # cleanup rm -f
+    ])
+    session.upload_text = MagicMock()
     _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 
 def test_run_snapshot_download_raises_on_failure() -> None:
     """Raises CrucibleRemoteError when the remote command exits non-zero."""
-    session = _make_session([("", "network error", 1)])
+    session = _make_session([
+        ("", "network error", 1),  # main download fails
+        ("", "", 0),  # cleanup rm -f
+    ])
+    session.upload_text = MagicMock()
     with pytest.raises(CrucibleRemoteError, match="Remote download of org/model failed"):
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 
 def test_run_snapshot_download_raises_when_path_missing() -> None:
     """Raises CrucibleRemoteError when stdout lacks the expected marker."""
-    session = _make_session([("some other output", "", 0)])
+    session = _make_session([
+        ("some other output", "", 0),  # download succeeds but no marker
+        ("", "", 0),  # cleanup rm -f
+    ])
+    session.upload_text = MagicMock()
     with pytest.raises(CrucibleRemoteError, match="path not reported"):
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 

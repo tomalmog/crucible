@@ -6,6 +6,7 @@ Auto-pushes from local if the dataset hasn't been pushed yet.
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -45,7 +46,7 @@ def resolve_dataset(
     safe_ds = sanitize_remote_name(ds_name)
     ds_path = f"{resolved_ws}/datasets/{safe_ds}"
 
-    _, _, rc = session.execute(f"test -d {ds_path}", timeout=10)
+    _, _, rc = session.execute(f"test -d {shlex.quote(ds_path)}", timeout=10)
     if rc != 0:
         # Dataset not on remote — push it
         if phase:
@@ -61,7 +62,7 @@ def resolve_dataset(
     # data path field set.  Prefer the original source file (prompt/response
     # format) over crucible ingest records.
     source_file = f"{ds_path}/{SOURCE_DATA_FILE_NAME}"
-    _, _, src_rc = session.execute(f"test -f {source_file}", timeout=10)
+    _, _, src_rc = session.execute(f"test -f {shlex.quote(source_file)}", timeout=10)
     best_data_file = source_file if src_rc == 0 else data_file
 
     data_field = DATA_PATH_FIELDS.get(spec.job_type)
@@ -84,7 +85,7 @@ def resolve_dataset(
         if ds:
             safe_steer = sanitize_remote_name(ds)
             steer_path = f"{resolved_ws}/datasets/{safe_steer}"
-            _, _, steer_rc = session.execute(f"test -d {steer_path}", timeout=10)
+            _, _, steer_rc = session.execute(f"test -d {shlex.quote(steer_path)}", timeout=10)
             if steer_rc != 0:
                 if phase:
                     phase(f"Pushing dataset '{ds}'...")

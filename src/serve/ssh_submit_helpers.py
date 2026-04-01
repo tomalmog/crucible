@@ -7,6 +7,7 @@ bare SSH and Docker submission paths.  Used exclusively by SshRunner.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 from core.errors import CrucibleRemoteError
@@ -102,7 +103,7 @@ def prepare_single_config(
     )
     session.upload_text(wrapper, f"{resolved_dir}/launch.sh")
     return (
-        f"cd {resolved_dir} && "
+        f"cd {shlex.quote(resolved_dir)} && "
         f"tar xzf crucible-agent.tar.gz && "
         f"bash launch.sh && cat .pid"
     )
@@ -151,7 +152,7 @@ def prepare_sweep_configs(
     )
     session.upload_text(wrapper, f"{resolved_dir}/launch.sh")
     return (
-        f"cd {resolved_dir} && "
+        f"cd {shlex.quote(resolved_dir)} && "
         f"tar xzf crucible-agent.tar.gz && "
         f"bash launch.sh && cat .pid"
     )
@@ -213,7 +214,7 @@ def build_sweep_script(
     """
     lines = [
         "#!/usr/bin/env bash",
-        f'cd "{resolved_dir}"',
+        f"cd {shlex.quote(resolved_dir)}",
     ]
     if env_activate:
         lines.append(env_activate)

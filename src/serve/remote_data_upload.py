@@ -6,6 +6,7 @@ Handles uploading agent bundles, configs, and scripts to remote clusters.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 from core.errors import CrucibleRemoteError
@@ -40,7 +41,7 @@ def _upload_script(session: SshSession, script: str, workdir: str) -> None:
 def _submit_sbatch(session: SshSession, workdir: str) -> str:
     """Submit the sbatch script and parse the Slurm job ID."""
     stdout, stderr, code = session.execute(
-        f"sbatch {workdir}/job.sh", timeout=30,
+        f"sbatch {shlex.quote(workdir + '/job.sh')}", timeout=30,
     )
     if code != 0:
         raise CrucibleRemoteError(f"sbatch failed: {stderr.strip()}")

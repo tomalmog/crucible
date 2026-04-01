@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 from pathlib import Path
 
 from core.errors import CrucibleDockerError
@@ -24,9 +25,10 @@ def get_docker_state(session: object, record: JobRecord) -> JobState:
     if not isinstance(session, SshSession):
         return "failed"
     cid = record.backend_job_id
+    quoted_cid = shlex.quote(cid)
     fmt = "docker inspect --format='{{{{.State.{field}}}}}' {cid}"
     stdout, stderr, code = session.execute(
-        fmt.format(field="Status", cid=cid), timeout=15,
+        fmt.format(field="Status", cid=quoted_cid), timeout=15,
     )
     if code != 0:
         raise CrucibleDockerError(f"Docker inspect failed: {stderr.strip()}")
@@ -34,7 +36,7 @@ def get_docker_state(session: object, record: JobRecord) -> JobState:
     if state != "completed":
         return state
     stdout, _, code = session.execute(
-        fmt.format(field="ExitCode", cid=cid), timeout=15,
+        fmt.format(field="ExitCode", cid=quoted_cid), timeout=15,
     )
     if code != 0:
         return "completed"
@@ -62,7 +64,7 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
         f"{record.backend_output_dir}/output/train.log",
     )
     stdout, _, _ = session.execute(
-        f"tail -50 {log_path} 2>/dev/null", timeout=10,
+        f"tail -50 {shlex.quote(log_path)} 2>/dev/null", timeout=10,
     )
     if "CRUCIBLE_AGENT_COMPLETE" in stdout:
         return "completed"
@@ -76,7 +78,7 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
         f"{record.backend_output_dir}/output/result.json",
     )
     rout, _, rcode = session.execute(
-        f"cat {result_path} 2>/dev/null", timeout=10,
+        f"cat {shlex.quote(result_path)} 2>/dev/null", timeout=10,
     )
     if rcode == 0 and rout.strip():
         try:
@@ -91,7 +93,7 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
 
     # 3. No markers and no result.json — check if the process is alive.
     pid = record.backend_job_id
-    if pid:
+    if pid and pid.isdigit():
         _, _, code = session.execute(
             f"kill -0 {pid} 2>/dev/null", timeout=10,
         )
@@ -100,7 +102,8 @@ def get_bare_state(session: object, record: JobRecord) -> JobState:
             # in 30+ minutes, the original process likely exited and the
             # PID was reassigned to an unrelated process.
             mtime_out, _, mtime_code = session.execute(
-                f"stat -c %Y {log_path} 2>/dev/null || stat -f %m {log_path} 2>/dev/null",
+                f"stat -c %Y {shlex.quote(log_path)} 2>/dev/null"
+                f" || stat -f %m {shlex.quote(log_path)} 2>/dev/null",
                 timeout=10,
             )
             if mtime_code == 0 and mtime_out.strip():
@@ -141,7 +144,7 @@ def handle_ssh_completion(
     result_path = session.resolve_path(
         f"{record.backend_output_dir}/output/result.json",
     )
-    stdout, _, code = session.execute(f"cat {result_path}", timeout=15)
+    stdout, _, code = session.execute(f"cat {shlex.quote(result_path)}", timeout=15)
     if code != 0:
         return
     try:

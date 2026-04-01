@@ -7,6 +7,7 @@ file transfer, and streaming log reads.
 from __future__ import annotations
 
 import os
+import shlex
 import time
 from collections.abc import Generator
 from pathlib import Path
@@ -217,7 +218,7 @@ class SshSession:
 
     def mkdir_p(self, remote_path: str) -> None:
         """Create a directory (and parents) on the remote host."""
-        self.execute(f"mkdir -p {remote_path}")
+        self.execute(f"mkdir -p {shlex.quote(remote_path)}")
 
     def stream_command(
         self,
@@ -287,7 +288,7 @@ class SshSession:
         Yields:
             Individual lines from the remote log file.
         """
-        command = f"tail -n {initial_lines} -f {remote_path}"
+        command = f"tail -n {int(initial_lines)} -f {shlex.quote(remote_path)}"
         try:
             transport = self.client.get_transport()
             if transport is None:
@@ -326,5 +327,7 @@ class SshSession:
         Returns:
             The last N lines as a single string.
         """
-        stdout, _, _ = self.execute(f"tail -n {lines} {remote_path}")
+        stdout, _, _ = self.execute(
+            f"tail -n {int(lines)} {shlex.quote(remote_path)}",
+        )
         return stdout

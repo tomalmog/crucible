@@ -6,6 +6,7 @@ submit via sbatch, save job record.
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 
 from core.constants import sanitize_remote_name
@@ -52,13 +53,13 @@ def _find_remote_data_file(
     # Prefer records.jsonl (crucible-ingested datasets)
     for candidate in ("records.jsonl", SOURCE_DATA_FILE_NAME):
         path = f"{ds_path}/{candidate}"
-        _, _, rc = session.execute(f"test -f {path}", timeout=10)
+        _, _, rc = session.execute(f"test -f {shlex.quote(path)}", timeout=10)
         if rc == 0:
             return path
 
     # Hub-downloaded datasets: list .jsonl and .parquet files
     stdout, _, rc = session.execute(
-        f"find {ds_path} -maxdepth 3 -type f"
+        f"find {shlex.quote(ds_path)} -maxdepth 3 -type f"
         r" \( -name '*.jsonl' -o -name '*.parquet' \)"
         " | sort",
         timeout=15,
@@ -171,7 +172,7 @@ def submit_remote_job(
             if ds_name:
                 safe_ds = sanitize_remote_name(ds_name)
                 ds_path = f"{cluster.remote_workspace}/datasets/{safe_ds}"
-                _, _, rc = session.execute(f"test -d {ds_path}", timeout=10)
+                _, _, rc = session.execute(f"test -d {shlex.quote(ds_path)}", timeout=10)
                 if rc != 0:
                     raise CrucibleRemoteError(
                         f"Dataset '{ds_name}' not found on cluster "
@@ -189,7 +190,7 @@ def submit_remote_job(
                 if data_field:
                     source_file = f"{ds_path}/{SOURCE_DATA_FILE_NAME}"
                     _, _, src_rc = session.execute(
-                        f"test -f {source_file}", timeout=10,
+                        f"test -f {shlex.quote(source_file)}", timeout=10,
                     )
                     if src_rc == 0:
                         method_args[data_field] = source_file
@@ -386,7 +387,7 @@ def submit_remote_interp_job(
             if ds_name:
                 safe_ds = sanitize_remote_name(ds_name)
                 ds_path = f"{cluster.remote_workspace}/datasets/{safe_ds}"
-                _, _, rc = session.execute(f"test -d {ds_path}", timeout=10)
+                _, _, rc = session.execute(f"test -d {shlex.quote(ds_path)}", timeout=10)
                 if rc != 0:
                     raise CrucibleRemoteError(
                         f"Dataset '{ds_name}' not found on cluster "
@@ -405,7 +406,7 @@ def submit_remote_interp_job(
                 if ds:
                     safe = sanitize_remote_name(ds)
                     dp = f"{cluster.remote_workspace}/datasets/{safe}"
-                    _, _, drc = session.execute(f"test -d {dp}", timeout=10)
+                    _, _, drc = session.execute(f"test -d {shlex.quote(dp)}", timeout=10)
                     if drc != 0:
                         raise CrucibleRemoteError(
                             f"Dataset '{ds}' not found on cluster "
@@ -505,7 +506,7 @@ def submit_remote_sweep(
                 safe_ds = sanitize_remote_name(ds_name)
                 ds_path = f"{cluster.remote_workspace}/datasets/{safe_ds}"
                 _, _, rc = session.execute(
-                    f"test -d {ds_path}", timeout=10,
+                    f"test -d {shlex.quote(ds_path)}", timeout=10,
                 )
                 if rc != 0:
                     raise CrucibleRemoteError(
@@ -519,7 +520,7 @@ def submit_remote_sweep(
                 use_source = False
                 if data_field:
                     _, _, src_rc = session.execute(
-                        f"test -f {source_file}", timeout=10,
+                        f"test -f {shlex.quote(source_file)}", timeout=10,
                     )
                     use_source = src_rc == 0
                 for tc in trial_configs:
@@ -602,7 +603,7 @@ def _ensure_remote_model_companions(
     # If base_model_path points to a file, use the parent directory
     remote_model_dir = base_model_resolved
     _, _, is_file_rc = session.execute(
-        f"test -f {base_model_resolved}", timeout=10,
+        f"test -f {shlex.quote(base_model_resolved)}", timeout=10,
     )
     if is_file_rc == 0:
         # It's a file — use parent directory
@@ -626,7 +627,7 @@ def _sync_model_companions(
     """Upload missing companion files from local registry to remote model."""
     # Check if the Crucible tokenizer file already exists on the remote
     _, _, rc = session.execute(
-        f"test -f {remote_model_dir}/tokenizer_vocab.json", timeout=10,
+        f"test -f {shlex.quote(remote_model_dir + '/tokenizer_vocab.json')}", timeout=10,
     )
     if rc == 0:
         return  # tokenizer already present
@@ -651,12 +652,13 @@ def _sync_model_companions(
     for name in _MODEL_COMPANIONS:
         local_file = local_dir / name
         if local_file.is_file():
+            remote_file = f"{remote_model_dir}/{name}"
             _, _, exists_rc = session.execute(
-                f"test -f {remote_model_dir}/{name}", timeout=10,
+                f"test -f {shlex.quote(remote_file)}", timeout=10,
             )
             if exists_rc != 0:
                 print(f"Uploading {name} to remote model...", flush=True)
-                session.upload(local_file, f"{remote_model_dir}/{name}")
+                session.upload(local_file, remote_file)
                 uploaded += 1
     if uploaded == 0:
         print(f"Companion sync: no files to upload from {local_dir}", flush=True)
@@ -678,7 +680,7 @@ def _ensure_interp_model_companions(
 
     # Determine the remote directory containing the model
     _, _, is_file_rc = session.execute(
-        f"test -f {remote_path}", timeout=10,
+        f"test -f {shlex.quote(remote_path)}", timeout=10,
     )
     if is_file_rc == 0:
         remote_model_dir = str(Path(remote_path).parent)
@@ -687,7 +689,7 @@ def _ensure_interp_model_companions(
 
     # Check if tokenizer already exists on remote
     _, _, rc = session.execute(
-        f"test -f {remote_model_dir}/tokenizer_vocab.json", timeout=10,
+        f"test -f {shlex.quote(remote_model_dir + '/tokenizer_vocab.json')}", timeout=10,
     )
     if rc == 0:
         return  # already present
@@ -742,12 +744,13 @@ def _ensure_interp_model_companions(
     for name in _MODEL_COMPANIONS:
         local_file = local_dir / name
         if local_file.is_file():
+            remote_file = f"{remote_model_dir}/{name}"
             _, _, exists_rc = session.execute(
-                f"test -f {remote_model_dir}/{name}", timeout=10,
+                f"test -f {shlex.quote(remote_file)}", timeout=10,
             )
             if exists_rc != 0:
                 print(f"Uploading {name} to remote model...", flush=True)
-                session.upload(local_file, f"{remote_model_dir}/{name}")
+                session.upload(local_file, remote_file)
                 uploaded += 1
     if uploaded > 0:
         print(

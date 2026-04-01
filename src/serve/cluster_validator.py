@@ -10,6 +10,7 @@ runs in its own shell.
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import replace
 from datetime import datetime, timezone
 
@@ -116,7 +117,7 @@ def _check_python(
     prefix = _env_prefix(cluster)
     py = cluster.python_path
     stdout, stderr, code = session.execute(
-        f"{prefix} && {py} --version", timeout=30,
+        f"{prefix} && {shlex.quote(py)} --version", timeout=30,
     )
     if code == 0:
         version = stdout.strip() or stderr.strip()
@@ -142,7 +143,7 @@ def _check_torch(
         "print(f'cuda_ver={v}')"
     )
     stdout, stderr, code = session.execute(
-        f'{prefix} && {py} -c "{script}"', timeout=30,
+        f'{prefix} && {shlex.quote(py)} -c "{script}"', timeout=30,
     )
     if code != 0:
         errors.append(f"PyTorch not available: {stderr.strip()}")
@@ -202,7 +203,7 @@ def _check_ssh_python(
 ) -> ClusterValidationResult:
     """Check if Python is accessible on the remote host (no conda env)."""
     py = cluster.python_path
-    stdout, stderr, code = session.execute(f"{py} --version", timeout=15)
+    stdout, stderr, code = session.execute(f"{shlex.quote(py)} --version", timeout=15)
     if code == 0:
         version = stdout.strip() or stderr.strip()
         return replace(result, python_ok=True, python_version=version)
@@ -235,7 +236,7 @@ def _check_docker_gpu(
 
     image = cluster.docker_image or DEFAULT_DOCKER_IMAGE
     stdout, stderr, code = session.execute(
-        f"docker run --rm --gpus all {image} nvidia-smi --query-gpu=name --format=csv,noheader",
+        f"docker run --rm --gpus all {shlex.quote(image)} nvidia-smi --query-gpu=name --format=csv,noheader",
         timeout=60,
     )
     if code != 0:

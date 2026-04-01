@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 
 from core.slurm_types import TERMINAL_JOB_STATES, RemoteJobRecord, RemoteJobState
@@ -64,7 +65,7 @@ def _handle_completed_terminal(
 def is_job_done(session: SshSession, slurm_job_id: str) -> bool:
     """Check if a Slurm job has reached a terminal state."""
     stdout, _, code = session.execute(
-        f"sacct -j {slurm_job_id} --noheader -o State -P", timeout=15,
+        f"sacct -j {shlex.quote(slurm_job_id)} --noheader -o State -P", timeout=15,
     )
     if code != 0:
         return False
@@ -94,7 +95,7 @@ def sync_final_state(
 ) -> RemoteJobState:
     """Query Slurm for the job's final state and persist it."""
     stdout, _, code = session.execute(
-        f"sacct -j {record.slurm_job_id} --noheader "
+        f"sacct -j {shlex.quote(record.slurm_job_id)} --noheader "
         "-o State,ExitCode,Reason%50 -P | head -1",
         timeout=15,
     )
@@ -177,7 +178,7 @@ def _build_state_transition_fields(
 def query_sacct_details(session: SshSession, slurm_job_id: str) -> str:
     """Query sacct for detailed job information."""
     stdout, _, code = session.execute(
-        f"sacct -j {slurm_job_id} --format=JobID,State,ExitCode,MaxRSS,"
+        f"sacct -j {shlex.quote(slurm_job_id)} --format=JobID,State,ExitCode,MaxRSS,"
         "Elapsed,NodeList,Reason%50 --noheader -P",
         timeout=15,
     )

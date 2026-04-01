@@ -7,6 +7,7 @@ datasets to remote Slurm clusters via SshSession.
 from __future__ import annotations
 
 import json
+import shlex
 import tarfile
 import tempfile
 from dataclasses import dataclass
@@ -135,7 +136,8 @@ def _upload_tar(
         session.upload(tar_path, remote_tar)
 
     extract_cmd = (
-        f"tar -xzf {remote_tar} -C {remote_dir} && rm -f {remote_tar}"
+        f"tar -xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_dir)}"
+        f" && rm -f {shlex.quote(remote_tar)}"
     )
     stdout, stderr, code = session.execute(extract_cmd)
     if code != 0:
@@ -151,7 +153,7 @@ def list_remote_datasets(
     """List datasets present on the remote cluster."""
     datasets_dir = _remote_datasets_dir(cluster)
     stdout, _, _ = session.execute(
-        f"ls -1 {datasets_dir} 2>/dev/null || true",
+        f"ls -1 {shlex.quote(datasets_dir)} 2>/dev/null || true",
     )
     names = [n.strip() for n in stdout.strip().splitlines() if n.strip()]
 
@@ -170,7 +172,7 @@ def _read_remote_metadata(
 ) -> RemoteDatasetInfo | None:
     """Read and parse a single remote dataset's metadata.json."""
     meta_path = f"{datasets_dir}/{name}/metadata.json"
-    stdout, _, code = session.execute(f"cat {meta_path}")
+    stdout, _, code = session.execute(f"cat {shlex.quote(meta_path)}")
     if code != 0:
         return None
     try:
@@ -193,7 +195,7 @@ def _read_remote_metadata(
 def _get_remote_dir_size(session: SshSession, remote_dir: str) -> int:
     """Get total size in bytes of a remote directory via du."""
     stdout, _, code = session.execute(
-        f"du -sb {remote_dir} 2>/dev/null | cut -f1",
+        f"du -sb {shlex.quote(remote_dir)} 2>/dev/null | cut -f1",
     )
     if code == 0 and stdout.strip().isdigit():
         return int(stdout.strip())
@@ -207,7 +209,7 @@ def delete_remote_dataset(
 ) -> None:
     """Delete a dataset directory on the remote cluster."""
     remote_dir = f"{_remote_datasets_dir(cluster)}/{sanitize_remote_name(dataset_name)}"
-    _, stderr, code = session.execute(f"rm -rf {remote_dir}")
+    _, stderr, code = session.execute(f"rm -rf {shlex.quote(remote_dir)}")
     if code != 0:
         raise CrucibleRemoteError(
             f"Failed to delete remote dataset '{dataset_name}': {stderr}"
@@ -233,7 +235,7 @@ def pull_remote_dataset(
     remote_dir = f"{datasets_dir}/{safe_name}"
     remote_records = f"{remote_dir}/{RECORDS_FILE_NAME}"
 
-    _, _, code = session.execute(f"test -f {remote_records}")
+    _, _, code = session.execute(f"test -f {shlex.quote(remote_records)}")
     if code != 0:
         raise CrucibleRemoteError(
             f"Remote records not found: {remote_records}"
@@ -248,7 +250,7 @@ def pull_remote_dataset(
     # Download source data file if available
     remote_source = f"{remote_dir}/{SOURCE_DATA_FILE_NAME}"
     _, _, src_code = session.execute(
-        f"test -f {remote_source}", timeout=10,
+        f"test -f {shlex.quote(remote_source)}", timeout=10,
     )
     source_uri: str | None = None
     if src_code == 0:

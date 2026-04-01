@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import shlex
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -88,7 +89,7 @@ def _sync_bundle(
     marker_path = f"{bundle_dir}/{_HASH_MARKER}"
 
     stdout, _, code = session.execute(
-        f"cat {marker_path} 2>/dev/null", timeout=10,
+        f"cat {shlex.quote(marker_path)} 2>/dev/null", timeout=10,
     )
     if code == 0 and stdout.strip() == local_hash:
         return
@@ -97,7 +98,7 @@ def _sync_bundle(
     remote_tarball = f"{bundle_dir}/crucible-agent.tar.gz"
     session.upload(tarball, remote_tarball)
     _, stderr, code = session.execute(
-        f"tar -xzf {remote_tarball} -C {bundle_dir}",
+        f"tar -xzf {shlex.quote(remote_tarball)} -C {shlex.quote(bundle_dir)}",
         timeout=60,
     )
     if code != 0:

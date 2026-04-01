@@ -7,6 +7,7 @@ from remote clusters, used by state sync and model puller modules.
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ def read_remote_result(
     nested dicts (e.g. ``training_history``, ``benchmarks``).
     """
     result_path = f"{record.remote_output_dir}/result.json"
-    stdout, _, code = session.execute(f"cat '{result_path}'", timeout=15)
+    stdout, _, code = session.execute(f"cat {shlex.quote(result_path)}", timeout=15)
     if code != 0:
         return {}
     try:

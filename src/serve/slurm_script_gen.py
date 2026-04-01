@@ -6,6 +6,7 @@ script generation.
 
 from __future__ import annotations
 
+import shlex
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, SlurmResourceConfig
@@ -46,7 +47,7 @@ def generate_single_node_script(
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
-    lines.append(f"cd {workdir}")
+    lines.append(f"cd {shlex.quote(workdir)}")
     lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
     lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
@@ -94,7 +95,7 @@ def generate_multi_node_script(
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
-    lines.append(f"cd {workdir}")
+    lines.append(f"cd {shlex.quote(workdir)}")
     lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
     lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
@@ -169,7 +170,7 @@ def generate_sweep_script(
 
     lines.extend(_module_load_lines(cluster))
     lines.extend(_cuda_env_lines())
-    lines.append(f"cd {workdir}")
+    lines.append(f"cd {shlex.quote(workdir)}")
     lines.append("tar xzf crucible-agent.tar.gz")
     lines.extend(_memory_diagnostic_lines())
     lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")

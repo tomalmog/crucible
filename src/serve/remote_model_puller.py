@@ -6,6 +6,7 @@ remote clusters into the local model registry.
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path, PurePosixPath
 
 from core.errors import CrucibleRemoteError
@@ -27,7 +28,7 @@ def cancel_remote_job(
 
     with SshSession(cluster) as session:
         _, stderr, code = session.execute(
-            f"scancel {record.slurm_job_id}", timeout=15,
+            f"scancel {shlex.quote(record.slurm_job_id)}", timeout=15,
         )
         if code != 0:
             raise CrucibleRemoteError(f"scancel failed: {stderr.strip()}")
@@ -76,7 +77,7 @@ def pull_remote_model(
         model_dir = str(PurePosixPath(remote_model).parent)
 
         _, _, rc = session.execute(
-            f"test -d '{model_dir}'", timeout=10,
+            f"test -d {shlex.quote(model_dir)}", timeout=10,
         )
         if rc != 0:
             raise CrucibleRemoteError(
@@ -86,7 +87,7 @@ def pull_remote_model(
 
         # Step 2: Check remote size
         stdout, _, _ = session.execute(
-            f"du -sh '{model_dir}' 2>/dev/null || echo 'unknown'",
+            f"du -sh {shlex.quote(model_dir)} 2>/dev/null || echo 'unknown'",
             timeout=30,
         )
         size_str = stdout.strip().split("\t")[0] if stdout.strip() else "unknown"
@@ -97,9 +98,9 @@ def pull_remote_model(
         tar_name = "model_download.tar.gz"
         remote_tar = f"{record.remote_output_dir}/{tar_name}"
         stdout, stderr, code = session.execute(
-            f"tar czf '{remote_tar}' "
+            f"tar czf {shlex.quote(remote_tar)} "
             f"--exclude='checkpoints' "
-            f"-C '{model_dir}' .",
+            f"-C {shlex.quote(model_dir)} .",
             timeout=600,
         )
         if code != 0:
@@ -108,7 +109,7 @@ def pull_remote_model(
             )
 
         stdout, _, _ = session.execute(
-            f"du -sh '{remote_tar}' 2>/dev/null || echo 'unknown'",
+            f"du -sh {shlex.quote(remote_tar)} 2>/dev/null || echo 'unknown'",
             timeout=15,
         )
         compressed = stdout.strip().split("\t")[0] if stdout.strip() else "?"
@@ -119,7 +120,7 @@ def pull_remote_model(
         session.download(remote_tar, local_tar)
         progress(f"Downloaded to {local_tar}")
 
-        session.execute(f"rm -f '{remote_tar}'", timeout=15)
+        session.execute(f"rm -f {shlex.quote(remote_tar)}", timeout=15)
 
     # Step 5: Extract locally
     progress("Extracting model locally...")
@@ -211,14 +212,14 @@ def pull_remote_model_direct(
 
         # Check if it's a file or directory
         _, _, rc_file = session.execute(
-            f"test -f '{remote_path}'", timeout=10,
+            f"test -f {shlex.quote(remote_path)}", timeout=10,
         )
         is_file = rc_file == 0
 
         if is_file:
             # Download the model file
             stdout, _, _ = session.execute(
-                f"du -sh '{remote_path}' 2>/dev/null || echo 'unknown'",
+                f"du -sh {shlex.quote(remote_path)} 2>/dev/null || echo 'unknown'",
                 timeout=30,
             )
             size_str = stdout.strip().split("\t")[0] if stdout.strip() else "unknown"
@@ -233,7 +234,7 @@ def pull_remote_model_direct(
         else:
             # Directory: tar + download + extract
             _, _, rc_dir = session.execute(
-                f"test -d '{remote_path}'", timeout=10,
+                f"test -d {shlex.quote(remote_path)}", timeout=10,
             )
             if rc_dir != 0:
                 raise CrucibleRemoteError(
@@ -241,7 +242,7 @@ def pull_remote_model_direct(
                 )
 
             stdout, _, _ = session.execute(
-                f"du -sh '{remote_path}' 2>/dev/null || echo 'unknown'",
+                f"du -sh {shlex.quote(remote_path)} 2>/dev/null || echo 'unknown'",
                 timeout=30,
             )
             size_str = stdout.strip().split("\t")[0] if stdout.strip() else "unknown"
@@ -251,9 +252,9 @@ def pull_remote_model_direct(
             tar_name = "model_download.tar.gz"
             remote_tar = f"{remote_parent}/{tar_name}"
             _, stderr, code = session.execute(
-                f"tar czf '{remote_tar}' "
+                f"tar czf {shlex.quote(remote_tar)} "
                 f"--exclude='checkpoints' "
-                f"-C '{remote_path}' .",
+                f"-C {shlex.quote(remote_path)} .",
                 timeout=600,
             )
             if code != 0:
@@ -262,7 +263,7 @@ def pull_remote_model_direct(
                 )
 
             stdout, _, _ = session.execute(
-                f"du -sh '{remote_tar}' 2>/dev/null || echo 'unknown'",
+                f"du -sh {shlex.quote(remote_tar)} 2>/dev/null || echo 'unknown'",
                 timeout=15,
             )
             compressed = stdout.strip().split("\t")[0] if stdout.strip() else "?"
@@ -272,7 +273,7 @@ def pull_remote_model_direct(
             session.download(remote_tar, local_tar)
             progress(f"Downloaded to {local_tar}")
 
-            session.execute(f"rm -f '{remote_tar}'", timeout=15)
+            session.execute(f"rm -f {shlex.quote(remote_tar)}", timeout=15)
 
             progress("Extracting model locally...")
             with tarfile.open(local_tar, "r:gz") as tar:
@@ -311,7 +312,7 @@ def _download_metadata_files(
     """Download small metadata files from the model directory."""
     for name in _METADATA_FILES:
         remote_file = f"{remote_dir}/{name}"
-        _, _, rc = session.execute(f"test -f '{remote_file}'", timeout=5)
+        _, _, rc = session.execute(f"test -f {shlex.quote(remote_file)}", timeout=5)
         if rc == 0:
             local_file = local_dir / name
             if not local_file.exists():

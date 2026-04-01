@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 from core.constants import DEFAULT_DOCKER_IMAGE, sanitize_remote_name
@@ -118,17 +119,19 @@ class SshRunner:
 
         with SshSession(cluster) as session:
             if _uses_docker(cluster):
-                cmd = f"docker stop {record.backend_job_id}"
+                cmd = f"docker stop {shlex.quote(record.backend_job_id)}"
                 _, stderr, exit_code = session.execute(cmd, timeout=30)
                 if exit_code != 0:
                     raise CrucibleDockerError(
                         f"Docker stop failed: {stderr.strip()}"
                     )
             else:
-                session.execute(
-                    f"kill {record.backend_job_id} 2>/dev/null; true",
-                    timeout=15,
-                )
+                pid = record.backend_job_id
+                if pid and pid.isdigit():
+                    session.execute(
+                        f"kill {pid} 2>/dev/null; true",
+                        timeout=15,
+                    )
 
         return update_job(data_root, job_id, state="cancelled")
 
@@ -179,7 +182,10 @@ class SshRunner:
 
         with SshSession(cluster) as session:
             if _uses_docker(cluster):
-                cmd = f"docker logs {record.backend_job_id} --tail {tail}"
+                cmd = (
+                    f"docker logs {shlex.quote(record.backend_job_id)}"
+                    f" --tail {int(tail)}"
+                )
                 stdout, stderr, _ = session.execute(cmd, timeout=30)
                 return stdout or stderr
 
@@ -187,7 +193,7 @@ class SshRunner:
                 f"{record.backend_output_dir}/output/train.log",
             )
             stdout, _, _ = session.execute(
-                f"tail -n {tail} {log_path}", timeout=30,
+                f"tail -n {int(tail)} {shlex.quote(log_path)}", timeout=30,
             )
             return stdout
 
@@ -204,7 +210,7 @@ class SshRunner:
                 f"{record.backend_output_dir}/output/result.json",
             )
             stdout, stderr, exit_code = session.execute(
-                f"cat {result_path}", timeout=15,
+                f"cat {shlex.quote(result_path)}", timeout=15,
             )
             if exit_code != 0:
                 # No result.json — try to get context from logs
@@ -212,7 +218,7 @@ class SshRunner:
                     f"{record.backend_output_dir}/output/train.log",
                 )
                 log_out, _, _ = session.execute(
-                    f"tail -30 {log_path} 2>/dev/null", timeout=10,
+                    f"tail -30 {shlex.quote(log_path)} 2>/dev/null", timeout=10,
                 )
                 return {
                     "status": "failed",
