@@ -44,6 +44,7 @@ def _load_hf(model_path: str) -> tuple[Any, "InterpTokenizer"]:
     )
 
     model = load_huggingface_model(model_path)
+    model.eval()
     hf_tok = load_huggingface_tokenizer(model_path)
     return model, InterpTokenizer.from_hf(hf_tok)
 
@@ -68,41 +69,8 @@ def _load_hf_with_weights(
 
 
 def _detect_hf_base_model(model_path: str) -> str | None:
-    """Check if model_path has a training_config with a HF base_model_path."""
-    from serve.hf_model_loader import is_huggingface_model_id
-    from serve.training_metadata import load_training_config
-
-    config = load_training_config(model_path)
-    if not config:
-        return None
-    for key in ("base_model_path", "initial_weights_path"):
-        value = str(config.get(key, "") or "")
-        if not value:
-            continue
-        if is_huggingface_model_id(value):
-            return value
-        resolved = _resolve_remote_hf_id(value)
-        if resolved:
-            return resolved
-    return None
-
-
-def _resolve_remote_hf_id(remote_path: str) -> str | None:
-    """Try to recover a HuggingFace model ID from a remote cluster path."""
-    from pathlib import Path as _Path
-    from serve.hf_model_loader import is_huggingface_model_id
-
-    basename = _Path(remote_path).name
-    if not basename:
-        return None
-    idx = basename.find("_")
-    if idx > 0:
-        candidate = basename[:idx] + "/" + basename[idx + 1:]
-        if is_huggingface_model_id(candidate):
-            return candidate
-    if is_huggingface_model_id(basename):
-        return basename
-    return None
+    from serve.model_type_detection import detect_hf_base_model
+    return detect_hf_base_model(model_path)
 
 
 # ---------- Crucible path ----------
@@ -166,9 +134,11 @@ class InterpTokenizer:
         self,
         encode_fn: Any,
         id_to_token: dict[int, str],
+        eos_token_id: int | None = None,
     ) -> None:
         self._encode_fn = encode_fn
         self._id_to_token = id_to_token
+        self.eos_token_id: int | None = eos_token_id
 
     # -- Construction helpers --
 
@@ -191,7 +161,8 @@ class InterpTokenizer:
                 max_length=max_length,
             )
 
-        return InterpTokenizer(_encode, reverse)
+        eos_id = getattr(hf_tokenizer, "eos_token_id", None)
+        return InterpTokenizer(_encode, reverse, eos_token_id=eos_id)
 
     @staticmethod
     def from_crucible(chat_tokenizer: Any) -> "InterpTokenizer":

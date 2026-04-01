@@ -135,7 +135,9 @@ def compute_logits(eval_model: EvalModel, text: str) -> Any:
     torch = eval_model.torch_module
     ids = eval_model.tokenizer.encode(text, eval_model.max_token_length)
     if not ids:
-        return torch.zeros(1)
+        # Return properly shaped zeros so callers indexing by token ID don't crash
+        vocab_size = len(getattr(eval_model.tokenizer, 'vocabulary', {})) or 32000
+        return torch.zeros(vocab_size)
     tensor = torch.tensor([ids], dtype=torch.long).to(eval_model.device)
     with torch.no_grad():
         output = eval_model.model(tensor)
@@ -271,59 +273,8 @@ class _HfTokenizerAdapter:
 
 
 def _detect_hf_base_model(model_path: str) -> str | None:
-    """Check if model_path has a training_config with a HuggingFace base model.
-
-    Checks both ``base_model_path`` (used by LoRA/SFT/DPO) and
-    ``initial_weights_path`` (used by QLoRA) so that all fine-tuned
-    HuggingFace models are detected regardless of training method.
-
-    Handles remote cluster paths (e.g. ``/u201/.../openai-community_gpt2``)
-    by extracting the basename and trying it as a HuggingFace model ID,
-    including unsanitized variants (``org_model`` → ``org/model``).
-    """
-    from serve.hf_model_loader import is_huggingface_model_id
-    from serve.training_metadata import load_training_config
-
-    config = load_training_config(model_path)
-    if not config:
-        return None
-    for key in ("base_model_path", "initial_weights_path"):
-        value = str(config.get(key, "") or "")
-        if not value:
-            continue
-        if is_huggingface_model_id(value):
-            return value
-        resolved = _resolve_remote_hf_id(value)
-        if resolved:
-            return resolved
-    return None
-
-
-def _resolve_remote_hf_id(remote_path: str) -> str | None:
-    """Try to recover a HuggingFace model ID from a remote cluster path.
-
-    Remote paths like ``/u201/.../openai-community_gpt2`` have the model
-    name as the basename, sanitized by ``sanitize_remote_name`` which
-    replaces ``/`` with ``_``.  Try unsanitizing first (``org_model`` →
-    ``org/model``) since that's the most common HF ID pattern, then
-    fall back to the raw basename (e.g. ``gpt2``).
-    """
-    from pathlib import Path as _Path
-    from serve.hf_model_loader import is_huggingface_model_id
-
-    basename = _Path(remote_path).name
-    if not basename:
-        return None
-    # Try unsanitizing first underscore → slash (e.g. "openai-community_gpt2" → "openai-community/gpt2")
-    idx = basename.find("_")
-    if idx > 0:
-        candidate = basename[:idx] + "/" + basename[idx + 1:]
-        if is_huggingface_model_id(candidate):
-            return candidate
-    # Fall back to basename directly (e.g. "gpt2")
-    if is_huggingface_model_id(basename):
-        return basename
-    return None
+    from serve.model_type_detection import detect_hf_base_model
+    return detect_hf_base_model(model_path)
 
 
 def _import_torch() -> Any:

@@ -162,46 +162,8 @@ def classify_model(model_path: str) -> tuple[bool, str]:
 
 def detect_hf_base_model(model_path: str) -> str | None:
     """Check training_config.json for an HF base model path."""
-    from serve.training_metadata import _artifact_dir
-
-    config_path = _artifact_dir(model_path) / "training_config.json"
-    if not config_path.exists():
-        return None
-    try:
-        import json as _json
-
-        config = _json.loads(config_path.read_text())
-        for key in ("base_model_path", "initial_weights_path"):
-            candidate = config.get(key, "")
-            if candidate:
-                hf_id = _resolve_hf_id_from_candidate(candidate)
-                if hf_id:
-                    return hf_id
-    except Exception:
-        pass
-    return None
-
-
-def _resolve_hf_id_from_candidate(candidate: str) -> str | None:
-    """Resolve a base model path to an HF model ID.
-
-    Handles direct HF IDs (``gpt2``), local HF dirs, and remote
-    cluster paths like ``/u201/.../openai-community_gpt2``.
-    """
-    from serve.hf_model_loader import is_huggingface_model_id
-
-    if is_huggingface_model_id(candidate):
-        return candidate
-
-    # Remote cluster path — try extracting HF ID from basename
-    p = Path(candidate)
-    if p.is_absolute() and not p.exists():
-        basename = p.name
-        if basename:
-            recovered = _unsanitize_hf_id(basename)
-            if recovered:
-                return recovered
-    return None
+    from serve.model_type_detection import detect_hf_base_model as _detect
+    return _detect(model_path)
 
 
 def copy_tokenizer(model_path: str, output_dir: Path, is_hf: bool) -> bool:
@@ -261,15 +223,24 @@ def load_crucible_model(model_path: str) -> tuple[Any, Any]:
 def load_state_dict_for_export(model_path: str) -> dict[str, Any]:
     """Load a state dict from a .pt file for export.
 
-    Unlike load_crucible_model, this doesn't require a tokenizer or
-    model architecture — it just loads the raw tensor dict, which is
-    all SafeTensors and GGUF export need.
+    For LoRA/QLoRA .pt files (detected via training_config.json with an
+    HF base model), loads the HF base model, applies the LoRA state dict,
+    and returns the merged weights so the export contains the full
+    fine-tuned model rather than the un-trained base.
+
+    For plain .pt files, loads the raw tensor dict directly.
     """
     import torch
 
     path = Path(model_path).expanduser()
     if not path.exists():
         raise CrucibleExportError(f"Model file not found: {model_path}")
+
+    # Check if this is a LoRA .pt trained on an HF base model
+    hf_base = detect_hf_base_model(str(path))
+    if hf_base:
+        return _load_lora_merged_state_dict(str(path), hf_base, torch)
+
     try:
         data = torch.load(str(path), map_location="cpu", weights_only=True)
         if isinstance(data, dict) and "state_dict" in data:
@@ -285,4 +256,34 @@ def load_state_dict_for_export(model_path: str) -> dict[str, Any]:
     except Exception as error:
         raise CrucibleExportError(
             f"Failed to load state dict from '{model_path}': {error}"
+        ) from error
+
+
+def _load_lora_merged_state_dict(
+    model_path: str, hf_base_id: str, torch_module: Any,
+) -> dict[str, Any]:
+    """Load HF base model, apply LoRA .pt weights, return merged state dict."""
+    try:
+        from transformers import AutoModelForCausalLM
+
+        base_model = AutoModelForCausalLM.from_pretrained(
+            hf_base_id, torch_dtype=torch_module.float32,
+        )
+        lora_state = torch_module.load(
+            model_path, map_location="cpu", weights_only=True,
+        )
+        if isinstance(lora_state, dict) and "state_dict" in lora_state:
+            lora_state = lora_state["state_dict"]
+
+        # Apply LoRA weights on top of the base model
+        base_state = base_model.state_dict()
+        base_state.update(lora_state)
+        base_model.load_state_dict(base_state, strict=False)
+        return dict(base_model.state_dict())
+    except CrucibleExportError:
+        raise
+    except Exception as error:
+        raise CrucibleExportError(
+            f"Failed to merge LoRA weights from '{model_path}' "
+            f"with base model '{hf_base_id}': {error}"
         ) from error

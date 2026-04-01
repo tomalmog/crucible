@@ -86,11 +86,14 @@ def _generate_tokens(
     hook_layer: str = "", hook_fn: Any = None,
 ) -> Tensor:
     """Simple greedy generation loop."""
-    from serve.tokenization import collect_stop_token_ids
-
     current_ids = input_ids.clone()
     hook_handle = None
-    stop_ids = collect_stop_token_ids(tokenizer)
+    # Build stop IDs from the tokenizer's EOS token
+    stop_ids = set()
+    eos_id = getattr(tokenizer, "eos_token_id", None)
+    if eos_id is not None:
+        stop_ids.add(eos_id)
+    stop_ids.add(0)  # pad token as fallback stop
 
     if hook_layer and hook_fn:
         module = _get_module_by_name(model, hook_layer)
@@ -127,14 +130,8 @@ def _decode_generated(tokenizer: Any, ids: Tensor, prompt_len: int) -> str:
 
 def _get_module_by_name(model: Any, name: str) -> Any:
     """Resolve a dotted module name to a module."""
-    parts = name.split(".")
-    current = model
-    for part in parts:
-        if part.isdigit():
-            current = current[int(part)]
-        else:
-            current = getattr(current, part)
-    return current
+    from serve.activation_extractor import _get_module_by_name as _resolve
+    return _resolve(model, name)
 
 
 def _load_model_and_tokenizer(options: SteerApplyOptions) -> tuple[Any, Any]:

@@ -152,44 +152,8 @@ def _build_runtime_context(
 
 
 def _detect_hf_base_model(model_path: str) -> str | None:
-    """Check if model_path has a training_config with a HuggingFace base_model_path.
-
-    Returns the base model ID if found, None otherwise.
-    Handles remote cluster paths by extracting the basename and trying
-    it as a HuggingFace model ID.
-    """
-    from serve.training_metadata import load_training_config
-
-    config = load_training_config(model_path)
-    if not config:
-        return None
-    for key in ("base_model_path", "initial_weights_path"):
-        value = str(config.get(key, "") or "")
-        if not value:
-            continue
-        if is_huggingface_model_id(value):
-            return value
-        resolved = _resolve_remote_hf_id(value)
-        if resolved:
-            return resolved
-    return None
-
-
-def _resolve_remote_hf_id(remote_path: str) -> str | None:
-    """Try to recover a HuggingFace model ID from a remote cluster path."""
-    from pathlib import Path as _Path
-
-    basename = _Path(remote_path).name
-    if not basename:
-        return None
-    idx = basename.find("_")
-    if idx > 0:
-        candidate = basename[:idx] + "/" + basename[idx + 1:]
-        if is_huggingface_model_id(candidate):
-            return candidate
-    if is_huggingface_model_id(basename):
-        return basename
-    return None
+    from serve.model_type_detection import detect_hf_base_model
+    return detect_hf_base_model(model_path)
 
 
 def _import_torch() -> Any:

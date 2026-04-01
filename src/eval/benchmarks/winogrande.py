@@ -8,7 +8,7 @@ a blank and two candidate completions.
 from __future__ import annotations
 
 from eval.benchmark_runner import BenchmarkResult
-from eval.benchmarks._model_loader import EvalModel, compute_sequence_loss, load_eval_model
+from eval.benchmarks._model_loader import EvalModel, compute_completion_loss, load_eval_model
 
 
 def run_winogrande(
@@ -30,10 +30,13 @@ def run_winogrande(
     correct = 0
     for example in examples:
         sentence = example["sentence"]
-        option1 = sentence.replace("_", str(example["option1"]))
-        option2 = sentence.replace("_", str(example["option2"]))
-        loss1 = compute_sequence_loss(eval_model, option1)
-        loss2 = compute_sequence_loss(eval_model, option2)
+        blank_idx = sentence.find("_")
+        prefix = sentence[:blank_idx] if blank_idx >= 0 else ""
+        suffix = sentence[blank_idx + 1:] if blank_idx >= 0 else ""
+        completion1 = str(example["option1"]) + suffix
+        completion2 = str(example["option2"]) + suffix
+        loss1 = compute_completion_loss(eval_model, prefix, completion1)
+        loss2 = compute_completion_loss(eval_model, prefix, completion2)
         predicted = 1 if loss1 <= loss2 else 2
         if predicted == example["answer"]:
             correct += 1

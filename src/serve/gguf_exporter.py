@@ -146,7 +146,11 @@ def _write_gguf(
     """Write model tensors to a GGUF file."""
     import torch
 
-    writer = gguf_mod.GGUFWriter(str(output_path), "llama")
+    # Detect architecture from model config
+    arch = getattr(config, "model_type", "llama")
+    arch_map = {"gpt2": "gpt2", "llama": "llama", "mistral": "llama", "phi": "phi", "falcon": "falcon", "qwen2": "qwen2"}
+    gguf_arch = arch_map.get(arch, "llama")
+    writer = gguf_mod.GGUFWriter(str(output_path), gguf_arch)
 
     # Architecture metadata
     writer.add_embedding_length(getattr(config, "hidden_size", 768))
