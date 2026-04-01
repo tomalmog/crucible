@@ -593,7 +593,7 @@ def save_result(
     # Save tokenizer alongside model.pt — use training_metadata for all types
     try:
         from serve.training_metadata import save_tokenizer_vocabulary
-        save_tokenizer_vocabulary(str(out), tokenizer)
+        save_tokenizer_vocabulary(out, tokenizer)
     except Exception:
         # Fallback for HF tokenizers
         if hasattr(tokenizer, "save_pretrained"):
