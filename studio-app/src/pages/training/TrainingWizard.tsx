@@ -8,6 +8,9 @@ import {
 } from "../../api/commandArgs";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { trainingLabel } from "../../utils/jobLabels";
+import { generateScript, parseScriptConfig, configToFormState } from "../../utils/scriptGenerator";
+import { CodeEditor } from "../../components/shared/CodeEditor";
+import { TabBar } from "../../components/shared/TabBar";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -59,6 +62,9 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   );
   const [startError, setStartError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  type ViewTab = "configure" | "code";
+  const [viewTab, setViewTab] = useState<ViewTab>("configure");
+  const [scriptContent, setScriptContent] = useState("");
   const [remoteEnabled, setRemoteEnabled] = useState(
     typeof prefill?.remoteEnabled === "boolean" ? prefill.remoteEnabled : false,
   );
@@ -105,6 +111,22 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
     };
   }
 
+  function handleTabSwitch(tab: ViewTab) {
+    if (tab === "code" && viewTab === "configure") {
+      // Generate script from current form state
+      const script = generateScript({ method, shared, extra, modelName });
+      setScriptContent(script);
+    } else if (tab === "configure" && viewTab === "code") {
+      // Parse script config back into form state
+      const parsed = parseScriptConfig(scriptContent);
+      const { shared: newShared, extra: newExtra } = configToFormState(parsed, method);
+      setShared({ ...shared, ...newShared });
+      setExtra({ ...extra, ...newExtra });
+      if (parsed.model_name) setModelName(parsed.model_name);
+    }
+    setViewTab(tab);
+  }
+
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
     if (!modelName.trim()) m.push("model name");
@@ -113,7 +135,30 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   }, [method, extra, modelName, remoteEnabled, clusterConfig.cluster]);
   const canStart = missing.length === 0;
 
+  async function submitScript() {
+    setSubmitting(true);
+    setStartError(null);
+    try {
+      // Parse model_name from the script content (user may have edited it)
+      const parsed = parseScriptConfig(scriptContent);
+      const scriptModelName = parsed.model_name || modelName.trim() || method;
+      const cfg = snapshotConfig();
+      const { writeTextFile } = await import("../../api/studioApi");
+      const timestamp = Date.now();
+      const scriptPath = `${dataRoot}/scripts/_training_${timestamp}.py`;
+      await writeTextFile(scriptPath, scriptContent);
+      const args = ["run-script", scriptPath, "--model-name", scriptModelName];
+      await startCrucibleCommand(dataRoot, args, trainingLabel(method, scriptModelName), cfg);
+      navigate("/jobs", { state: { statusFilter: "running" } });
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function startTraining() {
+    if (viewTab === "code") return submitScript();
     if (!canStart) return;
     setSubmitting(true);
     setStartError(null);
@@ -146,7 +191,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
         });
         await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       } else {
-        const args = buildTrainingArgs(method, uniqueShared, extra);
+        const args = [...buildTrainingArgs(method, uniqueShared, extra), "--model-name", modelName.trim()];
         await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       }
       navigate("/jobs", { state: { statusFilter: "running" } });
@@ -166,7 +211,29 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
         <ArrowLeft size={14} /> Back to Training
       </button>
 
+      <TabBar
+        tabs={["configure", "code"] as const}
+        active={viewTab}
+        onChange={handleTabSwitch}
+        format={(t) => t === "configure" ? "Configure" : "Code"}
+      />
+
       <TrainingClusterContext.Provider value={clusterContextValue}>
+      {viewTab === "code" ? (
+        <div className="panel stack-lg">
+          <CodeEditor value={scriptContent} onChange={setScriptContent} maxHeight="600px" />
+          {startError && <div className="error-alert">{startError}</div>}
+          <div className="flex-row">
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={() => startTraining().catch(console.error)}
+              disabled={submitting}
+            >
+              {submitting ? "Running..." : "Run Script"}
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="panel stack-lg has-remote-tab">
           {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
           {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
@@ -217,6 +284,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
             </button>
           </div>
         </div>
+      )}
 
         <ClusterSubmitSection
           enabled={remoteEnabled}

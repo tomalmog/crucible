@@ -3124,3 +3124,20 @@ label,
 .agent-toggle-fab:hover {
     background: var(--accent-hover);
 }
+
+/* ─── Code Editor ─── */
+
+.code-editor-wrap {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.code-editor-wrap .cm-editor {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.code-editor-wrap .cm-editor.cm-focused {
+    outline: none;
+}

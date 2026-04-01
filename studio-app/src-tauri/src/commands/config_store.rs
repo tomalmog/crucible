@@ -49,13 +49,20 @@ pub fn save_training_config(
 
 #[tauri::command]
 pub fn write_text_file(file_path: String, contents: String) -> Result<(), String> {
-    let path = std::path::Path::new(&file_path);
+    use super::crucible_task_store::workspace_root_dir;
+    let raw = std::path::Path::new(&file_path);
+    // Resolve relative paths against the workspace root (same as CLI working dir)
+    let path = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        workspace_root_dir().join(raw)
+    };
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| {
             format!("Failed to create directory {}: {e}", parent.display())
         })?;
     }
-    fs::write(path, contents).map_err(|e| {
+    fs::write(&path, contents).map_err(|e| {
         format!("Failed to write file {}: {e}", path.display())
     })
 }
