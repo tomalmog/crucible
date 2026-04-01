@@ -13,17 +13,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==8.3.5"]
-s3 = ["boto3==1.37.0"]
-logging = ["structlog==25.1.0"]
-lance = ["pylance==0.23.2", "pyarrow==19.0.0"]
-serve = ["torch==2.6.0", "matplotlib==3.10.0"]
-onnx = ["onnx==1.17.0", "onnxruntime==1.20.1", "numpy==2.2.2"]
+dev = ["pytest>=8.3.0"]
+serve = [
+    "torch>=2.6.0",
+    "transformers>=4.41.0",
+    "trl>=0.29.0",
+    "peft>=0.18.0",
+    "bitsandbytes>=0.45.0",
+    "accelerate>=1.0.0",
+    "safetensors>=0.4.0",
+    "datasets>=3.0.0",
+    "tokenizers>=0.22.0",
+    "matplotlib>=3.10.0",
+    "numpy<2",
+    "pyyaml>=6.0",
+]
+onnx = ["onnx>=1.17.0", "onnxruntime>=1.20.0", "optimum[onnxruntime]>=1.23.0"]
 gguf = ["gguf>=0.6.0"]
-tokenizers = ["tokenizers==0.22.2"]
-remote = ["paramiko==3.5.0"]
-eval = ["datasets>=3.0.0"]
-interp = []
+s3 = ["boto3>=1.37.0"]
+remote = ["paramiko>=3.5.0"]
+lance = ["pylance>=0.23.0", "pyarrow>=19.0.0"]
+logging = ["structlog>=25.1.0"]
+mcp = ["mcp>=1.0.0"]
 
 [project.scripts]
 crucible = "cli.main:main"
@@ -57,10 +68,13 @@ module = [
   "lance",
   "pyarrow",
   "torch",
+  "torch.*",
   "matplotlib",
   "matplotlib.*",
   "onnx",
   "onnxruntime",
+  "optimum",
+  "optimum.*",
   "numpy",
   "tokenizers",
   "paramiko",
@@ -69,5 +83,15 @@ module = [
   "gguf",
   "safetensors",
   "safetensors.*",
+  "transformers",
+  "transformers.*",
+  "trl",
+  "trl.*",
+  "peft",
+  "peft.*",
+  "bitsandbytes",
+  "accelerate",
+  "mcp",
+  "mcp.*",
 ]
 ignore_missing_imports = true
