@@ -124,6 +124,7 @@ def format_sweep_report_json(result: SweepResult) -> dict[str, object]:
         "best_trial_id": result.best_trial_id,
         "best_parameters": result.best_parameters,
         "best_metric_value": result.best_metric_value,
+        "model_path": result.model_path,
     }
 
 

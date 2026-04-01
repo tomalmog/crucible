@@ -94,16 +94,24 @@ class CrucibleClient:
         current = getattr(options, data_path_field, "")
         if current:
             return options
-        source = self.resolve_dataset_source(getattr(options, "dataset_name", ""))
+        dataset_name = getattr(options, "dataset_name", "")
+        source = self.resolve_dataset_source(dataset_name)
         if source:
+            # S3-ingested datasets: use the local records.jsonl copy
+            if source.startswith("s3://"):
+                records_path = self._config.data_root / "datasets" / dataset_name / "records.jsonl"
+                if records_path.exists():
+                    return replace(options, **{data_path_field: str(records_path)})
+                raise CrucibleServeError(
+                    f"S3 dataset '{dataset_name}' records not found locally."
+                )
             resolved = Path(source).expanduser().resolve()
             if resolved.exists():
                 return replace(options, **{data_path_field: str(resolved)})
         flag = data_path_field.replace("_", "-")
-        dataset = getattr(options, "dataset_name", "")
         raise CrucibleServeError(
             f"No data path provided (--{flag}). "
-            f"Re-ingest the dataset{' ' + repr(dataset) if dataset else ''} "
+            f"Re-ingest the dataset{' ' + repr(dataset_name) if dataset_name else ''} "
             f"to store the source path, or pass --{flag} explicitly."
         )
 
@@ -143,6 +151,7 @@ class CrucibleClient:
 
     def rlhf_train(self, options: RlhfOptions) -> TrainingRunResult:
         """Run RLHF training with PPO."""
+        options = self._resolve_rlhf_data_path(options)
         if not options.dataset_name:
             return run_rlhf_training(
                 records=[], options=options, random_seed=42,
@@ -150,12 +159,43 @@ class CrucibleClient:
             )
         return self.dataset(options.dataset_name).rlhf_train(options)
 
+    def _resolve_rlhf_data_path(self, options: RlhfOptions) -> RlhfOptions:
+        """Fill RLHF preference_data_path from dataset source URI if empty."""
+        if options.reward_config.preference_data_path:
+            return options
+        dataset_name = options.dataset_name
+        source = self.resolve_dataset_source(dataset_name)
+        if source:
+            if source.startswith("s3://"):
+                records_path = self._config.data_root / "datasets" / dataset_name / "records.jsonl"
+                if records_path.exists():
+                    new_reward = replace(options.reward_config, preference_data_path=str(records_path))
+                    return replace(options, reward_config=new_reward)
+                raise CrucibleServeError(
+                    f"S3 dataset '{dataset_name}' records not found locally."
+                )
+            resolved = Path(source).expanduser().resolve()
+            if resolved.exists():
+                new_reward = replace(options.reward_config, preference_data_path=str(resolved))
+                return replace(options, reward_config=new_reward)
+        return options
+
     def distill(self, options: DistillationOptions) -> TrainingRunResult:
         """Run knowledge distillation."""
+        if not options.dataset_name:
+            return run_distillation(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root,
+            )
         return self.dataset(options.dataset_name).distill(options)
 
     def domain_adapt(self, options: DomainAdaptationOptions) -> TrainingRunResult:
         """Run domain adaptation."""
+        if not options.dataset_name:
+            return run_domain_adaptation(
+                records=[], options=options, random_seed=42,
+                data_root=self._config.data_root,
+            )
         return self.dataset(options.dataset_name).domain_adapt(options)
 
     def grpo_train(self, options: GrpoOptions) -> TrainingRunResult:

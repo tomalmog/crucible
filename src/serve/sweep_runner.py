@@ -7,6 +7,7 @@ combinations and collects results to identify the best configuration.
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -74,7 +75,11 @@ def run_sweep(
             errors.append(error or "unknown error")
             _log(f"Trial {trial_id + 1}/{total_trials} | {params_str} | FAILED: {error}")
     _log(f"Sweep complete: {len(trials)}/{total_trials} trials succeeded")
-    return _build_sweep_result(trials, config.minimize, errors)
+    return _build_sweep_result(
+        trials, config.minimize, errors,
+        data_root=client._config.data_root,
+        method=config.training_method,
+    )
 
 
 def _run_single_trial(
@@ -246,13 +251,20 @@ def _parse_metric_from_history(
         raise CrucibleSweepError(
             f"Metric '{metric}' value is not numeric: {value}."
         )
-    return float(value)
+    float_value = float(value)
+    if not math.isfinite(float_value):
+        raise CrucibleSweepError(
+            f"Metric '{metric}' has non-finite value {float_value} in trial."
+        )
+    return float_value
 
 
 def _build_sweep_result(
     trials: list[SweepTrialResult],
     minimize: bool,
     errors: list[str] | None = None,
+    data_root: Path | None = None,
+    method: str = "train",
 ) -> SweepResult:
     """Build final SweepResult from completed trials.
 
@@ -260,6 +272,8 @@ def _build_sweep_result(
         trials: List of completed trial results.
         minimize: Whether lower metric values are better.
         errors: Error messages from failed trials.
+        data_root: Crucible data root for model auto-registration.
+        method: Training method name for registry naming.
 
     Returns:
         SweepResult with ranked trials and best configuration.
@@ -275,9 +289,22 @@ def _build_sweep_result(
         raise CrucibleSweepError(msg)
     ranked = rank_trials(trials, minimize)
     best = find_best_trial(ranked)
+    best_model_path = best.model_path
+
+    # Auto-register best trial model
+    if best_model_path and data_root is not None:
+        try:
+            from store.model_registry import ModelRegistry
+            registry = ModelRegistry(data_root)
+            name = f"{method}_sweep_best"
+            registry.register_model(name, best_model_path)
+        except Exception:
+            pass
+
     return SweepResult(
         trials=tuple(trials),
         best_trial_id=best.trial_id,
         best_parameters=best.parameters,
         best_metric_value=best.metric_value,
+        model_path=best_model_path,
     )

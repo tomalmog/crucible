@@ -14,6 +14,7 @@ from core.constants import (
     DATASETS_DIR_NAME,
     MANIFEST_FILE_NAME,
     RECORDS_FILE_NAME,
+    sanitize_remote_name,
 )
 from core.errors import CrucibleStoreError
 from core.logging_config import get_logger
@@ -125,9 +126,19 @@ class DatasetStore:
 
     def _dataset_dir(self, dataset_name: str) -> Path:
         """Return dataset directory path, creating it if needed."""
+        _validate_dataset_name(dataset_name)
         dataset_dir = self._datasets_root / dataset_name
         dataset_dir.mkdir(parents=True, exist_ok=True)
         return dataset_dir
+
+
+def _validate_dataset_name(name: str) -> None:
+    """Reject dataset names containing path-special characters."""
+    if not name or name != sanitize_remote_name(name):
+        raise ValueError(
+            f"Invalid dataset name: {name!r}. "
+            "Use only alphanumeric, underscore, hyphen, dot."
+        )
 
 
 # Keep old class name as alias for imports that haven't been updated yet

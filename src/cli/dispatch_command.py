@@ -69,9 +69,9 @@ def run_dispatch_command(
         import traceback
         print(f"DISPATCH_ERROR: {exc}", flush=True)
         traceback.print_exc()
-        # SSH runner writes its own failed record; for other backends,
-        # create one here as a fallback.
-        if spec.backend != "ssh":
+        # SSH and local runners write their own failed records; only
+        # create a fallback for backends that don't manage job records.
+        if spec.backend not in ("ssh", "local"):
             from store.job_store import generate_job_id, now_iso, save_job
             from core.job_types import JobRecord
             ts = now_iso()

@@ -90,9 +90,11 @@ class SweepResult:
         best_trial_id: Trial ID with the best metric.
         best_parameters: Parameters from the best trial.
         best_metric_value: Best observed metric value.
+        model_path: Path to the best trial's saved model weights.
     """
 
     trials: tuple[SweepTrialResult, ...]
     best_trial_id: int
     best_parameters: dict[str, float]
     best_metric_value: float
+    model_path: str = ""

@@ -17,6 +17,7 @@ from core.constants import (
     CHECKPOINT_STATE_FILE_NAME,
     DATASETS_DIR_NAME,
     INGEST_CHECKPOINT_DIR_NAME,
+    sanitize_remote_name,
 )
 from core.errors import CrucibleIngestError
 from core.types import DataRecord, SourceTextRecord
@@ -35,6 +36,7 @@ class IngestCheckpointStore:
     """Filesystem-backed ingest checkpoint store."""
 
     def __init__(self, data_root: Path, dataset_name: str) -> None:
+        _validate_dataset_name(dataset_name)
         self._checkpoint_dir = (
             data_root / DATASETS_DIR_NAME / dataset_name / INGEST_CHECKPOINT_DIR_NAME
         )
@@ -233,6 +235,15 @@ def _read_data_records(records_path: Path) -> list[DataRecord]:
             f"Failed to load ingest checkpoint data at {records_path}: {error}. "
             "Retry without --resume to rebuild checkpoints."
         ) from error
+
+
+def _validate_dataset_name(name: str) -> None:
+    """Reject dataset names containing path-special characters."""
+    if not name or name != sanitize_remote_name(name):
+        raise ValueError(
+            f"Invalid dataset name: {name!r}. "
+            "Use only alphanumeric, underscore, hyphen, dot."
+        )
 
 
 def _stage_rank(stage: str) -> int:
