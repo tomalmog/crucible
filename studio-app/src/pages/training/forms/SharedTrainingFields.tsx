@@ -41,6 +41,7 @@ export function SharedTrainingFields({ config, onChange }: SharedTrainingFieldsP
           </FormField>
           <FormField label="Precision">
             <select value={config.precision} onChange={(e) => update("precision", e.currentTarget.value)}>
+              <option value="auto">Auto</option>
               <option value="fp32">FP32</option>
               <option value="fp16">FP16</option>
               <option value="bf16">BF16</option>

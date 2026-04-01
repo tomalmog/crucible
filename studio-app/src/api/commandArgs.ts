@@ -173,6 +173,9 @@ const EXTRA_FLAG_TO_FIELD: Record<string, string> = {
   "--policy-model-path": "policy_model_path",
   "--teacher-model-path": "teacher_model_path",
   "--train-reward-model": "train_reward_model",
+  "--drift-check-interval": "drift_check_interval_epochs",
+  "--max-attempts": "max_verification_attempts",
+  "--packing": "packing_enabled",
 };
 
 function flagToField(flag: string): string {
