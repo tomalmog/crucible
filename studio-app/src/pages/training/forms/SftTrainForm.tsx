@@ -33,13 +33,11 @@ export function SftTrainForm({ extra, setExtra }: SftTrainFormProps) {
         <FormField label="Mask Prompt Tokens" hint="mask loss on prompt tokens (instruction-tuning)">
           <label className="toggle-row">
             <input type="checkbox" checked={(extra["--mask-prompt-tokens"] ?? "true") === "true"} onChange={(e) => update("--mask-prompt-tokens", e.currentTarget.checked ? "true" : "false")} />
-            <span>{(extra["--mask-prompt-tokens"] ?? "true") === "true" ? "Enabled" : "Disabled"}</span>
           </label>
         </FormField>
         <FormField label="Packing" hint="pack multiple examples into a single sequence">
           <label className="toggle-row">
             <input type="checkbox" checked={extra["--packing"] === "true"} onChange={(e) => update("--packing", e.currentTarget.checked ? "true" : "false")} />
-            <span>{extra["--packing"] === "true" ? "Enabled" : "Disabled"}</span>
           </label>
         </FormField>
       </div>

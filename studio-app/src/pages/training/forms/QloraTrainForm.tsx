@@ -45,7 +45,6 @@ export function QloraTrainForm({ extra, setExtra }: QloraTrainFormProps) {
         <FormField label="Double Quantization" hint="double-quantize QLoRA quantization constants">
           <label className="toggle-row">
             <input type="checkbox" checked={(extra["--double-quantize"] ?? "true") === "true"} onChange={(e) => update("--double-quantize", e.currentTarget.checked ? "true" : "false")} />
-            <span>{(extra["--double-quantize"] ?? "true") === "true" ? "Enabled" : "Disabled"}</span>
           </label>
         </FormField>
         <FormField label="LoRA Rank">
