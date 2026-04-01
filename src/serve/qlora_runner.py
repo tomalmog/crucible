@@ -152,7 +152,7 @@ def _run_qlora_with_trl(
         processing_class=tokenizer,
         peft_config=lora_config,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     # Save adapter config for compatibility
     _save_adapter_config_json(output_dir, options)

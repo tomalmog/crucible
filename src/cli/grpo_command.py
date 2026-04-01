@@ -93,7 +93,7 @@ def add_grpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     parser.add_argument("--clip-range", type=float, default=DEFAULT_GRPO_CLIP_RANGE, help="PPO clip range")
     parser.add_argument("--temperature", type=float, default=DEFAULT_GRPO_TEMPERATURE, help="Sampling temperature")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")
-    parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE, help="Optimizer learning rate")
+    parser.add_argument("--learning-rate", type=float, default=5e-5, help="Optimizer learning rate")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")
     parser.add_argument("--max-token-length", type=int, default=DEFAULT_MAX_TOKEN_LENGTH, help="Maximum token length per sequence")
     parser.add_argument("--validation-split", type=float, default=DEFAULT_TRAIN_VALIDATION_SPLIT, help="Validation data fraction")

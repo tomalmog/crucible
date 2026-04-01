@@ -171,7 +171,7 @@ def _read_checkpoint_payload(
             "Provide a valid --resume-checkpoint-path value."
         )
     try:
-        payload = torch_module.load(str(resolved_path), map_location=device)
+        payload = torch_module.load(str(resolved_path), map_location=device, weights_only=True)
     except (OSError, RuntimeError) as error:
         raise CrucibleServeError(
             f"Failed to load checkpoint at {resolved_path}: {error}. "

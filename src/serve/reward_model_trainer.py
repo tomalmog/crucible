@@ -230,10 +230,9 @@ def _encode_texts(
     max_len = 128
     batch_ids = []
     for text in texts:
-        if tokenizer is not None:
-            ids = tokenizer.encode(text, max_len)
-        else:
-            ids = [ord(c) % 256 for c in text[:max_len]]
+        if tokenizer is None:
+            raise ValueError("Tokenizer is required for reward model training.")
+        ids = tokenizer.encode(text, max_len)
         ids = ids + [0] * (max_len - len(ids))
         batch_ids.append(ids[:max_len])
     return torch_module.tensor(batch_ids, dtype=torch_module.long, device=device)

@@ -122,6 +122,13 @@ def add_qlora_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         help="Quantization type",
     )
     parser.add_argument(
+        "--double-quantize",
+        action="store_true",
+        dest="double_quantize",
+        default=True,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--no-double-quantize",
         action="store_false",
         dest="double_quantize",
@@ -160,7 +167,7 @@ def add_qlora_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=DEFAULT_TRAIN_LEARNING_RATE,
+        default=2e-4,
         help="Learning rate",
     )
     parser.add_argument(

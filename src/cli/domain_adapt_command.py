@@ -115,7 +115,7 @@ def add_domain_adapt_command(subparsers: argparse._SubParsersAction[argparse.Arg
         help="Training epochs",
     )
     parser.add_argument(
-        "--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE,
+        "--learning-rate", type=float, default=5e-5,
         help="Optimizer learning rate",
     )
     parser.add_argument(

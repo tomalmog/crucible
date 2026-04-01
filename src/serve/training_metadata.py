@@ -150,6 +150,8 @@ def _extract_vocabulary_mapping(
 
 def _looks_like_flat_vocabulary(payload: dict[str, object]) -> bool:
     """Return True if the payload looks like a flat token-to-id mapping."""
+    if not payload:
+        return False
     for value in list(payload.values())[:5]:
         if not isinstance(value, int):
             return False

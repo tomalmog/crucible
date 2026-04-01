@@ -48,7 +48,7 @@ def add_multimodal_command(subparsers: argparse._SubParsersAction[argparse.Argum
     parser.add_argument("--image-size", type=int, default=224, help="Image input size")
     parser.add_argument("--projection-dim", type=int, default=512, help="Projection dimension")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS)
-    parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE)
+    parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--max-token-length", type=int, default=DEFAULT_MAX_TOKEN_LENGTH)
     parser.add_argument("--validation-split", type=float, default=DEFAULT_TRAIN_VALIDATION_SPLIT)

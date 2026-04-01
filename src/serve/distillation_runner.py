@@ -16,8 +16,10 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from core.constants import DEFAULT_TRAIN_MAX_CHECKPOINT_FILES
 from core.distillation_types import DistillationOptions
 from core.errors import CrucibleDependencyError, CrucibleDistillationError
+from core.training_types import options_to_training_options
 from core.types import DataRecord, TrainingOptions, TrainingRunResult
 from serve.architecture_loader import load_training_model
 from serve.device_selection import resolve_execution_device
@@ -379,12 +381,13 @@ def _run_distillation_loop(
                 )
             )
             global_step += 1
-            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir, prune_epoch_checkpoints
             checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
             save_epoch_checkpoint(
                 checkpoint_dir, torch_module, student, optimizer, None,
                 epoch, global_step, None,
             )
+            prune_epoch_checkpoints(checkpoint_dir, max_files=DEFAULT_TRAIN_MAX_CHECKPOINT_FILES)
     except KeyboardInterrupt:
         print("\nTraining interrupted -- saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
@@ -532,30 +535,7 @@ def _persist_outputs(
 
 def _to_training_options(options: DistillationOptions) -> TrainingOptions:
     """Map DistillationOptions to TrainingOptions for shared components."""
-    return TrainingOptions(
-        dataset_name=options.dataset_name,
-        output_dir=options.output_dir,
-        epochs=options.epochs,
-        learning_rate=options.learning_rate,
-        batch_size=options.batch_size,
-        max_token_length=options.max_token_length,
-        validation_split=options.validation_split,
-        precision_mode=options.precision_mode,
-        optimizer_type=options.optimizer_type,
-        weight_decay=options.weight_decay,
-        hidden_dim=options.hidden_dim,
-        num_layers=options.num_layers,
-        attention_heads=options.attention_heads,
-        mlp_hidden_dim=options.mlp_hidden_dim,
-        mlp_layers=options.mlp_layers,
-        hooks_path=options.hooks_path,
-        initial_weights_path=options.initial_weights_path,
-        checkpoint_every_epochs=options.checkpoint_every_epochs,
-        save_best_checkpoint=options.save_best_checkpoint,
-        progress_log_interval_steps=options.progress_log_interval_steps,
-        tokenizer_path=options.tokenizer_path,
-        resume_checkpoint_path=options.resume_checkpoint_path,
-    )
+    return options_to_training_options(options, base_model_key="teacher_model_path")
 
 
 def _import_torch() -> Any:

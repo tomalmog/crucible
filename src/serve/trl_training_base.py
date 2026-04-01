@@ -30,7 +30,7 @@ def load_hf_model_and_tokenizer(
     print(f"Loading model {model_id}...", flush=True)
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_id,
-        dtype=_resolve_dtype(torch, precision_mode),
+        torch_dtype=_resolve_dtype(torch, precision_mode),
     )
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
     if tokenizer.pad_token is None:

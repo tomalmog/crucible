@@ -70,7 +70,7 @@ def add_orpo_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     parser.add_argument("--lambda-orpo", type=float, default=DEFAULT_ORPO_LAMBDA, help="ORPO lambda weight for odds-ratio term")
     parser.add_argument("--beta", type=float, default=DEFAULT_ORPO_BETA, help="ORPO beta parameter")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs")
-    parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE, help="Learning rate")
+    parser.add_argument("--learning-rate", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")
     parser.add_argument("--max-token-length", type=int, default=DEFAULT_MAX_TOKEN_LENGTH, help="Max token length")
     parser.add_argument("--validation-split", type=float, default=DEFAULT_TRAIN_VALIDATION_SPLIT, help="Validation fraction")

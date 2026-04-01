@@ -137,7 +137,7 @@ def add_rlhf_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     )
     parser.add_argument(
         "--learning-rate", type=float,
-        default=DEFAULT_TRAIN_LEARNING_RATE, help="Optimizer learning rate",
+        default=1e-5, help="Optimizer learning rate",
     )
     parser.add_argument(
         "--batch-size", type=int, default=DEFAULT_BATCH_SIZE,

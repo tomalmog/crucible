@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from core.constants import DEFAULT_TRAIN_MAX_CHECKPOINT_FILES
 from core.errors import CrucibleDependencyError, CrucibleRlhfError
 from core.rlhf_types import RlhfOptions
 from core.types import DataRecord, EpochMetric, TrainingOptions, TrainingRunResult
@@ -122,7 +123,7 @@ def _run_rlhf_with_trl(
         train_dataset=split["train"], eval_dataset=split["test"],
         processing_class=tokenizer,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     print("RLHF: Saving model...", flush=True)
     return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)
@@ -383,12 +384,13 @@ def _run_ppo_training(
                 train_loss=round(result.policy_loss, 6),
                 mean_reward=round(result.mean_reward, 6),
             )
-            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir, prune_epoch_checkpoints
             checkpoint_dir = ensure_checkpoint_dir(context.output_dir)
             save_epoch_checkpoint(
                 checkpoint_dir, context.torch_module, context.policy_model,
                 optimizer, None, epoch_idx + 1, global_step, None,
             )
+            prune_epoch_checkpoints(checkpoint_dir, max_files=DEFAULT_TRAIN_MAX_CHECKPOINT_FILES)
     except KeyboardInterrupt:
         print("\nTraining interrupted -- saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir

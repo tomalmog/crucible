@@ -49,7 +49,7 @@ def add_rlvr_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     parser.add_argument("--reward-correct", type=float, default=1.0, help="Reward for correct")
     parser.add_argument("--reward-incorrect", type=float, default=-0.5, help="Reward for incorrect")
     parser.add_argument("--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS)
-    parser.add_argument("--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE)
+    parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--max-token-length", type=int, default=DEFAULT_MAX_TOKEN_LENGTH)
     parser.add_argument("--validation-split", type=float, default=DEFAULT_TRAIN_VALIDATION_SPLIT)

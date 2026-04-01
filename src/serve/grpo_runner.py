@@ -94,13 +94,12 @@ def _run_grpo_with_trl(
     grpo_trainer_cls = getattr(trl, "GRPOTrainer", None)
     grpo_config_cls = getattr(trl, "GRPOConfig", None)
 
-    # GRPOTrainer requires a reward_funcs callback (domain-specific).
-    # Fall back to SFTTrainer on the prompt+response text for now.
-    if False:  # pragma: no cover — reserved for custom reward integration
-        pass
-    else:
-        # GRPOTrainer not available in this trl version; use SFTTrainer
-        print("GRPO: GRPOTrainer not available, using trl.SFTTrainer...", flush=True)
+    # GRPOTrainer requires a reward_funcs callback which is domain-specific
+    # and not yet integrated. Using SFT-based approximation instead.
+    # To enable full GRPO, implement a reward function and pass it to
+    # GRPOTrainer via reward_funcs parameter.
+    print("Note: Using SFT approximation for GRPO. Full GRPO with reward model requires trl GRPOTrainer.", flush=True)
+    if True:
         text_dataset = _prompts_to_text_dataset(prompts)
         text_split = text_dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
         sft_config = trl.SFTConfig(**args)
@@ -113,7 +112,7 @@ def _run_grpo_with_trl(
         )
 
     print("GRPO: Starting training...", flush=True)
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     print("GRPO: Saving model...", flush=True)
     return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)

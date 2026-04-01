@@ -109,7 +109,7 @@ def _find_weights_file_in_dir(directory: Path) -> Path:
 def _read_torch_checkpoint(torch_module: Any, weights_path: Path, device: Any) -> object:
     """Read torch checkpoint payload with consistent error handling."""
     try:
-        return torch_module.load(str(weights_path), map_location=device)
+        return torch_module.load(str(weights_path), map_location=device, weights_only=True)
     except (OSError, RuntimeError) as error:
         raise CrucibleServeError(
             f"Failed to load initial weights from {weights_path}: {error}. "

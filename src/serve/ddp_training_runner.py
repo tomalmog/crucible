@@ -154,35 +154,61 @@ def _run_ddp_epochs(
     device: Any,
 ) -> list[dict[str, float]]:
     """Run training epochs and collect metrics."""
+    from serve.training_checkpoint import save_epoch_checkpoint, prune_epoch_checkpoints
+
     optimizer = torch_module.optim.Adam(
         model.parameters(), lr=options.learning_rate,
     )
     loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=0)
     epoch_metrics: list[dict[str, float]] = []
-    for epoch in range(1, options.epochs + 1):
-        train_loss = _run_ddp_epoch_pass(
-            torch_module=torch_module,
-            model=model,
-            batches=train_batches,
-            optimizer=optimizer,
-            loss_fn=loss_fn,
-            device=device,
-            training=True,
-        )
-        val_loss = _run_ddp_epoch_pass(
-            torch_module=torch_module,
-            model=model,
-            batches=val_batches,
-            optimizer=optimizer,
-            loss_fn=loss_fn,
-            device=device,
-            training=False,
-        )
-        epoch_metrics.append({
-            "epoch": float(epoch),
-            "train_loss": round(train_loss, 6),
-            "validation_loss": round(val_loss, 6),
-        })
+    checkpoint_dir = Path(options.output_dir) / "checkpoints" if options.output_dir else None
+
+    try:
+        for epoch in range(1, options.epochs + 1):
+            train_loss = _run_ddp_epoch_pass(
+                torch_module=torch_module,
+                model=model,
+                batches=train_batches,
+                optimizer=optimizer,
+                loss_fn=loss_fn,
+                device=device,
+                training=True,
+            )
+            val_loss = _run_ddp_epoch_pass(
+                torch_module=torch_module,
+                model=model,
+                batches=val_batches,
+                optimizer=optimizer,
+                loss_fn=loss_fn,
+                device=device,
+                training=False,
+            )
+            epoch_metrics.append({
+                "epoch": float(epoch),
+                "train_loss": round(train_loss, 6),
+                "validation_loss": round(val_loss, 6),
+            })
+            # Save checkpoint on rank 0 only
+            if checkpoint_dir and is_main_process():
+                unwrapped = getattr(model, "module", model)
+                save_epoch_checkpoint(
+                    checkpoint_dir, torch_module, unwrapped, optimizer, None,
+                    epoch, 0, val_loss,
+                )
+                prune_epoch_checkpoints(
+                    checkpoint_dir,
+                    max_files=options.max_checkpoint_files,
+                )
+    except KeyboardInterrupt:
+        if checkpoint_dir and is_main_process():
+            unwrapped = getattr(model, "module", model)
+            save_epoch_checkpoint(
+                checkpoint_dir, torch_module, unwrapped, optimizer, None,
+                epoch, 0, None,
+            )
+            print("DDP: Emergency checkpoint saved.", flush=True)
+        raise
+
     return epoch_metrics
 
 

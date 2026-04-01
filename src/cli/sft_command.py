@@ -124,7 +124,7 @@ def add_sft_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=DEFAULT_TRAIN_LEARNING_RATE,
+        default=2e-5,
         help="Optimizer learning rate",
     )
     parser.add_argument(

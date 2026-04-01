@@ -78,7 +78,7 @@ def load_huggingface_model(
     # (e.g. Qwen, Llama attention patterns), causing matmul dimension
     # errors at inference time. Force CPU to avoid silent failures.
     import torch as _torch
-    load_kwargs: dict[str, Any] = {"dtype": "auto"}
+    load_kwargs: dict[str, Any] = {"torch_dtype": "auto"}
     if _torch.cuda.is_available():
         load_kwargs["device_map"] = "auto"
     else:
@@ -266,7 +266,7 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
                 "Install with: pip install safetensors"
             )
     elif suffix in (".pt", ".pth", ".bin"):
-        state_dict = torch.load(str(resolved), map_location="cpu")
+        state_dict = torch.load(str(resolved), map_location="cpu", weights_only=True)
         if isinstance(state_dict, dict) and "model_state_dict" in state_dict:
             state_dict = state_dict["model_state_dict"]
     else:

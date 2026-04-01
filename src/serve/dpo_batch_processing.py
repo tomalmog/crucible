@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from core.constants import DEFAULT_TRAIN_MAX_CHECKPOINT_FILES
 from core.dpo_types import DpoOptions
 from core.training_types import EpochMetric
 from serve.dpo_loss import compute_dpo_loss, compute_log_probs_from_logits
@@ -124,12 +125,13 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
                 train_loss=avg_loss,
                 validation_loss=avg_loss,
             ))
-            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir, prune_epoch_checkpoints
             checkpoint_dir = ensure_checkpoint_dir(Path(context.output_dir))
             save_epoch_checkpoint(
                 checkpoint_dir, torch_module, context.model, optimizer, None,
                 epoch, global_step, None,
             )
+            prune_epoch_checkpoints(checkpoint_dir, max_files=DEFAULT_TRAIN_MAX_CHECKPOINT_FILES)
     except KeyboardInterrupt:
         print("\nTraining interrupted — saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir

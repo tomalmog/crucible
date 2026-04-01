@@ -22,8 +22,8 @@ class _FakeTorch:
     def save(self, payload: object, path: str) -> None:
         Path(path).write_bytes(pickle.dumps(payload))
 
-    def load(self, path: str, map_location: object) -> object:
-        _ = map_location
+    def load(self, path: str, map_location: object, **kwargs: object) -> object:
+        _ = (map_location, kwargs)
         return pickle.loads(Path(path).read_bytes())
 
 

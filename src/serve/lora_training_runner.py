@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from core.chat_types import ChatTokenizer
+from core.constants import DEFAULT_TRAIN_MAX_CHECKPOINT_FILES
 from core.errors import CrucibleDependencyError, CrucibleLoraError, CrucibleServeError, CrucibleTrainingDivergedError
 from core.lora_types import LoraConfig, LoraTrainingOptions
 from core.types import TrainingRunResult
@@ -138,7 +139,7 @@ def _run_lora_with_trl(
         processing_class=tokenizer,
         peft_config=lora_config,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     # Save peft adapter config for compatibility
     _save_adapter_config_json(output_dir, options.lora_config)
@@ -629,12 +630,13 @@ def _run_lora_training_loop(
                 total_epochs=options.epochs,
                 train_loss=round(avg_loss, 6),
             )
-            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir
+            from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir, prune_epoch_checkpoints
             if checkpoint_dir is None:
                 checkpoint_dir = ensure_checkpoint_dir(Path(options.output_dir))
             save_epoch_checkpoint(
                 checkpoint_dir, torch_module, model, optimizer, None, epoch, global_step, None,
             )
+            prune_epoch_checkpoints(checkpoint_dir, max_files=DEFAULT_TRAIN_MAX_CHECKPOINT_FILES)
     except KeyboardInterrupt:
         print("\nTraining interrupted -- saving emergency checkpoint...", flush=True)
         from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir

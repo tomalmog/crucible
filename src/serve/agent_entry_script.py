@@ -33,11 +33,11 @@ def _log_memory(label: str) -> None:
 
 
 def _signal_handler(signum, frame):
-    """Log signal before exit (catches SIGTERM from Slurm)."""
+    """Convert SIGTERM to KeyboardInterrupt so runners can save emergency checkpoints."""
     name = signal.Signals(signum).name if hasattr(signal, "Signals") else str(signum)
-    print(f"CRUCIBLE_AGENT_ERROR: Received signal {name} ({signum})", flush=True)
+    print(f"CRUCIBLE_AGENT: Received signal {name} ({signum}), saving checkpoint...", flush=True)
     _log_memory("on-signal")
-    sys.exit(128 + signum)
+    raise KeyboardInterrupt(f"Signal {name}")
 
 
 signal.signal(signal.SIGTERM, _signal_handler)

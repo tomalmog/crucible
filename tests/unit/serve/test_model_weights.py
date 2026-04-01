@@ -14,8 +14,8 @@ class _FakeTorch:
     def __init__(self, payload: object) -> None:
         self._payload = payload
 
-    def load(self, path: str, map_location: object) -> object:
-        _ = (path, map_location)
+    def load(self, path: str, map_location: object, **kwargs: object) -> object:
+        _ = (path, map_location, kwargs)
         return self._payload
 
     def tensor(self, value: object, device: object) -> object:

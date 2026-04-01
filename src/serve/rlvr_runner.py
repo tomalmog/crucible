@@ -86,13 +86,12 @@ def _run_rlvr_with_trl(
     grpo_trainer_cls = getattr(trl, "GRPOTrainer", None)
     grpo_config_cls = getattr(trl, "GRPOConfig", None)
 
-    # GRPOTrainer requires reward_funcs (domain-specific verifier).
-    # Fall back to SFTTrainer on prompt+solution text for now.
-    if False:  # pragma: no cover — reserved for custom reward integration
-        pass
-    else:
-        # Fall back to SFTTrainer on prompt+solution concatenation
-        print("RLVR: GRPOTrainer not available, using trl.SFTTrainer...", flush=True)
+    # GRPOTrainer requires reward_funcs (domain-specific verifier) which is
+    # not yet integrated. Using SFT-based approximation on prompt+solution text.
+    # To enable full RLVR, implement a verifier reward function and pass it
+    # to GRPOTrainer via reward_funcs parameter.
+    print("Note: Using SFT approximation for RLVR. Full RLVR with reward model requires trl GRPOTrainer.", flush=True)
+    if True:
         texts = [
             f"{ex.get('prompt', '')} {ex.get('solution', '')}"
             for ex in data
@@ -114,7 +113,7 @@ def _run_rlvr_with_trl(
         )
 
     print("RLVR: Starting training...", flush=True)
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     print("RLVR: Saving model...", flush=True)
     return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)

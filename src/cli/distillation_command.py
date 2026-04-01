@@ -116,7 +116,7 @@ def _add_shared_training_args(parser: argparse.ArgumentParser) -> None:
         "--epochs", type=int, default=DEFAULT_TRAIN_EPOCHS, help="Training epochs",
     )
     parser.add_argument(
-        "--learning-rate", type=float, default=DEFAULT_TRAIN_LEARNING_RATE,
+        "--learning-rate", type=float, default=5e-5,
         help="Optimizer learning rate",
     )
     parser.add_argument(

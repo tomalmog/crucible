@@ -92,7 +92,7 @@ def _run_sft_with_trl(
         train_dataset=split["train"], eval_dataset=split["test"],
         processing_class=tokenizer,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)
 
     print("SFT: Saving model...", flush=True)
     return save_trl_outputs(trainer, output_dir, training_options, tokenizer, run_id, options.epochs)
