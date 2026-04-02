@@ -161,23 +161,23 @@ export function EvalCompareView() {
   }
 
   return (
-    <div className="split-grid">
-      <JobSelector
-        evalJobs={evalJobs}
-        checkedIds={checkedIds}
-        loadingIds={loadingIds}
-        results={results}
-        onToggle={toggleJob}
-      />
-      <div className="stack-lg">
-        {selected.length < 2
-          ? <div className="empty-state">Select at least 2 completed eval jobs to compare.</div>
-          : <>
-              <ComparisonTable selected={selected} />
-              <ComparisonBarChart selected={selected} />
-            </>
-        }
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-lg)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--gap-lg)", alignItems: "start" }}>
+        <JobSelector
+          evalJobs={evalJobs}
+          checkedIds={checkedIds}
+          loadingIds={loadingIds}
+          results={results}
+          onToggle={toggleJob}
+        />
+        <div className="panel" style={{ height: 360, overflow: "auto" }}>
+          {selected.length < 2
+            ? <div className="empty-state">Select at least 2 completed eval jobs to compare.</div>
+            : <ComparisonTable selected={selected} />
+          }
+        </div>
       </div>
+      {selected.length >= 2 && <ComparisonBarChart selected={selected} />}
     </div>
   );
 }
@@ -192,9 +192,9 @@ function JobSelector({ evalJobs, checkedIds, loadingIds, results, onToggle }: {
   onToggle: (id: string) => void;
 }) {
   return (
-    <div className="panel stack">
+    <div className="panel stack" style={{ height: 360, display: "flex", flexDirection: "column" }}>
       <h3>Eval Jobs ({evalJobs.length})</h3>
-      <div style={{ maxHeight: 480, overflowY: "auto" }}>
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {evalJobs.map((j) => {
           const checked = checkedIds.has(j.jobId);
           const loading = loadingIds.has(j.jobId);
@@ -251,9 +251,8 @@ function ComparisonTable({ selected }: { selected: SelectedJob[] }) {
   }, [selected]);
 
   return (
-    <div className="panel">
-      <div className="docs-table-wrap">
-        <table className="docs-table">
+    <div className="docs-table-wrap">
+      <table className="docs-table">
           <thead>
             <tr>
               <th>Benchmark</th>
@@ -290,7 +289,6 @@ function ComparisonTable({ selected }: { selected: SelectedJob[] }) {
             </tr>
           </tbody>
         </table>
-      </div>
     </div>
   );
 }
@@ -298,7 +296,7 @@ function ComparisonTable({ selected }: { selected: SelectedJob[] }) {
 // ── Grouped bar chart ───────────────────────────────────────────────────
 
 const CHART_W = 1000;
-const CHART_H = 400;
+const CHART_H = 520;
 const BOUNDS = { top: 58, right: 28, bottom: 100, left: 86 };
 
 function ComparisonBarChart({ selected }: { selected: SelectedJob[] }) {
