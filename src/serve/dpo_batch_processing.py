@@ -33,6 +33,7 @@ class DpoContext:
         output_dir: Path,
         device: Any,
         training_options: TrainingOptions,
+        val_pairs: list[DpoTokenizedPair] | None = None,
     ) -> None:
         self.torch_module = torch_module
         self.model = model
@@ -42,6 +43,7 @@ class DpoContext:
         self.output_dir = output_dir
         self.device = device
         self.training_options = training_options
+        self.val_pairs = val_pairs or []
 
 
 class DpoLoopResult:
@@ -114,6 +116,13 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
                     loss=round(loss.item(), 6),
                 )
             avg_loss = total_loss / max(batch_count, 1)
+            # Compute real validation loss over held-out pairs
+            val_loss = avg_loss  # fallback if no val pairs
+            if context.val_pairs:
+                val_loss = _compute_validation_loss(
+                    context, context.val_pairs, options.beta,
+                    options.label_smoothing, options.batch_size,
+                )
             emit_progress(
                 "training_epoch_completed",
                 epoch=epoch,
@@ -123,7 +132,7 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
             epoch_metrics.append(EpochMetric(
                 epoch=epoch,
                 train_loss=avg_loss,
-                validation_loss=avg_loss,
+                validation_loss=val_loss,
             ))
             from serve.training_checkpoint import save_epoch_checkpoint, ensure_checkpoint_dir, prune_epoch_checkpoints
             checkpoint_dir = ensure_checkpoint_dir(Path(context.output_dir))
@@ -143,6 +152,28 @@ def run_dpo_loop(context: DpoContext, options: DpoOptions) -> DpoLoopResult:
         print(f"Emergency checkpoint saved: {emergency_path}", flush=True)
         raise
     return DpoLoopResult(epoch_metrics=epoch_metrics)
+
+
+def _compute_validation_loss(
+    context: DpoContext,
+    val_pairs: list[DpoTokenizedPair],
+    beta: float,
+    label_smoothing: float,
+    batch_size: int,
+) -> float:
+    """Compute average DPO loss over validation pairs (forward-only)."""
+    torch_module = context.torch_module
+    context.model.eval()
+    total_loss = 0.0
+    batch_count = 0
+    with torch_module.no_grad():
+        for batch_start in range(0, len(val_pairs), batch_size):
+            batch = val_pairs[batch_start: batch_start + batch_size]
+            loss = _compute_batch_loss(context, batch, beta, label_smoothing)
+            total_loss += loss.item()
+            batch_count += 1
+    context.model.train()
+    return total_loss / max(batch_count, 1)
 
 
 def _compute_batch_loss(

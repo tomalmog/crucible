@@ -28,7 +28,8 @@ def run_hellaswag(
     if max_samples:
         examples = examples[:max_samples]
     correct = 0
-    for example in examples:
+    total = len(examples)
+    for idx, example in enumerate(examples):
         ctx = example["ctx"] + " "
         losses = [
             compute_completion_loss(eval_model, ctx, ending)
@@ -37,7 +38,13 @@ def run_hellaswag(
         predicted = int(min(range(len(losses)), key=lambda i: losses[i]))
         if predicted == example["label"]:
             correct += 1
-    total = max(len(examples), 1)
+        if (idx + 1) % 50 == 0 or idx + 1 == total:
+            print(
+                f"  hellaswag: {idx + 1}/{total} examples, "
+                f"{correct} correct",
+                flush=True,
+            )
+    total = max(total, 1)
     score = round((correct / total) * 100, 2)
     return BenchmarkResult(
         benchmark_name="hellaswag",

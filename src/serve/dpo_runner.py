@@ -155,6 +155,10 @@ def _run_dpo_crucible(
             "Check DPO data content and max token length."
         )
     random.Random(random_seed).shuffle(dpo_pairs)
+    # Split into train/val sets
+    val_size = max(1, int(len(dpo_pairs) * options.validation_split))
+    train_pairs = dpo_pairs[val_size:]
+    val_pairs = dpo_pairs[:val_size]
     device = resolve_execution_device(torch_module)
     model = build_or_load_model(
         torch_module=torch_module,
@@ -175,10 +179,11 @@ def _run_dpo_crucible(
         model=model,
         ref_model=ref_model,
         tokenizer=tokenizer,
-        dpo_pairs=dpo_pairs,
+        dpo_pairs=train_pairs,
         output_dir=output_dir,
         device=device,
         training_options=training_options,
+        val_pairs=val_pairs,
     )
     hooks = load_training_hooks(options.hooks_path)
     loop_result = run_dpo_loop(context, options)

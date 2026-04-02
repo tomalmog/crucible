@@ -62,6 +62,7 @@ class AutoTokenizerAdapter:
     def __init__(self, hf_tokenizer: Any) -> None:
         self._tokenizer: Any = hf_tokenizer
         self.vocabulary: dict[str, int] = dict(hf_tokenizer.get_vocab())
+        self.eos_token_id: int = hf_tokenizer.eos_token_id or 0
 
     def encode(self, text: str, max_token_length: int) -> list[int]:
         ids: list[int] = self._tokenizer.encode(text)

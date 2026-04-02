@@ -6,8 +6,10 @@ model entries under .crucible/models/.
 
 from __future__ import annotations
 
+import fcntl
 import logging
 import shutil
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -204,14 +206,29 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+@contextmanager
+def _index_lock(models_root: Path):
+    """File lock around registry index read-modify-write operations."""
+    lock_path = models_root / ".index.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = open(lock_path, "w")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        fd.close()
+
+
 def _ensure_name_in_index(models_root: Path, model_name: str) -> None:
-    index = load_registry_index(models_root)
-    model_names = list(index.get("model_names", []))
-    if model_name not in model_names:
-        model_names.append(model_name)
-        index["model_names"] = model_names
-    # Always re-save to bump mtime so the UI detects changes
-    save_registry_index(models_root, index)
+    with _index_lock(models_root):
+        index = load_registry_index(models_root)
+        model_names = list(index.get("model_names", []))
+        if model_name not in model_names:
+            model_names.append(model_name)
+            index["model_names"] = model_names
+        # Always re-save to bump mtime so the UI detects changes
+        save_registry_index(models_root, index)
 
 
 _logger = logging.getLogger(__name__)
@@ -259,9 +276,10 @@ def _safe_delete_local_path(
 
 
 def _remove_name_from_index(models_root: Path, model_name: str) -> None:
-    index = load_registry_index(models_root)
-    model_names = list(index.get("model_names", []))
-    if model_name in model_names:
-        model_names.remove(model_name)
-        index["model_names"] = model_names
-        save_registry_index(models_root, index)
+    with _index_lock(models_root):
+        index = load_registry_index(models_root)
+        model_names = list(index.get("model_names", []))
+        if model_name in model_names:
+            model_names.remove(model_name)
+            index["model_names"] = model_names
+            save_registry_index(models_root, index)

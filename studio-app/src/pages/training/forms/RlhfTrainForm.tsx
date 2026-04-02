@@ -43,6 +43,9 @@ export function RlhfTrainForm({ extra, setExtra }: RlhfTrainFormProps) {
         <FormField label="Initial Weights">
           <PathInput value={extra["--initial-weights-path"] ?? ""} onChange={(v) => update("--initial-weights-path", v)} placeholder="optional — .pt checkpoint to resume from" filters={[{ name: "Checkpoint", extensions: ["pt"] }]} />
         </FormField>
+        <FormField label="Preference Data Path">
+          <PathInput value={extra["--preference-data-path"] ?? ""} onChange={(v) => update("--preference-data-path", v)} placeholder="optional — path to preference data for reward model training" filters={[{ name: "Data", extensions: ["jsonl", "json", "csv"] }]} />
+        </FormField>
         <FormField label="Tokenizer Path">
           <PathInput value={extra["--tokenizer-path"] ?? ""} onChange={(v) => update("--tokenizer-path", v)} placeholder="auto-detect" filters={[{ name: "JSON", extensions: ["json"] }]} />
         </FormField>

@@ -28,7 +28,8 @@ def run_winogrande(
     if max_samples:
         examples = examples[:max_samples]
     correct = 0
-    for example in examples:
+    total = len(examples)
+    for idx, example in enumerate(examples):
         sentence = example["sentence"]
         blank_idx = sentence.find("_")
         prefix = sentence[:blank_idx] if blank_idx >= 0 else ""
@@ -40,7 +41,13 @@ def run_winogrande(
         predicted = 1 if loss1 <= loss2 else 2
         if predicted == example["answer"]:
             correct += 1
-    total = max(len(examples), 1)
+        if (idx + 1) % 50 == 0 or idx + 1 == total:
+            print(
+                f"  winogrande: {idx + 1}/{total} examples, "
+                f"{correct} correct",
+                flush=True,
+            )
+    total = max(total, 1)
     score = round((correct / total) * 100, 2)
     return BenchmarkResult(
         benchmark_name="winogrande",

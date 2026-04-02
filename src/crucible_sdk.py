@@ -247,15 +247,35 @@ def _try_recover_source_rows(
     source: str,
     required_fields: tuple[str, ...],
 ) -> list[dict[str, object]]:
-    """If rows lack required fields (ingested format), try loading the original source file."""
+    """If rows lack required fields (ingested format), try recovering them.
+
+    Strategy 1: Check metadata.extra_fields for the structured fields
+    (preserved during ingest since the flattening keeps originals as extras).
+    Strategy 2: Try loading the original source file from metadata.source_uri.
+    """
     if not rows or all(f in rows[0] for f in required_fields):
         return rows  # Already has the fields we need
 
-    # Check metadata for original source URI
+    # Strategy 1: Recover from metadata.extra_fields
     meta = rows[0].get("metadata", {})
     if isinstance(meta, dict):
+        extras = meta.get("extra_fields", {})
+        if isinstance(extras, dict) and all(f in extras for f in required_fields):
+            # All required fields are in extra_fields — reconstruct rows
+            recovered = []
+            for row in rows:
+                m = row.get("metadata", {})
+                ef = m.get("extra_fields", {}) if isinstance(m, dict) else {}
+                if isinstance(ef, dict) and all(f in ef for f in required_fields):
+                    recovered.append(dict(ef))
+                else:
+                    break
+            if len(recovered) == len(rows):
+                return recovered
+
+    # Strategy 2: Try loading the original source file
+    if isinstance(meta, dict):
         source_uri = str(meta.get("source_uri", ""))
-        # source_uri is like "/path/to/file.jsonl:1" — strip the line number
         if ":" in source_uri:
             source_file = source_uri.rsplit(":", 1)[0]
         else:

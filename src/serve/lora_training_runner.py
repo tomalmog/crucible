@@ -493,6 +493,47 @@ def _build_lora_batches_from_sequences(
     return batches
 
 
+def _compute_lora_validation_loss(
+    torch_module: Any,
+    model: Any,
+    val_batches: list[tuple[list[list[int]], list[list[int]]]],
+    loss_fn: Any,
+    device: Any,
+) -> float:
+    """Compute average cross-entropy loss over validation batches (forward-only)."""
+    model.eval()
+    total_loss = 0.0
+    num_batches = 0
+    with torch_module.no_grad():
+        for batch_inputs, batch_labels in val_batches:
+            max_len = max(len(s) for s in batch_inputs)
+            input_t = torch_module.tensor(
+                [s + [0] * (max_len - len(s)) for s in batch_inputs],
+                dtype=torch_module.long, device=device,
+            )
+            label_t = torch_module.tensor(
+                [s + [-100] * (max_len - len(s)) for s in batch_labels],
+                dtype=torch_module.long, device=device,
+            )
+            if getattr(model, "_is_hf_logits_wrapper", False):
+                attn_mask = (input_t != 0).long()
+                logits = model(input_t, attention_mask=attn_mask)
+            else:
+                logits = model(input_t)
+            if hasattr(logits, "logits"):
+                logits = logits.logits
+            shift_logits = logits[:, :-1, :].contiguous()
+            shift_labels = label_t[:, 1:].contiguous()
+            loss = loss_fn(
+                shift_logits.view(-1, shift_logits.size(-1)),
+                shift_labels.view(-1),
+            )
+            total_loss += loss.item()
+            num_batches += 1
+    model.train()
+    return total_loss / max(num_batches, 1)
+
+
 def _run_lora_training_loop(
     torch_module: Any,
     model: Any,
@@ -522,7 +563,12 @@ def _run_lora_training_loop(
     sequences = _load_lora_sequences(
         options.lora_data_path, tokenizer, options.max_token_length,
     )
-    batches = _build_lora_batches_from_sequences(sequences, options.batch_size)
+    # Split sequences into train/val sets
+    val_size = max(1, int(len(sequences) * options.validation_split))
+    train_sequences = sequences[val_size:]
+    val_sequences = sequences[:val_size]
+    batches = _build_lora_batches_from_sequences(train_sequences, options.batch_size)
+    val_batches = _build_lora_batches_from_sequences(val_sequences, options.batch_size)
     loss_fn = torch_module.nn.CrossEntropyLoss(ignore_index=-100)
 
     # Enable gradient checkpointing to reduce memory usage.
@@ -621,8 +667,14 @@ def _run_lora_training_loop(
                 if is_mps:
                     torch_module.mps.empty_cache()
             avg_loss = total_loss / max(num_batches, 1)
+            # Compute real validation loss over held-out sequences
+            val_loss = avg_loss  # fallback if no val batches
+            if val_batches:
+                val_loss = _compute_lora_validation_loss(
+                    torch_module, model, val_batches, loss_fn, device,
+                )
             epoch_metrics.append(
-                EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=avg_loss)
+                EpochMetric(epoch=epoch, train_loss=avg_loss, validation_loss=val_loss)
             )
             emit_progress(
                 "training_epoch_completed",

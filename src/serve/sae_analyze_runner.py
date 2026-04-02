@@ -14,6 +14,10 @@ from serve.activation_extractor import ActivationExtractor, discover_transformer
 from serve.interp_data_utils import extract_single_text
 from serve.sae_model import load_sae
 
+# Maximum number of dataset records to process for feature associations.
+# Keeps analysis runtime bounded on large datasets.
+_MAX_ASSOCIATION_SAMPLES = 200
+
 # Common stop words to exclude from concept labels
 _STOP_WORDS = frozenset({
     "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
@@ -119,12 +123,14 @@ def _build_feature_associations(
     model: Any, tokenizer: Any, sae: Any,
     records: list[Any], target_layer: str, device: Any,
     feature_indices: list[int], top_k_texts: int,
+    max_samples: int = _MAX_ASSOCIATION_SAMPLES,
 ) -> dict[int, dict[str, Any]]:
     """For each feature, find top activating texts and extract a concept label."""
     texts: list[str] = []
     latents: list[torch.Tensor] = []
 
-    for record in records:
+    capped_records = records[:max_samples]
+    for record in capped_records:
         text = extract_single_text(record)
         if not text:
             continue

@@ -163,6 +163,7 @@ def _run_reward_training_loop(
             batch = pairs[start : start + batch_size]
             chosen_scores, rejected_scores = _score_batch(
                 torch_module, reward_model, batch, device, tokenizer,
+                max_len=options.max_token_length,
             )
             target = torch_module.ones(
                 chosen_scores.size(0), device=device,
@@ -184,6 +185,7 @@ def _score_batch(
     batch: list[dict[str, str]],
     device: Any,
     tokenizer: Any = None,
+    max_len: int = 128,
 ) -> tuple[Any, Any]:
     """Score chosen and rejected sequences for a batch.
 
@@ -193,17 +195,18 @@ def _score_batch(
         batch: List of preference pair dicts.
         device: Torch device.
         tokenizer: Tokenizer for encoding text.
+        max_len: Maximum sequence length for encoding.
 
     Returns:
         Tuple of (chosen_scores, rejected_scores) tensors.
     """
     chosen_ids = _encode_texts(
         torch_module, [p["prompt"] + " " + p["chosen"] for p in batch],
-        device, tokenizer,
+        device, tokenizer, max_len=max_len,
     )
     rejected_ids = _encode_texts(
         torch_module, [p["prompt"] + " " + p["rejected"] for p in batch],
-        device, tokenizer,
+        device, tokenizer, max_len=max_len,
     )
     chosen_scores = reward_model(chosen_ids)
     rejected_scores = reward_model(rejected_ids)
@@ -215,6 +218,7 @@ def _encode_texts(
     texts: list[str],
     device: Any,
     tokenizer: Any = None,
+    max_len: int = 128,
 ) -> Any:
     """Encode texts using the training tokenizer.
 
@@ -223,11 +227,11 @@ def _encode_texts(
         texts: List of text strings to encode.
         device: Torch device.
         tokenizer: Tokenizer for encoding (ChatTokenizer protocol).
+        max_len: Maximum sequence length for encoding.
 
     Returns:
         Tensor of token ids [batch, max_len].
     """
-    max_len = 128
     batch_ids = []
     for text in texts:
         if tokenizer is None:

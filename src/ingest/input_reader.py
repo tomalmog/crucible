@@ -136,10 +136,10 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
         ) from error
 
     # Collect extra string fields (everything except the text-producing keys)
-    _TEXT_KEYS = {"text", "prompt", "response", "chosen", "rejected", "solution"}
+    _SKIP_KEYS = {"text"}  # Only skip 'text' — preserve structured fields
     extras = {
         k: str(v) for k, v in payload.items()
-        if k not in _TEXT_KEYS and isinstance(v, (str, int, float, bool))
+        if k not in _SKIP_KEYS and isinstance(v, (str, int, float, bool))
     }
 
     text_value = payload.get("text")

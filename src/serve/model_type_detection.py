@@ -53,12 +53,15 @@ def resolve_remote_hf_id(remote_path: str) -> str | None:
     basename = _Path(remote_path).name
     if not basename:
         return None
-    # Try unsanitizing first underscore → slash
-    idx = basename.find("_")
-    if idx > 0:
-        candidate = basename[:idx] + "/" + basename[idx + 1:]
-        if is_huggingface_model_id(candidate):
-            return candidate
+    # Try each underscore position as a potential org/model separator.
+    # sanitize_remote_name replaces "/" with "_", so "org/model" becomes
+    # "org_model". For multi-underscore names like "meta-llama_Llama-2_7b",
+    # try "meta-llama/Llama-2_7b", then "meta-llama_Llama-2/7b", etc.
+    for idx in range(len(basename)):
+        if basename[idx] == "_" and idx > 0 and idx < len(basename) - 1:
+            candidate = basename[:idx] + "/" + basename[idx + 1:]
+            if is_huggingface_model_id(candidate):
+                return candidate
     # Fall back to basename directly (e.g. "gpt2")
     if is_huggingface_model_id(basename):
         return basename

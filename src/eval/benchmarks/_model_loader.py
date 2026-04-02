@@ -254,22 +254,10 @@ def generate_text(
     return eval_model.tokenizer.decode(generated)
 
 
-class _HfTokenizerAdapter:
-    """Adapt a HuggingFace AutoTokenizer to the ChatTokenizer protocol."""
-
-    def __init__(self, hf_tokenizer: Any) -> None:
-        self._tokenizer = hf_tokenizer
-        self.vocabulary: dict[str, int] = dict(hf_tokenizer.get_vocab())
-        self.eos_token_id: int = hf_tokenizer.eos_token_id or 0
-
-    def encode(self, text: str, max_token_length: int) -> list[int]:
-        ids: list[int] = self._tokenizer.encode(text)
-        if len(ids) > max_token_length:
-            return ids[:max_token_length]
-        return ids
-
-    def decode(self, token_ids: list[int]) -> str:
-        return str(self._tokenizer.decode(token_ids))
+def _HfTokenizerAdapter(hf_tokenizer: Any) -> Any:
+    """Wrap an HF AutoTokenizer using the shared AutoTokenizerAdapter."""
+    from serve.huggingface_tokenizer import AutoTokenizerAdapter
+    return AutoTokenizerAdapter(hf_tokenizer)
 
 
 def _detect_hf_base_model(model_path: str) -> str | None:
