@@ -63,7 +63,8 @@ def stream_remote_chat(
             else:
                 ensure_remote_env(session)
                 env_activate = ""
-            bundle_dir = f"{cluster.remote_workspace}/{_BUNDLE_DIR_NAME}"
+            workspace = session.resolve_path(cluster.remote_workspace)
+            bundle_dir = f"{workspace}/{_BUNDLE_DIR_NAME}"
             _sync_bundle(session, tarball, bundle_dir)
             _upload_runner_script(session, bundle_dir, options)
         finally:

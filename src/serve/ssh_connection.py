@@ -218,7 +218,8 @@ class SshSession:
 
     def mkdir_p(self, remote_path: str) -> None:
         """Create a directory (and parents) on the remote host."""
-        self.execute(f"mkdir -p {shlex.quote(remote_path)}")
+        resolved = self.resolve_path(remote_path)
+        self.execute(f"mkdir -p {shlex.quote(resolved)}")
 
     def stream_command(
         self,

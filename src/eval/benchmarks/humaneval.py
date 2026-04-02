@@ -65,7 +65,11 @@ def run_humaneval(
 
 def _limit_subprocess_memory() -> None:
     """Cap virtual memory so generated code cannot OOM the parent process."""
-    resource.setrlimit(resource.RLIMIT_AS, (_EXEC_MEMORY_LIMIT_BYTES, _EXEC_MEMORY_LIMIT_BYTES))
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (_EXEC_MEMORY_LIMIT_BYTES, _EXEC_MEMORY_LIMIT_BYTES))
+    except (ValueError, OSError):
+        # macOS does not support lowering RLIMIT_AS — skip memory limit
+        pass
 
 
 def _check_solution(code: str, test_code: str, entry_point: str) -> bool:
