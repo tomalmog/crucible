@@ -28,6 +28,14 @@ def _make_cluster() -> ClusterConfig:
     )
 
 
+def _mock_session_with_resolve(responses):
+    """Build a mock SshSession with resolve_path returning the path unchanged."""
+    session = MagicMock()
+    session.execute = MagicMock(side_effect=responses)
+    session.resolve_path = lambda p: p  # No-op for absolute paths
+    return session
+
+
 # -- push_dataset ----------------------------------------------------------
 
 
@@ -70,14 +78,13 @@ def test_list_remote_datasets_returns_info_list() -> None:
     """Two valid datasets in ls output produce a list of length 2."""
     meta1 = json.dumps({"name": "ds1", "size_bytes": 100, "synced_at": "t1"})
     meta2 = json.dumps({"name": "ds2", "size_bytes": 200, "synced_at": "t2"})
-    session = MagicMock()
-    session.execute.side_effect = [
+    session = _mock_session_with_resolve([
         ("ds1\nds2\n", "", 0),
         (meta1, "", 0),            # cat metadata.json ds1
         ("12345\n", "", 0),         # du -sb ds1
         (meta2, "", 0),            # cat metadata.json ds2
         ("67890\n", "", 0),         # du -sb ds2
-    ]
+    ])
     cluster = _make_cluster()
     results = list_remote_datasets(session, cluster)
     assert len(results) == 2
@@ -85,11 +92,10 @@ def test_list_remote_datasets_returns_info_list() -> None:
 
 def test_list_remote_datasets_skips_invalid_metadata() -> None:
     """Datasets with unparseable metadata are silently skipped."""
-    session = MagicMock()
-    session.execute.side_effect = [
+    session = _mock_session_with_resolve([
         ("bad-ds\n", "", 0),
         ("not-valid-json{{", "", 0),
-    ]
+    ])
     cluster = _make_cluster()
     results = list_remote_datasets(session, cluster)
     assert len(results) == 0
@@ -97,8 +103,7 @@ def test_list_remote_datasets_skips_invalid_metadata() -> None:
 
 def test_list_remote_datasets_empty_returns_empty() -> None:
     """Empty ls output returns an empty list."""
-    session = MagicMock()
-    session.execute.return_value = ("", "", 0)
+    session = _mock_session_with_resolve([("", "", 0)])
     cluster = _make_cluster()
     results = list_remote_datasets(session, cluster)
     assert results == []

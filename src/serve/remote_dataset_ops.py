@@ -120,6 +120,8 @@ def _upload_tar(
     source_path: Path | None = None,
 ) -> None:
     """Create tar, upload, extract on remote, then clean up."""
+    # Resolve ~ so shell commands (which quote paths) get absolute paths.
+    resolved_dir = session.resolve_path(remote_dir)
     with tempfile.TemporaryDirectory() as tmp:
         meta_path = Path(tmp) / "metadata.json"
         meta_path.write_text(
@@ -132,11 +134,11 @@ def _upload_tar(
             if source_path:
                 tar.add(str(source_path), arcname=SOURCE_DATA_FILE_NAME)
 
-        remote_tar = f"{remote_dir}/dataset.tar.gz"
+        remote_tar = f"{resolved_dir}/dataset.tar.gz"
         session.upload(tar_path, remote_tar)
 
     extract_cmd = (
-        f"tar -xzf {shlex.quote(remote_tar)} -C {shlex.quote(remote_dir)}"
+        f"tar -xzf {shlex.quote(remote_tar)} -C {shlex.quote(resolved_dir)}"
         f" && rm -f {shlex.quote(remote_tar)}"
     )
     stdout, stderr, code = session.execute(extract_cmd)
@@ -151,7 +153,7 @@ def list_remote_datasets(
     cluster: ClusterConfig,
 ) -> list[RemoteDatasetInfo]:
     """List datasets present on the remote cluster."""
-    datasets_dir = _remote_datasets_dir(cluster)
+    datasets_dir = session.resolve_path(_remote_datasets_dir(cluster))
     stdout, _, _ = session.execute(
         f"ls -1 {shlex.quote(datasets_dir)} 2>/dev/null || true",
     )
@@ -208,7 +210,8 @@ def delete_remote_dataset(
     dataset_name: str,
 ) -> None:
     """Delete a dataset directory on the remote cluster."""
-    remote_dir = f"{_remote_datasets_dir(cluster)}/{sanitize_remote_name(dataset_name)}"
+    datasets_dir = session.resolve_path(_remote_datasets_dir(cluster))
+    remote_dir = f"{datasets_dir}/{sanitize_remote_name(dataset_name)}"
     _, stderr, code = session.execute(f"rm -rf {shlex.quote(remote_dir)}")
     if code != 0:
         raise CrucibleRemoteError(
@@ -230,7 +233,7 @@ def pull_remote_dataset(
 
     Returns the local dataset directory path.
     """
-    datasets_dir = _remote_datasets_dir(cluster)
+    datasets_dir = session.resolve_path(_remote_datasets_dir(cluster))
     safe_name = sanitize_remote_name(dataset_name)
     remote_dir = f"{datasets_dir}/{safe_name}"
     remote_records = f"{remote_dir}/{RECORDS_FILE_NAME}"
