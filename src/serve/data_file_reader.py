@@ -1,4 +1,4 @@
-"""Unified reader for JSONL and Parquet training data files.
+"""Unified reader for JSONL, Parquet, and CSV training data files.
 
 All training data loaders (SFT, DPO, KTO, GRPO, ORPO, RLVR,
 multimodal) use this to read rows regardless of file format.
@@ -6,15 +6,16 @@ multimodal) use this to read rows regardless of file format.
 
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
 
 def read_data_rows(data_path: str) -> list[dict[str, object]]:
-    """Read rows from a JSONL or Parquet file as dicts.
+    """Read rows from a JSONL, Parquet, or CSV file as dicts.
 
     Args:
-        data_path: Path to a ``.jsonl`` or ``.parquet`` file.
+        data_path: Path to a ``.jsonl``, ``.parquet``, or ``.csv`` file.
 
     Returns:
         List of row dicts with string keys.
@@ -26,8 +27,11 @@ def read_data_rows(data_path: str) -> list[dict[str, object]]:
     path = Path(data_path).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"Data file not found: {path}")
-    if path.suffix == ".parquet":
+    suffix = path.suffix.lower()
+    if suffix == ".parquet":
         return _read_parquet(path)
+    if suffix == ".csv":
+        return _read_csv(path)
     return _read_jsonl(path)
 
 
@@ -42,6 +46,16 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
             obj = json.loads(line)
             if isinstance(obj, dict):
                 rows.append(obj)
+    return rows
+
+
+def _read_csv(path: Path) -> list[dict[str, object]]:
+    """Read rows from a CSV file."""
+    rows: list[dict[str, object]] = []
+    with open(path, encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            rows.append(dict(row))  # type: ignore[arg-type]
     return rows
 
 

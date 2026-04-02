@@ -6,7 +6,11 @@ It normalizes inputs into typed source records for transforms.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -81,6 +85,8 @@ def _read_file_records(file_path: Path) -> list[SourceTextRecord]:
         return _read_jsonl_records(file_path)
     if suffix == ".parquet":
         return read_parquet_records(file_path)
+    if suffix == ".csv":
+        return _read_csv_records(file_path)
     text = file_path.read_text(encoding="utf-8")
     return [SourceTextRecord(source_uri=str(file_path), text=text)]
 
@@ -98,19 +104,112 @@ def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
         CrucibleIngestError: If JSONL has invalid lines or missing text.
     """
     records: list[SourceTextRecord] = []
-    for line_number, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        payload = _parse_jsonl_line(file_path, line, line_number)
-        text = payload.pop("text")
-        records.append(
-            SourceTextRecord(
-                source_uri=f"{file_path}:{line_number}",
-                text=text,
-                extra_fields=payload,
+    with open(file_path, encoding="utf-8") as fh:
+        for line_number, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            payload = _parse_jsonl_line(file_path, line, line_number)
+            text = payload.pop("text")
+            records.append(
+                SourceTextRecord(
+                    source_uri=f"{file_path}:{line_number}",
+                    text=text,
+                    extra_fields=payload,
+                )
             )
+    return records
+
+
+def _read_csv_records(file_path: Path) -> list[SourceTextRecord]:
+    """Read text records from a CSV file.
+
+    Maps columns to standard fields: ``text``, ``prompt``/``response``,
+    ``instruction``/``output``.  Falls back to joining all non-empty
+    string columns with newline.
+
+    Args:
+        file_path: Path to CSV file.
+
+    Returns:
+        Source records extracted from CSV rows.
+
+    Raises:
+        CrucibleIngestError: If CSV is empty or unreadable.
+    """
+    records: list[SourceTextRecord] = []
+    with open(file_path, encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row_number, row in enumerate(reader, 1):
+            text = _text_from_csv_row(row)
+            if text:
+                extras = {
+                    k: v for k, v in row.items()
+                    if k and v and k != "text"
+                }
+                records.append(
+                    SourceTextRecord(
+                        source_uri=f"{file_path}:{row_number}",
+                        text=text,
+                        extra_fields=extras,
+                    )
+                )
+    if not records:
+        raise CrucibleIngestError(
+            f"No records found in CSV file {file_path}. "
+            "Ensure the file has a header row and data rows."
         )
     return records
+
+
+def _text_from_csv_row(row: dict[str, str | None]) -> str:
+    """Extract text from a CSV row using known column conventions.
+
+    Args:
+        row: Dict mapping column names to values.
+
+    Returns:
+        Extracted text string, or empty string if nothing usable.
+    """
+    # Direct text column
+    text_val = row.get("text")
+    if text_val and text_val.strip():
+        return text_val.strip()
+    # prompt + response
+    prompt = row.get("prompt")
+    response = row.get("response")
+    if prompt and response:
+        return f"{prompt.strip()}\n{response.strip()}"
+    # prompt + chosen (preference format)
+    chosen = row.get("chosen")
+    if prompt and chosen:
+        return f"{prompt.strip()}\n{chosen.strip()}"
+    # prompt + solution (RLVR)
+    solution = row.get("solution")
+    if prompt and solution:
+        return f"{prompt.strip()}\n{solution.strip()}"
+    # Alpaca-style: instruction + output
+    instruction = row.get("instruction")
+    output = row.get("output")
+    if instruction and output:
+        return f"{instruction.strip()}\n{output.strip()}"
+    # prompt-only (GRPO)
+    if prompt:
+        return prompt.strip()
+    # content column
+    content = row.get("content")
+    if content and content.strip():
+        return content.strip()
+    # input column
+    input_val = row.get("input")
+    if input_val and input_val.strip():
+        return input_val.strip()
+    # Fallback: join all non-empty values
+    parts = [
+        v.strip() for v in row.values()
+        if v and isinstance(v, str) and v.strip()
+    ]
+    return "\n".join(parts)
 
 
 def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str, str]:
@@ -273,9 +372,86 @@ def _download_s3_text_records(
     """
     records: list[SourceTextRecord] = []
     for key in object_keys:
-        body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8")
         source_uri = f"s3://{bucket}/{key}"
-        records.extend(_records_from_text_body(source_uri, key, body))
+        suffix = Path(key).suffix.lower()
+        if suffix == ".parquet":
+            records.extend(
+                _download_s3_parquet_records(s3_client, bucket, key, source_uri),
+            )
+        elif suffix == ".csv":
+            body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8")
+            records.extend(_records_from_csv_body(source_uri, body))
+        else:
+            body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8")
+            records.extend(_records_from_text_body(source_uri, key, body))
+    return records
+
+
+def _download_s3_parquet_records(
+    s3_client: Any,
+    bucket: str,
+    key: str,
+    source_uri: str,
+) -> list[SourceTextRecord]:
+    """Download a parquet object from S3 and read records.
+
+    Args:
+        s3_client: Boto3 S3 client.
+        bucket: S3 bucket name.
+        key: Object key.
+        source_uri: Fully-qualified source URI.
+
+    Returns:
+        Source records extracted from the parquet file.
+    """
+    body_bytes = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".parquet")
+    try:
+        os.close(tmp_fd)
+        Path(tmp_path).write_bytes(body_bytes)
+        records = read_parquet_records(Path(tmp_path))
+        # Fix source URIs to reference S3 instead of the temp file
+        return [
+            SourceTextRecord(
+                source_uri=f"{source_uri}:{r.source_uri.split(':')[-1]}",
+                text=r.text,
+                extra_fields=r.extra_fields,
+            )
+            for r in records
+        ]
+    finally:
+        os.unlink(tmp_path)
+
+
+def _records_from_csv_body(
+    source_uri: str,
+    body: str,
+) -> list[SourceTextRecord]:
+    """Parse a CSV body string into source records.
+
+    Args:
+        source_uri: Fully-qualified source URI.
+        body: CSV file content as a string.
+
+    Returns:
+        Parsed source records.
+    """
+    records: list[SourceTextRecord] = []
+    reader = csv.DictReader(io.StringIO(body))
+    for row_number, row in enumerate(reader, 1):
+        text = _text_from_csv_row(row)
+        if text:
+            extras = {
+                k: v for k, v in row.items()
+                if k and v and k != "text"
+            }
+            records.append(
+                SourceTextRecord(
+                    source_uri=f"{source_uri}:{row_number}",
+                    text=text,
+                    extra_fields=extras,
+                )
+            )
     return records
 
 

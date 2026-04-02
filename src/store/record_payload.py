@@ -88,11 +88,13 @@ def read_data_records_jsonl(records_path: Path) -> list[DataRecord]:
         ValueError: If JSONL rows are invalid.
     """
     parsed_records: list[DataRecord] = []
-    for line_number, line in enumerate(records_path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        payload = _parse_payload_line(line, line_number)
-        parsed_records.append(data_record_from_payload(payload))
+    with open(records_path, encoding="utf-8") as fh:
+        for line_number, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            payload = _parse_payload_line(line, line_number)
+            parsed_records.append(data_record_from_payload(payload))
     return parsed_records
 
 
