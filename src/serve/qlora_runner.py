@@ -547,7 +547,7 @@ def _persist_qlora_outputs(
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
         training_config_path=str(config_path),
-        reproducibility_bundle_path="",
+        reproducibility_bundle_path=None,
     )
     return TrainingRunResult(
         model_path=base_result.model_path, history_path=base_result.history_path,

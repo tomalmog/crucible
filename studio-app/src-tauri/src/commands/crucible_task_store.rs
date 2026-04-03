@@ -363,7 +363,7 @@ impl CommandTaskStore {
                 if final_state != "completed" {
                     let err_msg = {
                         let len = stderr_snapshot.len();
-                        if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
+                        if len > 2000 { stderr_snapshot[len-2000..].to_string() } else { stderr_snapshot.clone() }
                     };
                     write_job_record(data_root, task_id, "dispatch", "failed", "", &err_msg, &label_snapshot, &None);
                     update_job_record(data_root, task_id, "failed", "", &err_msg, &stdout_snapshot, &stderr_snapshot);
@@ -372,7 +372,7 @@ impl CommandTaskStore {
                 let model_path = extract_model_path(&stdout_snapshot);
                 let err_msg = if final_state == "failed" {
                     let len = stderr_snapshot.len();
-                    if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
+                    if len > 2000 { stderr_snapshot[len-2000..].to_string() } else { stderr_snapshot.clone() }
                 } else { String::new() };
                 update_job_record(data_root, task_id, final_state, &model_path, &err_msg, &stdout_snapshot, &stderr_snapshot);
             }
@@ -615,6 +615,10 @@ fn update_job_record(
         obj.insert("state".to_string(), serde_json::json!(state));
         obj.insert("updated_at".to_string(), serde_json::json!(utc_iso_now()));
         obj.insert("progress_percent".to_string(), serde_json::json!(100.0));
+        // Clear submit_phase on terminal states so stale spinner text isn't shown
+        if state == "completed" || state == "failed" || state == "cancelled" {
+            obj.insert("submit_phase".to_string(), serde_json::json!(""));
+        }
         if !model_path.is_empty() {
             obj.insert("model_path".to_string(), serde_json::json!(model_path));
             obj.insert("model_path_local".to_string(), serde_json::json!(model_path));
@@ -632,14 +636,16 @@ fn update_job_record(
     let _ = fs::write(&path, serde_json::to_string_pretty(&record).unwrap_or_default());
 }
 
-/// Extract model_path=... from stdout.
+/// Extract model_path=... from stdout — uses the LAST occurrence, since some
+/// commands print intermediate paths before the final registered model path.
 fn extract_model_path(stdout: &str) -> String {
+    let mut last = String::new();
     for line in stdout.lines() {
         if let Some(rest) = line.strip_prefix("model_path=") {
-            return rest.trim().to_string();
+            last = rest.trim().to_string();
         }
     }
-    String::new()
+    last
 }
 
 /// UTC ISO-8601 timestamp without chrono dependency.

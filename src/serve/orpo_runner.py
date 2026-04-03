@@ -216,7 +216,7 @@ def _run_orpo_crucible(
         config_hash=config_hash, result=base_result,
         tokenizer_path=str(tokenizer_path),
         training_config_path=str(config_path),
-        reproducibility_bundle_path="",
+        reproducibility_bundle_path=None,
     )
     invoke_hook("on_run_end", context.hooks.on_run_end, context, base_result)
     return TrainingRunResult(
