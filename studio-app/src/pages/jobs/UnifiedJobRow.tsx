@@ -22,7 +22,10 @@ import {
 } from "lucide-react";
 
 const ACTIVE_STATES = new Set(["running", "pending"]);
-const NON_TRAINING_TYPES = new Set(["eval", "logit-lens", "activation-pca", "activation-patch"]);
+const NON_TRAINING_TYPES = new Set([
+  "eval", "logit-lens", "activation-pca", "activation-patch",
+  "linear-probe", "sae-train", "sae-analyze", "steer-compute", "steer-apply",
+]);
 
 export function UnifiedJobRow({
   job,
