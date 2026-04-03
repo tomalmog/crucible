@@ -74,6 +74,21 @@ def merge_models(config: MergeConfig) -> MergeResult:
     output = Path(config.output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     torch_module.save(merged, output)
+
+    # Copy companion files (tokenizer, config) from the first source model
+    first_model_dir = Path(config.model_paths[0]).parent
+    output_dir = output.parent
+    for companion in (
+        "tokenizer_vocab.json", "tokenizer.json", "tokenizer_config.json",
+        "training_config.json", "config.json", "special_tokens_map.json",
+        "vocab.json", "merges.txt",
+    ):
+        src = first_model_dir / companion
+        dst = output_dir / companion
+        if src.exists() and not dst.exists():
+            import shutil
+            shutil.copy2(src, dst)
+
     num_params = sum(p.numel() for p in merged.values() if hasattr(p, "numel"))
     return MergeResult(
         output_path=str(output),

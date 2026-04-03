@@ -64,6 +64,10 @@ const INTERP_TYPES = new Set([
   "steer-compute", "steer-apply",
 ]);
 
+const EXPORT_TYPES = new Set([
+  "onnx-export", "safetensors-export", "gguf-export", "hf-export",
+]);
+
 const INTERP_LABELS: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
@@ -478,7 +482,10 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
   }
   if (result.job_type === "eval") return <RemoteEvalView job={job} result={result} onBack={onBack} config={config} />;
   if (INTERP_TYPES.has(result.job_type || "")) return <RemoteInterpView job={job} result={result} onBack={onBack} config={config} />;
-  return <RemoteTrainingView job={job} result={result} onBack={onBack} config={config} />;
+  if (result.job_type === "sweep" || result.trials) return <RemoteSweepView job={job} result={result} onBack={onBack} config={config} />;
+  if (EXPORT_TYPES.has(result.job_type || "") || EXPORT_TYPES.has(job.jobType)) return <RemoteExportView job={job} result={result} onBack={onBack} config={config} />;
+  if (TRAINING_TYPES.has(result.job_type || "") || TRAINING_TYPES.has(job.jobType)) return <RemoteTrainingView job={job} result={result} onBack={onBack} config={config} />;
+  return <RemoteGenericView job={job} result={result} onBack={onBack} config={config} />;
 }
 
 function RemoteFailedView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
@@ -669,7 +676,9 @@ function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; r
           </table>
         </div>
       )}
-      {history && <TrainingCurvesView history={history} />}
+      {history ? <TrainingCurvesView history={history} /> : (
+        <p className="text-muted text-sm">Training history unavailable for this run.</p>
+      )}
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
@@ -695,6 +704,106 @@ function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; res
       {jobType === "sae-analyze" && <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />}
       {jobType === "steer-compute" && <SteerComputeResults result={result as unknown as SteerComputeResult} />}
       {jobType === "steer-apply" && <SteerApplyResults result={result as unknown as SteerApplyResult} />}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
+    </div>
+  );
+}
+
+function RemoteSweepView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
+  const trials = Array.isArray(result.trials) ? (result.trials as Record<string, unknown>[]) : [];
+  const bestId = String(result.best_trial_id ?? "");
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
+      <h3>Sweep Result</h3>
+      <div className="stats-grid">
+        <div className="metric-card"><span className="metric-label">Trials</span><span className="metric-value">{trials.length}</span></div>
+        {result.best_metric_value != null && <div className="metric-card"><span className="metric-label">Best Metric</span><span className="metric-value">{Number(result.best_metric_value).toFixed(4)}</span></div>}
+        {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
+      </div>
+      {result.best_parameters ? (
+        <div>
+          <h4>Best Parameters</h4>
+          <pre className="console console-short">{JSON.stringify(result.best_parameters, null, 2)}</pre>
+        </div>
+      ) : null}
+      {trials.length > 0 && (
+        <div className="docs-table-wrap">
+          <table className="docs-table">
+            <thead><tr><th>Trial</th><th>Parameters</th><th>Metric</th><th></th></tr></thead>
+            <tbody>{trials.map((t, i) => {
+              const tid = String(t.trial_id ?? i);
+              const isBest = tid === bestId;
+              return (
+                <tr key={tid}>
+                  <td className="text-mono">{tid}</td>
+                  <td className="text-sm">{JSON.stringify(t.parameters ?? {})}</td>
+                  <td className="text-mono">{t.metric_value != null ? Number(t.metric_value as number).toFixed(4) : "\u2014"}</td>
+                  <td>{isBest && <Trophy size={14} className="text-success" />}</td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      )}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
+    </div>
+  );
+}
+
+function RemoteExportView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
+  const exportType = String(result.job_type ?? job.jobType);
+  const exclude = new Set(["status", "job_type"]);
+  const entries = Object.entries(result).filter(
+    ([k, v]) => !exclude.has(k) && v != null && v !== "" && typeof v !== "object"
+  );
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
+      <h3>Export Result — {exportType}</h3>
+      <div className="stats-grid">
+        {result.output_path ? <div className="metric-card"><span className="metric-label">Output</span><span className="metric-value text-sm text-mono">{formatPath(String(result.output_path))}</span></div> : null}
+        {result.file_size_mb != null && <div className="metric-card"><span className="metric-label">Size</span><span className="metric-value">{Number(result.file_size_mb as number).toFixed(1)} MB</span></div>}
+        {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
+      </div>
+      {entries.length > 0 && (
+        <div className="docs-table-wrap">
+          <table className="docs-table">
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>{entries.map(([k, v]) => (
+              <tr key={k}><td>{k.replace(/_/g, " ")}</td><td className="text-mono text-sm">{String(v)}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <LogsSection jobId={job.jobId} jobState={job.state} />
+    </div>
+  );
+}
+
+function RemoteGenericView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
+  const exclude = new Set(["status"]);
+  const entries = Object.entries(result).filter(
+    ([k, v]) => !exclude.has(k) && v != null && v !== "" && typeof v !== "object"
+  );
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
+      <h3>{job.label || job.jobId} — Result</h3>
+      {entries.length > 0 && (
+        <div className="docs-table-wrap">
+          <table className="docs-table">
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>{entries.map(([k, v]) => (
+              <tr key={k}><td>{k.replace(/_/g, " ")}</td><td className="text-mono text-sm">{String(v)}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <details>
+        <summary>Raw result</summary>
+        <pre className="console">{JSON.stringify(result, null, 2)}</pre>
+      </details>
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );

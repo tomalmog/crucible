@@ -48,6 +48,7 @@ def build_base_training_args(
     log_steps: int,
     seed: int,
     max_length: int | None = None,
+    has_eval: bool = True,
     **extra: Any,
 ) -> dict[str, Any]:
     """Build kwargs dict for trl config classes (SFTConfig, DPOConfig, etc.)."""
@@ -59,7 +60,7 @@ def build_base_training_args(
         "per_device_eval_batch_size": batch_size,
         "learning_rate": learning_rate,
         "weight_decay": weight_decay,
-        "eval_strategy": "epoch",
+        "eval_strategy": "epoch" if has_eval else "no",
         "save_strategy": "epoch",
         "save_total_limit": 5,
         "logging_steps": max(log_steps, 1),
@@ -147,6 +148,16 @@ def extract_training_history(trainer: Any) -> dict[str, Any]:
             if epoch_num in epoch_data and epoch_data[epoch_num]["train_loss"] == 0.0:
                 epoch_data[epoch_num]["train_loss"] = entry["train_loss"]
     return {"epochs": [epoch_data[k] for k in sorted(epoch_data)]}
+
+
+def split_dataset(
+    dataset: Any, validation_split: float, seed: int,
+) -> tuple[Any, Any | None]:
+    """Split a HuggingFace dataset into train/eval, skipping if split is 0."""
+    if not validation_split or validation_split <= 0:
+        return dataset, None
+    split = dataset.train_test_split(test_size=validation_split, seed=seed)
+    return split["train"], split["test"]
 
 
 def is_hf_model(model_id: str) -> bool:

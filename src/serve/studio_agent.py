@@ -21,9 +21,10 @@ _TYPE_MAP: dict[type, str] = {
 
 _TOOL_NAMES = [
     "list_datasets", "ingest_dataset", "delete_dataset", "push_dataset",
-    "list_remote_datasets", "list_models", "register_model", "delete_model",
-    "pull_model", "train", "submit_remote_training", "list_jobs",
-    "job_status", "job_logs", "job_result", "cancel_job", "delete_job",
+    "list_remote_datasets", "list_models", "register_model", "register_remote_model",
+    "delete_model", "pull_model", "train", "submit_remote_training",
+    "submit_remote_interp", "submit_remote_sweep",
+    "list_jobs", "job_status", "job_logs", "job_result", "cancel_job", "delete_job",
     "run_benchmark", "submit_remote_eval", "chat", "run_interp",
     "export_model", "merge_models", "list_clusters", "cluster_info",
     "hub_search_models", "hub_download_model", "run_sweep", "ab_chat",

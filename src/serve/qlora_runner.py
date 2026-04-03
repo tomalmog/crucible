@@ -27,6 +27,7 @@ from serve.trl_training_base import (
     is_hf_model,
     load_hf_model_and_tokenizer,
     save_trl_outputs,
+    split_dataset,
     _import_trl,
 )
 
@@ -113,7 +114,7 @@ def _run_qlora_with_trl(
     if not sft_examples:
         raise CrucibleQloraError("No QLoRA training examples found.")
     dataset = _examples_to_hf_dataset(sft_examples)
-    split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
+    train_dataset, eval_dataset = split_dataset(dataset, options.validation_split, random_seed)
 
     # Build peft LoraConfig from QLoRA options.
     # Fall back to "all-linear" if the specified target modules don't exist.
@@ -140,6 +141,7 @@ def _run_qlora_with_trl(
         log_steps=options.progress_log_interval_steps,
         seed=random_seed,
         max_length=options.max_token_length,
+        has_eval=eval_dataset is not None,
     )
     sft_config = trl.SFTConfig(**args)
 
@@ -147,8 +149,8 @@ def _run_qlora_with_trl(
     trainer = trl.SFTTrainer(
         model=model,
         args=sft_config,
-        train_dataset=split["train"],
-        eval_dataset=split["test"],
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         processing_class=tokenizer,
         peft_config=lora_config,
     )

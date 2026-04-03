@@ -825,6 +825,107 @@ def submit_remote_eval(
         return json.dumps({"error": f"Failed to submit remote eval: {exc}"})
 
 
+@mcp.tool()
+def submit_remote_interp(
+    cluster_name: str,
+    interp_method: str,
+    method_args_json: str = "{}",
+    partition: str = "",
+    gpus_per_node: int = 1,
+    memory: str = "32G",
+    time_limit: str = "04:00:00",
+) -> str:
+    """Submit an interpretability job to a remote GPU cluster.
+
+    Args:
+        cluster_name: Name of the registered cluster.
+        interp_method: Tool name (logit-lens, activation-pca, activation-patch, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply).
+        method_args_json: JSON string of tool arguments (model_path, input_text, etc.).
+        partition: Slurm partition (leave empty for default).
+        gpus_per_node: Number of GPUs per node.
+        memory: Memory allocation (e.g. "32G").
+        time_limit: Job time limit (e.g. "04:00:00").
+    """
+    try:
+        from core.slurm_types import SlurmResourceConfig
+        from serve.remote_job_submitter import submit_remote_interp_job
+        method_args = json.loads(method_args_json)
+        resources = SlurmResourceConfig(
+            partition=partition,
+            gpus_per_node=gpus_per_node,
+            memory=memory,
+            time_limit=time_limit,
+        )
+        record = submit_remote_interp_job(
+            data_root=_data_root(),
+            cluster_name=cluster_name,
+            interp_method=interp_method,
+            method_args=method_args,
+            resources=resources,
+        )
+        return json.dumps({
+            "job_id": record.job_id,
+            "slurm_job_id": record.slurm_job_id,
+            "cluster": cluster_name,
+            "interp_method": interp_method,
+            "state": record.state,
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to submit remote interp: {exc}"})
+
+
+@mcp.tool()
+def submit_remote_sweep(
+    cluster_name: str,
+    method: str,
+    trial_configs_json: str = "[]",
+    partition: str = "",
+    gpus_per_node: int = 1,
+    memory: str = "32G",
+    time_limit: str = "04:00:00",
+) -> str:
+    """Submit a hyperparameter sweep as a Slurm job array on a remote cluster.
+
+    Args:
+        cluster_name: Name of the registered cluster.
+        method: Training method for each trial (e.g. "sft", "lora-train").
+        trial_configs_json: JSON array of per-trial method_args dicts.
+        partition: Slurm partition (leave empty for default).
+        gpus_per_node: Number of GPUs per node.
+        memory: Memory allocation (e.g. "32G").
+        time_limit: Job time limit per trial (e.g. "04:00:00").
+    """
+    try:
+        from core.slurm_types import SlurmResourceConfig
+        from serve.remote_job_submitter import submit_remote_sweep as _submit_sweep
+        trial_configs = json.loads(trial_configs_json)
+        if not trial_configs:
+            return json.dumps({"error": "trial_configs_json must be a non-empty array"})
+        resources = SlurmResourceConfig(
+            partition=partition,
+            gpus_per_node=gpus_per_node,
+            memory=memory,
+            time_limit=time_limit,
+        )
+        record = _submit_sweep(
+            data_root=_data_root(),
+            cluster_name=cluster_name,
+            training_method=method,
+            trial_configs=trial_configs,
+            resources=resources,
+        )
+        return json.dumps({
+            "job_id": record.job_id,
+            "slurm_job_id": record.slurm_job_id,
+            "cluster": cluster_name,
+            "method": method,
+            "num_trials": len(trial_configs),
+            "state": record.state,
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to submit remote sweep: {exc}"})
+
+
 # ── Chat ─────────────────────────────────────────────────────────────
 
 

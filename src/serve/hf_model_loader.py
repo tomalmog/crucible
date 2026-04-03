@@ -248,6 +248,18 @@ def _load_custom_weights(model: Any, weights_path: str) -> None:
             "Verify the path is correct."
         )
 
+    # If path is a directory, find the weight file inside
+    if resolved.is_dir():
+        for candidate in ("model.safetensors", "model.pt", "pytorch_model.bin"):
+            if (resolved / candidate).exists():
+                resolved = resolved / candidate
+                break
+        else:
+            raise CrucibleServeError(
+                f"No weight file found in {resolved}. "
+                "Expected model.pt, model.safetensors, or pytorch_model.bin."
+            )
+
     try:
         import torch
     except ImportError as error:

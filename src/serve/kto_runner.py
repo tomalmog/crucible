@@ -23,6 +23,7 @@ from serve.trl_training_base import (
     is_hf_model,
     load_hf_model_and_tokenizer,
     save_trl_outputs,
+    split_dataset,
     _import_trl,
 )
 
@@ -81,13 +82,14 @@ def _run_kto_with_trl(
     if not kto_examples:
         raise CrucibleKtoError("No KTO examples found.")
     dataset = _kto_examples_to_hf_dataset(kto_examples)
-    split = dataset.train_test_split(test_size=options.validation_split, seed=random_seed)
+    train_dataset, eval_dataset = split_dataset(dataset, options.validation_split, random_seed)
 
     args = build_base_training_args(
         output_dir=output_dir, epochs=options.epochs, batch_size=options.batch_size,
         learning_rate=options.learning_rate, weight_decay=options.weight_decay,
         precision_mode=options.precision_mode, log_steps=options.progress_log_interval_steps,
         seed=random_seed, max_length=options.max_token_length,
+        has_eval=eval_dataset is not None,
     )
     args["desirable_weight"] = options.desirable_weight
     args["undesirable_weight"] = options.undesirable_weight
@@ -96,7 +98,7 @@ def _run_kto_with_trl(
     print("KTO: Starting training...", flush=True)
     trainer = trl.KTOTrainer(
         model=model, args=kto_config,
-        train_dataset=split["train"], eval_dataset=split["test"],
+        train_dataset=train_dataset, eval_dataset=eval_dataset,
         processing_class=tokenizer,
     )
     trainer.train(resume_from_checkpoint=options.resume_checkpoint_path)

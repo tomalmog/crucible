@@ -384,9 +384,14 @@ export function UnifiedJobRow({
         </div>
       )}
       {isFailed && isRemote && job.submitPhase && (
-        <div className="error-alert-prominent">{job.submitPhase}</div>
+        <div className="error-alert-prominent">
+          {job.submitPhase}
+          {job.errorMessage && job.errorMessage !== job.submitPhase && (
+            <span style={{ display: "block", marginTop: 4, fontWeight: 400 }}>{job.errorMessage}</span>
+          )}
+        </div>
       )}
-      {isFailed && job.errorMessage && !job.submitPhase && (
+      {isFailed && job.errorMessage && !(isRemote && job.submitPhase) && (
         <div className="error-alert-prominent">{job.errorMessage}</div>
       )}
       {job.modelPath && isRemote && (

@@ -15,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 28] = [
+const JOBS_PAGE_COMMANDS: [&str; 31] = [
     "train",
     "sft",
     "dpo-train",
@@ -35,6 +35,9 @@ const JOBS_PAGE_COMMANDS: [&str; 28] = [
     "logit-lens",
     "activation-pca",
     "activation-patch",
+    "linear-probe",
+    "sae-train",
+    "sae-analyze",
     "eval",
     "dispatch",
     "onnx-export",
