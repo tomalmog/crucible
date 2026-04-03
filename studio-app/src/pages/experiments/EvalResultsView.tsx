@@ -5,7 +5,7 @@ import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteEvalArgs, buildDispatchSpec } from "../../api/commandArgs";
+import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { evalLabel } from "../../utils/jobLabels";
 
@@ -115,29 +115,25 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
 
       let args: string[];
       if (isRemote && clusterName) {
-        if (isSlurm) {
-          args = buildRemoteEvalArgs(clusterName, modelPath, benchmarks, {
-            modelName: selectedEntry?.modelName || undefined,
-            baseModel: baseModelPath.trim() || undefined,
-            maxSamples: maxSamples.trim() || undefined,
-            partition: partition || undefined,
-            gpusPerNode,
-            gpuType: gpuType || undefined,
+        const methodArgs: Record<string, unknown> = {
+          model_path: modelPath,
+          benchmarks,
+        };
+        if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
+        if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
+        args = buildDispatchSpec("eval", methodArgs, clusterBackend as "slurm" | "ssh", {
+          label: evalLabel(selectedModelName),
+          clusterName,
+          resources: isSlurm ? {
+            partition: partition || "",
+            nodes: 1,
+            gpus_per_node: parseInt(gpusPerNode, 10) || 1,
+            gpu_type: gpuType || "",
+            cpus_per_task: 4,
             memory,
-            timeLimit,
-          });
-        } else {
-          const methodArgs: Record<string, unknown> = {
-            model_path: modelPath,
-            benchmarks,
-          };
-          if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
-          if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
-          args = buildDispatchSpec("eval", methodArgs, clusterBackend as "ssh", {
-            label: evalLabel(selectedModelName),
-            clusterName,
-          });
-        }
+            time_limit: timeLimit,
+          } : undefined,
+        });
       } else {
         args = [
           "eval",

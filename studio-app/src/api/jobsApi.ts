@@ -79,12 +79,32 @@ export async function getJobResult(
   jobState?: string,
 ): Promise<Record<string, unknown>> {
   const key = `job-result-${jobId}`;
-  const ttl = jobState && TERMINAL_JOB_STATES.has(jobState as any) ? Infinity : 10_000;
-  return cached(key, ttl, async () => {
+  const isTerminal = jobState && TERMINAL_JOB_STATES.has(jobState as any);
+
+  // If we have a cached non-empty result, return it immediately.
+  const prior = cacheGet<Record<string, unknown>>(key);
+  if (prior && Object.keys(prior).length > 0) {
+    return prior;
+  }
+
+  // Clear any stale empty-result entry so `cached()` re-fetches.
+  if (prior !== undefined) {
+    invalidate(key);
+  }
+
+  const ttl = isTerminal ? Infinity : 10_000;
+  const result = await cached(key, ttl, async () => {
     const raw: string = await invoke("get_unified_job_result", {
       dataRoot,
       jobId,
     });
-    return JSON.parse(raw);
+    return JSON.parse(raw) as Record<string, unknown>;
   });
+
+  // If result came back empty, downgrade TTL so we retry soon.
+  if (Object.keys(result).length === 0) {
+    cacheSet(key, result, 10_000);
+  }
+
+  return result;
 }

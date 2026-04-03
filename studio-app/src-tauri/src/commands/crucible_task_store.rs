@@ -104,6 +104,13 @@ impl CommandTaskStore {
             label_opt,
         );
 
+        // Write the job record synchronously before spawning the thread so the
+        // file exists before start_crucible_command returns to the UI.
+        // Dispatch is excluded: Python writes the real job record itself.
+        if JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) && command_name != "dispatch" {
+            write_job_record(&data_root, &task_id, &command_name, "running", "", "", &label, &config_json);
+        }
+
         let task_store = self.clone();
         let task_id_for_thread = task_id.clone();
         std::thread::spawn(move || {
@@ -218,25 +225,6 @@ impl CommandTaskStore {
     }
 
     fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String, config_json: Option<String>) {
-        // Write initial unified JobRecord so the job appears on the Jobs page immediately.
-        // For dispatch commands, write as "pending" — Python will create the real job record.
-        if JOBS_PAGE_COMMANDS.contains(&command_name.as_str()) {
-            let initial_state = if command_name == "dispatch" { "pending" } else { "running" };
-            write_job_record(&data_root, &task_id, &command_name, initial_state, "", "", &label, &config_json);
-            // For dispatch, set a submit_phase so the UI shows a spinner with context
-            if command_name == "dispatch" {
-                let task_path = resolve_data_root(&data_root).join("jobs").join(format!("{task_id}.json"));
-                if let Ok(contents) = fs::read_to_string(&task_path) {
-                    if let Ok(mut record) = serde_json::from_str::<serde_json::Value>(&contents) {
-                        if let Some(obj) = record.as_object_mut() {
-                            obj.insert("submit_phase".to_string(), serde_json::json!("Starting..."));
-                        }
-                        let _ = fs::write(&task_path, serde_json::to_string_pretty(&record).unwrap_or_default());
-                    }
-                }
-            }
-        }
-
         // Write payload file for agent-chat so the CLI can read it
         let mut args = args;
         if command_name == "agent-chat" {
@@ -344,6 +332,7 @@ impl CommandTaskStore {
         let mut final_state = "failed";
         let mut stdout_snapshot = String::new();
         let mut stderr_snapshot = String::new();
+        let mut label_snapshot = String::new();
         if let Ok(mut tasks) = self.inner.tasks.lock() {
             if let Some(task) = tasks.get_mut(task_id) {
                 let exit_code = exit_status
@@ -360,6 +349,7 @@ impl CommandTaskStore {
                 final_state = if exit_code == 0 { "completed" } else { "failed" };
                 stdout_snapshot = task.stdout.clone();
                 stderr_snapshot = task.stderr.clone();
+                label_snapshot = task.label.clone().unwrap_or_default();
             }
         }
         if let Some(observed_seconds) = observed_elapsed_seconds {
@@ -367,18 +357,15 @@ impl CommandTaskStore {
         }
         if JOBS_PAGE_COMMANDS.contains(&command_name) {
             if command_name == "dispatch" {
-                // Dispatch: Python creates real job-XXXX records.
-                // Remove the temporary pending record — the real job is visible now.
-                // If Python failed before creating a real record, keep ours as "failed".
-                let task_path = resolve_data_root(data_root).join("jobs").join(format!("{task_id}.json"));
-                if final_state == "completed" {
-                    let _ = fs::remove_file(&task_path);
-                } else {
-                    // Python never created a job record — mark ours as failed with error info
+                // Dispatch: Python creates real job-XXXX records. We don't write a pending
+                // record up front, so on success there's nothing to clean up.
+                // On failure, Python never created a job record — write a failed record now.
+                if final_state != "completed" {
                     let err_msg = {
                         let len = stderr_snapshot.len();
                         if len > 200 { stderr_snapshot[len-200..].to_string() } else { stderr_snapshot.clone() }
                     };
+                    write_job_record(data_root, task_id, "dispatch", "failed", "", &err_msg, &label_snapshot, &None);
                     update_job_record(data_root, task_id, "failed", "", &err_msg, &stdout_snapshot, &stderr_snapshot);
                 }
             } else {

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from core.errors import CrucibleError
@@ -71,27 +70,51 @@ class SlurmRunner:
         """Submit via existing Slurm infrastructure, write unified JobRecord."""
         resources = _spec_to_slurm_resources(spec)
 
-        if spec.is_sweep and spec.sweep_trials:
-            remote_record = self._submit_sweep(
-                data_root, spec, resources,
-            )
-        elif spec.job_type == "eval":
-            remote_record = self._submit_eval(
-                data_root, spec, resources,
-            )
-        elif spec.job_type in (
-            "logit-lens", "activation-pca", "activation-patch",
-        ):
-            remote_record = self._submit_interp(
-                data_root, spec, resources,
-            )
-        else:
-            remote_record = self._submit_training(
-                data_root, spec, resources,
-            )
+        # Write the unified job record immediately in "submitting" state so the
+        # UI shows it right away — before any SSH work happens.
+        ts = now_iso()
+        unified_id = generate_job_id()
+        initial = JobRecord(
+            job_id=unified_id,
+            backend="slurm",
+            job_type=spec.job_type,
+            state="submitting",
+            created_at=ts,
+            updated_at=ts,
+            label=spec.label,
+            backend_cluster=spec.cluster_name,
+            submit_phase="Preparing submission...",
+            is_sweep=spec.is_sweep,
+            sweep_trial_count=len(spec.sweep_trials) if spec.sweep_trials else 0,
+            config=spec.config,
+        )
+        save_job(data_root, initial)
+
+        try:
+            if spec.is_sweep and spec.sweep_trials:
+                remote_record = self._submit_sweep(
+                    data_root, spec, resources,
+                )
+            elif spec.job_type == "eval":
+                remote_record = self._submit_eval(
+                    data_root, spec, resources,
+                )
+            elif spec.job_type in (
+                "logit-lens", "activation-pca", "activation-patch",
+            ):
+                remote_record = self._submit_interp(
+                    data_root, spec, resources,
+                )
+            else:
+                remote_record = self._submit_training(
+                    data_root, spec, resources,
+                )
+        except Exception:
+            update_job(data_root, unified_id, state="failed")
+            raise
 
         unified = self._remote_to_unified(
-            remote_record, label=spec.label, config=spec.config,
+            remote_record, job_id=unified_id, label=spec.label, config=spec.config,
         )
         save_job(data_root, unified)
         return unified
@@ -209,7 +232,7 @@ class SlurmRunner:
         )
 
     def _remote_to_unified(
-        self, remote_record: object, label: str = "",
+        self, remote_record: object, job_id: str = "", label: str = "",
         config: dict[str, object] | None = None,
     ) -> JobRecord:
         """Convert a RemoteJobRecord to a unified JobRecord."""
@@ -221,7 +244,7 @@ class SlurmRunner:
             remote_record.training_method, remote_record.model_name,
         )
         return JobRecord(
-            job_id=generate_job_id(),
+            job_id=job_id or generate_job_id(),
             backend="slurm",
             job_type=remote_record.training_method,
             state=remote_record.state,  # type: ignore[arg-type]
@@ -240,3 +263,5 @@ class SlurmRunner:
             sweep_trial_count=remote_record.sweep_array_size,
             config=config or {},
         )
+
+

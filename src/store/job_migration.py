@@ -41,9 +41,50 @@ def migrate_remote_jobs(data_root: Path) -> int:
 
 
 def ensure_migrated(data_root: Path) -> None:
-    """Run migration if needed. Safe to call repeatedly."""
+    """Run migration if needed. Safe to call repeatedly.
+
+    Also syncs any remote-jobs that post-date the initial migration
+    so jobs submitted after the one-time migration are not invisible.
+    """
     if _needs_migration(data_root):
         migrate_remote_jobs(data_root)
+    else:
+        _sync_new_remote_jobs(data_root)
+
+
+def _sync_new_remote_jobs(data_root: Path) -> None:
+    """Copy any rj-* files from remote-jobs/ not yet represented in jobs/.
+
+    Skips rj- files that already have a job- record with a matching
+    backend_job_id (created by SlurmRunner for UI-submitted jobs).
+    """
+    remote_dir = data_root / "remote-jobs"
+    if not remote_dir.exists():
+        return
+    jobs_dir = _jobs_dir(data_root)
+
+    # Build a set of rj- IDs already claimed by a job- record
+    claimed: set[str] = set()
+    if jobs_dir.exists():
+        import json as _json
+        for path in jobs_dir.glob("job-*.json"):
+            try:
+                raw = _json.loads(path.read_text(encoding="utf-8"))
+                bjid = raw.get("backend_job_id", "")
+                if isinstance(bjid, str) and bjid.startswith("rj-"):
+                    claimed.add(bjid)
+            except Exception:
+                continue
+
+    for path in remote_dir.glob("rj-*.json"):
+        rj_id = path.stem
+        if rj_id in claimed:
+            continue  # SlurmRunner already owns this job
+        unified_path = jobs_dir / path.name
+        if not unified_path.exists():
+            raw = read_json_file(path)
+            if isinstance(raw, dict):
+                save_job(data_root, _convert_remote_record(raw))
 
 
 def _write_marker(data_root: Path) -> None:

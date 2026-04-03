@@ -136,7 +136,6 @@ def submit_remote_job(
         "result_output": "result.json",
     }
 
-    # Write early JSON so the UI picks it up immediately
     ts = now_iso()
     record = RemoteJobRecord(
         job_id=job_id,

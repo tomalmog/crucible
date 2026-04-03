@@ -156,6 +156,7 @@ export function UnifiedJobRow({
 
   const toggleLogs = useCallback(() => {
     if (isLocal) return; // local jobs show logs inline via localTask
+    if (job.state === "submitting") return; // no backend_job_id yet; show phase spinner instead
     const next = !showLogs;
     setShowLogs(next);
     if (next && !logs) {
@@ -201,13 +202,15 @@ export function UnifiedJobRow({
     userScrolledRef.current = !atBottom;
   }, []);
 
-  // Auto-expand/stream for remote active jobs
+  // Auto-expand logs for remote jobs that completed/failed (backend_job_id is set)
   useEffect(() => {
-    if (isRemote && failedOnCluster && !showLogs && !logs) setShowLogs(true);
+    if (isRemote && failedOnCluster && job.backendJobId && !showLogs && !logs) setShowLogs(true);
   }, [failedOnCluster]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (isRemote && isRunning && !isSubmitting && !showLogs) {
+    // Auto-open log stream when the job is already running on mount.
+    // Skip if submitting — backend_job_id is not set yet.
+    if (isRemote && isRunning && !isSubmitting && job.backendJobId && !showLogs) {
       setShowLogs(true);
       startLogStream();
     }

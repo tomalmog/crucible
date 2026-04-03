@@ -86,7 +86,7 @@ def _dict_to_record(raw: dict[str, object]) -> RemoteJobRecord:
 
 
 def save_remote_job(data_root: Path, record: RemoteJobRecord) -> Path:
-    """Persist a remote job record to disk.
+    """Persist a remote job record to .crucible/remote-jobs/.
 
     Args:
         data_root: Root .crucible directory.
@@ -103,6 +103,7 @@ def save_remote_job(data_root: Path, record: RemoteJobRecord) -> Path:
             f"Failed to save remote job {record.job_id}: {error}."
         ) from error
     return target
+
 
 
 def load_remote_job(data_root: Path, job_id: str) -> RemoteJobRecord:
