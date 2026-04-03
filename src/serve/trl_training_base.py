@@ -93,14 +93,24 @@ def save_trl_outputs(
     trainer.save_model(str(hf_dir))
     tokenizer.save_pretrained(str(hf_dir))
 
-    # Save model.pt for Crucible compatibility
+    # Save model.pt for Crucible compatibility.
+    # QLoRA (bitsandbytes 4-bit) models cannot be merged on CPU — bitsandbytes
+    # produces transposed Conv1D weights causing shape mismatches at load time.
+    # Detect this by checking for quantized linear layers in the model.
+    # For plain LoRA, merge_and_unload() works fine on CPU.
     model = trainer.model
-    # Unwrap PEFT if needed
     inner = getattr(model, "base_model", None)
-    if inner is not None and hasattr(inner, "merge_and_unload"):
-        model = model.merge_and_unload()
+    is_peft = inner is not None and hasattr(inner, "merge_and_unload")
+    is_bnb_quantized = is_peft and _has_bnb_layers(model)
     model_path = output_dir / "model.pt"
-    torch.save(model.state_dict(), str(model_path))
+    if is_bnb_quantized and not torch.cuda.is_available():
+        # Reload adapter onto full-precision base model and merge there.
+        # This avoids bitsandbytes' broken CPU merge path.
+        _merge_qlora_via_fp_base(training_options, hf_dir, model_path)
+    else:
+        if is_peft:
+            model = model.merge_and_unload()
+        torch.save(model.state_dict(), str(model_path))
 
     # Save Crucible metadata
     save_training_config(output_dir, training_options)
@@ -148,6 +158,41 @@ def extract_training_history(trainer: Any) -> dict[str, Any]:
             if epoch_num in epoch_data and epoch_data[epoch_num]["train_loss"] == 0.0:
                 epoch_data[epoch_num]["train_loss"] = entry["train_loss"]
     return {"epochs": [epoch_data[k] for k in sorted(epoch_data)]}
+
+
+def _has_bnb_layers(model: Any) -> bool:
+    """Return True if the model contains bitsandbytes quantized linear layers."""
+    for module in model.modules():
+        if type(module).__name__ in ("Linear4bit", "Linear8bitLt"):
+            return True
+    return False
+
+
+def _merge_qlora_via_fp_base(
+    training_options: TrainingOptions,
+    adapter_dir: Path,
+    model_path: Path,
+) -> None:
+    """Merge QLoRA adapter into a fresh full-precision base model and save.
+
+    bitsandbytes merge_and_unload() is broken on CPU (transposed weights).
+    This loads the base model in float32, applies the peft adapter from
+    adapter_dir, merges cleanly, and saves the merged state dict.
+    """
+    import torch
+    from transformers import AutoModelForCausalLM
+    from peft import PeftModel
+
+    base_model_id = training_options.base_model_path or ""
+    if not base_model_id:
+        raise RuntimeError("Cannot merge QLoRA adapter: base_model_path not set in training options")
+
+    fp_model = AutoModelForCausalLM.from_pretrained(
+        base_model_id, torch_dtype=torch.float32, device_map="cpu",
+    )
+    merged = PeftModel.from_pretrained(fp_model, str(adapter_dir))
+    merged = merged.merge_and_unload()
+    torch.save(merged.state_dict(), str(model_path))
 
 
 def split_dataset(
