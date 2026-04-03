@@ -150,7 +150,7 @@ def run_benchmarks(
         print(f"CRUCIBLE_AGENT: [{i}/{len(valid)}] {name} done — score: {result.score}", flush=True)
         if output_path:
             _write_partial_results(output_path, model_path, results, len(valid))
-        if hasattr(eval_model.torch_module, "cuda") and eval_model.torch_module.cuda.is_available():
+        if eval_model is not None and hasattr(eval_model.torch_module, "cuda") and eval_model.torch_module.cuda.is_available():
             eval_model.torch_module.cuda.empty_cache()
 
     avg = sum(r.score for r in results) / max(len(results), 1)
