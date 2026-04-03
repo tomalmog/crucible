@@ -164,6 +164,9 @@ export function DatasetsPage() {
         {clusters.length > 0 && (
           <ClusterSelect clusters={clusters} value={selectedCluster} onChange={setSelectedCluster} />
         )}
+        <button className="btn" onClick={() => setShowIngest(true)}>
+          <Plus size={14} /> Ingest
+        </button>
         <button
           className="btn"
           onClick={() => handleRefresh().catch(console.error)}
@@ -232,10 +235,6 @@ export function DatasetsPage() {
           ))}
         </div>
       )}
-
-      <button className="fab-add" onClick={() => setShowIngest(true)} title="Ingest dataset">
-        <Plus size={22} />
-      </button>
 
       {showIngest && (
         <IngestModal

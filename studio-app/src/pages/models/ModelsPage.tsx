@@ -173,6 +173,9 @@ export function ModelsPage() {
         {clusters.length > 0 && (
           <ClusterSelect clusters={clusters} value={selectedCluster} onChange={setSelectedCluster} />
         )}
+        <button className="btn" onClick={() => setShowRegister(true)}>
+          <Plus size={14} /> Register
+        </button>
         <button
           className="btn"
           onClick={() => handleRefresh().catch(console.error)}
@@ -245,10 +248,6 @@ export function ModelsPage() {
           ))}
         </div>
       )}
-
-      <button className="fab-add" onClick={() => setShowRegister(true)} title="Register model">
-        <Plus size={22} />
-      </button>
 
       {showRegister && (
         <RegisterModelModal

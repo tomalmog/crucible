@@ -1,0 +1,17 @@
+{
+  "run_id": "run-20260403T044546222004Z-a0056906",
+  "dataset_name": "basic",
+  "parent_model_path": null,
+  "config_hash": "e60dd908e8e6d65b14ca57f2988d2faf9d4b023b37144b01ee976e80741de354",
+  "created_at": "2026-04-03T04:45:49.350621+00:00",
+  "model_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/model.pt",
+  "history_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/history.json",
+  "plot_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/training_curves.png",
+  "tokenizer_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/tokenizer_vocab.json",
+  "training_config_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/training_config.json",
+  "checkpoint_dir": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/checkpoints",
+  "best_checkpoint_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/checkpoints/best.pt",
+  "reproducibility_bundle_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/basic-train-output/reproducibility_bundle.json",
+  "logs_path": null,
+  "benchmark_results_path": null
+}

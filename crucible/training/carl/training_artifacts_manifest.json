@@ -1,0 +1,17 @@
+{
+  "run_id": "run-20260403T214611282257Z-22e78ceb",
+  "dataset_name": "basic",
+  "parent_model_path": null,
+  "config_hash": "95be3e7372ad6902540443eb16467d2c5ef54bc8f8b7f48150ab4d28851d9d41",
+  "created_at": "2026-04-03T21:46:13.355316+00:00",
+  "model_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/model.pt",
+  "history_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/history.json",
+  "plot_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/training_curves.png",
+  "tokenizer_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/tokenizer_vocab.json",
+  "training_config_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/training_config.json",
+  "checkpoint_dir": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/checkpoints",
+  "best_checkpoint_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/checkpoints/best.pt",
+  "reproducibility_bundle_path": "/Users/alejansropinto/Dev/Personal/test/forge/crucible/training/carl/reproducibility_bundle.json",
+  "logs_path": null,
+  "benchmark_results_path": null
+}
