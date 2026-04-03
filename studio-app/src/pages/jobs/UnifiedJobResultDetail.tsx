@@ -289,9 +289,15 @@ function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; l
 function LocalExportView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const parsed = useMemo(() => {
     try {
-      // Try to find a JSON object in stdout
-      const jsonMatch = localTask.stdout.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      // Find the last complete JSON object in stdout (export result is always last)
+      const lines = localTask.stdout.split("\n");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith("{") && line.endsWith("}")) {
+          return JSON.parse(line);
+        }
+      }
+      // Fallback: try parsing the whole stdout
       return JSON.parse(localTask.stdout);
     } catch { return null; }
   }, [localTask.stdout]);
@@ -391,7 +397,7 @@ function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; loc
         <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}</span></div>
       </div>
       {benchmarks.length > 0 && <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={[]} />}
-      {benchmarks.length > 0 && (
+      {benchmarks.length > 0 ? (
         <div className="docs-table-wrap">
           <table className="docs-table">
             <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th></tr></thead>
@@ -405,7 +411,9 @@ function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; loc
             ))}</tbody>
           </table>
         </div>
-      )}
+      ) : localTask.stdout ? (
+        <p className="text-muted text-sm">Could not parse benchmark results from output. Check logs below.</p>
+      ) : null}
       <LogsSection logs={localTask.stdout} />
     </div>
   );

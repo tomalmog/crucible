@@ -101,9 +101,10 @@ export async function getJobResult(
     return JSON.parse(raw) as Record<string, unknown>;
   });
 
-  // If result came back empty, downgrade TTL so we retry soon.
+  // If result came back empty, use a short TTL so we retry quickly.
+  // For just-completed jobs, result.json may still be writing on the cluster.
   if (Object.keys(result).length === 0) {
-    cacheSet(key, result, 10_000);
+    cacheSet(key, result, isTerminal ? 3_000 : 10_000);
   }
 
   return result;

@@ -465,8 +465,17 @@ def pull_model(job_id: str, model_name: str = "") -> str:
     """
     try:
         from serve.remote_model_puller import pull_remote_model
+        # Resolve unified job-* ID to backend rj-* ID if needed
+        resolved_id = job_id
+        if job_id.startswith("job-"):
+            job_path = _data_root() / "jobs" / f"{job_id}.json"
+            if job_path.exists():
+                job_data = json.loads(job_path.read_text())
+                backend_id = job_data.get("backend_job_id", "")
+                if backend_id:
+                    resolved_id = backend_id
         record = pull_remote_model(
-            _data_root(), job_id,
+            _data_root(), resolved_id,
             model_name=model_name or None,
         )
         return json.dumps({
@@ -847,25 +856,28 @@ def submit_remote_interp(
         time_limit: Job time limit (e.g. "04:00:00").
     """
     try:
-        from core.slurm_types import SlurmResourceConfig
-        from serve.remote_job_submitter import submit_remote_interp_job
-        method_args = json.loads(method_args_json)
-        resources = SlurmResourceConfig(
-            partition=partition,
-            gpus_per_node=gpus_per_node,
-            memory=memory,
-            time_limit=time_limit,
-        )
-        record = submit_remote_interp_job(
-            data_root=_data_root(),
+        _ensure_backends()
+        from core.job_types import JobSpec, ResourceConfig
+        from core.backend_registry import get_backend
+        from store.cluster_registry import load_cluster
+        data_root = _data_root()
+        cluster = load_cluster(data_root, cluster_name)
+        backend = get_backend(cluster.backend)
+        spec = JobSpec(
+            job_type=interp_method,
+            method_args=json.loads(method_args_json),
+            backend=cluster.backend,
             cluster_name=cluster_name,
-            interp_method=interp_method,
-            method_args=method_args,
-            resources=resources,
+            resources=ResourceConfig(
+                partition=partition,
+                gpus_per_node=gpus_per_node,
+                memory=memory,
+                time_limit=time_limit,
+            ),
         )
+        record = backend.submit(data_root, spec)
         return json.dumps({
             "job_id": record.job_id,
-            "slurm_job_id": record.slurm_job_id,
             "cluster": cluster_name,
             "interp_method": interp_method,
             "state": record.state,
@@ -896,27 +908,32 @@ def submit_remote_sweep(
         time_limit: Job time limit per trial (e.g. "04:00:00").
     """
     try:
-        from core.slurm_types import SlurmResourceConfig
-        from serve.remote_job_submitter import submit_remote_sweep as _submit_sweep
+        _ensure_backends()
+        from core.job_types import JobSpec, ResourceConfig
+        from core.backend_registry import get_backend
+        from store.cluster_registry import load_cluster
         trial_configs = json.loads(trial_configs_json)
         if not trial_configs:
             return json.dumps({"error": "trial_configs_json must be a non-empty array"})
-        resources = SlurmResourceConfig(
-            partition=partition,
-            gpus_per_node=gpus_per_node,
-            memory=memory,
-            time_limit=time_limit,
-        )
-        record = _submit_sweep(
-            data_root=_data_root(),
+        data_root = _data_root()
+        cluster = load_cluster(data_root, cluster_name)
+        backend = get_backend(cluster.backend)
+        spec = JobSpec(
+            job_type=method,
+            backend=cluster.backend,
             cluster_name=cluster_name,
-            training_method=method,
-            trial_configs=trial_configs,
-            resources=resources,
+            resources=ResourceConfig(
+                partition=partition,
+                gpus_per_node=gpus_per_node,
+                memory=memory,
+                time_limit=time_limit,
+            ),
+            is_sweep=True,
+            sweep_trials=tuple(trial_configs),
         )
+        record = backend.submit(data_root, spec)
         return json.dumps({
             "job_id": record.job_id,
-            "slurm_job_id": record.slurm_job_id,
             "cluster": cluster_name,
             "method": method,
             "num_trials": len(trial_configs),
@@ -1348,19 +1365,24 @@ def cluster_info(cluster_name: str) -> str:
         cluster_name: Name of the registered cluster.
     """
     try:
-        from serve.cluster_validator import get_cluster_info
+        from serve.cluster_validator import validate_ssh_cluster
         from store.cluster_registry import load_cluster
         cluster = load_cluster(_data_root(), cluster_name)
-        info = get_cluster_info(cluster)
+        info = validate_ssh_cluster(cluster)
         return json.dumps({
-            "total_gpus": info.total_gpus,
-            "idle_gpus": info.idle_gpus,
-            "total_nodes": info.total_nodes,
-            "is_connected": info.is_connected,
-            "partitions": [
-                {"name": p.name, "total_gpus": p.total_gpus, "idle_gpus": p.idle_gpus}
-                for p in info.partitions
-            ],
+            "cluster": cluster_name,
+            "host": cluster.host,
+            "backend": cluster.backend,
+            "python_ok": info.python_ok,
+            "python_version": info.python_version,
+            "torch_ok": info.torch_ok,
+            "torch_version": info.torch_version,
+            "cuda_ok": info.cuda_ok,
+            "cuda_version": info.cuda_version,
+            "slurm_ok": info.slurm_ok,
+            "partitions": list(info.partitions),
+            "gpu_types": list(info.gpu_types),
+            "errors": list(info.errors),
         }, indent=2)
     except Exception as exc:
         return json.dumps({"error": f"Failed to get cluster info: {exc}"})
@@ -1618,7 +1640,7 @@ def curate_dataset(
         max_records: Max records to keep for 'filter' action (0 = unlimited).
         record_ids: Comma-separated record IDs for 'remove' action.
     """
-    try:
+    def _do_curate() -> dict:
         from serve.dataset_curator import compute_distributions, score_examples
         client = _get_client()
         dataset = client.dataset(dataset_name)
@@ -1627,22 +1649,23 @@ def curate_dataset(
         if action == "score":
             record_dicts = [{"id": r.record_id, "text": r.text} for r in records]
             scores = score_examples(record_dicts)
-            return json.dumps([
+            return {"action": "score", "dataset": dataset_name, "results": [
                 {"record_id": s.record_id, "score": round(s.score, 4), "issues": list(s.issues)}
                 for s in scores
-            ], indent=2)
+            ]}
 
         if action == "stats":
             record_dicts = [{"text": r.text} for r in records]
             dist = compute_distributions(record_dicts)
-            return json.dumps({
+            return {
+                "action": "stats", "dataset": dataset_name,
                 "total_records": dist.total_records,
                 "avg_token_length": dist.avg_token_length,
                 "min_token_length": dist.min_token_length,
                 "max_token_length": dist.max_token_length,
                 "token_length_histogram": dist.token_length_histogram,
                 "quality_distribution": dist.quality_distribution,
-            }, indent=2)
+            }
 
         if action == "filter":
             record_dicts = [{"id": r.record_id, "text": r.text} for r in records]
@@ -1651,25 +1674,25 @@ def curate_dataset(
             if max_records > 0 and len(kept) > max_records:
                 kept = kept[:max_records]
             removed = len(records) - len(kept)
-            return json.dumps({
-                "kept": len(kept),
-                "removed": removed,
+            return {
+                "action": "filter", "dataset": dataset_name,
+                "kept": len(kept), "removed": removed,
                 "min_quality": min_quality,
-                "language": language or None,
-                "max_records": max_records or None,
-            }, indent=2)
+            }
 
         if action == "remove":
             ids = [rid.strip() for rid in record_ids.split(",") if rid.strip()]
-            return json.dumps({
-                "removed_count": len(ids),
-                "record_ids": ids,
-                "dataset": dataset_name,
-            }, indent=2)
+            return {
+                "action": "remove", "dataset": dataset_name,
+                "removed_count": len(ids), "record_ids": ids,
+            }
 
-        return json.dumps({"error": f"Unknown curate action: {action}. Use: score, stats, filter, remove"})
-    except Exception as exc:
-        return json.dumps({"error": f"Dataset curation failed: {exc}"})
+        raise ValueError(f"Unknown curate action: {action}. Use: score, stats, filter, remove")
+
+    return _run_with_job(
+        "curate", f"Curate {dataset_name} ({action})", _do_curate,
+        config={"dataset": dataset_name, "action": action},
+    )
 
 
 # ── Synthetic Data ────────────────────────────────────────────────────
@@ -1692,17 +1715,16 @@ def generate_synthetic_data(
         min_quality: Minimum quality score to keep (0.0-1.0).
         output_path: Output JSONL file path (auto-generated if empty).
     """
-    try:
+    def _do_generate() -> dict:
         import tempfile
         from serve.synthetic_data import (
             export_synthetic_data,
             filter_by_quality,
             generate_synthetic_data as _generate,
         )
-        # Load seed prompts
         seed_path = Path(seed_prompts_path).expanduser().resolve()
         if not seed_path.exists():
-            return json.dumps({"error": f"Seed prompts file not found: {seed_prompts_path}"})
+            raise FileNotFoundError(f"Seed prompts file not found: {seed_prompts_path}")
         prompts: list[str] = []
         with open(seed_path, encoding="utf-8") as fh:
             for line in fh:
@@ -1715,20 +1737,24 @@ def generate_synthetic_data(
                 except json.JSONDecodeError:
                     prompts.append(line)
         if not prompts:
-            return json.dumps({"error": "No seed prompts found in file."})
+            raise ValueError("No seed prompts found in file.")
+        nonlocal output_path
         if not output_path:
             output_path = tempfile.mktemp(prefix="crucible-synthetic-", suffix=".jsonl")
         examples = _generate(prompts, count, model_path or None)
         filtered = filter_by_quality(examples, min_quality)
         exported = export_synthetic_data(filtered, output_path)
-        return json.dumps({
+        return {
             "generated": len(examples),
             "after_filter": len(filtered),
             "exported": exported,
             "output_path": output_path,
-        }, indent=2)
-    except Exception as exc:
-        return json.dumps({"error": f"Synthetic data generation failed: {exc}"})
+        }
+
+    return _run_with_job(
+        "synthetic", f"Generate {count} synthetic examples", _do_generate,
+        config={"seed_prompts_path": seed_prompts_path, "count": count},
+    )
 
 
 # ── Hardware Profile ──────────────────────────────────────────────────

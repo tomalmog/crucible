@@ -466,6 +466,23 @@ export function UnifiedJobRow({
           )}
         </div>
       )}
+      {/* Orphaned local job — show persisted output from job record */}
+      {isLocal && localExpanded && !localTask && (job.stdout || job.stderr) && (
+        <div className="job-expanded">
+          {job.stdout && (
+            <div>
+              <div className="job-output-label">Last captured output</div>
+              <pre className="console console-tall">{job.stdout}</pre>
+            </div>
+          )}
+          {job.stderr && (
+            <details>
+              <summary className="job-traceback-toggle error-text">stderr</summary>
+              <pre className="console console-short">{job.stderr}</pre>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* Remote job logs */}
       {isRemote && showLogs && (
