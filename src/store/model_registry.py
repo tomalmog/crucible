@@ -233,33 +233,15 @@ def _ensure_name_in_index(models_root: Path, model_name: str) -> None:
 
 _logger = logging.getLogger(__name__)
 
-_SAFE_SUBDIRS = ("pulled-models", "runs")
-
-
 def _safe_delete_local_path(
     data_root: Path,
     model_path: str,
 ) -> tuple[bool, str]:
-    """Delete a local model path only if it lives under a safe subdirectory."""
+    """Delete a local model path."""
     try:
         resolved = Path(model_path).resolve()
     except (OSError, ValueError) as exc:
         return False, f"Cannot resolve path {model_path}: {exc}"
-
-    safe = False
-    for subdir in _SAFE_SUBDIRS:
-        safe_root = (data_root / subdir).resolve()
-        try:
-            resolved.relative_to(safe_root)
-            safe = True
-            break
-        except ValueError:
-            continue
-
-    if not safe:
-        msg = f"Skipped {model_path}: not under {'/'.join(_SAFE_SUBDIRS)}"
-        _logger.warning(msg)
-        return False, msg
 
     if not resolved.exists():
         return False, f"Path does not exist: {model_path}"

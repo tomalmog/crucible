@@ -112,6 +112,35 @@ pub fn sample_records(
 }
 
 #[tauri::command]
+pub fn dataset_columns(data_root: String, dataset_name: String) -> Result<Vec<String>, String> {
+    let records = read_records(&data_root, &dataset_name)?;
+    let first = records.first().ok_or_else(|| "Dataset is empty".to_string())?;
+    let mut cols = Vec::new();
+    // Top-level string fields (e.g. "text")
+    if let Some(obj) = first.as_object() {
+        for (k, v) in obj {
+            if k != "metadata" && k != "record_id" && v.is_string() {
+                cols.push(k.clone());
+            }
+        }
+    }
+    // metadata.extra_fields keys
+    if let Some(extra) = first
+        .get("metadata")
+        .and_then(|m| m.get("extra_fields"))
+        .and_then(Value::as_object)
+    {
+        for (k, v) in extra {
+            if v.is_string() {
+                cols.push(k.clone());
+            }
+        }
+    }
+    cols.sort();
+    Ok(cols)
+}
+
+#[tauri::command]
 pub fn load_training_history(history_path: String) -> Result<TrainingHistory, String> {
     let payload = fs::read_to_string(&history_path)
         .map_err(|error| format!("Failed to read history file {history_path}: {error}"))?;

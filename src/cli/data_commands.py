@@ -20,6 +20,7 @@ def run_ingest_command(client: CrucibleClient, args: argparse.Namespace) -> int:
         source_uri=args.source,
         resume=args.resume,
         quality_model=args.quality_model,
+        text_field=getattr(args, "text_field", "") or "",
     )
     dataset_name = client.ingest(options)
     print(dataset_name)
@@ -47,6 +48,10 @@ def add_ingest_command(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     parser.add_argument(
         "--quality-model", default=DEFAULT_QUALITY_MODEL,
         choices=supported_quality_models(), help="Quality scoring model",
+    )
+    parser.add_argument(
+        "--text-field", default="",
+        help="Use this field as the text column instead of auto-detecting",
     )
 
 

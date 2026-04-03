@@ -22,7 +22,9 @@ from core.types import SourceTextRecord
 from ingest.parquet_reader import read_parquet_records
 
 
-def read_source_records(source_uri: str, config: CrucibleConfig) -> list[SourceTextRecord]:
+def read_source_records(
+    source_uri: str, config: CrucibleConfig, text_field: str = "",
+) -> list[SourceTextRecord]:
     """Load source records from local files or S3.
 
     Args:
@@ -37,10 +39,10 @@ def read_source_records(source_uri: str, config: CrucibleConfig) -> list[SourceT
     """
     if source_uri.startswith("s3://"):
         return _read_s3_records(source_uri, config)
-    return _read_local_records(Path(source_uri).expanduser())
+    return _read_local_records(Path(source_uri).expanduser(), text_field)
 
 
-def _read_local_records(source_path: Path) -> list[SourceTextRecord]:
+def _read_local_records(source_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read records from local file system.
 
     Args:
@@ -58,11 +60,11 @@ def _read_local_records(source_path: Path) -> list[SourceTextRecord]:
             "Provide an existing file or directory."
         )
     if source_path.is_file():
-        return _read_file_records(source_path)
+        return _read_file_records(source_path, text_field)
     records: list[SourceTextRecord] = []
     for file_path in sorted(source_path.rglob("*")):
         if file_path.is_file() and _is_supported_file(file_path):
-            records.extend(_read_file_records(file_path))
+            records.extend(_read_file_records(file_path, text_field))
     if not records:
         raise CrucibleIngestError(
             f"No readable text files found under {source_path}. "
@@ -71,7 +73,7 @@ def _read_local_records(source_path: Path) -> list[SourceTextRecord]:
     return records
 
 
-def _read_file_records(file_path: Path) -> list[SourceTextRecord]:
+def _read_file_records(file_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read text records from a single file.
 
     Args:
@@ -82,16 +84,16 @@ def _read_file_records(file_path: Path) -> list[SourceTextRecord]:
     """
     suffix = file_path.suffix.lower()
     if suffix == ".jsonl":
-        return _read_jsonl_records(file_path)
+        return _read_jsonl_records(file_path, text_field)
     if suffix == ".parquet":
-        return read_parquet_records(file_path)
+        return read_parquet_records(file_path, text_field)
     if suffix == ".csv":
-        return _read_csv_records(file_path)
+        return _read_csv_records(file_path, text_field)
     text = file_path.read_text(encoding="utf-8")
     return [SourceTextRecord(source_uri=str(file_path), text=text)]
 
 
-def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
+def _read_jsonl_records(file_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read ``text`` fields from JSONL input.
 
     Args:
@@ -109,7 +111,7 @@ def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
             line = line.strip()
             if not line:
                 continue
-            payload = _parse_jsonl_line(file_path, line, line_number)
+            payload = _parse_jsonl_line(file_path, line, line_number, text_field)
             text = payload.pop("text")
             records.append(
                 SourceTextRecord(
@@ -121,7 +123,7 @@ def _read_jsonl_records(file_path: Path) -> list[SourceTextRecord]:
     return records
 
 
-def _read_csv_records(file_path: Path) -> list[SourceTextRecord]:
+def _read_csv_records(file_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read text records from a CSV file.
 
     Maps columns to standard fields: ``text``, ``prompt``/``response``,
@@ -141,7 +143,7 @@ def _read_csv_records(file_path: Path) -> list[SourceTextRecord]:
     with open(file_path, encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
         for row_number, row in enumerate(reader, 1):
-            text = _text_from_csv_row(row)
+            text = (row.get(text_field, "") or "").strip() if text_field else _text_from_csv_row(row)
             if text:
                 extras = {
                     k: v for k, v in row.items()
@@ -212,13 +214,16 @@ def _text_from_csv_row(row: dict[str, str | None]) -> str:
     return "\n".join(parts)
 
 
-def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str, str]:
+def _parse_jsonl_line(
+    file_path: Path, line: str, line_number: int, text_field: str = "",
+) -> dict[str, str]:
     """Parse and validate a JSONL row.
 
     Args:
         file_path: Parent file path for context.
         line: Raw JSON text line.
         line_number: One-based line number.
+        text_field: Explicit field name to use as ``text``. Overrides auto-detection.
 
     Returns:
         Parsed JSON object with ``text`` key and any extra string fields.
@@ -234,7 +239,21 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
             f"{error.msg}. Fix the JSON syntax and retry ingest."
         ) from error
 
-    # Collect extra string fields (everything except the text-producing keys)
+    # Explicit text_field override — use that field as text, everything else as extras
+    if text_field:
+        val = payload.get(text_field)
+        if not isinstance(val, str):
+            raise CrucibleIngestError(
+                f"Field '{text_field}' not found or not a string at "
+                f"{file_path}:{line_number}."
+            )
+        extras = {
+            k: str(v) for k, v in payload.items()
+            if k != text_field and isinstance(v, (str, int, float, bool))
+        }
+        return {"text": val, **extras}
+
+    # Auto-detect: collect extra string fields (everything except the text-producing keys)
     _SKIP_KEYS = {"text"}  # Only skip 'text' — preserve structured fields
     extras = {
         k: str(v) for k, v in payload.items()
@@ -260,10 +279,13 @@ def _parse_jsonl_line(file_path: Path, line: str, line_number: int) -> dict[str,
     # Support prompt-only format (GRPO)
     if isinstance(prompt, str):
         return {"text": prompt, **extras}
+    # Fallback: use the first string field as text
+    for key, val in payload.items():
+        if key not in _SKIP_KEYS and isinstance(val, str) and val.strip():
+            return {"text": val, **extras}
     raise CrucibleIngestError(
         f"Invalid JSONL record at {file_path}:{line_number}: "
-        "expected 'text', 'prompt'/'response', 'prompt'/'chosen', "
-        "'prompt'/'solution', or 'prompt' field. "
+        "no text field found. Expected 'text', 'prompt', or any string field. "
         "Fix the format and retry ingest."
     )
 

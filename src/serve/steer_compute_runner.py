@@ -10,7 +10,7 @@ import torch
 
 from core.steering_types import SteerComputeOptions
 from serve.activation_extractor import ActivationExtractor, discover_transformer_layers
-from serve.interp_data_utils import extract_texts
+from serve.interp_data_utils import extract_column_texts, extract_texts
 from serve.steering_vector_io import save_steering_vector
 
 
@@ -18,6 +18,7 @@ def run_steer_compute(
     options: SteerComputeOptions,
     positive_records: list[Any] | None = None,
     negative_records: list[Any] | None = None,
+    dataset_records: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Compute a steering vector from contrastive examples."""
     model, tokenizer = _load_model_and_tokenizer(options)
@@ -28,7 +29,14 @@ def run_steer_compute(
     target_layer = all_layers[layer_idx]
 
     # Gather positive and negative texts
-    if positive_records and negative_records:
+    if dataset_records and options.positive_column and options.negative_column:
+        pos_texts = extract_column_texts(
+            dataset_records, options.positive_column, options.max_samples,
+        )
+        neg_texts = extract_column_texts(
+            dataset_records, options.negative_column, options.max_samples,
+        )
+    elif positive_records and negative_records:
         pos_texts = extract_texts(positive_records, options.max_samples)
         neg_texts = extract_texts(negative_records, options.max_samples)
     else:

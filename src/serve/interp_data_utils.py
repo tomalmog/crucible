@@ -39,6 +39,49 @@ def extract_single_text(record: Any) -> str:
     return ""
 
 
+def extract_column_texts(
+    records: list[Any], column: str, max_samples: int,
+) -> list[str]:
+    """Extract text from a specific column/field of dataset records."""
+    texts: list[str] = []
+    for record in records[:max_samples]:
+        val = _get_field_value(record, column)
+        if isinstance(val, str) and val.strip():
+            texts.append(val.strip())
+    return texts
+
+
+def _get_field_value(record: Any, field: str) -> str:
+    """Get a field value from a record, checking top-level and extra_fields."""
+    # Top-level attribute (e.g. record.text)
+    val = getattr(record, field, None)
+    if isinstance(val, str) and val.strip():
+        return val
+
+    # Dict top-level
+    if isinstance(record, dict):
+        val = record.get(field)
+        if isinstance(val, str) and val.strip():
+            return val
+
+    # metadata.extra_fields
+    meta = getattr(record, "metadata", None)
+    if meta is not None:
+        if isinstance(meta, dict):
+            extra = meta.get("extra_fields")
+            if isinstance(extra, dict):
+                val = extra.get(field)
+                if isinstance(val, str):
+                    return val
+        else:
+            extra = getattr(meta, "extra_fields", None)
+            if isinstance(extra, dict):
+                val = extra.get(field)
+                if isinstance(val, str):
+                    return val
+    return ""
+
+
 def get_label(records: list[Any], index: int, field: str) -> str:
     """Extract a metadata label from a record."""
     if not field or index >= len(records):

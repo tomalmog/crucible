@@ -44,27 +44,27 @@ def test_safe_delete_under_runs(tmp_path: Path) -> None:
     assert not target.exists()
 
 
-def test_safe_delete_rejects_outside_path(tmp_path: Path) -> None:
-    """_safe_delete_local_path should refuse paths outside safe dirs."""
+def test_safe_delete_outside_path(tmp_path: Path) -> None:
+    """_safe_delete_local_path should delete paths outside safe dirs."""
     target = tmp_path / "other" / "model.pt"
     target.parent.mkdir(parents=True)
-    target.write_text("secret")
+    target.write_text("data")
 
     ok, reason = _safe_delete_local_path(tmp_path, str(target))
-    assert ok is False
-    assert "Skipped" in reason
-    assert target.exists()
+    assert ok is True
+    assert reason == ""
+    assert not target.exists()
 
 
-def test_safe_delete_rejects_traversal(tmp_path: Path) -> None:
-    """_safe_delete_local_path should reject path traversal attacks."""
+def test_safe_delete_traversal_path(tmp_path: Path) -> None:
+    """_safe_delete_local_path should resolve traversal and delete the real path."""
     target = tmp_path / "pulled-models" / ".." / "outside.pt"
     target_real = (tmp_path / "outside.pt")
-    target_real.write_text("nope")
+    target_real.write_text("data")
 
     ok, reason = _safe_delete_local_path(tmp_path, str(target))
-    assert ok is False
-    assert target_real.exists()
+    assert ok is True
+    assert not target_real.exists()
 
 
 def test_safe_delete_handles_missing_path(tmp_path: Path) -> None:

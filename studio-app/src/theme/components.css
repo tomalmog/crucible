@@ -1630,6 +1630,16 @@ label,
     font-weight: 500;
 }
 
+.warning-alert {
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    background: var(--warning-muted);
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    color: var(--warning);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
 .info-banner {
     padding: 10px 14px;
     border-radius: var(--radius-lg);

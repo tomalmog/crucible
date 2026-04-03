@@ -54,7 +54,9 @@ class IngestPipelineRunner:
     def _load_source_records(self) -> list[SourceTextRecord]:
         if self._checkpoint.has_stage(self._state, "source_loaded"):
             return self._checkpoint.load_source_records()
-        source_records = read_source_records(self._options.source_uri, self._config)
+        source_records = read_source_records(
+            self._options.source_uri, self._config, self._options.text_field,
+        )
         self._checkpoint.save_source_records(source_records)
         self._state = self._checkpoint.update_stage(self._state, "source_loaded")
         return source_records

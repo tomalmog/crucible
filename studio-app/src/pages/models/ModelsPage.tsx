@@ -34,6 +34,7 @@ export function ModelsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ModelEntry | null>(null);
+  const [deleteLocalFiles, setDeleteLocalFiles] = useState(true);
 
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
@@ -128,7 +129,7 @@ export function ModelsPage() {
   async function handleDelete(): Promise<void> {
     if (!pendingDelete) return;
     const args = ["model", "delete", "--name", pendingDelete.modelName, "--yes"];
-    if (pendingDelete.hasLocal) args.push("--delete-local");
+    if (deleteLocalFiles && pendingDelete.hasLocal) args.push("--delete-local");
     if (pendingDelete.hasRemote) args.push("--include-remote");
     await command.run(dataRoot, args);
     setPendingDelete(null);
@@ -233,7 +234,7 @@ export function ModelsPage() {
                   <button
                     className="btn btn-ghost btn-sm btn-icon"
                     title="Delete model"
-                    onClick={() => setPendingDelete(m)}
+                    onClick={() => { setDeleteLocalFiles(true); setPendingDelete(m); }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -261,6 +262,11 @@ export function ModelsPage() {
           title="Delete Model"
           itemName={pendingDelete.modelName}
           isDeleting={command.isRunning}
+          checkbox={pendingDelete.hasLocal ? {
+            label: "Delete files from disk",
+            checked: deleteLocalFiles,
+            onChange: setDeleteLocalFiles,
+          } : undefined}
           onConfirm={() => handleDelete().catch(console.error)}
           onCancel={() => setPendingDelete(null)}
         />

@@ -51,6 +51,13 @@ export async function sampleRecords(
   });
 }
 
+export async function datasetColumns(
+  dataRoot: string,
+  datasetName: string,
+): Promise<string[]> {
+  return invoke<string[]>("dataset_columns", { dataRoot, datasetName });
+}
+
 export async function startCrucibleCommand(
   dataRoot: string,
   args: string[],

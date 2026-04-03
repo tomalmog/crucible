@@ -1,17 +1,17 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
-import { startCrucibleCommand } from "../../api/studioApi";
+import { datasetColumns, startCrucibleCommand } from "../../api/studioApi";
 import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { jobLabel } from "../../utils/jobLabels";
 
 type SteerMode = "compute" | "apply";
-type ComputeSource = "simple" | "dataset";
+type ComputeSource = "simple" | "dataset" | "two-datasets";
 
 interface SteeringFormProps {
   prefill?: Record<string, unknown>;
@@ -24,7 +24,9 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
     prefill?.steerMode === "apply" ? "apply" : "compute",
   );
   const [computeSource, setComputeSource] = useState<ComputeSource>(
-    prefill?.computeSource === "dataset" ? "dataset" : "simple",
+    prefill?.computeSource === "dataset" ? "dataset"
+      : prefill?.computeSource === "two-datasets" ? "two-datasets"
+      : "simple",
   );
 
   // Shared
@@ -42,12 +44,24 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
     typeof prefill?.negativeText === "string" ? prefill.negativeText : "",
   );
 
-  // Compute — dataset
+  // Compute — two datasets
   const [positiveDataset, setPositiveDataset] = useState(
     typeof prefill?.positiveDataset === "string" ? prefill.positiveDataset : "",
   );
   const [negativeDataset, setNegativeDataset] = useState(
     typeof prefill?.negativeDataset === "string" ? prefill.negativeDataset : "",
+  );
+
+  // Compute — dataset (single dataset + two columns)
+  const [dataset, setDataset] = useState(
+    typeof prefill?.dataset === "string" ? prefill.dataset : "",
+  );
+  const [columns, setColumns] = useState<string[]>([]);
+  const [positiveColumn, setPositiveColumn] = useState(
+    typeof prefill?.positiveColumn === "string" ? prefill.positiveColumn : "",
+  );
+  const [negativeColumn, setNegativeColumn] = useState(
+    typeof prefill?.negativeColumn === "string" ? prefill.negativeColumn : "",
   );
 
   // Compute — shared
@@ -75,6 +89,22 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
     typeof prefill?.baseModel === "string" ? prefill.baseModel : "",
   );
 
+  // Fetch columns when dataset changes
+  useEffect(() => {
+    if (!dataRoot || !dataset) {
+      setColumns([]);
+      return;
+    }
+    datasetColumns(dataRoot, dataset)
+      .then((cols) => {
+        setColumns(cols);
+        // Auto-clear column selections if they're no longer valid
+        setPositiveColumn((prev) => (cols.includes(prev) ? prev : ""));
+        setNegativeColumn((prev) => (cols.includes(prev) ? prev : ""));
+      })
+      .catch(() => setColumns([]));
+  }, [dataRoot, dataset]);
+
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
   const isSlurm = clusterBackend === "slurm";
 
@@ -85,6 +115,10 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
       if (computeSource === "simple") {
         if (!positiveText.trim()) m.push("positive text");
         if (!negativeText.trim()) m.push("negative text");
+      } else if (computeSource === "dataset") {
+        if (!dataset.trim()) m.push("dataset");
+        if (!positiveColumn) m.push("positive column");
+        if (!negativeColumn) m.push("negative column");
       } else {
         if (!positiveDataset.trim()) m.push("positive dataset");
         if (!negativeDataset.trim()) m.push("negative dataset");
@@ -97,13 +131,14 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
     if (isRemote && !clusterName) m.push("cluster");
     return m;
   }, [modelPath, mode, computeSource, positiveText, negativeText,
-      positiveDataset, negativeDataset, vectorPath, inputText, isRemote, clusterName]);
+      dataset, positiveColumn, negativeColumn, positiveDataset, negativeDataset,
+      vectorPath, inputText, isRemote, clusterName]);
 
   function snapshotConfig(): Record<string, unknown> {
     const tab = mode === "compute" ? "steer-compute" : "steer-apply";
     return {
       page: "interpretability", tab, steerMode: mode, computeSource,
-      modelPath, positiveText, negativeText, positiveDataset, negativeDataset,
+      modelPath, positiveText, negativeText, dataset, positiveColumn, negativeColumn, positiveDataset, negativeDataset,
       layerIndex, maxSamples, vectorPath, inputText, coefficient, maxNewTokens, baseModel,
     };
   }
@@ -124,6 +159,10 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
           if (computeSource === "simple") {
             methodArgs.positive_text = positiveText;
             methodArgs.negative_text = negativeText;
+          } else if (computeSource === "dataset") {
+            methodArgs.dataset = dataset;
+            methodArgs.positive_column = positiveColumn;
+            methodArgs.negative_column = negativeColumn;
           } else {
             methodArgs.positive_dataset = positiveDataset;
             methodArgs.negative_dataset = negativeDataset;
@@ -149,6 +188,8 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
         if (mode === "compute") {
           if (computeSource === "simple") {
             args.push("--positive-text", positiveText, "--negative-text", negativeText);
+          } else if (computeSource === "dataset") {
+            args.push("--dataset", dataset, "--positive-column", positiveColumn, "--negative-column", negativeColumn);
           } else {
             args.push("--positive-dataset", positiveDataset, "--negative-dataset", negativeDataset);
           }
@@ -198,7 +239,8 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
           <FormField label="Source">
             <select value={computeSource} onChange={(e) => setComputeSource(e.currentTarget.value as ComputeSource)}>
               <option value="simple">Simple (two texts)</option>
-              <option value="dataset">Dataset (two datasets)</option>
+              <option value="dataset">Dataset (paired columns)</option>
+              <option value="two-datasets">Two Datasets</option>
             </select>
           </FormField>
         )}
@@ -218,6 +260,32 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
       )}
 
       {mode === "compute" && computeSource === "dataset" && (
+        <>
+          <FormField label="Dataset" required>
+            <DatasetSelect value={dataset} onChange={setDataset} />
+          </FormField>
+          <div className="grid-2">
+            <FormField label="Positive Column" required>
+              <select value={positiveColumn} onChange={(e) => setPositiveColumn(e.currentTarget.value)}>
+                <option value="">Select column...</option>
+                {columns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Negative Column" required>
+              <select value={negativeColumn} onChange={(e) => setNegativeColumn(e.currentTarget.value)}>
+                <option value="">Select column...</option>
+                {columns.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+        </>
+      )}
+
+      {mode === "compute" && computeSource === "two-datasets" && (
         <div className="grid-2">
           <FormField label="Positive Dataset" required>
             <DatasetSelect value={positiveDataset} onChange={setPositiveDataset} />

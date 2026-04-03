@@ -37,6 +37,7 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
   const [pulling, setPulling] = useState<string | null>(null);
   const [pushing, setPushing] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ModelEntry | null>(null);
+  const [deleteLocalFiles, setDeleteLocalFiles] = useState(true);
   const [pushTarget, setPushTarget] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -81,7 +82,7 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
   async function confirmDelete(): Promise<void> {
     if (!pendingDelete) return;
     const args = ["model", "delete", "--name", pendingDelete.modelName, "--yes"];
-    if (pendingDelete.hasLocal) args.push("--delete-local");
+    if (deleteLocalFiles && pendingDelete.hasLocal) args.push("--delete-local");
     if (pendingDelete.hasRemote) args.push("--include-remote");
     await command.run(dataRoot, args);
     setPendingDelete(null);
@@ -235,7 +236,7 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
                     if (isLocal) handlePushClick(entry);
                     else handlePull(entry).catch(console.error);
                   }}
-                  onDelete={() => { if (entry) setPendingDelete(entry); }}
+                  onDelete={() => { if (entry) { setDeleteLocalFiles(true); setPendingDelete(entry); } }}
                 />
                 {isLocal && pushTarget === row.name && clusters.length > 1 && (
                   <div style={{ padding: "4px 8px 8px", display: "flex", gap: 4, alignItems: "center" }}>
@@ -261,8 +262,12 @@ export function ModelListPanel({ refreshKey, onRefreshingChange }: ModelListPane
         <ConfirmDeleteModal
           title="Delete Model"
           itemName={pendingDelete.modelName}
-          description="This will remove the model and associated files."
           isDeleting={command.isRunning}
+          checkbox={pendingDelete.hasLocal ? {
+            label: "Delete files from disk",
+            checked: deleteLocalFiles,
+            onChange: setDeleteLocalFiles,
+          } : undefined}
           onConfirm={() => confirmDelete().catch(console.error)}
           onCancel={() => setPendingDelete(null)}
         />

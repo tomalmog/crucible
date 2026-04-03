@@ -15,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 26] = [
+const JOBS_PAGE_COMMANDS: [&str; 28] = [
     "train",
     "sft",
     "dpo-train",
@@ -42,6 +42,8 @@ const JOBS_PAGE_COMMANDS: [&str; 26] = [
     "gguf-export",
     "hf-export",
     "run-script",
+    "steer-compute",
+    "steer-apply",
 ];
 
 #[derive(Clone)]

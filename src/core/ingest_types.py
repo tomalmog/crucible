@@ -30,6 +30,7 @@ class IngestOptions:
     source_uri: str
     resume: bool = False
     quality_model: str = DEFAULT_QUALITY_MODEL
+    text_field: str = ""
 
 
 @dataclass(frozen=True)

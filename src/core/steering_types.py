@@ -13,6 +13,9 @@ class SteerComputeOptions:
     negative_text: str = ""
     positive_dataset: str = ""
     negative_dataset: str = ""
+    dataset: str = ""
+    positive_column: str = ""
+    negative_column: str = ""
     base_model: str | None = None
     layer_index: int = -1
     max_samples: int = 100

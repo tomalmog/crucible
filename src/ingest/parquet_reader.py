@@ -18,7 +18,7 @@ _PROMPT_COLUMNS = ("prompt", "instruction", "input", "question")
 _RESPONSE_COLUMNS = ("response", "output", "answer", "completion")
 
 
-def read_parquet_records(file_path: Path) -> list[SourceTextRecord]:
+def read_parquet_records(file_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read text records from a parquet file.
 
     Tries common column names for text extraction: ``text``,
@@ -45,6 +45,25 @@ def read_parquet_records(file_path: Path) -> list[SourceTextRecord]:
 
     table = pq.read_table(file_path)
     columns = {c.lower(): c for c in table.column_names}
+
+    # Explicit text_field override
+    if text_field:
+        original = columns.get(text_field.lower())
+        if not original:
+            raise CrucibleIngestError(
+                f"Column '{text_field}' not found in {file_path}. "
+                f"Available columns: {table.column_names}."
+            )
+        all_cols = set(table.column_names)
+        extra_cols = [c for c in table.column_names if c != original]
+        records = _extract_single_column_with_extras(
+            file_path, table, original, extra_cols,
+        )
+        if not records:
+            raise CrucibleIngestError(
+                f"Column '{text_field}' in {file_path} has no non-empty values."
+            )
+        return records
 
     text_col = _find_column(columns, _TEXT_COLUMNS)
     if text_col:
@@ -99,6 +118,30 @@ def _extract_single_column(
         if isinstance(text, str) and text.strip():
             records.append(SourceTextRecord(
                 source_uri=f"{file_path}:{idx}", text=text,
+            ))
+    return records
+
+
+def _extract_single_column_with_extras(
+    file_path: Path, table: object, text_col: str, extra_cols: list[str],
+) -> list[SourceTextRecord]:
+    """Extract records from a text column, preserving other columns as extras."""
+    import pyarrow as pa
+
+    assert isinstance(table, pa.Table)
+    text_series = table.column(text_col)
+    extra_series = {c: table.column(c) for c in extra_cols}
+    records: list[SourceTextRecord] = []
+    for idx, value in enumerate(text_series):
+        text = value.as_py()
+        if isinstance(text, str) and text.strip():
+            extras = {}
+            for c, series in extra_series.items():
+                val = series[idx].as_py()
+                if isinstance(val, (str, int, float, bool)):
+                    extras[c] = str(val)
+            records.append(SourceTextRecord(
+                source_uri=f"{file_path}:{idx}", text=text, extra_fields=extras,
             ))
     return records
 
