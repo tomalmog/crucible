@@ -44,11 +44,11 @@ def run_agent_chat_command(client: CrucibleClient, args: argparse.Namespace) -> 
 
     # action == "chat"
     provider = payload.get("provider", "anthropic")
-    api_key = (
-        payload.get("api_key")
-        or os.environ.get("ANTHROPIC_API_KEY")
-        or ""
-    )
+    api_key = payload.get("api_key") or ""
+    if provider == "anthropic":
+        api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    elif provider == "gemini":
+        api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
     if provider == "anthropic" and not api_key:
         print(json.dumps({
             "error": "Anthropic API key not configured. "

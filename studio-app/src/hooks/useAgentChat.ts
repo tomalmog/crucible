@@ -7,6 +7,8 @@ const API_KEY_STORAGE = "crucible_anthropic_api_key";
 const PROVIDER_STORAGE = "crucible_agent_provider";
 const OLLAMA_MODEL_STORAGE = "crucible_agent_ollama_model";
 const OLLAMA_URL_STORAGE = "crucible_agent_ollama_url";
+const GEMINI_MODEL_STORAGE = "crucible_agent_gemini_model";
+const GEMINI_API_KEY_STORAGE = "crucible_gemini_api_key";
 const POLL_MS = 500;
 
 export interface AgentMessage {
@@ -90,13 +92,18 @@ export function useAgentChat(): UseAgentChatReturn {
       };
 
       const provider = localStorage.getItem(PROVIDER_STORAGE) || "anthropic";
+      const effectiveApiKey = provider === "gemini"
+        ? (localStorage.getItem(GEMINI_API_KEY_STORAGE) || "")
+        : apiKey;
       const res = await runAgentCommand(dataRoot, {
         action: "chat",
         message: text,
         context,
-        api_key: apiKey,
+        api_key: effectiveApiKey,
         provider,
-        model: provider === "ollama" ? (localStorage.getItem(OLLAMA_MODEL_STORAGE) || "") : "",
+        model: provider === "ollama" ? (localStorage.getItem(OLLAMA_MODEL_STORAGE) || "")
+             : provider === "gemini" ? (localStorage.getItem(GEMINI_MODEL_STORAGE) || "")
+             : "",
         ollama_url: provider === "ollama" ? (localStorage.getItem(OLLAMA_URL_STORAGE) || "") : "",
       });
 

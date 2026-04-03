@@ -18,6 +18,9 @@ export function SettingsPage() {
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem("crucible_agent_ollama_model") ?? "llama3.1");
   const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem("crucible_agent_ollama_url") ?? "http://localhost:11434");
+  const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem("crucible_agent_gemini_model") ?? "gemini-2.5-flash");
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem("crucible_gemini_api_key") ?? "");
+  const [geminiApiKeyVisible, setGeminiApiKeyVisible] = useState(false);
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
@@ -89,6 +92,7 @@ export function SettingsPage() {
             >
               <option value="anthropic">Anthropic (Claude API)</option>
               <option value="ollama">Ollama (Local)</option>
+              <option value="gemini">Google Gemini (Vertex AI)</option>
             </select>
           </FormField>
           {agentProvider === "anthropic" && (
@@ -138,6 +142,47 @@ export function SettingsPage() {
                     localStorage.setItem("crucible_agent_ollama_url", val);
                   }}
                   placeholder="http://localhost:11434"
+                />
+              </FormField>
+            </>
+          )}
+          {agentProvider === "gemini" && (
+            <>
+              <FormField label="Gemini API Key">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type={geminiApiKeyVisible ? "text" : "password"}
+                    value={geminiApiKey}
+                    onChange={(e) => {
+                      const val = e.currentTarget.value;
+                      setGeminiApiKey(val);
+                      localStorage.setItem("crucible_gemini_api_key", val);
+                    }}
+                    placeholder="AIza..."
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => setGeminiApiKeyVisible(!geminiApiKeyVisible)}
+                    title={geminiApiKeyVisible ? "Hide" : "Show"}
+                  >
+                    {geminiApiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="ff-hint">
+                  API key from aistudio.google.com. Also checks GOOGLE_API_KEY env var.
+                  Leave blank to use Vertex AI with gcloud auth instead.
+                </p>
+              </FormField>
+              <FormField label="Model">
+                <input
+                  value={geminiModel}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setGeminiModel(val);
+                    localStorage.setItem("crucible_agent_gemini_model", val);
+                  }}
+                  placeholder="gemini-2.5-flash"
                 />
               </FormField>
             </>

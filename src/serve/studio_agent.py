@@ -106,12 +106,23 @@ def _get_tools() -> tuple[list[dict[str, Any]], dict[str, Any]]:
 
 def execute_tool(name: str, tool_input: dict[str, Any]) -> str:
     """Execute a Crucible tool by name and return the result string."""
+    import io
+    import sys
+
     _, registry = _get_tools()
     fn = registry.get(name)
     if fn is None:
         return json.dumps({"error": f"Unknown tool: {name}"})
     try:
-        return str(fn(**tool_input))
+        # Redirect stdout so tool progress output (e.g. training events)
+        # doesn't corrupt the agent-chat JSON response on stdout.
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        try:
+            result = str(fn(**tool_input))
+        finally:
+            sys.stdout = old_stdout
+        return result
     except Exception as exc:
         return json.dumps({"error": f"{type(exc).__name__}: {exc}"})
 
@@ -202,6 +213,7 @@ _MAX_TOOL_LOOPS = 15
 _DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
 _DEFAULT_OLLAMA_MODEL = "llama3.1"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
+_DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 
 def run_agent_turn(
@@ -215,7 +227,7 @@ def run_agent_turn(
     ollama_url: str = "",
 ) -> dict[str, Any]:
     """Run a single agent conversation turn with tool use."""
-    from serve.agent_backends import call_anthropic, call_ollama
+    from serve.agent_backends import call_anthropic, call_ollama, call_gemini
     from serve.mcp_server import _ensure_backends
     _ensure_backends()
 
@@ -231,6 +243,9 @@ def run_agent_turn(
             effective_model = model or _DEFAULT_OLLAMA_MODEL
             effective_url = ollama_url or _DEFAULT_OLLAMA_URL
             response = call_ollama(effective_url, effective_model, system, messages, tools)
+        elif provider == "gemini":
+            effective_model = model or _DEFAULT_GEMINI_MODEL
+            response = call_gemini(effective_model, system, messages, tools, api_key=api_key)
         else:
             effective_model = model or _DEFAULT_ANTHROPIC_MODEL
             response = call_anthropic(api_key, effective_model, system, messages, tools)
