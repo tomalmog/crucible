@@ -74,8 +74,13 @@ class AutoTokenizerAdapter:
         return str(self._tokenizer.decode(token_ids))
 
 
-def load_huggingface_tokenizer(tokenizer_path: str) -> HuggingFaceTokenizer:
+def load_tokenizer_from_file(tokenizer_path: str) -> HuggingFaceTokenizer:
     """Load a HuggingFace tokenizer from a tokenizer.json file.
+
+    Loads using the ``tokenizers`` library (not ``transformers``). Use this
+    when you have a local tokenizer.json file and want the low-level BPE
+    tokenizer. For loading by model ID, use
+    ``hf_model_loader.load_huggingface_tokenizer`` instead.
 
     Args:
         tokenizer_path: Path to a HuggingFace tokenizer.json file.

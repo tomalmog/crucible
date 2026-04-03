@@ -27,7 +27,7 @@ def _make_test_client(data_root: Path) -> object:
 
     app = fastapi.FastAPI()
     app.include_router(create_jobs_router(str(data_root)))
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 def _make_record() -> JobRecord:

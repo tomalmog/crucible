@@ -7,6 +7,7 @@ function completions and runs test cases in isolated subprocesses.
 
 from __future__ import annotations
 
+import platform
 import resource
 import subprocess
 import tempfile
@@ -81,13 +82,15 @@ def _check_solution(code: str, test_code: str, entry_point: str) -> bool:
         ) as tmp:
             tmp.write(script)
             tmp_path = Path(tmp.name)
-        result = subprocess.run(
-            ["python", str(tmp_path)],
-            capture_output=True,
-            timeout=_EXEC_TIMEOUT_SECONDS,
-            preexec_fn=_limit_subprocess_memory,
-            check=False,
-        )
+        run_kwargs: dict[str, object] = {
+            "capture_output": True,
+            "timeout": _EXEC_TIMEOUT_SECONDS,
+            "check": False,
+        }
+        # preexec_fn is Linux-only; setrlimit(RLIMIT_AS) is unsupported on Windows
+        if platform.system() == "Linux":
+            run_kwargs["preexec_fn"] = _limit_subprocess_memory
+        result = subprocess.run(["python", str(tmp_path)], **run_kwargs)  # type: ignore[call-overload]
         return result.returncode == 0
     except (subprocess.TimeoutExpired, OSError):
         return False

@@ -4,8 +4,6 @@ Provides REST endpoints for submitting, listing, querying,
 cancelling jobs and fetching logs/results.
 """
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 from typing import Any
@@ -47,12 +45,13 @@ def create_jobs_router(data_root_path: str) -> Any:
         Configured FastAPI APIRouter.
     """
     fastapi = _import_fastapi()
+    Request = fastapi.Request  # must be in local scope for eager annotation evaluation
     router = fastapi.APIRouter(prefix="/api/jobs", tags=["jobs"])
     data_root = Path(data_root_path).expanduser().resolve()
 
     @router.post("", status_code=201)
     def submit_job(
-        request: Any,
+        request: Request,
         body: dict[str, Any] = fastapi.Body(...),
     ) -> dict[str, Any]:
         """Submit a new job via JSON spec."""
@@ -75,7 +74,7 @@ def create_jobs_router(data_root_path: str) -> Any:
         return _serialize_record(record)
 
     @router.get("")
-    def list_jobs(request: Any) -> list[dict[str, Any]]:
+    def list_jobs(request: Request) -> list[dict[str, Any]]:
         """List all jobs."""
         _check_token(request.headers, fastapi)
         from store.job_store import list_jobs as store_list_jobs
@@ -84,7 +83,7 @@ def create_jobs_router(data_root_path: str) -> Any:
         return [_serialize_record(r) for r in records]
 
     @router.get("/{job_id}")
-    def get_job(job_id: str, request: Any) -> dict[str, Any]:
+    def get_job(job_id: str, request: Request) -> dict[str, Any]:
         """Get a single job by ID."""
         _check_token(request.headers, fastapi)
         from store.job_store import load_job
@@ -94,7 +93,7 @@ def create_jobs_router(data_root_path: str) -> Any:
 
     @router.get("/{job_id}/logs")
     def get_job_logs(
-        job_id: str, request: Any, tail: int = 200,
+        job_id: str, request: Request, tail: int = 200,
     ) -> dict[str, str]:
         """Get logs for a job."""
         _check_token(request.headers, fastapi)
@@ -107,7 +106,7 @@ def create_jobs_router(data_root_path: str) -> Any:
         return {"logs": logs}
 
     @router.get("/{job_id}/result")
-    def get_job_result(job_id: str, request: Any) -> dict[str, Any]:
+    def get_job_result(job_id: str, request: Request) -> dict[str, Any]:
         """Get the result of a completed job."""
         _check_token(request.headers, fastapi)
         from core.backend_registry import get_backend
@@ -118,7 +117,7 @@ def create_jobs_router(data_root_path: str) -> Any:
         return backend.get_result(data_root, job_id)
 
     @router.post("/{job_id}/cancel")
-    def cancel_job(job_id: str, request: Any) -> dict[str, Any]:
+    def cancel_job(job_id: str, request: Request) -> dict[str, Any]:
         """Cancel a running job."""
         _check_token(request.headers, fastapi)
         from core.backend_registry import get_backend

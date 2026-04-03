@@ -133,7 +133,7 @@ def test_load_tokenizer_from_path_delegates_to_huggingface_loader(
 
     fake_tokenizer = VocabularyTokenizer(vocabulary={"hello": 0, "world": 1, "test": 2})
     monkeypatch.setattr(
-        "serve.huggingface_tokenizer.load_huggingface_tokenizer",
+        "serve.huggingface_tokenizer.load_tokenizer_from_file",
         lambda path: fake_tokenizer,
     )
 

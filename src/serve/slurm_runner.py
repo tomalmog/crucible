@@ -109,8 +109,8 @@ class SlurmRunner:
                 remote_record = self._submit_training(
                     data_root, spec, resources,
                 )
-        except Exception:
-            update_job(data_root, unified_id, state="failed")
+        except Exception as exc:
+            update_job(data_root, unified_id, state="failed", submit_phase=f"Submission failed: {exc}")
             raise
 
         unified = self._remote_to_unified(

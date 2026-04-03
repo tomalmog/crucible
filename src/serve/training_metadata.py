@@ -120,9 +120,9 @@ def load_tokenizer_from_path(vocabulary_path: str) -> ChatTokenizer:
             f"Invalid tokenizer vocabulary format at {resolved_path}: expected JSON object."
         )
     if _is_huggingface_tokenizer(payload):
-        from serve.huggingface_tokenizer import load_huggingface_tokenizer
+        from serve.huggingface_tokenizer import load_tokenizer_from_file
 
-        return load_huggingface_tokenizer(str(resolved_path))
+        return load_tokenizer_from_file(str(resolved_path))
     raw_vocab = _extract_vocabulary_mapping(payload, resolved_path)
     return _validate_vocabulary(raw_vocab, resolved_path)
 

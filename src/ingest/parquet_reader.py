@@ -48,14 +48,24 @@ def read_parquet_records(file_path: Path) -> list[SourceTextRecord]:
 
     text_col = _find_column(columns, _TEXT_COLUMNS)
     if text_col:
-        return _extract_single_column(file_path, table, text_col)
+        records = _extract_single_column(file_path, table, text_col)
+        if not records:
+            raise CrucibleIngestError(
+                f"Column '{text_col}' in {file_path} exists but all values are empty or null. "
+                f"Total rows: {table.num_rows}. Verify the file has non-empty text."
+            )
+        return records
 
     prompt_col = _find_column(columns, _PROMPT_COLUMNS)
     response_col = _find_column(columns, _RESPONSE_COLUMNS)
     if prompt_col and response_col:
-        return _extract_prompt_response(
-            file_path, table, prompt_col, response_col,
-        )
+        records = _extract_prompt_response(file_path, table, prompt_col, response_col)
+        if not records:
+            raise CrucibleIngestError(
+                f"Columns '{prompt_col}'/'{response_col}' in {file_path} exist but all rows "
+                f"have empty or null values. Total rows: {table.num_rows}."
+            )
+        return records
 
     raise CrucibleIngestError(
         f"Cannot identify a text column in {file_path}. "
@@ -107,7 +117,7 @@ def _extract_prompt_response(
     for idx, (prompt, response) in enumerate(zip(prompts, responses)):
         p_text = prompt.as_py()
         r_text = response.as_py()
-        if isinstance(p_text, str) and isinstance(r_text, str):
+        if isinstance(p_text, str) and isinstance(r_text, str) and p_text.strip():
             records.append(SourceTextRecord(
                 source_uri=f"{file_path}:{idx}",
                 text=f"{p_text}\n{r_text}",

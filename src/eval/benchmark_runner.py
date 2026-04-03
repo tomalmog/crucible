@@ -161,9 +161,20 @@ def run_benchmarks(
         base_eval_model = load_eval_model(base_model_path)
         for i, name in enumerate(valid, 1):
             print(f"CRUCIBLE_AGENT: [base {i}/{len(valid)}] Running {name}...", flush=True)
-            base_results.append(
-                benchmark_map[name](base_model_path, max_samples=max_samples, eval_model=base_eval_model)
-            )
+            try:
+                base_result = benchmark_map[name](
+                    base_model_path, max_samples=max_samples, eval_model=base_eval_model,
+                )
+            except Exception as exc:
+                print(f"CRUCIBLE_AGENT: [base {i}/{len(valid)}] {name} FAILED: {exc}", flush=True)
+                base_result = BenchmarkResult(
+                    benchmark_name=name,
+                    score=0.0,
+                    num_examples=0,
+                    correct=0,
+                    details={"error": str(exc)},
+                )
+            base_results.append(base_result)
 
     return EvaluationResult(
         model_path=model_path,
