@@ -6,7 +6,7 @@ import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
+import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { jobLabel } from "../../utils/jobLabels";
 
@@ -68,7 +68,6 @@ export function SaeForm({ prefill }: SaeFormProps) {
   );
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
-  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -115,12 +114,11 @@ export function SaeForm({ prefill }: SaeFormProps) {
           methodArgs.top_k_features = parseInt(topK || "10", 10);
           if (dataset.trim()) methodArgs.dataset_name = dataset;
         }
-        const args = isSlurm
-          ? buildRemoteInterpArgs(clusterName, method, JSON.stringify(methodArgs))
-          : buildDispatchSpec(method, methodArgs, clusterBackend as "ssh", {
-              label: lbl,
-              clusterName,
-            });
+        const args = buildDispatchSpec(method, methodArgs, clusterBackend as "slurm", {
+          label: lbl,
+          clusterName,
+          config: cfg,
+        });
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       } else {
         const args: string[] = [method, "--model-path", modelPath, "--output-dir", "./outputs/interp"];

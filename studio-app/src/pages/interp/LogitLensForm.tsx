@@ -5,7 +5,7 @@ import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
+import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { logitLensLabel } from "../../utils/jobLabels";
 
@@ -35,7 +35,6 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
-  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -72,12 +71,11 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
           layer_indices: layerIndices.trim(),
         };
         if (baseModel.trim()) methodArgs.base_model = baseModel;
-        const args = isSlurm
-          ? buildRemoteInterpArgs(clusterName, "logit-lens", JSON.stringify(methodArgs))
-          : buildDispatchSpec("logit-lens", methodArgs, clusterBackend as "ssh", {
-              label: logitLensLabel(modelPath),
-              clusterName,
-            });
+        const args = buildDispatchSpec("logit-lens", methodArgs, clusterBackend as "slurm", {
+          label: logitLensLabel(modelPath),
+          clusterName,
+          config: cfg,
+        });
         await startCrucibleCommand(dataRoot, args, logitLensLabel(modelPath), cfg);
       } else {
         const args = [

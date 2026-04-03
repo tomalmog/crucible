@@ -195,9 +195,10 @@ def _handle_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
 
 
 def _handle_eval_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
-    from serve.remote_job_submitter import submit_remote_eval_job
+    from core.backend_registry import get_backend
+    from core.job_types import JobSpec, ResourceConfig
+    from store.cluster_registry import load_cluster
 
-    resources = _build_resources(args)
     method_args: dict[str, object] = {
         "model_path": args.model_path,
         "benchmarks": args.benchmarks,
@@ -206,32 +207,52 @@ def _handle_eval_submit(client: CrucibleClient, args: argparse.Namespace) -> int
         method_args["max_samples"] = args.max_samples
     if args.base_model:
         method_args["base_model_path"] = args.base_model
-    record = submit_remote_eval_job(
-        data_root=client._config.data_root,
-        cluster_name=args.cluster,
+    data_root = client._config.data_root
+    cluster = load_cluster(data_root, args.cluster)
+    backend = get_backend(cluster.backend)
+    spec = JobSpec(
+        job_type="eval",
         method_args=method_args,
-        resources=resources,
-        model_name=args.model_name,
+        backend=cluster.backend,
+        cluster_name=args.cluster,
+        label=args.model_name or "",
+        resources=ResourceConfig(
+            partition=getattr(args, "partition", ""),
+            gpus_per_node=getattr(args, "gpus_per_node", 1),
+            memory=getattr(args, "memory", "32G"),
+            time_limit=getattr(args, "time_limit", "04:00:00"),
+        ),
     )
+    record = backend.submit(data_root, spec)
+    print(f"CRUCIBLE_JSON: {{\"job_id\": \"{record.job_id}\"}}")
     print(f"job_id={record.job_id}")
-    print(f"slurm_job_id={record.slurm_job_id}")
     return 0
 
 
 def _handle_interp_submit(client: CrucibleClient, args: argparse.Namespace) -> int:
-    from serve.remote_job_submitter import submit_remote_interp_job
+    from core.backend_registry import get_backend
+    from core.job_types import JobSpec, ResourceConfig
+    from store.cluster_registry import load_cluster
 
     method_args = json.loads(args.method_args)
-    resources = _build_resources(args)
-    record = submit_remote_interp_job(
-        data_root=client._config.data_root,
-        cluster_name=args.cluster,
-        interp_method=args.interp_method,
+    data_root = client._config.data_root
+    cluster = load_cluster(data_root, args.cluster)
+    backend = get_backend(cluster.backend)
+    spec = JobSpec(
+        job_type=args.interp_method,
         method_args=method_args,
-        resources=resources,
+        backend=cluster.backend,
+        cluster_name=args.cluster,
+        resources=ResourceConfig(
+            partition=getattr(args, "partition", ""),
+            gpus_per_node=getattr(args, "gpus_per_node", 1),
+            memory=getattr(args, "memory", "32G"),
+            time_limit=getattr(args, "time_limit", "04:00:00"),
+        ),
     )
+    record = backend.submit(data_root, spec)
+    print(f"CRUCIBLE_JSON: {{\"job_id\": \"{record.job_id}\"}}")
     print(f"job_id={record.job_id}")
-    print(f"slurm_job_id={record.slurm_job_id}")
     return 0
 
 

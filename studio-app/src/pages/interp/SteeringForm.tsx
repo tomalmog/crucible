@@ -6,7 +6,7 @@ import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { datasetColumns, startCrucibleCommand } from "../../api/studioApi";
-import { buildRemoteInterpArgs, buildDispatchSpec } from "../../api/commandArgs";
+import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { jobLabel } from "../../utils/jobLabels";
 
@@ -106,7 +106,6 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
   }, [dataRoot, dataset]);
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
-  const isSlurm = clusterBackend === "slurm";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -175,12 +174,11 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
           methodArgs.coefficient = parseFloat(coefficient || "1.0");
           methodArgs.max_new_tokens = parseInt(maxNewTokens || "50", 10);
         }
-        const args = isSlurm
-          ? buildRemoteInterpArgs(clusterName, method, JSON.stringify(methodArgs))
-          : buildDispatchSpec(method, methodArgs, clusterBackend as "ssh", {
-              label: lbl,
-              clusterName,
-            });
+        const args = buildDispatchSpec(method, methodArgs, clusterBackend as "slurm", {
+          label: lbl,
+          clusterName,
+          config: cfg,
+        });
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       } else {
         const args: string[] = [method, "--model-path", modelPath, "--output-dir", "./outputs/interp"];
