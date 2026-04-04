@@ -12,6 +12,10 @@ pub struct DatasetDashboard {
     pub max_quality: f64,
     pub language_counts: BTreeMap<String, u64>,
     pub source_counts: Vec<SourceCount>,
+    pub avg_token_length: u64,
+    pub min_token_length: u64,
+    pub max_token_length: u64,
+    pub field_names: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -27,6 +31,7 @@ pub struct RecordSample {
     pub language: String,
     pub quality_score: f64,
     pub text: String,
+    pub extra_fields: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]

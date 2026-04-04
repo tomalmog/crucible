@@ -49,6 +49,10 @@ pub fn get_dataset_dashboard(
     let mut quality_sum = 0.0;
     let mut min_quality = f64::INFINITY;
     let mut max_quality = f64::NEG_INFINITY;
+    let mut token_sum: u64 = 0;
+    let mut min_tokens: u64 = u64::MAX;
+    let mut max_tokens: u64 = 0;
+    let mut field_names_set: BTreeMap<String, bool> = BTreeMap::new();
     for record in &records {
         let metadata = record
             .get("metadata")
@@ -66,8 +70,24 @@ pub fn get_dataset_dashboard(
         if quality > max_quality {
             max_quality = quality;
         }
+        // Token length approximation: split on whitespace
+        let text = record.get("text").and_then(Value::as_str).unwrap_or("");
+        let tokens = text.split_whitespace().count() as u64;
+        token_sum += tokens;
+        if tokens < min_tokens { min_tokens = tokens; }
+        if tokens > max_tokens { max_tokens = tokens; }
+        // Collect field names from extra_fields
+        if let Some(extras) = metadata.get("extra_fields").and_then(Value::as_object) {
+            for k in extras.keys() {
+                if k != "quality_model" {
+                    field_names_set.insert(k.clone(), true);
+                }
+            }
+        }
     }
     let average_quality = quality_sum / record_count as f64;
+    let avg_token_length = token_sum / record_count;
+    let field_names: Vec<String> = field_names_set.into_keys().collect();
     let mut source_rows: Vec<SourceCount> = source_counts
         .into_iter()
         .map(|(source, count)| SourceCount { source, count })
@@ -82,6 +102,10 @@ pub fn get_dataset_dashboard(
         max_quality,
         language_counts,
         source_counts: source_rows,
+        avg_token_length,
+        min_token_length: if min_tokens == u64::MAX { 0 } else { min_tokens },
+        max_token_length: max_tokens,
+        field_names,
     })
 }
 
@@ -103,15 +127,36 @@ pub fn sample_records(
             .get("metadata")
             .and_then(Value::as_object)
             .ok_or_else(|| "Record metadata is missing".to_string())?;
+        let mut extra_fields = BTreeMap::new();
+        if let Some(extras) = metadata.get("extra_fields").and_then(Value::as_object) {
+            for (k, v) in extras {
+                if let Some(s) = v.as_str() {
+                    extra_fields.insert(k.clone(), s.to_string());
+                } else if let Some(b) = v.as_bool() {
+                    extra_fields.insert(k.clone(), b.to_string());
+                } else if let Some(n) = v.as_f64() {
+                    extra_fields.insert(k.clone(), n.to_string());
+                }
+            }
+        }
         samples.push(RecordSample {
             record_id: string_field(record_object, "record_id")?,
             source_uri: string_field(metadata, "source_uri")?,
             language: string_field(metadata, "language")?,
             quality_score: float_field(metadata, "quality_score")?,
             text: string_field(record_object, "text")?,
+            extra_fields,
         });
     }
     Ok(samples)
+}
+
+#[tauri::command]
+pub fn get_dataset_record_count(data_root: String, dataset_name: String) -> Result<u64, String> {
+    let path = records_path(&data_root, &dataset_name);
+    let payload = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+    Ok(payload.lines().filter(|l| !l.trim().is_empty()).count() as u64)
 }
 
 #[tauri::command]

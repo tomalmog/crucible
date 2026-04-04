@@ -672,6 +672,51 @@ label,
     font-family: var(--font-mono);
 }
 
+.row-expanded { background: var(--bg-active); }
+.row-detail td { padding: 0 !important; border-top: none !important; }
+.sample-detail {
+    padding: 12px 16px;
+    background: var(--bg-inset);
+    border-top: 1px solid var(--border);
+}
+.sample-detail pre {
+    margin: 4px 0 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text);
+    max-height: 200px;
+    overflow-y: auto;
+}
+.sample-detail-field strong {
+    display: block;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+.sample-detail-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+.dataset-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* ─── Chat ─── */
 
 .chat-thread {
@@ -2150,6 +2195,12 @@ label,
 .download-modal-status.success {
     color: var(--success);
     background: var(--success-muted);
+}
+
+.download-modal-progress {
+    padding: 8px 24px;
+    max-height: 60px;
+    overflow: hidden;
 }
 
 .download-modal-footer {

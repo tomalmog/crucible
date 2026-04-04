@@ -16,6 +16,10 @@ export interface DatasetDashboard {
   max_quality: number;
   language_counts: Record<string, number>;
   source_counts: SourceCount[];
+  avg_token_length: number;
+  min_token_length: number;
+  max_token_length: number;
+  field_names: string[];
 }
 
 export interface RecordSample {
@@ -24,6 +28,7 @@ export interface RecordSample {
   language: string;
   quality_score: number;
   text: string;
+  extra_fields: Record<string, string>;
 }
 
 export interface CommandTaskStart {

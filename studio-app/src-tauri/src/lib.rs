@@ -18,6 +18,7 @@ pub fn run() {
             commands::dataset_queries::load_training_history,
             commands::dataset_queries::sample_records,
             commands::dataset_queries::dataset_columns,
+            commands::dataset_queries::get_dataset_record_count,
             commands::crucible_commands::start_crucible_command,
             commands::crucible_commands::get_crucible_command_status,
             commands::crucible_commands::list_crucible_tasks,

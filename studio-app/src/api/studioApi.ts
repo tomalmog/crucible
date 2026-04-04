@@ -58,6 +58,13 @@ export async function datasetColumns(
   return invoke<string[]>("dataset_columns", { dataRoot, datasetName });
 }
 
+export async function getDatasetRecordCount(
+  dataRoot: string,
+  datasetName: string,
+): Promise<number> {
+  return invoke<number>("get_dataset_record_count", { dataRoot, datasetName });
+}
+
 export async function startCrucibleCommand(
   dataRoot: string,
   args: string[],
