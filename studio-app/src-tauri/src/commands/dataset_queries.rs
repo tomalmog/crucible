@@ -22,6 +22,9 @@ pub fn list_datasets(data_root: String) -> Result<Vec<DatasetEntry>, String> {
         return Ok(vec![]);
     }
     let mut names = read_child_dirs(&datasets_dir)?;
+    // Only include datasets that have a records.jsonl file — empty directories
+    // (e.g. from failed ingests) should not appear in the list.
+    names.retain(|name| datasets_dir.join(name).join("records.jsonl").exists());
     names.sort();
     let mut entries = Vec::with_capacity(names.len());
     for name in names {

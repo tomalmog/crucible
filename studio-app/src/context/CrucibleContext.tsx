@@ -119,13 +119,13 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(poll);
   }, [dataRoot, refreshModels]);
 
-  // Reload dashboard and samples when dataset changes
+  // Reload dashboard and samples when dataset changes.
+  // Clear stale data immediately so the UI never shows a previous dataset's
+  // data while the new fetch is in flight (or if the fetch fails).
   useEffect(() => {
-    if (!selectedDataset) {
-      setDashboard(null);
-      setSamples([]);
-      return;
-    }
+    setDashboard(null);
+    setSamples([]);
+    if (!selectedDataset) return;
     let cancelled = false;
     (async () => {
       const dashboardRow = await getDatasetDashboard(dataRoot, selectedDataset);

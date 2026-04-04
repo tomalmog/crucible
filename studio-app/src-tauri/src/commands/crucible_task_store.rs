@@ -229,7 +229,7 @@ impl CommandTaskStore {
         Ok(())
     }
 
-    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, label: String, config_json: Option<String>) {
+    fn execute_task(&self, task_id: String, data_root: String, command_name: String, args: Vec<String>, _label: String, config_json: Option<String>) {
         // Write payload file for agent-chat so the CLI can read it
         let mut args = args;
         if command_name == "agent-chat" {
