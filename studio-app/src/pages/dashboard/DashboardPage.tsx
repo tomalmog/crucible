@@ -91,6 +91,10 @@ export function DashboardPage(): React.ReactNode {
     () => jobs.filter((j) => j.state === "completed").slice(0, 5),
     [jobs],
   );
+  const completedEvalJobs = useMemo(
+    () => jobs.filter((j) => j.state === "completed" && j.jobType === "eval").slice(0, 20),
+    [jobs],
+  );
 
   const localModels = models.filter((m) => m.hasLocal).length;
   const remoteModels = models.filter(
@@ -186,7 +190,7 @@ export function DashboardPage(): React.ReactNode {
       <div className="dashboard-two-col">
         <DashboardLeaderboard
           dataRoot={dataRoot}
-          completedJobs={recentCompleted}
+          completedJobs={completedEvalJobs}
         />
 
         <div className="resource-card">
