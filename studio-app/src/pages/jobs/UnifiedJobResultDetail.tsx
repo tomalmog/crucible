@@ -34,6 +34,7 @@ interface EvalBenchmark {
   score: number;
   num_examples: number;
   correct: number;
+  error?: string;
 }
 
 interface ResultData {
@@ -375,9 +376,11 @@ function LocalSweepView({ job, localTask, onBack, config }: { job: JobRecord; lo
 function parseEvalBenchmarks(stdout: string): EvalBenchmark[] {
   const results: EvalBenchmark[] = [];
   for (const line of stdout.split("\n")) {
-    const m = line.match(/^benchmark=(\S+)\s+score=([\d.]+)\s+examples=(\d+)\s+correct=(\d+)/);
+    const m = line.match(/^benchmark=(\S+)\s+score=([\d.]+)\s+examples=(\d+)\s+correct=(\d+)(?:\s+error=(.+))?/);
     if (m) {
-      results.push({ name: m[1], score: parseFloat(m[2]), num_examples: parseInt(m[3], 10), correct: parseInt(m[4], 10) });
+      const entry: EvalBenchmark = { name: m[1], score: parseFloat(m[2]), num_examples: parseInt(m[3], 10), correct: parseInt(m[4], 10) };
+      if (m[5]) entry.error = m[5];
+      results.push(entry);
     }
   }
   return results;
@@ -385,28 +388,58 @@ function parseEvalBenchmarks(stdout: string): EvalBenchmark[] {
 
 function LocalEvalView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
   const benchmarks = useMemo(() => parseEvalBenchmarks(localTask.stdout), [localTask.stdout]);
-  const avgScore = benchmarks.length > 0
-    ? benchmarks.reduce((sum, b) => sum + pct(b), 0) / benchmarks.length : 0;
+  const failedBenchmarks = benchmarks.filter((b) => b.error);
+  const passedBenchmarks = benchmarks.filter((b) => !b.error);
+  const allFailed = benchmarks.length > 0 && passedBenchmarks.length === 0;
+  const avgScore = passedBenchmarks.length > 0
+    ? passedBenchmarks.reduce((sum, b) => sum + pct(b), 0) / passedBenchmarks.length : 0;
+
+  // Deduplicate error messages for the summary banner.
+  // Strip leading benchmark name prefix (e.g. "MMLU benchmark requires..." →
+  // "requires...") so errors with the same root cause collapse into one.
+  const normalizeError = (e: string) => e.replace(/^\w[\w-]*\s+benchmark\s+/i, "");
+  const uniqueErrors = [...new Set(failedBenchmarks.map((b) => normalizeError(b.error!)))];
 
   return (
     <div className="panel stack-lg">
       <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobType} — Evaluation Results</h3>
+      {allFailed && (
+        <div className="error-alert-prominent">
+          All {benchmarks.length} benchmarks failed to run.
+          {uniqueErrors.length === 1
+            ? ` ${uniqueErrors[0].charAt(0).toUpperCase() + uniqueErrors[0].slice(1)}`
+            : uniqueErrors.map((e, i) => <div key={i} style={{ marginTop: 4, fontSize: "0.8125rem" }}>• {e}</div>)}
+        </div>
+      )}
+      {!allFailed && failedBenchmarks.length > 0 && (
+        <div className="error-alert">
+          {failedBenchmarks.length} of {benchmarks.length} benchmarks failed:{" "}
+          {failedBenchmarks.map((b) => b.name.toUpperCase()).join(", ")}
+        </div>
+      )}
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
-        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}</span></div>
+        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{passedBenchmarks.length}{failedBenchmarks.length > 0 ? ` / ${benchmarks.length}` : ""}</span></div>
+        {failedBenchmarks.length > 0 && (
+          <div className="metric-card"><span className="metric-label">Errors</span><span className="metric-value" style={{ color: "var(--error)" }}>{failedBenchmarks.length}</span></div>
+        )}
       </div>
-      {benchmarks.length > 0 && <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={[]} />}
+      {passedBenchmarks.length > 0 && <BenchmarkBarChart benchmarks={passedBenchmarks} baseBenchmarks={[]} />}
       {benchmarks.length > 0 ? (
         <div className="docs-table-wrap">
           <table className="docs-table">
-            <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th></tr></thead>
+            <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th><th>Status</th></tr></thead>
             <tbody>{benchmarks.map((b) => (
-              <tr key={b.name}>
+              <tr key={b.name} style={b.error ? { opacity: 0.7 } : undefined}>
                 <td style={{ fontWeight: 500 }}>{b.name.toUpperCase()}</td>
-                <td>{pct(b).toFixed(1)}%</td>
-                <td>{b.correct}</td>
-                <td>{b.num_examples}</td>
+                <td>{b.error ? "—" : `${pct(b).toFixed(1)}%`}</td>
+                <td>{b.error ? "—" : b.correct}</td>
+                <td>{b.error ? "—" : b.num_examples}</td>
+                <td>{b.error
+                  ? <span className="error-text" title={b.error} style={{ fontSize: "0.75rem" }}>Error: {b.error.length > 60 ? b.error.slice(0, 60) + "…" : b.error}</span>
+                  : <span style={{ color: "var(--success)", fontSize: "0.75rem" }}>OK</span>
+                }</td>
               </tr>
             ))}</tbody>
           </table>
@@ -611,40 +644,70 @@ function BenchmarkBarChart({ benchmarks, baseBenchmarks }: {
 }
 
 function RemoteEvalView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
-  const benchmarks = (result.benchmarks || []).filter((b) => b.num_examples > 0);
+  const allBenchmarks = result.benchmarks || [];
+  const failedBenchmarks = allBenchmarks.filter((b) => b.error || b.num_examples === 0);
+  const benchmarks = allBenchmarks.filter((b) => !b.error && b.num_examples > 0);
   const baseBenchmarks = (result.base_benchmarks || []).filter((b) => b.num_examples > 0);
   const hasBase = baseBenchmarks.length > 0;
   const baseMap = new Map(baseBenchmarks.map((b) => [b.name, b]));
+  const allFailed = allBenchmarks.length > 0 && benchmarks.length === 0;
   const avgScore = benchmarks.length > 0
     ? benchmarks.reduce((sum, b) => sum + pct(b), 0) / benchmarks.length : 0;
+
+  const normalizeError = (e: string) => e.replace(/^\w[\w-]*\s+benchmark\s+/i, "");
+  const uniqueErrors = [...new Set(
+    (failedBenchmarks.map((b) => b.error).filter(Boolean) as string[]).map(normalizeError),
+  )];
 
   return (
     <div className="panel stack-lg">
       <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{job.label || job.jobId} — Evaluation Results</h3>
+      {allFailed && (
+        <div className="error-alert-prominent">
+          All {allBenchmarks.length} benchmarks failed to run.
+          {uniqueErrors.length === 1
+            ? ` ${uniqueErrors[0].charAt(0).toUpperCase() + uniqueErrors[0].slice(1)}`
+            : uniqueErrors.map((e, i) => <div key={i} style={{ marginTop: 4, fontSize: "0.8125rem" }}>• {e}</div>)}
+        </div>
+      )}
+      {!allFailed && failedBenchmarks.length > 0 && (
+        <div className="error-alert">
+          {failedBenchmarks.length} of {allBenchmarks.length} benchmarks failed:{" "}
+          {failedBenchmarks.map((b) => b.name.toUpperCase()).join(", ")}
+        </div>
+      )}
       <div className="stats-grid">
         <div className="metric-card"><span className="metric-label">Average Score</span><span className="metric-value">{avgScore.toFixed(1)}%</span></div>
-        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}</span></div>
+        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{benchmarks.length}{failedBenchmarks.length > 0 ? ` / ${allBenchmarks.length}` : ""}</span></div>
+        {failedBenchmarks.length > 0 && (
+          <div className="metric-card"><span className="metric-label">Errors</span><span className="metric-value" style={{ color: "var(--error)" }}>{failedBenchmarks.length}</span></div>
+        )}
         {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
       </div>
-      <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={baseBenchmarks} />
-      {benchmarks.length > 0 && (
+      {benchmarks.length > 0 && <BenchmarkBarChart benchmarks={benchmarks} baseBenchmarks={baseBenchmarks} />}
+      {allBenchmarks.length > 0 && (
         <div className="docs-table-wrap">
           <table className="docs-table">
-            <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th>{hasBase && <th>Base</th>}{hasBase && <th>Delta</th>}</tr></thead>
-            <tbody>{benchmarks.map((b) => {
-              const score = pct(b);
+            <thead><tr><th>Benchmark</th><th>Score</th><th>Correct</th><th>Total</th>{hasBase && <th>Base</th>}{hasBase && <th>Delta</th>}<th>Status</th></tr></thead>
+            <tbody>{allBenchmarks.map((b) => {
+              const hasFailed = !!(b.error || b.num_examples === 0);
+              const score = hasFailed ? 0 : pct(b);
               const base = baseMap.get(b.name);
               const baseScore = base ? pct(base) : null;
-              const delta = baseScore != null ? score - baseScore : null;
+              const delta = baseScore != null && !hasFailed ? score - baseScore : null;
               return (
-                <tr key={b.name}>
+                <tr key={b.name} style={hasFailed ? { opacity: 0.7 } : undefined}>
                   <td style={{ fontWeight: 500 }}>{b.name.toUpperCase()}</td>
-                  <td>{score.toFixed(1)}%</td>
-                  <td>{b.correct}</td>
-                  <td>{b.num_examples}</td>
-                  {hasBase && <td>{baseScore != null ? `${baseScore.toFixed(1)}%` : "-"}</td>}
-                  {hasBase && <td style={{ color: delta && delta > 0 ? "var(--clr-success)" : delta && delta < 0 ? "var(--clr-error)" : undefined }}>{delta != null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%` : "-"}</td>}
+                  <td>{hasFailed ? "—" : `${score.toFixed(1)}%`}</td>
+                  <td>{hasFailed ? "—" : b.correct}</td>
+                  <td>{hasFailed ? "—" : b.num_examples}</td>
+                  {hasBase && <td>{!hasFailed && baseScore != null ? `${baseScore.toFixed(1)}%` : "—"}</td>}
+                  {hasBase && <td style={{ color: delta && delta > 0 ? "var(--clr-success)" : delta && delta < 0 ? "var(--clr-error)" : undefined }}>{delta != null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%` : "—"}</td>}
+                  <td>{hasFailed
+                    ? <span className="error-text" title={b.error} style={{ fontSize: "0.75rem" }}>Error{b.error ? `: ${b.error.length > 50 ? b.error.slice(0, 50) + "…" : b.error}` : ""}</span>
+                    : <span style={{ color: "var(--success)", fontSize: "0.75rem" }}>OK</span>
+                  }</td>
                 </tr>
               );
             })}</tbody>

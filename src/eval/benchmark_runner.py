@@ -76,7 +76,8 @@ def _write_partial_results(
         "benchmarks_total": total_benchmarks,
         "benchmarks": [
             {"name": r.benchmark_name, "score": r.score,
-             "num_examples": r.num_examples, "correct": r.correct}
+             "num_examples": r.num_examples, "correct": r.correct,
+             **({"error": r.details["error"]} if r.details.get("error") else {})}
             for r in results
         ],
     }

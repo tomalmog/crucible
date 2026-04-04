@@ -73,6 +73,7 @@ class EvaluationHarness:
                     "num_examples": r.num_examples,
                     "correct": r.correct,
                     "details": r.details,
+                    **({"error": r.details["error"]} if r.details.get("error") else {}),
                 }
                 for r in result.benchmark_results
             ],

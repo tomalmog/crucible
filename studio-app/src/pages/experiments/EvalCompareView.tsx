@@ -10,6 +10,7 @@ interface EvalBenchmark {
   score: number;
   num_examples: number;
   correct: number;
+  error?: string;
 }
 
 interface EvalResult {
@@ -40,9 +41,11 @@ function pct(b: EvalBenchmark): number {
 function parseBenchmarksFromStdout(stdout: string): EvalBenchmark[] {
   const results: EvalBenchmark[] = [];
   for (const line of stdout.split("\n")) {
-    const m = line.match(/^benchmark=(\S+)\s+score=([\d.]+)\s+examples=(\d+)\s+correct=(\d+)/);
+    const m = line.match(/^benchmark=(\S+)\s+score=([\d.]+)\s+examples=(\d+)\s+correct=(\d+)(?:\s+error=(.+))?/);
     if (m) {
-      results.push({ name: m[1], score: parseFloat(m[2]), num_examples: parseInt(m[3], 10), correct: parseInt(m[4], 10) });
+      const entry: EvalBenchmark = { name: m[1], score: parseFloat(m[2]), num_examples: parseInt(m[3], 10), correct: parseInt(m[4], 10) };
+      if (m[5]) entry.error = m[5];
+      results.push(entry);
     }
   }
   return results;

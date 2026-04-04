@@ -27,7 +27,10 @@ def run_eval_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     print(f"model_path={result.model_path}")
     print(f"average_score={result.average_score}")
     for br in result.benchmark_results:
-        print(f"benchmark={br.benchmark_name}  score={br.score}  examples={br.num_examples}  correct={br.correct}")
+        line = f"benchmark={br.benchmark_name}  score={br.score}  examples={br.num_examples}  correct={br.correct}"
+        if br.details.get("error"):
+            line += f"  error={br.details['error']}"
+        print(line)
     if result.base_results:
         print(f"\nbase_model_path={result.base_model_path}")
         for br in result.base_results:
