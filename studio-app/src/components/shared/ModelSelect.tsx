@@ -46,11 +46,13 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
     return map;
   }, [clusters]);
 
-  // Build options keyed by name (unique) instead of path (can collide)
+  // Build options keyed by name (unique) instead of path (can collide).
+  // Remote models are only shown if their host belongs to a registered cluster.
   const { allOptions, keyToDisplay, pathToKey } = useMemo(() => {
     const opts: ModelOption[] = [];
     const display = new Map<string, string>();
     const p2k = new Map<string, string>();
+    const knownHosts = new Set(hostToCluster.keys());
     for (const m of models) {
       if (!remoteOnly && m.hasLocal && m.modelPath) {
         const key = `local::${m.modelName}`;
@@ -59,7 +61,7 @@ export function ModelSelect({ value, onChange, placeholder = "Select a model", r
         // Only set path→key if not already set (avoids collision overwrite)
         if (!p2k.has(m.modelPath)) p2k.set(m.modelPath, key);
       }
-      if (!localOnly && m.hasRemote && m.remotePath) {
+      if (!localOnly && m.hasRemote && m.remotePath && knownHosts.has(m.remoteHost)) {
         const clusterLabel = hostToCluster.get(m.remoteHost) || m.remoteHost;
         const key = `remote::${m.modelName}::${m.remoteHost}`;
         opts.push({ label: m.modelName, key, path: m.remotePath, section: "remote" });
