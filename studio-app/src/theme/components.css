@@ -2735,6 +2735,7 @@ label,
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    align-content: start;
 }
 
 .resource-card-header {
@@ -3043,6 +3044,15 @@ label,
     background: var(--bg-base);
     border-left: 1px solid var(--border);
     overflow: hidden;
+    min-width: 0;
+}
+
+.agent-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 380px;
+    flex-shrink: 0;
 }
 
 .agent-sidebar-header {
@@ -3160,11 +3170,17 @@ label,
     justify-content: center;
     box-shadow: var(--shadow-lg);
     z-index: 100;
-    transition: background var(--transition-fast);
+    transition: background var(--transition-fast), opacity 0.2s ease, transform 0.2s ease;
 }
 
 .agent-toggle-fab:hover {
     background: var(--accent-hover);
+}
+
+.agent-toggle-fab-hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
 }
 
 /* ─── Code Editor ─── */

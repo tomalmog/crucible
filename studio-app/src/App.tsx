@@ -59,19 +59,15 @@ function App() {
           <AppSidebar />
           <div className="page-content">
             <Outlet />
-            {!agentVisible && (
-              <button
-                className="agent-toggle-fab"
-                onClick={() => setAgentVisible(true)}
-                title="Open AI Agent"
-              >
-                <Bot size={18} />
-              </button>
-            )}
+            <button
+              className={`agent-toggle-fab${agentVisible ? " agent-toggle-fab-hidden" : ""}`}
+              onClick={() => setAgentVisible(true)}
+              title="Open AI Agent"
+            >
+              <Bot size={18} />
+            </button>
           </div>
-          {agentVisible && (
-            <AgentSidebar onClose={() => setAgentVisible(false)} />
-          )}
+          <AgentSidebar onClose={() => setAgentVisible(false)} />
         </main>
         </ScriptContext.Provider>
       </CommandProvider>

@@ -68,80 +68,82 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
 
   return (
     <aside className="agent-sidebar">
-      <div className="agent-sidebar-header">
-        <h3>AI Agent</h3>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            onClick={() => clearConversation()}
-            title="New conversation"
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            onClick={onClose}
-            title="Close"
-          >
-            <X size={14} />
-          </button>
+      <div className="agent-sidebar-inner">
+        <div className="agent-sidebar-header">
+          <h3>AI Agent</h3>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={() => clearConversation()}
+              title="New conversation"
+            >
+              <Plus size={14} />
+            </button>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={onClose}
+              title="Close"
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="agent-chat-thread" ref={threadRef}>
-        {messages.length === 0 && !isLoading && (
-          <p className="agent-chat-empty">
-            Ask me anything about your models, datasets, or training.
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <article key={i} className={`chat-message ${msg.role}`}>
-            <header>{msg.role === "user" ? "You" : "Agent"}</header>
-            {msg.role === "user"
-              ? <p>{msg.content}</p>
-              : <div className="agent-markdown"><Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown></div>
-            }
-            {msg.toolsUsed && msg.toolsUsed.length > 0 && (
-              <div className="agent-tool-badge">
-                Used: {msg.toolsUsed.join(", ")}
-              </div>
-            )}
-            {msg.scriptUpdated && (
-              <div className="agent-tool-badge">Updated training script</div>
-            )}
-          </article>
-        ))}
-        {isLoading && (
-          <div className="agent-loading">
-            <Loader2 size={14} className="spin" /> Thinking...
+        <div className="agent-chat-thread" ref={threadRef}>
+          {messages.length === 0 && !isLoading && (
+            <p className="agent-chat-empty">
+              Ask me anything about your models, datasets, or training.
+            </p>
+          )}
+          {messages.map((msg, i) => (
+            <article key={i} className={`chat-message ${msg.role}`}>
+              <header>{msg.role === "user" ? "You" : "Agent"}</header>
+              {msg.role === "user"
+                ? <p>{msg.content}</p>
+                : <div className="agent-markdown"><Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown></div>
+              }
+              {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                <div className="agent-tool-badge">
+                  Used: {msg.toolsUsed.join(", ")}
+                </div>
+              )}
+              {msg.scriptUpdated && (
+                <div className="agent-tool-badge">Updated training script</div>
+              )}
+            </article>
+          ))}
+          {isLoading && (
+            <div className="agent-loading">
+              <Loader2 size={14} className="spin" /> Thinking...
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div className="agent-error">
+            {error}
           </div>
         )}
+
+        <form className="agent-input-row" onSubmit={handleSubmit}>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask the agent..."
+            rows={2}
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm btn-icon"
+            disabled={isLoading || !draft.trim()}
+            title="Send"
+          >
+            <Send size={14} />
+          </button>
+        </form>
       </div>
-
-      {error && (
-        <div className="agent-error">
-          {error}
-        </div>
-      )}
-
-      <form className="agent-input-row" onSubmit={handleSubmit}>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask the agent..."
-          rows={2}
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          className="btn btn-primary btn-sm btn-icon"
-          disabled={isLoading || !draft.trim()}
-          title="Send"
-        >
-          <Send size={14} />
-        </button>
-      </form>
     </aside>
   );
 }

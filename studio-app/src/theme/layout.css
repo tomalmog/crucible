@@ -2,9 +2,10 @@
 
 .app-shell {
     display: grid;
-    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-columns: var(--sidebar-width) 1fr 0px;
     height: 100vh;
     overflow: hidden;
+    transition: grid-template-columns 0.25s ease;
 }
 
 .page-content {
@@ -15,7 +16,7 @@
 }
 
 .app-shell.sidebar-collapsed {
-    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr 0px;
 }
 
 .app-shell.agent-open {
@@ -397,7 +398,7 @@
 
 @media (max-width: 900px) {
     .app-shell {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 0px;
     }
 
     .app-sidebar {
