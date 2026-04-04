@@ -212,11 +212,8 @@ def _register_downloaded_dataset(
 ) -> None:
     """Ingest a downloaded dataset into the Crucible dataset registry."""
     from core.types import IngestOptions
-    try:
-        name = client.ingest(IngestOptions(dataset_name=dataset_name, source_uri=source_path))
-        print(f"dataset_registered={name}")
-    except Exception as exc:
-        print(f"warning: dataset registration failed: {exc}", file=sys.stderr)
+    name = client.ingest(IngestOptions(dataset_name=dataset_name, source_uri=source_path))
+    print(f"dataset_registered={name}")
 
 
 def _add_register_args(parser: argparse.ArgumentParser, kind: str) -> None:

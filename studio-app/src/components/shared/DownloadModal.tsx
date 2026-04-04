@@ -45,6 +45,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
   const [registryName, setRegistryName] = useState("");
   const [dlStatus, setDlStatus] = useState<DownloadStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
+  const [splitsLoaded, setSplitsLoaded] = useState(kind !== "dataset" || !!splitsProp);
   const [availableSplits, setAvailableSplits] = useState<string[]>(splitsProp ?? []);
   const [selectedSplit, setSelectedSplit] = useState(
     splitsProp?.includes("train") ? "train" : splitsProp?.[0] ?? "train",
@@ -53,6 +54,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
   // Fetch splits if not provided (e.g. opening download from search results)
   useEffect(() => {
     if (kind !== "dataset" || splitsProp || !dataRoot) return;
+    setSplitsLoaded(false);
     splitInfoCmd.run(dataRoot, ["hub", "dataset-info", repoId, "--json"]).then((s) => {
       if (s.status === "completed" && s.stdout) {
         try {
@@ -62,11 +64,16 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
           setSelectedSplit(fetched.includes("train") ? "train" : fetched[0]);
         } catch { /* ignore parse errors */ }
       }
-    }).catch(() => {});
+      setSplitsLoaded(true);
+    }).catch(() => setSplitsLoaded(true));
   }, [dataRoot, repoId, kind, splitsProp]);
 
   useEffect(() => {
-    if (splitsProp) setAvailableSplits(splitsProp);
+    if (splitsProp) {
+      setAvailableSplits(splitsProp);
+      setSelectedSplit(splitsProp.includes("train") ? "train" : splitsProp[0]);
+      setSplitsLoaded(true);
+    }
   }, [splitsProp]);
 
   useEffect(() => {
@@ -248,7 +255,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
           <button
             className={`btn btn-sm ${dlStatus === "done" ? "btn-success" : "btn-primary"}`}
             onClick={dlStatus === "done" ? onClose : handleDownload}
-            disabled={dlStatus === "downloading" || (dest === "remote" && clusters.length === 0)}
+            disabled={dlStatus === "downloading" || (dest === "remote" && clusters.length === 0) || (kind === "dataset" && !splitsLoaded)}
           >
             {dlStatus === "downloading" && <><Loader size={12} className="spin" /> Downloading...</>}
             {dlStatus === "done" && <><Check size={12} /> Done</>}
