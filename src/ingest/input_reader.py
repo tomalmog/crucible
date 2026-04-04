@@ -253,34 +253,44 @@ def _parse_jsonl_line(
         }
         return {"text": val, **extras}
 
+    # Normalize values: flatten list-of-strings into joined strings
+    # so datasets with list fields (e.g. ["instruction1", "instruction2"])
+    # are treated as text.
+    normalized: dict[str, Any] = {}
+    for k, v in payload.items():
+        if isinstance(v, list) and v and all(isinstance(x, str) for x in v):
+            normalized[k] = "\n".join(v)
+        else:
+            normalized[k] = v
+
     # Auto-detect: collect extra string fields (everything except the text-producing keys)
     _SKIP_KEYS = {"text"}  # Only skip 'text' — preserve structured fields
     extras = {
-        k: str(v) for k, v in payload.items()
+        k: str(v) for k, v in normalized.items()
         if k not in _SKIP_KEYS and isinstance(v, (str, int, float, bool))
     }
 
-    text_value = payload.get("text")
+    text_value = normalized.get("text")
     if isinstance(text_value, str):
         return {"text": text_value, **extras}
-    prompt = payload.get("prompt")
+    prompt = normalized.get("prompt")
     # Support prompt/response format (SFT, LoRA, distillation, etc.)
-    response = payload.get("response")
+    response = normalized.get("response")
     if isinstance(prompt, str) and isinstance(response, str):
         return {"text": f"{prompt}\n{response}", **extras}
     # Support preference format (DPO, ORPO, RLHF — prompt/chosen/rejected)
-    chosen = payload.get("chosen")
+    chosen = normalized.get("chosen")
     if isinstance(prompt, str) and isinstance(chosen, str):
         return {"text": f"{prompt}\n{chosen}", **extras}
     # Support RLVR format (prompt/solution)
-    solution = payload.get("solution")
+    solution = normalized.get("solution")
     if isinstance(prompt, str) and isinstance(solution, str):
         return {"text": f"{prompt}\n{solution}", **extras}
     # Support prompt-only format (GRPO)
     if isinstance(prompt, str):
         return {"text": prompt, **extras}
     # Fallback: use the first string field as text
-    for key, val in payload.items():
+    for key, val in normalized.items():
         if key not in _SKIP_KEYS and isinstance(val, str) and val.strip():
             return {"text": val, **extras}
     raise CrucibleIngestError(
