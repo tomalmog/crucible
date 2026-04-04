@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Plus, Send, X } from "lucide-react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAgentChat } from "../../hooks/useAgentChat";
 
 interface AgentSidebarProps {
@@ -10,6 +12,13 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
   const { messages, isLoading, error, sendMessage, clearConversation } = useAgentChat();
   const [draft, setDraft] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
+  const historyIndexRef = useRef(-1);
+
+  // Extract user messages for up/down arrow history
+  const userHistory = useMemo(
+    () => messages.filter((m) => m.role === "user").map((m) => m.content),
+    [messages],
+  );
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -23,6 +32,7 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
     if (!draft.trim() || isLoading) return;
     const text = draft;
     setDraft("");
+    historyIndexRef.current = -1;
     sendMessage(text);
   }
 
@@ -30,6 +40,29 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+      return;
+    }
+    // Up arrow at start of input: cycle through previous user messages
+    if (e.key === "ArrowUp" && e.currentTarget.selectionStart === 0) {
+      e.preventDefault();
+      const nextIdx = historyIndexRef.current + 1;
+      if (nextIdx < userHistory.length) {
+        historyIndexRef.current = nextIdx;
+        setDraft(userHistory[userHistory.length - 1 - nextIdx]);
+      }
+      return;
+    }
+    // Down arrow: cycle forward
+    if (e.key === "ArrowDown" && historyIndexRef.current >= 0) {
+      e.preventDefault();
+      const nextIdx = historyIndexRef.current - 1;
+      if (nextIdx < 0) {
+        historyIndexRef.current = -1;
+        setDraft("");
+      } else {
+        historyIndexRef.current = nextIdx;
+        setDraft(userHistory[userHistory.length - 1 - nextIdx]);
+      }
     }
   }
 
@@ -64,11 +97,17 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
         {messages.map((msg, i) => (
           <article key={i} className={`chat-message ${msg.role}`}>
             <header>{msg.role === "user" ? "You" : "Agent"}</header>
-            <p>{msg.content}</p>
+            {msg.role === "user"
+              ? <p>{msg.content}</p>
+              : <div className="agent-markdown"><Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown></div>
+            }
             {msg.toolsUsed && msg.toolsUsed.length > 0 && (
               <div className="agent-tool-badge">
                 Used: {msg.toolsUsed.join(", ")}
               </div>
+            )}
+            {msg.scriptUpdated && (
+              <div className="agent-tool-badge">Updated training script</div>
             )}
           </article>
         ))}

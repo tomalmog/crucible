@@ -3080,6 +3080,38 @@ label,
     gap: 8px;
 }
 
+.agent-markdown {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text);
+    overflow-wrap: break-word;
+}
+.agent-markdown p { margin: 0 0 0.5em; }
+.agent-markdown p:last-child { margin-bottom: 0; }
+.agent-markdown ul, .agent-markdown ol { margin: 0.25em 0; padding-left: 1.25em; }
+.agent-markdown li { margin: 0.15em 0; }
+.agent-markdown code {
+    font-size: 0.75rem;
+    background: var(--bg-inset);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+.agent-markdown pre {
+    background: var(--bg-inset);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-size: 0.75rem;
+    margin: 0.5em 0;
+}
+.agent-markdown pre code { background: none; padding: 0; }
+.agent-markdown strong { font-weight: 600; }
+.agent-markdown h1, .agent-markdown h2, .agent-markdown h3 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin: 0.75em 0 0.25em;
+}
+
 .agent-tool-badge {
     margin-top: 6px;
     font-size: 0.6875rem;
