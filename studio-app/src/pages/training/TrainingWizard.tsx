@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
@@ -31,6 +31,7 @@ import { TrainingClusterContext } from "../../context/TrainingClusterContext";
 import type { TrainingClusterContextValue } from "../../context/TrainingClusterContext";
 import { FormField } from "../../components/shared/FormField";
 import { PageHeader } from "../../components/shared/PageHeader";
+import { useScript } from "../../context/ScriptContext";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 
 function getMissingFields(
@@ -77,6 +78,22 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   const { shared, setShared, extra, setExtra } = config;
   useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
 
+  // Expose script state to AI agent via ScriptContext
+  const { register: registerScript, unregister: unregisterScript } = useScript();
+  const scriptContentRef = useRef(scriptContent);
+  scriptContentRef.current = scriptContent;
+  const viewTabRef = useRef(viewTab);
+  viewTabRef.current = viewTab;
+  useEffect(() => {
+    registerScript({
+      contentRef: scriptContentRef,
+      setContent: setScriptContentTracked,
+      viewTabRef,
+      method,
+    });
+    return () => unregisterScript();
+  }, [method]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!prefill || !config.isLoaded) return;
     if (prefill.shared && typeof prefill.shared === "object") {
@@ -111,11 +128,26 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
     };
   }
 
+  // Track whether the agent has pushed a script update that should be
+  // preserved when switching from Configure → Code tab.
+  const agentScriptRef = useRef<string | null>(null);
+  const originalSetScriptContent = setScriptContent;
+  // Wrap setContent so we can detect agent-driven updates
+  const setScriptContentTracked = useCallback((content: string) => {
+    agentScriptRef.current = content;
+    originalSetScriptContent(content);
+  }, [originalSetScriptContent]);
+
   function handleTabSwitch(tab: ViewTab) {
     if (tab === "code" && viewTab === "configure") {
-      // Generate script from current form state
-      const script = generateScript({ method, shared, extra, modelName });
-      setScriptContent(script);
+      // Preserve agent edits: if the agent set a script while on Configure tab,
+      // don't overwrite it with a fresh generate
+      if (agentScriptRef.current) {
+        setScriptContent(agentScriptRef.current);
+        agentScriptRef.current = null;
+      } else {
+        setScriptContent(generateScript({ method, shared, extra, modelName }));
+      }
     } else if (tab === "configure" && viewTab === "code") {
       // Parse script config back into form state
       const parsed = parseScriptConfig(scriptContent);

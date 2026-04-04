@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { useCrucible } from "../context/CrucibleContext";
+import { useScript } from "../context/ScriptContext";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
 
 const API_KEY_STORAGE = "crucible_anthropic_api_key";
@@ -15,6 +16,7 @@ export interface AgentMessage {
   role: "user" | "assistant";
   content: string;
   toolsUsed?: string[];
+  scriptUpdated?: boolean;
 }
 
 export interface UseAgentChatReturn {
@@ -57,6 +59,7 @@ async function runAgentCommand(
 export function useAgentChat(): UseAgentChatReturn {
   const { dataRoot, models, datasets, selectedModel, selectedDataset } = useCrucible();
   const location = useLocation();
+  const { registration: scriptReg } = useScript();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,12 +86,18 @@ export function useAgentChat(): UseAgentChatReturn {
     setMessages((prev) => [...prev, { role: "user", content: text }]);
 
     try {
+      // Include training script context only when the Code tab is active
+      const scriptContext = scriptReg && scriptReg.viewTabRef.current === "code"
+        ? { trainingScript: scriptReg.contentRef.current, trainingMethod: scriptReg.method }
+        : null;
+
       const context = {
         currentPage: location.pathname,
         selectedModel: selectedModel?.modelName || null,
         selectedDataset: selectedDataset || null,
         modelNames: models.map((m) => m.modelName).slice(0, 20),
         datasetNames: datasets.map((d) => d.name).slice(0, 20),
+        ...(scriptContext ? { script: scriptContext } : {}),
       };
 
       const provider = localStorage.getItem(PROVIDER_STORAGE) || "anthropic";
@@ -112,12 +121,17 @@ export function useAgentChat(): UseAgentChatReturn {
         setMessages((prev) => prev.slice(0, -1));
       } else if (res.content) {
         const toolsUsed = res.tools_used as string[] | undefined;
+        const didUpdateScript = !!(res.script_update && scriptReg?.setContent);
+        if (didUpdateScript) {
+          scriptReg!.setContent(res.script_update as string);
+        }
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content: res.content as string,
             toolsUsed: toolsUsed?.length ? toolsUsed : undefined,
+            scriptUpdated: didUpdateScript || undefined,
           },
         ]);
       }

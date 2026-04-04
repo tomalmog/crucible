@@ -7,6 +7,7 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -150,6 +151,18 @@ Rules:
 - Be concise. Don't repeat tool output verbatim — summarize it.
 - Never fabricate information. If you don't know something, say so.
 - Never pretend to execute actions you didn't actually perform via tools.
+
+## Training Script Interaction
+When the user has the Code tab open in the training wizard, you can see and
+edit their training script (shown in "Current Training Script" below).
+- To EXPLAIN the script: analyze it and describe what each section does.
+- To MODIFY the script: return the COMPLETE updated script in <script_update> tags.
+  Always return the full script, not just changed lines.
+  Preserve the CRUCIBLE config markers (BEGIN_CONFIG / END_CONFIG).
+- Only modify the script when the user asks. Do not modify it unprompted.
+- If the user asks you to edit the script but the Code tab is NOT open
+  (no "Current Training Script" section below), tell them to switch to the
+  Code tab in the training wizard so you can see and edit the script.
 """
 
 
@@ -173,11 +186,27 @@ def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
     if app_context.get("datasetNames"):
         context_lines.append(f"- Available datasets: {', '.join(app_context['datasetNames'])}")
 
+    script_section = ""
+    if app_context.get("script"):
+        script_ctx = app_context["script"]
+        method = script_ctx.get("trainingMethod", "unknown")
+        script = script_ctx.get("trainingScript", "")
+        script_section = (
+            "\n## Current Training Script\n\n"
+            f"The user is viewing a {method} training script in the code editor.\n"
+            "You can read, explain, and modify this script.\n"
+            "To modify it, return the COMPLETE updated script wrapped in "
+            "<script_update> tags. The updated script will replace the current "
+            "editor content.\n\n"
+            f"```python\n{script}\n```\n"
+        )
+
     return (
         (mcp.instructions or "") + "\n\n"
         "## Current Studio State\n\n"
         + "\n".join(context_lines) + "\n\n"
         + _AGENT_BEHAVIOR
+        + script_section
     )
 
 
@@ -274,11 +303,27 @@ def run_agent_turn(
     ]
     _save_conversation(conversation_path, messages)
 
-    return {
+    full_text = "\n".join(text_parts)
+
+    # Extract script_update if the agent returned one
+    script_update = None
+    script_match = re.search(
+        r"<script_update>(.*?)</script_update>", full_text, re.DOTALL,
+    )
+    if script_match:
+        script_update = script_match.group(1).strip()
+        full_text = re.sub(
+            r"<script_update>.*?</script_update>", "", full_text, flags=re.DOTALL,
+        ).strip()
+
+    result: dict[str, Any] = {
         "role": "assistant",
-        "content": "\n".join(text_parts),
+        "content": full_text,
         "tools_used": tools_used,
     }
+    if script_update:
+        result["script_update"] = script_update
+    return result
 
 
 def load_conversation_for_display(conversation_path: Path) -> list[dict[str, Any]]:

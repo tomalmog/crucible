@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet } from "react-router";
 import { CrucibleProvider } from "./context/CrucibleContext";
 import { CommandProvider } from "./context/CommandContext";
+import { ScriptContext, ScriptRegistration, ScriptContextValue } from "./context/ScriptContext";
 import { AppSidebar } from "./components/sidebar/AppSidebar";
 import { AgentSidebar } from "./components/sidebar/AgentSidebar";
 import { Bot } from "lucide-react";
@@ -20,6 +21,12 @@ function App() {
   const [agentVisible, setAgentVisible] = useState(
     () => localStorage.getItem(AGENT_KEY) === "true"
   );
+  const [scriptReg, setScriptReg] = useState<ScriptRegistration | null>(null);
+  const scriptCtx = useMemo<ScriptContextValue>(() => ({
+    registration: scriptReg,
+    register: (reg: ScriptRegistration) => setScriptReg(reg),
+    unregister: () => setScriptReg(null),
+  }), [scriptReg]);
 
   useEffect(() => {
     function onToggle(e: Event) {
@@ -47,6 +54,7 @@ function App() {
   return (
     <CrucibleProvider>
       <CommandProvider>
+        <ScriptContext.Provider value={scriptCtx}>
         <main className={`app-shell${collapsed ? " sidebar-collapsed" : ""}${agentVisible ? " agent-open" : ""}`}>
           <AppSidebar />
           <div className="page-content">
@@ -65,6 +73,7 @@ function App() {
             <AgentSidebar onClose={() => setAgentVisible(false)} />
           )}
         </main>
+        </ScriptContext.Provider>
       </CommandProvider>
     </CrucibleProvider>
   );
