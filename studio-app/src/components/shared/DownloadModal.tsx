@@ -132,7 +132,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
       setDlStatus("error");
       setStatusMsg("Download failed");
     }
-  }, [dataRoot, dest, repoId, targetDir, cluster, registryName, kind, cmd, onComplete]);
+  }, [dataRoot, dest, repoId, targetDir, cluster, registryName, kind, selectedSplit, cmd, onComplete]);
 
   const sizeLabel = size ? formatBytes(size) : "";
   const canClose = dlStatus !== "downloading";
@@ -185,7 +185,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
                   placeholder={repoId}
                 />
               </label>
-              {kind === "dataset" && availableSplits.length > 0 && (
+              {kind === "dataset" && availableSplits.length > 1 && (
                 <label>
                   <span>Split</span>
                   <select value={selectedSplit} onChange={(e) => setSelectedSplit(e.target.value)}>
