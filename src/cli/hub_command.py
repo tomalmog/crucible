@@ -60,6 +60,8 @@ def run_hub_command(client: CrucibleClient, args: argparse.Namespace) -> int:
             client, args.repo_id, args.target_dir, args.revision,
             register=getattr(args, "register", False),
             dataset_name=getattr(args, "dataset_name", "") or "",
+            split=getattr(args, "split", "train"),
+            subset=getattr(args, "subset", ""),
         )
     if subcmd == "download-dataset-remote":
         return _run_download_dataset_remote(
@@ -179,9 +181,10 @@ def _run_dataset_info(repo_id: str, json_output: bool = False) -> int:
 def _run_download_dataset(
     client: CrucibleClient, repo_id: str, target_dir: str, revision: str | None,
     *, register: bool = False, dataset_name: str = "",
+    split: str = "train", subset: str = "",
 ) -> int:
     """Download a dataset from HuggingFace Hub."""
-    path = download_dataset(repo_id, target_dir, revision)
+    path = download_dataset(repo_id, target_dir, revision, split=split, subset=subset)
     print(f"dataset_path={path}")
     if register:
         _register_downloaded_dataset(client, path, dataset_name or repo_id)
@@ -269,6 +272,8 @@ def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     dd.add_argument("repo_id", help="Dataset repository ID")
     dd.add_argument("--target-dir", default="./datasets", help="Download target directory")
     dd.add_argument("--revision", help="Dataset revision/branch")
+    dd.add_argument("--split", default="train", help="Dataset split (train, test, validation, all)")
+    dd.add_argument("--subset", default="", help="Dataset config/subset name")
     _add_register_args(dd, "dataset")
 
     ddr = sub.add_parser("download-dataset-remote", help="Download a dataset to a remote cluster")

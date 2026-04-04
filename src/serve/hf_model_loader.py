@@ -13,6 +13,18 @@ from typing import Any
 from core.errors import CrucibleDependencyError, CrucibleServeError
 
 
+def _try_local_first(model_id: str) -> bool:
+    """Return True if the model appears to be cached locally.
+
+    Checks the HuggingFace cache directory for a matching model snapshot.
+    When True, from_pretrained will skip all network requests.
+    """
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    # HF cache uses "models--org--name" directory format
+    safe_id = model_id.replace("/", "--")
+    return (cache_dir / f"models--{safe_id}").is_dir()
+
+
 def is_huggingface_model_id(model_path: str) -> bool:
     """Check if the path looks like a HuggingFace model ID or local HF directory.
 
@@ -83,8 +95,12 @@ def load_huggingface_model(
         load_kwargs["device_map"] = "auto"
     else:
         load_kwargs["device_map"] = "cpu"
+    # Try loading from local cache first to avoid HuggingFace API calls.
+    # Falls back to network download if the model isn't cached yet.
+    local_only = _try_local_first(model_id)
+
     try:
-        config = AutoConfig.from_pretrained(model_id)
+        config = AutoConfig.from_pretrained(model_id, local_files_only=local_only)
         quant_config = getattr(config, "quantization_config", None)
         if quant_config:
             quant_type = ""
@@ -99,7 +115,15 @@ def load_huggingface_model(
         pass
 
     try:
-        model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, local_files_only=local_only, **load_kwargs,
+        )
+    except (OSError, ValueError):
+        # Cache miss — retry with network access
+        if local_only:
+            model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+        else:
+            raise
     except ImportError as error:
         raise CrucibleDependencyError(
             f"Model '{model_id}' requires an extra dependency: {error}. "
@@ -138,8 +162,14 @@ def load_huggingface_tokenizer(model_id: str) -> Any:
             "Install with: pip install transformers"
         ) from error
 
+    local_only = _try_local_first(model_id)
     try:
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=local_only)
+    except (OSError, ValueError):
+        if local_only:
+            tokenizer = AutoTokenizer.from_pretrained(model_id)
+        else:
+            raise
     except Exception as error:
         raise CrucibleServeError(
             f"Failed to load tokenizer for '{model_id}': {error}."

@@ -87,7 +87,17 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
 
       const success = status.status === "completed";
       setDlStatus(success ? "done" : "error");
-      if (!success) setStatusMsg(_extractErrorMessage(status.stderr) || "Download failed");
+      if (!success) {
+        // Surface rate-limit or auth errors clearly
+        const stderr = status.stderr || "";
+        if (stderr.includes("429") || stderr.includes("Rate limited")) {
+          setStatusMsg("HuggingFace rate limit hit. Set HF_TOKEN in your environment for faster downloads, or wait and retry.");
+        } else if (stderr.includes("unauthenticated") || stderr.includes("HF_TOKEN")) {
+          setStatusMsg("Authentication required. Set HF_TOKEN in your environment and retry.");
+        } else {
+          setStatusMsg(_extractErrorMessage(status.stderr) || "Download failed");
+        }
+      }
       if (success) {
         setStatusMsg("Complete!");
         onComplete();
@@ -187,6 +197,13 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
         {statusMsg && (
           <div className={`download-modal-status ${dlStatus === "error" ? "error" : dlStatus === "done" ? "success" : ""}`}>
             {statusMsg}
+          </div>
+        )}
+        {dlStatus === "downloading" && cmd.status?.stderr && (
+          <div className="download-modal-progress">
+            {cmd.status.stderr.split("\n").filter(Boolean).slice(-3).map((line, i) => (
+              <div key={i} className="text-xs text-muted">{line.slice(0, 120)}</div>
+            ))}
           </div>
         )}
 

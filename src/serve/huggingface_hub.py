@@ -211,16 +211,82 @@ def download_dataset(
     repo_id: str,
     target_dir: str,
     revision: str | None = None,
+    split: str = "train",
+    subset: str = "",
 ) -> str:
-    """Download a dataset from HuggingFace Hub."""
-    hf = _import_huggingface_hub()
-    path = hf.snapshot_download(
-        repo_id=repo_id,
-        repo_type="dataset",
-        local_dir=target_dir,
-        revision=revision,
-    )
-    return str(path)
+    """Download a dataset from HuggingFace Hub via the ``datasets`` library.
+
+    Uses ``datasets.load_dataset`` instead of ``snapshot_download`` to avoid
+    per-file HEAD requests that trigger rate limits on large repos.  Exports
+    the result as a single JSONL file that the ingest pipeline handles natively.
+
+    Args:
+        repo_id: HuggingFace dataset repo ID (e.g. ``tatsu-lab/alpaca``).
+        target_dir: Directory to write the exported JSONL file into.
+        revision: Optional git revision / branch.
+        split: Dataset split to download (default ``train``).
+        subset: Dataset config/subset name (empty = auto-detect).
+
+    Returns:
+        Path to the exported JSONL file.
+    """
+    try:
+        import datasets as ds_lib
+    except ImportError as exc:
+        raise ImportError(
+            "Downloading datasets requires the 'datasets' library. "
+            "Install with: pip install datasets"
+        ) from exc
+
+    print(f"Loading dataset {repo_id} (split={split})...", flush=True)
+    load_kwargs: dict[str, Any] = {"path": repo_id, "split": split}
+    if subset:
+        load_kwargs["name"] = subset
+    if revision:
+        load_kwargs["revision"] = revision
+
+    try:
+        dataset = ds_lib.load_dataset(**load_kwargs)
+    except ValueError as exc:
+        # Common: requested split doesn't exist, or multiple configs available
+        msg = str(exc)
+        if "split" in msg.lower():
+            available = _get_available_splits(ds_lib, repo_id, subset, revision)
+            raise ValueError(
+                f"Split '{split}' not found in {repo_id}. "
+                f"Available splits: {', '.join(available)}"
+            ) from exc
+        if "config" in msg.lower() or "subset" in msg.lower():
+            configs = ds_lib.get_dataset_config_names(repo_id)
+            raise ValueError(
+                f"Dataset {repo_id} has multiple configs. "
+                f"Specify one with --subset: {', '.join(configs)}"
+            ) from exc
+        raise
+
+    out_dir = Path(target_dir).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = repo_id.replace("/", "_")
+    out_path = out_dir / f"{safe_name}.jsonl"
+    print(f"Exporting {len(dataset)} records to {out_path}...", flush=True)
+    dataset.to_json(str(out_path))
+    print(f"Dataset saved to {out_path}", flush=True)
+    return str(out_path)
+
+
+def _get_available_splits(
+    ds_lib: Any, repo_id: str, subset: str, revision: str | None,
+) -> list[str]:
+    """List available splits for a dataset, best-effort."""
+    try:
+        kwargs: dict[str, Any] = {"path": repo_id}
+        if subset:
+            kwargs["name"] = subset
+        if revision:
+            kwargs["revision"] = revision
+        return list(ds_lib.get_dataset_split_names(**kwargs))
+    except Exception:
+        return ["unknown"]
 
 
 def get_model_info(repo_id: str) -> dict[str, Any]:

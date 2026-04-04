@@ -27,12 +27,29 @@ def load_hf_model_and_tokenizer(
     torch = _import_torch()
     transformers = _import_transformers()
 
+    from serve.hf_model_loader import _try_local_first
+    local_only = _try_local_first(model_id)
     print(f"Loading model {model_id}...", flush=True)
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_id,
-        torch_dtype=_resolve_dtype(torch, precision_mode),
-    )
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
+    try:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=_resolve_dtype(torch, precision_mode),
+            local_files_only=local_only,
+        )
+    except (OSError, ValueError):
+        if local_only:
+            model = transformers.AutoModelForCausalLM.from_pretrained(
+                model_id, torch_dtype=_resolve_dtype(torch, precision_mode),
+            )
+        else:
+            raise
+    try:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_id, local_files_only=local_only)
+    except (OSError, ValueError):
+        if local_only:
+            tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
+        else:
+            raise
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer

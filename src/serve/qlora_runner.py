@@ -100,13 +100,30 @@ def _run_qlora_with_trl(
         bnb_4bit_use_double_quant=options.double_quantize,
     )
 
+    from serve.hf_model_loader import _try_local_first
+    local_only = _try_local_first(options.base_model_path)
     print(f"Loading model {options.base_model_path} with 4-bit quantization...", flush=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        options.base_model_path,
-        quantization_config=bnb_config,
-        device_map="auto",
-    )
-    tokenizer = AutoTokenizer.from_pretrained(options.base_model_path)
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            options.base_model_path,
+            quantization_config=bnb_config,
+            device_map="auto",
+            local_files_only=local_only,
+        )
+    except (OSError, ValueError):
+        if local_only:
+            model = AutoModelForCausalLM.from_pretrained(
+                options.base_model_path, quantization_config=bnb_config, device_map="auto",
+            )
+        else:
+            raise
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(options.base_model_path, local_files_only=local_only)
+    except (OSError, ValueError):
+        if local_only:
+            tokenizer = AutoTokenizer.from_pretrained(options.base_model_path)
+        else:
+            raise
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
