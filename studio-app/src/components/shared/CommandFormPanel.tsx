@@ -17,6 +17,8 @@ interface CommandFormPanelProps {
   error?: string | null;
   /** Optional raw console output shown below the button. */
   output?: string;
+  /** Extra CSS class names appended to the panel wrapper. */
+  className?: string;
   /** Form field content rendered between the title and the action area. */
   children: ReactNode;
 }
@@ -30,12 +32,13 @@ export function CommandFormPanel({
   onSubmit,
   error,
   output,
+  className,
   children,
 }: CommandFormPanelProps) {
   const canStart = missing.length === 0;
 
   return (
-    <div className="panel stack-lg">
+    <div className={`panel stack-lg${className ? ` ${className}` : ""}`}>
       <h3>{title}</h3>
       {children}
       <button

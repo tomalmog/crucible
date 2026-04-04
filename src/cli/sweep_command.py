@@ -84,10 +84,31 @@ def add_sweep_command(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         default=False,
         help="Output results as JSON",
     )
+    # Remote cluster flags
+    parser.add_argument(
+        "--cluster",
+        default=None,
+        help="Submit sweep to a remote cluster instead of running locally",
+    )
+    parser.add_argument("--partition", default="", help="Slurm partition")
+    parser.add_argument(
+        "--gpus-per-node", type=int, default=1, help="GPUs per node",
+    )
+    parser.add_argument("--gpu-type", default="", help="GPU type (e.g. a100)")
+    parser.add_argument(
+        "--cpus-per-task", type=int, default=4, help="CPUs per task",
+    )
+    parser.add_argument("--memory", default="32G", help="Memory limit")
+    parser.add_argument(
+        "--time-limit", default="12:00:00", help="Wall-clock limit",
+    )
 
 
 def run_sweep_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle sweep command invocation.
+
+    Routes to remote cluster submission when ``--cluster`` is provided,
+    otherwise runs locally.
 
     Args:
         client: SDK client for training.
@@ -98,12 +119,85 @@ def run_sweep_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """
     import json as _json
     config = _build_sweep_config(args)
+    if getattr(args, "cluster", None):
+        return _run_remote_sweep(client, config, args)
     result = run_sweep(client, config, random_seed=42)
     if getattr(args, "json", False):
         print(_json.dumps(format_sweep_report_json(result)))
     else:
         report = format_sweep_report(result)
         print(report)
+    return 0
+
+
+def _run_remote_sweep(
+    client: CrucibleClient,
+    config: SweepConfig,
+    args: argparse.Namespace,
+) -> int:
+    """Generate parameter combos locally and submit as a remote sweep.
+
+    Uses the unified backend dispatch system so sweeps run on the
+    cluster via Slurm job arrays (or SSH, depending on backend).
+
+    Args:
+        client: SDK client (used for data_root).
+        config: Validated SweepConfig with parameters and strategy.
+        args: CLI args containing cluster and resource flags.
+
+    Returns:
+        Exit code.
+    """
+    from core.backend_registry import get_backend
+    from core.job_types import JobSpec, ResourceConfig
+    from core.training_methods import TRAINING_METHOD_LABELS
+    from serve.sweep_parameter_generator import generate_sweep_parameters
+    from store.cluster_registry import load_cluster
+
+    param_combos = generate_sweep_parameters(config, random_seed=42)
+    method_label = TRAINING_METHOD_LABELS.get(
+        config.training_method, config.training_method,
+    )
+    print(
+        f"Sweep: {len(param_combos)} trials | method={method_label} "
+        f"| strategy={config.strategy} | cluster={args.cluster}",
+        flush=True,
+    )
+
+    trial_configs: list[dict[str, object]] = []
+    for params in param_combos:
+        tc: dict[str, object] = {"dataset_name": config.dataset_name}
+        # Apply fixed method-specific args (e.g. base_model_path)
+        for key, value in config.method_args:
+            tc[key] = value
+        # Apply swept parameters
+        tc.update(params)
+        trial_configs.append(tc)
+
+    data_root = client._config.data_root
+    cluster = load_cluster(data_root, args.cluster)
+    resources = ResourceConfig(
+        partition=getattr(args, "partition", ""),
+        gpus_per_node=getattr(args, "gpus_per_node", 1),
+        cpus_per_task=getattr(args, "cpus_per_task", 4),
+        memory=getattr(args, "memory", "32G"),
+        time_limit=getattr(args, "time_limit", "12:00:00"),
+        gpu_type=getattr(args, "gpu_type", ""),
+    )
+    spec = JobSpec(
+        job_type=config.training_method,
+        backend=cluster.backend,
+        cluster_name=args.cluster,
+        resources=resources,
+        is_sweep=True,
+        sweep_trials=tuple(trial_configs),
+    )
+    backend = get_backend(spec.backend)
+    record = backend.submit(data_root, spec)
+    print(
+        f"Submitted remote sweep {record.job_id} "
+        f"({len(trial_configs)} trials, state={record.state})",
+    )
     return 0
 
 

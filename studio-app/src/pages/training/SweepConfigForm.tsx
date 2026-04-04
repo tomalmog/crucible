@@ -1,6 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { useCrucible } from "../../context/CrucibleContext";
+import { useTrainingLocation } from "../../hooks/useTrainingLocation";
+import { startCrucibleCommand } from "../../api/studioApi";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
@@ -14,6 +17,10 @@ import {
   REQUIRED_METHOD_FIELDS,
 } from "../../types/training";
 import { sweepLabel } from "../../utils/jobLabels";
+import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSection";
+import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
+import { TrainingClusterContext } from "../../context/TrainingClusterContext";
+import type { TrainingClusterContextValue } from "../../context/TrainingClusterContext";
 import { Plus, Trash2 } from "lucide-react";
 
 interface SweepParam {
@@ -74,9 +81,10 @@ function parseBestModelPath(output: string): string | null {
 
 export function SweepConfigForm() {
   const { dataRoot, refreshModels } = useCrucible();
+  const navigate = useNavigate();
   const command = useCrucibleCommand();
   const registerCommand = useCrucibleCommand();
-  const [method, setMethod] = useState<TrainingMethod>("train");
+  const [method, setMethod] = useState<TrainingMethod>("sft");
   const [dataset, setDataset] = useState("");
   const [outputDir, setOutputDir] = useState("./outputs/sweep");
   const [strategy, setStrategy] = useState("grid");
@@ -90,6 +98,25 @@ export function SweepConfigForm() {
   const [results, setResults] = useState<string>("");
   const [modelName, setModelName] = useState("My-Model-0");
   const [registered, setRegistered] = useState(false);
+  const [remoteEnabled, setRemoteEnabled] = useState(false);
+  const [clusterConfig, setClusterConfig] = useState<ClusterSubmitConfig>(DEFAULT_CLUSTER_CONFIG);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Auto-detect remote model selection and open the remote panel
+  useTrainingLocation(method, methodArgs, setRemoteEnabled, setClusterConfig);
+
+  // Auto-detect remote dataset selection and open the remote panel
+  const handleDatasetLocationChanged = useCallback((isRemote: boolean, cluster: string) => {
+    setRemoteEnabled(isRemote);
+    if (isRemote) {
+      setClusterConfig((prev) => ({ ...prev, cluster }));
+    }
+  }, []);
+
+  const clusterContextValue = useMemo<TrainingClusterContextValue>(() => ({
+    cluster: remoteEnabled ? clusterConfig.cluster : "",
+    onDatasetLocationChanged: handleDatasetLocationChanged,
+  }), [remoteEnabled, clusterConfig.cluster, handleDatasetLocationChanged]);
 
   /** Get the required fields for the current method, excluding --dataset (handled separately). */
   const requiredMethodFields = useMemo(
@@ -115,6 +142,18 @@ export function SweepConfigForm() {
     setMethodArgs((prev) => ({ ...prev, [flag]: value }));
   }
 
+  /** Build the --method-args JSON string from filled required fields. */
+  function buildMethodArgsJson(): string | null {
+    if (requiredMethodFields.length === 0) return null;
+    const mArgs: Record<string, string> = {};
+    for (const flag of requiredMethodFields) {
+      const argName = flagToArgName(flag);
+      const value = methodArgs[flag];
+      if (value?.trim()) mArgs[argName] = value.trim();
+    }
+    return Object.keys(mArgs).length > 0 ? JSON.stringify(mArgs) : null;
+  }
+
   async function startSweep() {
     if (!dataRoot) return;
     const paramDefs = params.map((p) => ({
@@ -122,6 +161,36 @@ export function SweepConfigForm() {
       values: p.values.split(",").map((v) => parseFloat(v.trim())).filter((v) => !isNaN(v)),
     }));
     const paramsJson = JSON.stringify({ parameters: paramDefs });
+    const methodArgsJson = buildMethodArgsJson();
+
+    if (remoteEnabled) {
+      // Remote: route through `crucible sweep --cluster ...`
+      setSubmitting(true);
+      try {
+        const args = [
+          "sweep", "--dataset", dataset, "--output-dir", outputDir,
+          "--params", paramsJson, "--strategy", strategy,
+          "--max-trials", maxTrials, "--metric", metric,
+          "--method", method,
+          "--cluster", clusterConfig.cluster,
+        ];
+        if (maximize) args.push("--maximize");
+        if (clusterConfig.partition) args.push("--partition", clusterConfig.partition);
+        if (clusterConfig.gpusPerNode) args.push("--gpus-per-node", clusterConfig.gpusPerNode);
+        if (clusterConfig.gpuType) args.push("--gpu-type", clusterConfig.gpuType);
+        if (clusterConfig.cpusPerTask) args.push("--cpus-per-task", clusterConfig.cpusPerTask);
+        if (clusterConfig.memory) args.push("--memory", clusterConfig.memory);
+        if (clusterConfig.timeLimit) args.push("--time-limit", clusterConfig.timeLimit);
+        if (methodArgsJson) args.push("--method-args", methodArgsJson);
+        await startCrucibleCommand(dataRoot, args, sweepLabel(method, modelName));
+        navigate("/jobs", { state: { statusFilter: "running" } });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Local sweep
     const args = [
       "sweep", "--dataset", dataset, "--output-dir", outputDir,
       "--params", paramsJson, "--strategy", strategy,
@@ -129,20 +198,7 @@ export function SweepConfigForm() {
       "--method", method, "--json",
     ];
     if (maximize) args.push("--maximize");
-    // Build method-args JSON from filled required fields
-    if (requiredMethodFields.length > 0) {
-      const mArgs: Record<string, string> = {};
-      for (const flag of requiredMethodFields) {
-        const argName = flagToArgName(flag);
-        const value = methodArgs[flag];
-        if (value?.trim()) {
-          mArgs[argName] = value.trim();
-        }
-      }
-      if (Object.keys(mArgs).length > 0) {
-        args.push("--method-args", JSON.stringify(mArgs));
-      }
-    }
+    if (methodArgsJson) args.push("--method-args", methodArgsJson);
     setRegistered(false);
     const status = await command.run(dataRoot, args, sweepLabel(method, modelName));
     if (status.status === "completed" && status.stdout) {
@@ -173,6 +229,7 @@ export function SweepConfigForm() {
     );
     if (params.length > 0 && hasEmptyValues) m.push("parameter values");
     if (!metric.trim()) m.push("metric");
+    if (remoteEnabled && !clusterConfig.cluster) m.push("cluster");
     // Check required method-specific fields
     for (const flag of requiredMethodFields) {
       if (!(methodArgs[flag] ?? "").trim()) {
@@ -180,7 +237,7 @@ export function SweepConfigForm() {
       }
     }
     return m;
-  }, [dataset, outputDir, modelName, params, metric, requiredMethodFields, methodArgs]);
+  }, [dataset, outputDir, modelName, params, metric, remoteEnabled, clusterConfig.cluster, requiredMethodFields, methodArgs]);
 
   if (results) {
     return (
@@ -193,14 +250,16 @@ export function SweepConfigForm() {
   }
 
   return (
+    <TrainingClusterContext.Provider value={clusterContextValue}>
     <CommandFormPanel
       title="Hyperparameter Sweep"
       missing={missing}
-      isRunning={command.isRunning}
-      submitLabel="Start Sweep"
-      runningLabel="Running Sweep..."
+      isRunning={command.isRunning || submitting}
+      submitLabel={remoteEnabled ? "Submit to Cluster" : "Start Sweep"}
+      runningLabel={remoteEnabled ? "Submitting..." : "Running Sweep..."}
       onSubmit={() => startSweep().catch(console.error)}
       error={command.error}
+      className="has-remote-tab"
     >
       <FormField label="Training Method">
         <select
@@ -306,5 +365,13 @@ export function SweepConfigForm() {
         />
       </FormField>
     </CommandFormPanel>
+
+    <ClusterSubmitSection
+      enabled={remoteEnabled}
+      onToggle={setRemoteEnabled}
+      clusterConfig={clusterConfig}
+      onChange={setClusterConfig}
+    />
+    </TrainingClusterContext.Provider>
   );
 }

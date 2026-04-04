@@ -1448,8 +1448,12 @@ def run_sweep(
     output_dir: str = "",
     minimize: bool = True,
     random_seed: int = 42,
+    cluster_name: str = "",
 ) -> str:
     """Run a hyperparameter sweep across multiple training trials.
+
+    When cluster_name is provided the sweep is submitted to the remote
+    cluster as a Slurm job array instead of running locally.
 
     Args:
         method: Training method ID (sft, lora-train, dpo-train, etc.).
@@ -1464,10 +1468,13 @@ def run_sweep(
         output_dir: Base output directory for sweep results.
         minimize: True if lower metric values are better.
         random_seed: Seed for reproducible random sampling.
+        cluster_name: Remote cluster name. When set the sweep runs on the
+                      cluster instead of locally.
     """
     try:
         import tempfile
         from core.sweep_types import SweepConfig, SweepParameter
+        from serve.sweep_parameter_generator import generate_sweep_parameters
         from serve.sweep_runner import run_sweep as _run_sweep
         client = _get_client()
         if not output_dir:
@@ -1496,6 +1503,41 @@ def run_sweep(
             training_method=method,
             method_args=tuple(fixed_args.items()),
         )
+
+        # Remote sweep: generate parameter combos locally and dispatch
+        # to the cluster as a Slurm job array.
+        if cluster_name:
+            from core.backend_registry import get_backend
+            from core.job_types import JobSpec, ResourceConfig
+            from store.cluster_registry import load_cluster
+
+            param_combos = generate_sweep_parameters(config, random_seed)
+            trial_configs: list[dict[str, object]] = []
+            for combo in param_combos:
+                tc: dict[str, object] = {"dataset_name": dataset_name}
+                tc.update(fixed_args)
+                tc.update(combo)
+                trial_configs.append(tc)
+
+            data_root = _data_root()
+            cluster = load_cluster(data_root, cluster_name)
+            spec = JobSpec(
+                job_type=method,
+                backend=cluster.backend,
+                cluster_name=cluster_name,
+                resources=ResourceConfig(gpus_per_node=1),
+                is_sweep=True,
+                sweep_trials=tuple(trial_configs),
+            )
+            backend = get_backend(spec.backend)
+            record = backend.submit(data_root, spec)
+            return json.dumps({
+                "job_id": record.job_id,
+                "cluster": cluster_name,
+                "method": method,
+                "num_trials": len(trial_configs),
+                "state": record.state,
+            })
 
         def do_work():
             result = _run_sweep(client, config, random_seed)
