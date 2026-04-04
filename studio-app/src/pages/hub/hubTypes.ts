@@ -33,4 +33,5 @@ export interface HubDatasetDetail {
   gated: string | false;
   files: HubFileEntry[];
   total_size: number;
+  splits: string[];
 }

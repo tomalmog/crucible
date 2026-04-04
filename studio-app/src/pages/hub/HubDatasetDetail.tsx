@@ -141,6 +141,7 @@ export function HubDatasetDetail({ repoId, targetDir, onBack }: Props) {
           targetDir={targetDir}
           size={detail.total_size}
           kind="dataset"
+          splits={detail.splits}
           onComplete={() => refreshDatasets().catch(console.error)}
           onClose={() => setShowDownload(false)}
         />

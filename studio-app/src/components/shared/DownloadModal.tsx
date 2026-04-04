@@ -30,19 +30,44 @@ interface DownloadModalProps {
   targetDir: string;
   size?: number;
   kind?: DownloadKind;
+  splits?: string[];
   onComplete: () => void;
   onClose: () => void;
 }
 
-export function DownloadModal({ repoId, targetDir, size, kind = "model", onComplete, onClose }: DownloadModalProps) {
+export function DownloadModal({ repoId, targetDir, size, kind = "model", splits: splitsProp, onComplete, onClose }: DownloadModalProps) {
   const { dataRoot } = useCrucible();
   const cmd = useCrucibleCommand();
+  const splitInfoCmd = useCrucibleCommand();
   const [dest, setDest] = useState<Destination>("local");
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [cluster, setCluster] = useState("");
   const [registryName, setRegistryName] = useState("");
   const [dlStatus, setDlStatus] = useState<DownloadStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
+  const [availableSplits, setAvailableSplits] = useState<string[]>(splitsProp ?? []);
+  const [selectedSplit, setSelectedSplit] = useState(
+    splitsProp?.includes("train") ? "train" : splitsProp?.[0] ?? "train",
+  );
+
+  // Fetch splits if not provided (e.g. opening download from search results)
+  useEffect(() => {
+    if (kind !== "dataset" || splitsProp || !dataRoot) return;
+    splitInfoCmd.run(dataRoot, ["hub", "dataset-info", repoId, "--json"]).then((s) => {
+      if (s.status === "completed" && s.stdout) {
+        try {
+          const info = JSON.parse(s.stdout);
+          const fetched: string[] = info.splits ?? ["train"];
+          setAvailableSplits(fetched);
+          setSelectedSplit(fetched.includes("train") ? "train" : fetched[0]);
+        } catch { /* ignore parse errors */ }
+      }
+    }).catch(() => {});
+  }, [dataRoot, repoId, kind, splitsProp]);
+
+  useEffect(() => {
+    if (splitsProp) setAvailableSplits(splitsProp);
+  }, [splitsProp]);
 
   useEffect(() => {
     if (dataRoot) {
@@ -74,8 +99,9 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
         : [];
       const localCmd = kind === "model" ? "download-model" : "download-dataset";
       const remoteCmd = kind === "model" ? "download-model-remote" : "download-dataset-remote";
+      const splitArgs = kind === "dataset" ? ["--split", selectedSplit] : [];
       const args = dest === "local"
-        ? ["hub", localCmd, repoId, "--target-dir", targetDir, ...registerArgs]
+        ? ["hub", localCmd, repoId, "--target-dir", targetDir, ...splitArgs, ...registerArgs]
         : ["hub", remoteCmd, repoId, "--cluster", cluster, ...registerArgs];
 
       const status = await cmd.run(dataRoot, args);
@@ -159,6 +185,14 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", onCompl
                   placeholder={repoId}
                 />
               </label>
+              {kind === "dataset" && availableSplits.length > 0 && (
+                <label>
+                  <span>Split</span>
+                  <select value={selectedSplit} onChange={(e) => setSelectedSplit(e.target.value)}>
+                    {availableSplits.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
           )}
 

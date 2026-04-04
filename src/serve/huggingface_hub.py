@@ -331,6 +331,7 @@ def get_dataset_info(repo_id: str) -> dict[str, Any]:
         files.append({"filename": s.rfilename, "size": size})
         total_size += size
     card = getattr(info, "card_data", None)
+    splits = _fetch_dataset_splits(repo_id)
     return {
         "repo_id": info.id,
         "author": info.author or "",
@@ -344,6 +345,16 @@ def get_dataset_info(repo_id: str) -> dict[str, Any]:
         "gated": info.gated if info.gated else False,
         "files": files,
         "total_size": total_size,
+        "splits": splits,
     }
+
+
+def _fetch_dataset_splits(repo_id: str) -> list[str]:
+    """Fetch available splits for a dataset, best-effort."""
+    try:
+        import datasets as ds_lib
+        return list(ds_lib.get_dataset_split_names(repo_id))
+    except Exception:
+        return ["train"]
 
 
