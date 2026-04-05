@@ -128,8 +128,10 @@ export function CrucibleProvider({ children }: { children: ReactNode }) {
     if (!selectedDataset) return;
     let cancelled = false;
     (async () => {
-      const dashboardRow = await getDatasetDashboard(dataRoot, selectedDataset);
-      const sampleRows = await sampleRecords(dataRoot, selectedDataset, 0, 12);
+      const [dashboardRow, sampleRows] = await Promise.all([
+        getDatasetDashboard(dataRoot, selectedDataset),
+        sampleRecords(dataRoot, selectedDataset, 0, 12),
+      ]);
       if (cancelled) return;
       setDashboard(dashboardRow);
       setSamples(sampleRows);

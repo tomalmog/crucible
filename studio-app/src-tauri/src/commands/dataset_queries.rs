@@ -1,4 +1,8 @@
 //! Dataset query commands used by Studio panels.
+//!
+//! All record-reading functions use streaming `BufReader` to avoid loading
+//! entire JSONL files into memory. This keeps memory usage constant regardless
+//! of dataset size (100k+ records).
 
 use crate::commands::runtime_queries::resolve_data_root_path;
 use crate::models::{DatasetDashboard, RecordSample, SourceCount, TrainingHistory};
@@ -6,6 +10,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize)]
@@ -34,16 +40,17 @@ pub fn list_datasets(data_root: String) -> Result<Vec<DatasetEntry>, String> {
     Ok(entries)
 }
 
+/// Compute dashboard aggregates by streaming through the JSONL file line by
+/// line. Only one parsed record is held in memory at a time.
 #[tauri::command]
 pub fn get_dataset_dashboard(
     data_root: String,
     dataset_name: String,
 ) -> Result<DatasetDashboard, String> {
-    let records = read_records(&data_root, &dataset_name)?;
-    if records.is_empty() {
-        return Err("Dataset has no records".to_string());
-    }
-    let record_count = records.len() as u64;
+    let path = records_path(&data_root, &dataset_name);
+    let reader = open_records_reader(&path)?;
+
+    let mut record_count: u64 = 0;
     let mut language_counts: BTreeMap<String, u64> = BTreeMap::new();
     let mut source_counts: HashMap<String, u64> = HashMap::new();
     let mut quality_sum = 0.0;
@@ -53,7 +60,15 @@ pub fn get_dataset_dashboard(
     let mut min_tokens: u64 = u64::MAX;
     let mut max_tokens: u64 = 0;
     let mut field_names_set: BTreeMap<String, bool> = BTreeMap::new();
-    for record in &records {
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let record: Value = serde_json::from_str(&line)
+            .map_err(|e| format!("Failed to parse record json in {}: {e}", path.display()))?;
+
         let metadata = record
             .get("metadata")
             .and_then(Value::as_object)
@@ -84,7 +99,13 @@ pub fn get_dataset_dashboard(
                 }
             }
         }
+        record_count += 1;
     }
+
+    if record_count == 0 {
+        return Err("Dataset has no records".to_string());
+    }
+
     let average_quality = quality_sum / record_count as f64;
     let avg_token_length = token_sum / record_count;
     let field_names: Vec<String> = field_names_set.into_keys().collect();
@@ -109,6 +130,8 @@ pub fn get_dataset_dashboard(
     })
 }
 
+/// Read only the requested page of records by streaming through the file,
+/// skipping `offset` lines and parsing only `limit` lines.
 #[tauri::command]
 pub fn sample_records(
     data_root: String,
@@ -116,10 +139,28 @@ pub fn sample_records(
     offset: usize,
     limit: usize,
 ) -> Result<Vec<RecordSample>, String> {
-    let records = read_records(&data_root, &dataset_name)?;
+    let path = records_path(&data_root, &dataset_name);
+    let reader = open_records_reader(&path)?;
     let safe_limit = limit.min(200);
-    let mut samples: Vec<RecordSample> = Vec::new();
-    for record in records.iter().skip(offset).take(safe_limit) {
+    let mut samples: Vec<RecordSample> = Vec::with_capacity(safe_limit);
+    let mut skipped: usize = 0;
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        // Skip lines until we reach the offset
+        if skipped < offset {
+            skipped += 1;
+            continue;
+        }
+        // We have enough
+        if samples.len() >= safe_limit {
+            break;
+        }
+        let record: Value = serde_json::from_str(&line)
+            .map_err(|e| format!("Failed to parse record json in {}: {e}", path.display()))?;
         let record_object = record
             .as_object()
             .ok_or_else(|| "Record entry is not an object".to_string())?;
@@ -151,18 +192,29 @@ pub fn sample_records(
     Ok(samples)
 }
 
+/// Count non-empty lines by streaming through the file without loading it
+/// into memory.
 #[tauri::command]
 pub fn get_dataset_record_count(data_root: String, dataset_name: String) -> Result<u64, String> {
     let path = records_path(&data_root, &dataset_name);
-    let payload = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-    Ok(payload.lines().filter(|l| !l.trim().is_empty()).count() as u64)
+    let reader = open_records_reader(&path)?;
+    let mut count: u64 = 0;
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+        if !line.trim().is_empty() {
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
+/// Read only the first record to discover column names.
 #[tauri::command]
 pub fn dataset_columns(data_root: String, dataset_name: String) -> Result<Vec<String>, String> {
-    let records = read_records(&data_root, &dataset_name)?;
-    let first = records.first().ok_or_else(|| "Dataset is empty".to_string())?;
+    let path = records_path(&data_root, &dataset_name);
+    let reader = open_records_reader(&path)?;
+    let first = read_first_record(reader, &path)?;
+
     let mut cols = Vec::new();
     // Top-level string fields (e.g. "text")
     if let Some(obj) = first.as_object() {
@@ -206,6 +258,8 @@ pub fn delete_dataset(data_root: String, dataset_name: String) -> Result<(), Str
         .map_err(|e| format!("Failed to delete dataset '{}': {}", dataset_name, e))
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
 fn dataset_root(data_root: &str, dataset_name: &str) -> PathBuf {
     resolve_data_root_path(data_root).join("datasets").join(dataset_name)
 }
@@ -214,20 +268,24 @@ fn records_path(data_root: &str, dataset_name: &str) -> PathBuf {
     dataset_root(data_root, dataset_name).join("records.jsonl")
 }
 
-fn read_records(data_root: &str, dataset_name: &str) -> Result<Vec<Value>, String> {
-    let records_path = records_path(data_root, dataset_name);
-    let payload = fs::read_to_string(&records_path)
-        .map_err(|error| format!("Failed to read records {}: {error}", records_path.display()))?;
-    let mut rows = Vec::new();
-    for line in payload.lines() {
+/// Open a buffered reader for the records file.
+fn open_records_reader(path: &Path) -> Result<BufReader<File>, String> {
+    let file = File::open(path)
+        .map_err(|e| format!("Failed to open {}: {e}", path.display()))?;
+    Ok(BufReader::new(file))
+}
+
+/// Read and parse the first non-empty line from a JSONL reader.
+fn read_first_record(reader: BufReader<File>, path: &Path) -> Result<Value, String> {
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
         if line.trim().is_empty() {
             continue;
         }
-        let row = serde_json::from_str::<Value>(line)
-            .map_err(|error| format!("Failed to parse record json in {}: {error}", records_path.display()))?;
-        rows.push(row);
+        return serde_json::from_str(&line)
+            .map_err(|e| format!("Failed to parse record json in {}: {e}", path.display()));
     }
-    Ok(rows)
+    Err("Dataset is empty".to_string())
 }
 
 fn dataset_records_size(datasets_dir: &Path, name: &str) -> u64 {
