@@ -17,12 +17,12 @@ _KNOWN_DATASETS: dict[str, dict[str, str | None]] = {
     "winogrande": {"path": "allenai/winogrande", "name": "winogrande_xl", "split": "validation", "prompt_col": "sentence", "response_col": "option1"},
     "truthfulqa": {"path": "truthfulqa/truthful_qa", "name": "multiple_choice", "split": "validation", "prompt_col": "question", "response_col": "mc1_targets"},
     "gsm8k": {"path": "openai/gsm8k", "name": "main", "split": "test", "prompt_col": "question", "response_col": "answer"},
-    "math": {"path": "lighteval/MATH", "name": "all", "split": "test", "prompt_col": "problem", "response_col": "solution"},
+    "math": {"path": "EleutherAI/hendrycks_math", "name": "algebra", "split": "test", "prompt_col": "problem", "response_col": "solution"},
     "bbh": {"path": "lukaemon/bbh", "name": "boolean_expressions", "split": "test", "prompt_col": "input", "response_col": "target"},
     "humaneval": {"path": "openai/openai_humaneval", "name": None, "split": "test", "prompt_col": "prompt", "response_col": "canonical_solution"},
     "mbpp": {"path": "google-research-datasets/mbpp", "name": "full", "split": "test", "prompt_col": "text", "response_col": "code"},
     "boolq": {"path": "google/boolq", "name": None, "split": "validation", "prompt_col": "question", "response_col": "answer"},
-    "piqa": {"path": "ybisk/piqa", "name": None, "split": "validation", "prompt_col": "goal", "response_col": "sol1"},
+    "piqa": {"path": "piqa", "name": "plain_text", "split": "validation", "prompt_col": "goal", "response_col": "sol1"},
     "openbookqa": {"path": "allenai/openbookqa", "name": "main", "split": "test", "prompt_col": "question_stem", "response_col": "choices"},
 }
 

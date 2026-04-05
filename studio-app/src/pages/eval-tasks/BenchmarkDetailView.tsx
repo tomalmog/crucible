@@ -25,6 +25,60 @@ function truncate(text: string, max = 120): string {
   return text.length > max ? text.slice(0, max) + "\u2026" : text;
 }
 
+// ── HuggingFace Dataset Viewer API ──────────────────────────────────────
+// Fetches paginated rows directly from HF servers — no download, no Python
+// subprocess. ~200ms per page vs ~3-10s with load_dataset.
+
+interface HfViewerConfig {
+  dataset: string;
+  config: string;
+  split: string;
+  promptCol: string;
+  responseCol: string;
+}
+
+const HF_VIEWER_DATASETS: Record<string, HfViewerConfig> = {
+  mmlu:       { dataset: "cais/mmlu", config: "all", split: "test", promptCol: "question", responseCol: "choices" },
+  hellaswag:  { dataset: "Rowan/hellaswag", config: "default", split: "validation", promptCol: "ctx", responseCol: "endings" },
+  arc:        { dataset: "allenai/ai2_arc", config: "ARC-Challenge", split: "test", promptCol: "question", responseCol: "choices" },
+  arc_easy:   { dataset: "allenai/ai2_arc", config: "ARC-Easy", split: "test", promptCol: "question", responseCol: "choices" },
+  winogrande: { dataset: "allenai/winogrande", config: "winogrande_xl", split: "validation", promptCol: "sentence", responseCol: "option1" },
+  truthfulqa: { dataset: "truthfulqa/truthful_qa", config: "multiple_choice", split: "validation", promptCol: "question", responseCol: "mc1_targets" },
+  gsm8k:      { dataset: "openai/gsm8k", config: "main", split: "test", promptCol: "question", responseCol: "answer" },
+  math:       { dataset: "EleutherAI/hendrycks_math", config: "algebra", split: "test", promptCol: "problem", responseCol: "solution" },
+  bbh:        { dataset: "lukaemon/bbh", config: "boolean_expressions", split: "test", promptCol: "input", responseCol: "target" },
+  humaneval:  { dataset: "openai/openai_humaneval", config: "openai_humaneval", split: "test", promptCol: "prompt", responseCol: "canonical_solution" },
+  mbpp:       { dataset: "google-research-datasets/mbpp", config: "full", split: "test", promptCol: "text", responseCol: "code" },
+  boolq:      { dataset: "google/boolq", config: "default", split: "validation", promptCol: "question", responseCol: "answer" },
+  openbookqa: { dataset: "allenai/openbookqa", config: "main", split: "test", promptCol: "question_stem", responseCol: "choices" },
+};
+
+async function fetchFromHfViewer(
+  cfg: HfViewerConfig, offset: number, limit: number,
+): Promise<{ rows: { prompt: string; response: string }[]; total: number } | null> {
+  const url = `https://datasets-server.huggingface.co/rows?dataset=${encodeURIComponent(cfg.dataset)}&config=${encodeURIComponent(cfg.config)}&split=${encodeURIComponent(cfg.split)}&offset=${offset}&length=${limit}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.error || !data.rows) return null;
+    const rows = data.rows.map((r: { row: Record<string, unknown> }) => {
+      const raw = r.row;
+      const p = raw[cfg.promptCol] ?? "";
+      const resp = raw[cfg.responseCol] ?? "";
+      return {
+        prompt: typeof p === "string" ? p : JSON.stringify(p),
+        response: typeof resp === "string" ? resp : JSON.stringify(resp),
+      };
+    });
+    return { rows, total: data.num_rows_total ?? rows.length };
+  } catch {
+    return null;
+  }
+}
+
+// ── Component ───────────────────────────────────────────────────────────
+
 interface BenchmarkDetailViewProps {
   benchmark: BenchmarkEntry;
   onBack: () => void;
@@ -40,12 +94,25 @@ export function BenchmarkDetailView({ benchmark, onBack }: BenchmarkDetailViewPr
 
   const isCustom = benchmark.type === "custom";
   const dataPath = isCustom ? `${dataRoot}/benchmarks/${benchmark.name}/data.jsonl` : null;
+  const hfCfg = !isCustom ? HF_VIEWER_DATASETS[benchmark.name] : undefined;
 
   const fetchSamples = useCallback(async (pageNum: number) => {
     setLoading(true);
+    const offset = pageNum * PAGE_SIZE;
     try {
+      // Fast path: HF Dataset Viewer API (no subprocess, ~200ms)
+      if (hfCfg) {
+        const result = await fetchFromHfViewer(hfCfg, offset, PAGE_SIZE);
+        if (result && result.rows.length > 0) {
+          setSamples(result.rows.map((r, i) => ({ index: offset + i, prompt: r.prompt, response: r.response })));
+          setTotalCount(result.total);
+          return;
+        }
+        // Fall through to CLI subprocess if API failed
+      }
+
+      // Slow fallback: CLI subprocess (custom benchmarks or API unavailable)
       const { startCrucibleCommand, getCrucibleCommandStatus } = await import("../../api/studioApi");
-      const offset = pageNum * PAGE_SIZE;
       const args = ["benchmark-registry", "samples", "--name", benchmark.name, "--offset", String(offset), "--limit", String(PAGE_SIZE)];
       if (!isCustom) args.push("--builtin");
       const task = await startCrucibleCommand(dataRoot, args);
@@ -57,7 +124,6 @@ export function BenchmarkDetailView({ benchmark, onBack }: BenchmarkDetailViewPr
       if (status.status === "completed" && status.stdout.trim()) {
         const parsed = JSON.parse(status.stdout);
         const rows = parsed.rows ?? parsed;
-        // Use meta.json entry count for total; fall back to API total
         if (benchmark.entries > 0) setTotalCount(benchmark.entries);
         else if (parsed.total !== undefined) setTotalCount(parsed.total);
         setSamples(rows.map((r: { prompt: string; response: string }, i: number) => ({
@@ -71,7 +137,7 @@ export function BenchmarkDetailView({ benchmark, onBack }: BenchmarkDetailViewPr
     } finally {
       setLoading(false);
     }
-  }, [benchmark.name, dataRoot, isCustom]);
+  }, [benchmark.name, benchmark.entries, dataRoot, isCustom, hfCfg]);
 
   useEffect(() => {
     setPage(0);
