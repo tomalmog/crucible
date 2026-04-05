@@ -240,6 +240,56 @@ pub fn dataset_columns(data_root: String, dataset_name: String) -> Result<Vec<St
     Ok(cols)
 }
 
+// ── Benchmark registry (fast Rust reads, no Python) ─────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BenchmarkRegistryEntry {
+    pub name: String,
+    pub display_name: String,
+    #[serde(rename = "type")]
+    pub entry_type: String,
+    pub entries: u64,
+    pub description: String,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn list_benchmarks(data_root: String) -> Result<Vec<BenchmarkRegistryEntry>, String> {
+    let bench_dir = resolve_data_root_path(&data_root).join("benchmarks");
+    if !bench_dir.exists() || _is_dir_empty(&bench_dir) {
+        _seed_default_benchmarks(&bench_dir);
+    }
+    let mut entries = Vec::new();
+    let mut dirs: Vec<_> = fs::read_dir(&bench_dir)
+        .map_err(|e| format!("Failed to read benchmarks dir: {e}"))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .collect();
+    dirs.sort_by_key(|e| e.file_name());
+    for entry in dirs {
+        let meta_path = entry.path().join("meta.json");
+        if !meta_path.exists() {
+            continue;
+        }
+        let content = fs::read_to_string(&meta_path)
+            .map_err(|e| format!("Failed to read {}: {e}", meta_path.display()))?;
+        let meta: Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse {}: {e}", meta_path.display()))?;
+        entries.push(BenchmarkRegistryEntry {
+            name: meta["name"].as_str().unwrap_or("").to_string(),
+            display_name: meta.get("display_name").and_then(|v| v.as_str()).unwrap_or(
+                meta["name"].as_str().unwrap_or("")
+            ).to_string(),
+            entry_type: meta.get("type").and_then(|v| v.as_str()).unwrap_or("custom").to_string(),
+            entries: meta.get("entries").and_then(|v| v.as_u64()).unwrap_or(0),
+            description: meta.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            created_at: meta.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        });
+    }
+    Ok(entries)
+}
+
 #[tauri::command]
 pub fn load_training_history(history_path: String) -> Result<TrainingHistory, String> {
     let payload = fs::read_to_string(&history_path)
@@ -273,6 +323,38 @@ pub fn delete_dataset(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+fn _is_dir_empty(path: &Path) -> bool {
+    fs::read_dir(path).map(|mut d| d.next().is_none()).unwrap_or(true)
+}
+
+fn _seed_default_benchmarks(bench_dir: &Path) {
+    let defaults = [
+        ("mmlu", "MMLU", 14042, "Massive Multitask Language Understanding — 57 subjects from STEM to humanities."),
+        ("hellaswag", "HellaSwag", 10042, "Commonsense reasoning — choose the most plausible sentence continuation."),
+        ("arc", "ARC Challenge", 1172, "AI2 Reasoning Challenge (hard set) — grade-school science questions."),
+        ("arc_easy", "ARC Easy", 2376, "AI2 Reasoning Challenge (easy set) — simpler science questions."),
+        ("winogrande", "WinoGrande", 1267, "Pronoun resolution requiring commonsense reasoning."),
+        ("truthfulqa", "TruthfulQA", 817, "Tests whether models generate truthful answers to tricky questions."),
+        ("gsm8k", "GSM8K", 1319, "Grade school math word problems requiring multi-step reasoning."),
+        ("math", "MATH", 5000, "Competition-level mathematics from AMC, AIME, and Olympiad problems."),
+        ("bbh", "BBH", 6511, "Big-Bench Hard — 23 challenging reasoning tasks."),
+        ("humaneval", "HumanEval", 164, "Python code generation — complete functions and pass unit tests."),
+        ("mbpp", "MBPP", 500, "Mostly Basic Python Problems — simpler code generation tasks."),
+        ("boolq", "BoolQ", 3270, "Yes/no reading comprehension questions from Wikipedia passages."),
+        ("piqa", "PIQA", 1838, "Physical Intuition QA — commonsense about physical world interactions."),
+        ("openbookqa", "OpenBookQA", 500, "Science QA requiring reasoning with provided science facts."),
+    ];
+    let _ = fs::create_dir_all(bench_dir);
+    for (name, display, entries, desc) in defaults {
+        let entry_dir = bench_dir.join(name);
+        let _ = fs::create_dir_all(&entry_dir);
+        let meta = format!(
+            "{{\n  \"name\": \"{name}\",\n  \"display_name\": \"{display}\",\n  \"type\": \"lm-eval\",\n  \"entries\": {entries},\n  \"description\": \"{desc}\",\n  \"created_at\": \"\"\n}}"
+        );
+        let _ = fs::write(entry_dir.join("meta.json"), meta);
+    }
+}
 
 fn dataset_root(data_root: &str, dataset_name: &str) -> PathBuf {
     resolve_data_root_path(data_root).join("datasets").join(dataset_name)

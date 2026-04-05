@@ -485,6 +485,9 @@ label,
     font-family: var(--font-mono);
     color: var(--text);
     letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .stats-grid {
@@ -1849,6 +1852,18 @@ label,
     border-bottom: none;
 }
 
+.registry-table th:last-child,
+.registry-table td:last-child {
+    width: 48px;
+    text-align: right;
+    border-left: 1px solid var(--border-light);
+}
+
+.registry-table.equal-cols th,
+.registry-table.equal-cols td {
+    width: 50%;
+}
+
 .registry-table-name {
     font-weight: 500;
     color: var(--text);
@@ -1873,6 +1888,60 @@ label,
     background: var(--accent-muted);
     color: var(--accent-text);
     border: 1px solid var(--accent);
+}
+
+/* ─── Modal Tabs ─── */
+
+.modal-tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-tab {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition-fast);
+}
+
+.modal-tab:hover {
+    color: var(--text);
+}
+
+.modal-tab--active {
+    color: var(--accent-text);
+    border-bottom-color: var(--accent);
+}
+
+/* ─── Benchmark Search Results ─── */
+
+.benchmark-search-results {
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.benchmark-search-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.benchmark-search-row:last-child {
+    border-bottom: none;
+}
+
+.benchmark-search-row:hover {
+    background: var(--bg-hover);
 }
 
 /* ─── Shared utilities ─── */

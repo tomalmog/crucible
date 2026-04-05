@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,80 +12,94 @@ import { PageHeader } from "../../components/shared/PageHeader";
 import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
-import { CreateBenchmarkModal } from "./CreateBenchmarkModal";
+import { listBenchmarks as listBenchmarksApi } from "../../api/studioApi";
+import { AddBenchmarkModal } from "./AddBenchmarkModal";
+import { BenchmarkDetailView } from "./BenchmarkDetailView";
 
-// ── Benchmark data ───────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────
 
-interface BenchmarkEntry {
+export interface BenchmarkEntry {
   name: string;
   displayName: string;
-  type: "built-in" | "custom";
+  type: string;
   entries: number;
+  description: string;
   lastRun: string | null;
   bestScore: number | null;
 }
 
-const BUILT_IN: BenchmarkEntry[] = [
-  { name: "mmlu", displayName: "MMLU", type: "built-in", entries: 14042, lastRun: null, bestScore: null },
-  { name: "hellaswag", displayName: "HellaSwag", type: "built-in", entries: 10042, lastRun: null, bestScore: null },
-  { name: "arc", displayName: "ARC Challenge", type: "built-in", entries: 1172, lastRun: null, bestScore: null },
-  { name: "arc_easy", displayName: "ARC Easy", type: "built-in", entries: 2376, lastRun: null, bestScore: null },
-  { name: "winogrande", displayName: "WinoGrande", type: "built-in", entries: 1267, lastRun: null, bestScore: null },
-  { name: "truthfulqa", displayName: "TruthfulQA", type: "built-in", entries: 817, lastRun: null, bestScore: null },
-  { name: "gsm8k", displayName: "GSM8K", type: "built-in", entries: 1319, lastRun: null, bestScore: null },
-  { name: "math", displayName: "MATH", type: "built-in", entries: 5000, lastRun: null, bestScore: null },
-  { name: "bbh", displayName: "BBH", type: "built-in", entries: 6511, lastRun: null, bestScore: null },
-  { name: "humaneval", displayName: "HumanEval", type: "built-in", entries: 164, lastRun: null, bestScore: null },
-  { name: "mbpp", displayName: "MBPP", type: "built-in", entries: 500, lastRun: null, bestScore: null },
-  { name: "boolq", displayName: "BoolQ", type: "built-in", entries: 3270, lastRun: null, bestScore: null },
-  { name: "piqa", displayName: "PIQA", type: "built-in", entries: 1838, lastRun: null, bestScore: null },
-  { name: "openbookqa", displayName: "OpenBookQA", type: "built-in", entries: 500, lastRun: null, bestScore: null },
-];
-
 // ── Component ────────────────────────────────────────────────────────
 
-type TypeFilter = "all" | "built-in" | "custom";
+type TypeFilter = "all" | "lm-eval" | "custom";
 
 export function EvalTasksPage() {
   const { dataRoot } = useCrucible();
-  const listCmd = useCrucibleCommand();
   const deleteCmd = useCrucibleCommand();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [showCreate, setShowCreate] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [customBenchmarks, setCustomBenchmarks] = useState<BenchmarkEntry[]>([]);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkEntry[]>([]);
+  const [selectedBenchmark, setSelectedBenchmark] = useState<BenchmarkEntry | null>(null);
 
-  const loadCustom = useCallback(async () => {
-    if (!dataRoot) return;
-    const result = await listCmd.run(dataRoot, ["benchmark-registry", "list", "--json"]);
-    if (result.status === "completed" && result.stdout.trim()) {
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  // Poll for entry count updates after adding a benchmark
+  const startPolling = useCallback(() => {
+    stopPolling();
+    let ticks = 0;
+    pollRef.current = setInterval(async () => {
+      ticks += 1;
+      if (ticks > 15) { stopPolling(); return; } // stop after 30s
       try {
-        const items = JSON.parse(result.stdout);
-        setCustomBenchmarks(
-          items.map((b: { name: string; entries: number; created_at: string }) => ({
-            name: b.name,
-            displayName: b.name,
-            type: "custom" as const,
-            entries: b.entries,
-            lastRun: null,
-            bestScore: null,
-          })),
-        );
-      } catch {
-        // stdout might not be JSON (e.g. "No custom benchmarks.")
-        setCustomBenchmarks([]);
-      }
+        const items = await listBenchmarksApi(dataRoot);
+        const hasZero = items.some((b) => b.type === "lm-eval" && b.entries === 0);
+        setBenchmarks(items.map((b) => ({
+          name: b.name, displayName: b.displayName, type: b.type,
+          entries: b.entries, description: b.description,
+          lastRun: null, bestScore: null,
+        })));
+        if (!hasZero) stopPolling();
+      } catch { /* ignore */ }
+    }, 2000);
+  }, [dataRoot, stopPolling]);
+
+  useEffect(() => stopPolling, [stopPolling]);
+
+  const loadBenchmarks = useCallback(async () => {
+    if (!dataRoot) return;
+    try {
+      const items = await listBenchmarksApi(dataRoot);
+      setBenchmarks(
+        items.map((b) => ({
+          name: b.name,
+          displayName: b.displayName,
+          type: b.type,
+          entries: b.entries,
+          description: b.description,
+          lastRun: null,
+          bestScore: null,
+        })),
+      );
+    } catch {
+      setBenchmarks([]);
     }
   }, [dataRoot]);
 
   useEffect(() => {
-    loadCustom().catch(console.error);
-  }, [loadCustom]);
+    loadBenchmarks().catch(console.error);
+  }, [loadBenchmarks]);
 
   const data = useMemo(() => {
-    let rows = [...BUILT_IN, ...customBenchmarks];
+    let rows = benchmarks;
     if (typeFilter !== "all") {
       rows = rows.filter((r) => r.type === typeFilter);
     }
@@ -94,13 +108,14 @@ export function EvalTasksPage() {
       rows = rows.filter((r) => r.displayName.toLowerCase().includes(q) || r.name.includes(q));
     }
     return rows;
-  }, [search, typeFilter, customBenchmarks]);
+  }, [search, typeFilter, benchmarks]);
 
   async function handleDelete() {
     if (!pendingDelete || !dataRoot) return;
     await deleteCmd.run(dataRoot, ["benchmark-registry", "delete", "--name", pendingDelete]);
     setPendingDelete(null);
-    await loadCustom();
+    if (selectedBenchmark?.name === pendingDelete) setSelectedBenchmark(null);
+    await loadBenchmarks();
   }
 
   const columns = useMemo(() => {
@@ -116,7 +131,10 @@ export function EvalTasksPage() {
       }),
       c.accessor("entries", {
         header: "Entries",
-        cell: (info) => info.getValue().toLocaleString(),
+        cell: (info) => {
+          const v = info.getValue();
+          return v > 0 ? v.toLocaleString() : <span className="text-muted">&mdash;</span>;
+        },
       }),
       c.accessor("lastRun", {
         header: "Last Run",
@@ -134,19 +152,15 @@ export function EvalTasksPage() {
       c.display({
         id: "actions",
         header: "",
-        cell: (info) => {
-          const row = info.row.original;
-          if (row.type !== "custom") return null;
-          return (
-            <button
-              className="btn btn-ghost btn-sm btn-icon"
-              title="Delete benchmark"
-              onClick={(e) => { e.stopPropagation(); setPendingDelete(row.name); }}
-            >
-              <Trash2 size={14} />
-            </button>
-          );
-        },
+        cell: (info) => (
+          <button
+            className="btn btn-ghost btn-sm btn-icon"
+            title="Delete benchmark"
+            onClick={(e) => { e.stopPropagation(); setPendingDelete(info.row.original.name); }}
+          >
+            <Trash2 size={14} />
+          </button>
+        ),
       }),
     ];
   }, []);
@@ -159,6 +173,19 @@ export function EvalTasksPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
+
+  // ── Detail view ──────────────────────────────────────────────────
+
+  if (selectedBenchmark) {
+    return (
+      <BenchmarkDetailView
+        benchmark={selectedBenchmark}
+        onBack={() => setSelectedBenchmark(null)}
+      />
+    );
+  }
+
+  // ── List view ────────────────────────────────────────────────────
 
   return (
     <>
@@ -174,18 +201,18 @@ export function EvalTasksPage() {
           />
         </div>
         <div className="registry-filters">
-          {(["all", "built-in", "custom"] as const).map((f) => (
+          {(["all", "lm-eval", "custom"] as const).map((f) => (
             <button
               key={f}
               className={`registry-filter-chip ${typeFilter === f ? "registry-filter-chip--active" : ""}`}
               onClick={() => setTypeFilter(f)}
             >
-              {f === "all" ? "All" : f === "built-in" ? "Built-in" : "Custom"}
+              {f === "all" ? "All" : f === "lm-eval" ? "lm-eval" : "Custom"}
             </button>
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <button className="btn" onClick={() => setShowCreate(true)}>
+        <button className="btn" onClick={() => setShowAdd(true)}>
           <Plus size={14} /> New Benchmark
         </button>
       </div>
@@ -215,7 +242,11 @@ export function EvalTasksPage() {
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
+              <tr
+                key={row.id}
+                onClick={() => setSelectedBenchmark(row.original)}
+                style={{ cursor: "pointer" }}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -227,10 +258,10 @@ export function EvalTasksPage() {
         </table>
       </div>
 
-      {showCreate && (
-        <CreateBenchmarkModal
-          onCreated={() => { setShowCreate(false); loadCustom().catch(console.error); }}
-          onClose={() => setShowCreate(false)}
+      {showAdd && (
+        <AddBenchmarkModal
+          onAdded={() => { setShowAdd(false); loadBenchmarks().catch(console.error); startPolling(); }}
+          onClose={() => setShowAdd(false)}
         />
       )}
 
@@ -238,7 +269,7 @@ export function EvalTasksPage() {
         <ConfirmDeleteModal
           title="Delete Benchmark"
           itemName={pendingDelete}
-          description="This will permanently remove this custom benchmark."
+          description="This will remove this benchmark from your registry."
           isDeleting={deleteCmd.isRunning}
           onConfirm={() => handleDelete().catch(console.error)}
           onCancel={() => setPendingDelete(null)}

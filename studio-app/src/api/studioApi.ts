@@ -65,6 +65,19 @@ export async function getDatasetRecordCount(
   return invoke<number>("get_dataset_record_count", { dataRoot, datasetName });
 }
 
+export interface BenchmarkRegistryEntry {
+  name: string;
+  displayName: string;
+  type: string;
+  entries: number;
+  description: string;
+  createdAt: string;
+}
+
+export async function listBenchmarks(dataRoot: string): Promise<BenchmarkRegistryEntry[]> {
+  return invoke<BenchmarkRegistryEntry[]>("list_benchmarks", { dataRoot });
+}
+
 export async function startCrucibleCommand(
   dataRoot: string,
   args: string[],
