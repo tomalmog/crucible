@@ -110,6 +110,11 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
               {msg.scriptUpdated && (
                 <div className="agent-tool-badge">Updated training script</div>
               )}
+              {msg.navigatedTo && (
+                <div className="agent-tool-badge">
+                  Navigated to {msg.navigatedTo}
+                </div>
+              )}
             </article>
           ))}
           {isLoading && (

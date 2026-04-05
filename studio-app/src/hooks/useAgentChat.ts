@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useCrucible } from "../context/CrucibleContext";
 import { useScript } from "../context/ScriptContext";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
@@ -17,6 +17,7 @@ export interface AgentMessage {
   content: string;
   toolsUsed?: string[];
   scriptUpdated?: boolean;
+  navigatedTo?: string;
 }
 
 export interface UseAgentChatReturn {
@@ -59,6 +60,7 @@ async function runAgentCommand(
 export function useAgentChat(): UseAgentChatReturn {
   const { dataRoot, models, datasets, selectedModel, selectedDataset } = useCrucible();
   const location = useLocation();
+  const navigate = useNavigate();
   const { registration: scriptReg } = useScript();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -125,6 +127,10 @@ export function useAgentChat(): UseAgentChatReturn {
         if (didUpdateScript) {
           scriptReg!.setContent(res.script_update as string);
         }
+        const navigatedTo = res.navigate_to as string | undefined;
+        if (navigatedTo) {
+          navigate(navigatedTo);
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -132,6 +138,7 @@ export function useAgentChat(): UseAgentChatReturn {
             content: res.content as string,
             toolsUsed: toolsUsed?.length ? toolsUsed : undefined,
             scriptUpdated: didUpdateScript || undefined,
+            navigatedTo: navigatedTo || undefined,
           },
         ]);
       }

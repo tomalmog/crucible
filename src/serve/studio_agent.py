@@ -163,7 +163,45 @@ edit their training script (shown in "Current Training Script" below).
 - If the user asks you to edit the script but the Code tab is NOT open
   (no "Current Training Script" section below), tell them to switch to the
   Code tab in the training wizard so you can see and edit the script.
+
+## Page Navigation
+You can navigate the user to any Studio page by including a <navigate_to> tag in your
+response. The user will see the page change and a badge in the chat confirming it.
+
+Valid routes:
+/dashboard (Dashboard), /training (Training), /benchmarks (Eval),
+/interpretability (Interpretability), /datasets (Datasets), /models (Models),
+/eval-tasks (Benchmarks), /chat (Chat), /compare-chat (A/B Compare),
+/hub (Hub), /export (Export), /jobs (Jobs), /clusters (Clusters),
+/resources (Resources), /docs (Docs), /settings (Settings)
+
+Usage: include <navigate_to>/route</navigate_to> anywhere in your response.
+- Navigate when the user asks to go somewhere ("show me my models", "go to jobs").
+- Navigate after completing actions where the result lives on another page
+  (e.g. after submitting a training job, navigate to /jobs).
+- Always include useful text alongside the navigation — don't just navigate silently.
+- Only use exact routes from the list above. Never invent routes.
+- Only include one <navigate_to> tag per response.
 """
+
+_VALID_ROUTES: dict[str, str] = {
+    "/dashboard": "Dashboard",
+    "/training": "Training",
+    "/benchmarks": "Eval",
+    "/interpretability": "Interpretability",
+    "/datasets": "Datasets",
+    "/models": "Models",
+    "/eval-tasks": "Benchmarks",
+    "/chat": "Chat",
+    "/compare-chat": "A/B Compare",
+    "/hub": "Hub",
+    "/export": "Export",
+    "/jobs": "Jobs",
+    "/clusters": "Clusters",
+    "/resources": "Resources",
+    "/docs": "Docs",
+    "/settings": "Settings",
+}
 
 
 def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
@@ -316,6 +354,19 @@ def run_agent_turn(
             r"<script_update>.*?</script_update>", "", full_text, flags=re.DOTALL,
         ).strip()
 
+    # Extract navigate_to if the agent returned one
+    navigate_to = None
+    nav_match = re.search(
+        r"<navigate_to>(.*?)</navigate_to>", full_text, re.DOTALL,
+    )
+    if nav_match:
+        route = nav_match.group(1).strip()
+        if route in _VALID_ROUTES:
+            navigate_to = route
+        full_text = re.sub(
+            r"<navigate_to>.*?</navigate_to>", "", full_text, flags=re.DOTALL,
+        ).strip()
+
     result: dict[str, Any] = {
         "role": "assistant",
         "content": full_text,
@@ -323,6 +374,8 @@ def run_agent_turn(
     }
     if script_update:
         result["script_update"] = script_update
+    if navigate_to:
+        result["navigate_to"] = navigate_to
     return result
 
 
