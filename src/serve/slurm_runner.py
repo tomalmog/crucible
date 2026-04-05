@@ -162,6 +162,16 @@ class SlurmRunner:
         from store.remote_job_store import load_remote_job
 
         record = load_job(data_root, job_id)
+
+        # Jobs that failed during submission never received a remote
+        # job ID — return the stored error instead of crashing.
+        if record.state == "failed" and not record.backend_job_id:
+            return {
+                "job_id": job_id,
+                "state": "failed",
+                "error": record.error_message or record.submit_phase or "Submission failed",
+            }
+
         legacy_id = self._find_legacy_id(data_root, record)
         remote_record = load_remote_job(data_root, legacy_id)
         cluster = load_cluster(data_root, remote_record.cluster_name)

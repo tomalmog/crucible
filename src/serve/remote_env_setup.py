@@ -22,8 +22,12 @@ ENV_NAME = "crucible"
 _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
     "transformers", "accelerate", "safetensors", "datasets",
-    "trl", "peft", "bitsandbytes", "lm-eval",
+    "trl", "peft", "bitsandbytes",
 )
+# Extra packages only needed for eval jobs.  Installed on demand via
+# ``ensure_eval_packages`` to avoid dependency conflicts with the base
+# training stack.
+_EVAL_PACKAGES = ("lm-eval",)
 # Mapping from pip package name to Python import name when they differ.
 _IMPORT_NAMES: dict[str, str] = {
     "pyyaml": "yaml",
@@ -100,6 +104,40 @@ def ensure_remote_env(session: SshSession) -> None:
         _remove_env(session)
         _create_env(session)
     print("CRUCIBLE_ENV_SETUP: crucible conda env ready.", flush=True)
+
+
+def ensure_eval_packages(session: SshSession) -> None:
+    """Install eval-only packages (``lm-eval``) into the crucible env.
+
+    Called by the eval submission path after the base env is ready.
+    Separated from the base install because ``lm-eval`` has heavy
+    dependency requirements that can conflict with training packages
+    when installed together via ``--only-binary :all:``.
+    """
+    def _import_name(pkg: str) -> str:
+        clean = pkg.split("<")[0].split(">")[0].strip()
+        return _IMPORT_NAMES.get(clean, clean)
+
+    imports = " ".join(
+        f"__import__('{_import_name(p)}')" for p in _EVAL_PACKAGES
+    )
+    _, _, code = session.execute(
+        conda_cmd(
+            f'conda run -n {ENV_NAME} python -c "{imports}"'
+        ),
+        timeout=60,
+    )
+    if code == 0:
+        return
+    print("CRUCIBLE_ENV_SETUP: installing eval packages...", flush=True)
+    pip_list = " ".join(f"'{p}'" for p in _EVAL_PACKAGES)
+    _, stderr, code = session.execute(
+        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
+        timeout=600,
+    )
+    if code != 0:
+        raise CrucibleRemoteError(f"eval package install failed: {stderr.strip()}")
+    print("CRUCIBLE_ENV_SETUP: eval packages ready.", flush=True)
 
 
 def reset_remote_env(session: SshSession) -> None:

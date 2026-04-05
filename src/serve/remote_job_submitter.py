@@ -284,6 +284,8 @@ def submit_remote_eval_job(
             session.mkdir_p(workdir)
             _update_phase(data_root, job_id, "Provisioning environment...")
             ensure_remote_env(session)
+            from serve.remote_env_setup import ensure_eval_packages
+            ensure_eval_packages(session)
             _update_phase(data_root, job_id, "Uploading eval bundle...")
             _upload_bundle(session, tarball, workdir)
             _upload_config(session, config_payload, workdir)
