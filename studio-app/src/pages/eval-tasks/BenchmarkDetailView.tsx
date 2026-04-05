@@ -57,7 +57,9 @@ export function BenchmarkDetailView({ benchmark, onBack }: BenchmarkDetailViewPr
       if (status.status === "completed" && status.stdout.trim()) {
         const parsed = JSON.parse(status.stdout);
         const rows = parsed.rows ?? parsed;
-        if (parsed.total !== undefined) setTotalCount(parsed.total);
+        // Use meta.json entry count for total; fall back to API total
+        if (benchmark.entries > 0) setTotalCount(benchmark.entries);
+        else if (parsed.total !== undefined) setTotalCount(parsed.total);
         setSamples(rows.map((r: { prompt: string; response: string }, i: number) => ({
           index: offset + i,
           prompt: r.prompt,

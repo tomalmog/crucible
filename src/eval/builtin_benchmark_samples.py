@@ -1,84 +1,153 @@
-"""Load sample entries from any lm-eval benchmark via HuggingFace datasets."""
+"""Load sample entries from lm-eval benchmarks via HuggingFace datasets.
+
+Bypasses lm-eval's TaskManager for speed — loads directly from HF
+datasets using stored dataset paths. Falls back to TaskManager for
+unknown tasks.
+"""
 
 from __future__ import annotations
+
+# Known dataset configs for fast direct loading.
+# Maps our benchmark name → HF dataset load args + column names.
+_KNOWN_DATASETS: dict[str, dict[str, str | None]] = {
+    "mmlu": {"path": "cais/mmlu", "name": "all", "split": "test", "prompt_col": "question", "response_col": "choices"},
+    "hellaswag": {"path": "Rowan/hellaswag", "name": None, "split": "validation", "prompt_col": "ctx", "response_col": "endings"},
+    "arc": {"path": "allenai/ai2_arc", "name": "ARC-Challenge", "split": "test", "prompt_col": "question", "response_col": "choices"},
+    "arc_easy": {"path": "allenai/ai2_arc", "name": "ARC-Easy", "split": "test", "prompt_col": "question", "response_col": "choices"},
+    "winogrande": {"path": "allenai/winogrande", "name": "winogrande_xl", "split": "validation", "prompt_col": "sentence", "response_col": "option1"},
+    "truthfulqa": {"path": "truthfulqa/truthful_qa", "name": "multiple_choice", "split": "validation", "prompt_col": "question", "response_col": "mc1_targets"},
+    "gsm8k": {"path": "openai/gsm8k", "name": "main", "split": "test", "prompt_col": "question", "response_col": "answer"},
+    "math": {"path": "lighteval/MATH", "name": "all", "split": "test", "prompt_col": "problem", "response_col": "solution"},
+    "bbh": {"path": "lukaemon/bbh", "name": "boolean_expressions", "split": "test", "prompt_col": "input", "response_col": "target"},
+    "humaneval": {"path": "openai/openai_humaneval", "name": None, "split": "test", "prompt_col": "prompt", "response_col": "canonical_solution"},
+    "mbpp": {"path": "google-research-datasets/mbpp", "name": "full", "split": "test", "prompt_col": "text", "response_col": "code"},
+    "boolq": {"path": "google/boolq", "name": None, "split": "validation", "prompt_col": "question", "response_col": "answer"},
+    "piqa": {"path": "ybisk/piqa", "name": None, "split": "validation", "prompt_col": "goal", "response_col": "sol1"},
+    "openbookqa": {"path": "allenai/openbookqa", "name": "main", "split": "test", "prompt_col": "question_stem", "response_col": "choices"},
+}
 
 
 def sample_builtin_benchmark(
     name: str, offset: int = 0, limit: int = 25,
 ) -> dict:
-    """Load samples from any lm-eval task.
+    """Load a page of samples from an lm-eval benchmark.
 
-    Uses the task object's own dataset and doc_to_text/doc_to_target
-    to extract prompt/response pairs. Returns ``{"rows": [...], "total": N}``.
+    Uses direct HuggingFace dataset loading for known benchmarks (fast),
+    falls back to lm-eval TaskManager for unknown ones.
     """
+    from eval.benchmark_runner import _TASK_NAME_MAP
+    task_name = _TASK_NAME_MAP.get(name, name)
+
+    # Fast path: known datasets — load directly from HF
+    info = _KNOWN_DATASETS.get(name)
+    if info:
+        return _load_direct(info, offset, limit)
+
+    # Slow fallback: use lm-eval TaskManager
+    return _load_via_task_manager(task_name, offset, limit)
+
+
+def _load_direct(
+    info: dict[str, str | None], offset: int, limit: int,
+) -> dict:
+    """Load samples directly from HuggingFace datasets (fast path)."""
+    try:
+        from datasets import load_dataset  # type: ignore[import-untyped]
+        kwargs: dict = {"path": info["path"], "split": info["split"]}
+        if info.get("name"):
+            kwargs["name"] = info["name"]
+        ds = load_dataset(**kwargs)
+    except Exception as exc:
+        return {"rows": [], "total": 0, "error": str(exc)}
+
+    total = len(ds)
+    prompt_col = info.get("prompt_col", "question")
+    response_col = info.get("response_col", "answer")
+
+    rows = []
+    end = min(offset + limit, total)
+    for i in range(offset, end):
+        row = ds[i]
+        p = row.get(prompt_col, "")
+        r = row.get(response_col, "")
+        rows.append({
+            "prompt": str(p) if not isinstance(p, str) else p,
+            "response": str(r) if not isinstance(r, str) else r,
+        })
+
+    return {"rows": rows, "total": total}
+
+
+def _load_via_task_manager(
+    task_name: str, offset: int, limit: int,
+) -> dict:
+    """Load samples via lm-eval TaskManager (slow fallback)."""
     try:
         from lm_eval.tasks import TaskManager
-        from eval.benchmark_runner import _TASK_NAME_MAP
-        task_name = _TASK_NAME_MAP.get(name, name)
         tm = TaskManager()
         task_dict = tm.load_task_or_group(task_name)
     except Exception as exc:
         return {"rows": [], "total": 0, "error": str(exc)}
 
-    # Collect all task objects (flatten groups)
-    tasks = _collect_all_tasks(task_dict)
-    if not tasks:
+    task_obj = _find_first_task(task_dict)
+    if task_obj is None:
         return {"rows": [], "total": 0}
 
-    # Gather all docs across all subtasks with their parent task reference
-    all_docs: list[tuple[object, dict]] = []
-    for task_obj in tasks:
-        for doc in _get_eval_docs(task_obj):
-            all_docs.append((task_obj, doc))
+    rows: list[dict[str, str]] = []
+    skipped = 0
+    for doc in _iter_eval_docs(task_obj):
+        if skipped < offset:
+            skipped += 1
+            continue
+        if len(rows) >= limit:
+            break
+        rows.append({
+            "prompt": _extract_prompt(task_obj, doc),
+            "response": _extract_target(task_obj, doc),
+        })
 
-    total = len(all_docs)
-    rows = []
-    end = min(offset + limit, total)
-    for i in range(offset, end):
-        task_obj, doc = all_docs[i]
-        prompt = _extract_prompt(task_obj, doc)
-        response = _extract_target(task_obj, doc)
-        rows.append({"prompt": prompt, "response": response})
+    # Get total from dataset metadata
+    total = skipped + len(rows)
+    ds = getattr(task_obj, "dataset", None)
+    if ds is not None:
+        cfg = task_obj.config
+        split = cfg.test_split or cfg.validation_split
+        if split and split in ds:
+            total = ds[split].num_rows
 
     return {"rows": rows, "total": total}
 
 
-def _collect_all_tasks(task_dict: dict) -> list:
-    """Recursively collect all task objects from a task dict, flattening groups."""
-    tasks: list = []
+def _find_first_task(task_dict: dict) -> object | None:
     for _, val in task_dict.items():
         if isinstance(val, dict):
-            tasks.extend(_collect_all_tasks(val))
+            result = _find_first_task(val)
+            if result is not None:
+                return result
         elif hasattr(val, "has_test_docs") or hasattr(val, "has_validation_docs"):
-            tasks.append(val)
-    return tasks
+            return val
+    return None
 
 
-def _get_eval_docs(task_obj: object) -> list:
-    """Get the evaluation documents from a task."""
+def _iter_eval_docs(task_obj: object):
     if hasattr(task_obj, "has_test_docs") and task_obj.has_test_docs():
-        return list(task_obj.test_docs())
-    if hasattr(task_obj, "has_validation_docs") and task_obj.has_validation_docs():
-        return list(task_obj.validation_docs())
-    return []
+        yield from task_obj.test_docs()
+    elif hasattr(task_obj, "has_validation_docs") and task_obj.has_validation_docs():
+        yield from task_obj.validation_docs()
 
 
 def _extract_prompt(task_obj: object, doc: dict) -> str:
-    """Extract the prompt text from a document using the task's doc_to_text."""
     try:
         text = task_obj.doc_to_text(doc)
         return str(text) if text is not None else ""
     except Exception:
-        # Fallback: try common field names
         for key in ("question", "prompt", "input", "ctx", "sentence", "goal", "problem", "text"):
-            if key in doc:
-                val = doc[key]
-                return str(val) if not isinstance(val, str) else val
+            if key in doc and isinstance(doc[key], str):
+                return doc[key]
         return str(doc)[:200]
 
 
 def _extract_target(task_obj: object, doc: dict) -> str:
-    """Extract the target/answer from a document using the task's doc_to_target."""
     try:
         target = task_obj.doc_to_target(doc)
         if isinstance(target, (list, tuple)):
@@ -87,6 +156,5 @@ def _extract_target(task_obj: object, doc: dict) -> str:
     except Exception:
         for key in ("answer", "response", "output", "target", "solution", "label"):
             if key in doc:
-                val = doc[key]
-                return str(val) if not isinstance(val, str) else val
+                return str(doc[key])
         return ""
