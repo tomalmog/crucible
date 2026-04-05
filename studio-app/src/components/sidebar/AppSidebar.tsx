@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
+import { SidebarSection } from "./SidebarSection";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
   Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, PackageOpen,
-  LayoutDashboard, Bot,
+  LayoutDashboard, Bot, ClipboardList,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -105,23 +106,30 @@ export function AppSidebar() {
       <nav className="sidebar-nav">
         <SidebarNavItem to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" />
 
-        <span className="sidebar-section-label">Workspace</span>
-        <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
-        <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
-        <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
-        <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Benchmarks" />
-        <SidebarNavItem to="/interpretability" icon={<Microscope size={16} />} label="Interpretability" />
+        <SidebarSection label="Workspace">
+          <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
+          <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Eval" />
+          <SidebarNavItem to="/interpretability" icon={<Microscope size={16} />} label="Interpretability" />
+        </SidebarSection>
 
-        <span className="sidebar-section-label">Tools</span>
-        <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
-        <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
-        <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
-        <SidebarNavItem to="/export" icon={<PackageOpen size={16} />} label="Export" />
+        <SidebarSection label="Registries">
+          <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
+          <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
+          <SidebarNavItem to="/eval-tasks" icon={<ClipboardList size={16} />} label="Benchmarks" />
+        </SidebarSection>
 
-        <span className="sidebar-section-label">Operations</span>
-        <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
-        <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
-        <SidebarNavItem to="/resources" icon={<HardDrive size={16} />} label="Resources" />
+        <SidebarSection label="Tools">
+          <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
+          <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
+          <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
+          <SidebarNavItem to="/export" icon={<PackageOpen size={16} />} label="Export" />
+        </SidebarSection>
+
+        <SidebarSection label="Operations">
+          <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
+          <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
+          <SidebarNavItem to="/resources" icon={<HardDrive size={16} />} label="Resources" />
+        </SidebarSection>
 
         <div className="spacer" />
 
