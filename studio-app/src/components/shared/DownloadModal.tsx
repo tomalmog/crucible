@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { Download, Check, Loader, Server, Monitor, X } from "lucide-react";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
+import { startCrucibleCommand } from "../../api/studioApi";
 import { listClusters } from "../../api/remoteApi";
 import type { ClusterConfig } from "../../types/remote";
 import { formatBytes } from "../../pages/hub/hubUtils";
@@ -37,6 +39,7 @@ interface DownloadModalProps {
 
 export function DownloadModal({ repoId, targetDir, size, kind = "model", splits: splitsProp, onComplete, onClose }: DownloadModalProps) {
   const { dataRoot } = useCrucible();
+  const navigate = useNavigate();
   const cmd = useCrucibleCommand();
   const splitInfoCmd = useCrucibleCommand();
   const [dest, setDest] = useState<Destination>("local");
@@ -96,50 +99,48 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
 
   const handleDownload = useCallback(async () => {
     if (!dataRoot) return;
-    setDlStatus("downloading");
-    setStatusMsg(dest === "local" ? "Downloading..." : "Connecting to cluster...");
     try {
-      const nameFlag = kind === "model" ? "--model-name" : "--dataset-name";
       const effectiveName = registryName.trim() || repoId;
-      const registerArgs = dest === "local" || kind === "model"
-        ? ["--register", nameFlag, effectiveName]
-        : [];
-      const localCmd = kind === "model" ? "download-model" : "download-dataset";
-      const remoteCmd = kind === "model" ? "download-model-remote" : "download-dataset-remote";
-      const splitArgs = kind === "dataset" ? ["--split", selectedSplit] : [];
-      const args = dest === "local"
-        ? ["hub", localCmd, repoId, "--target-dir", targetDir, ...splitArgs, ...registerArgs]
-        : ["hub", remoteCmd, repoId, "--cluster", cluster, ...registerArgs];
+      const label = `Hub Download · ${effectiveName}`;
 
-      const status = await cmd.run(dataRoot, args);
-
-      if (dest === "remote" && status.stdout) {
-        const lines = status.stdout.split("\n").filter((l: string) => l.startsWith("DOWNLOAD_REMOTE: "));
-        if (lines.length > 0) setStatusMsg(lines[lines.length - 1].replace("DOWNLOAD_REMOTE: ", ""));
-      }
-
-      const success = status.status === "completed";
-      setDlStatus(success ? "done" : "error");
-      if (!success) {
-        // Surface rate-limit or auth errors clearly
-        const stderr = status.stderr || "";
-        if (stderr.includes("429") || stderr.includes("Rate limited")) {
-          setStatusMsg("HuggingFace rate limit hit. Set HF_TOKEN in your environment for faster downloads, or wait and retry.");
-        } else if (stderr.includes("unauthenticated") || stderr.includes("HF_TOKEN")) {
-          setStatusMsg("Authentication required. Set HF_TOKEN in your environment and retry.");
+      if (dest === "remote") {
+        // Remote downloads stay blocking (they're fast SSH commands)
+        setDlStatus("downloading");
+        setStatusMsg("Connecting to cluster...");
+        const remoteCmd = kind === "model" ? "download-model-remote" : "download-dataset-remote";
+        const nameFlag = kind === "model" ? "--model-name" : "--dataset-name";
+        const registerArgs = kind === "model" ? ["--register", nameFlag, effectiveName] : [];
+        const args = ["hub", remoteCmd, repoId, "--cluster", cluster, ...registerArgs];
+        const status = await cmd.run(dataRoot, args);
+        if (status.status === "completed") {
+          setDlStatus("done");
+          setStatusMsg("Complete!");
+          onComplete();
         } else {
+          setDlStatus("error");
           setStatusMsg(_extractErrorMessage(status.stderr) || "Download failed");
         }
+        return;
       }
-      if (success) {
-        setStatusMsg("Complete!");
-        onComplete();
-      }
+
+      // Local downloads: fire-and-forget as a job, close modal, go to jobs page
+      const splitArgs = kind === "dataset" ? ["--split", selectedSplit] : [];
+      const args = [
+        "hub-download", repoId,
+        "--kind", kind,
+        "--target-dir", targetDir,
+        ...splitArgs,
+        "--register",
+        kind === "model" ? "--model-name" : "--dataset-name", effectiveName,
+      ];
+      await startCrucibleCommand(dataRoot, args, label);
+      onClose();
+      navigate("/jobs", { state: { statusFilter: "running" } });
     } catch {
       setDlStatus("error");
       setStatusMsg("Download failed");
     }
-  }, [dataRoot, dest, repoId, targetDir, cluster, registryName, kind, selectedSplit, cmd, onComplete]);
+  }, [dataRoot, dest, repoId, targetDir, cluster, registryName, kind, selectedSplit, cmd, onComplete, onClose, navigate]);
 
   const sizeLabel = size ? formatBytes(size) : "";
   const canClose = dlStatus !== "downloading";
@@ -238,13 +239,6 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
         {statusMsg && (
           <div className={`download-modal-status ${dlStatus === "error" ? "error" : dlStatus === "done" ? "success" : ""}`}>
             {statusMsg}
-          </div>
-        )}
-        {dlStatus === "downloading" && cmd.status?.stderr && (
-          <div className="download-modal-progress">
-            {cmd.status.stderr.split("\n").filter(Boolean).slice(-3).map((line, i) => (
-              <div key={i} className="text-xs text-muted">{line.slice(0, 120)}</div>
-            ))}
           </div>
         )}
 

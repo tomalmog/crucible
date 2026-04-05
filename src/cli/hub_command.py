@@ -223,6 +223,38 @@ def _add_register_args(parser: argparse.ArgumentParser, kind: str) -> None:
     parser.add_argument(f"--{kind}-name", default="", help="Registry name (defaults to repo_id)")
 
 
+# ── hub-download: top-level command for job-tracked downloads ──────
+
+def add_hub_download_command(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Register hub-download as a top-level command for job-tracked downloads."""
+    p = subparsers.add_parser("hub-download", help="Download model or dataset from HuggingFace Hub")
+    p.add_argument("repo_id", help="HuggingFace repository ID")
+    p.add_argument("--kind", choices=["model", "dataset"], default="dataset", help="What to download")
+    p.add_argument("--target-dir", default="./datasets", help="Download target directory")
+    p.add_argument("--revision", help="Repository revision/branch")
+    p.add_argument("--split", default="train", help="Dataset split (train, test, validation)")
+    p.add_argument("--subset", default="", help="Dataset config/subset name")
+    p.add_argument("--register", action="store_true", help="Register in model/dataset registry")
+    p.add_argument("--model-name", default="", help="Model registry name")
+    p.add_argument("--dataset-name", default="", help="Dataset registry name")
+
+
+def run_hub_download_command(client: "CrucibleClient", args: argparse.Namespace) -> int:
+    """Execute a job-tracked hub download."""
+    if args.kind == "model":
+        return _run_download_model(
+            client, args.repo_id, args.target_dir, getattr(args, "revision", None),
+            register=args.register, model_name=args.model_name or "",
+        )
+    return _run_download_dataset(
+        client, args.repo_id, args.target_dir, getattr(args, "revision", None),
+        register=args.register, dataset_name=args.dataset_name or "",
+        split=args.split, subset=args.subset,
+    )
+
+
 def add_hub_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register hub subcommand."""
     parser = subparsers.add_parser("hub", help="HuggingFace Hub operations")

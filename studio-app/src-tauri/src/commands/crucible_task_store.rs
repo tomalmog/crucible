@@ -15,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 31] = [
+const JOBS_PAGE_COMMANDS: [&str; 32] = [
     "train",
     "sft",
     "dpo-train",
@@ -47,6 +47,7 @@ const JOBS_PAGE_COMMANDS: [&str; 31] = [
     "run-script",
     "steer-compute",
     "steer-apply",
+    "hub-download",
 ];
 
 #[derive(Clone)]
@@ -536,6 +537,7 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
         "sweep" => 900,
         "eval" => 300,
         "export-training" => 60,
+        "hub-download" => 120,
         "versions" => 8,
         "chat" => 20,
         _ => 30,

@@ -29,6 +29,7 @@ const METHOD_DISPLAY: Record<string, string> = {
   "safetensors-export": "SafeTensors Export",
   "gguf-export": "GGUF Export",
   "hf-export": "HuggingFace Export",
+  "hub-download": "Hub Download",
 };
 
 /**

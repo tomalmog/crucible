@@ -49,7 +49,7 @@ from cli.hardware_profile_command import (
     add_hardware_profile_command,
     run_hardware_profile_command,
 )
-from cli.hub_command import add_hub_command, run_hub_command
+from cli.hub_command import add_hub_command, add_hub_download_command, run_hub_command, run_hub_download_command
 from cli.kto_command import add_kto_command, run_kto_command
 from cli.linear_probe_command import add_linear_probe_command, run_linear_probe_command
 from cli.logit_lens_command import add_logit_lens_command, run_logit_lens_command
@@ -119,6 +119,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_hf_export_command,
     add_agent_chat_command,
     add_run_script_command,
+    add_hub_download_command,
 )
 
 
@@ -180,6 +181,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "hf-export": run_hf_export_command,
         "agent-chat": run_agent_chat_command,
         "run-script": run_run_script_command,
+        "hub-download": run_hub_download_command,
     }
 
 
