@@ -10,12 +10,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-import pytest
-
 from eval.benchmark_runner import (
-    AVAILABLE_BENCHMARKS,
     BenchmarkResult,
-    EvaluationResult,
     run_benchmarks,
     _write_partial_results,
     _extract_benchmark_result,
@@ -28,15 +24,26 @@ def _fake_lm_eval_output(task_results: dict[str, dict[str, Any]]) -> dict[str, A
     return {"results": task_results, "n-samples": n_samples}
 
 
+def _patch_load():
+    """Mock _load_model_once so tests skip real model loading."""
+    return patch("eval.benchmark_runner._load_model_once", return_value=("hf", "pretrained=fake"))
+
+
+def _patch_eval(side_effect_or_value: Any):
+    """Mock _call_simple_evaluate. Exceptions are raised; dicts are returned."""
+    if isinstance(side_effect_or_value, BaseException):
+        return patch("eval.benchmark_runner._call_simple_evaluate", side_effect=side_effect_or_value)
+    if callable(side_effect_or_value):
+        return patch("eval.benchmark_runner._call_simple_evaluate", side_effect=side_effect_or_value)
+    return patch("eval.benchmark_runner._call_simple_evaluate", return_value=side_effect_or_value)
+
+
 # ── Per-benchmark error isolation ────────────────────────────────────────
 
 
 def test_evaluation_failure_records_all_zero() -> None:
     """If simple_evaluate raises, all benchmarks get score=0 with error."""
-    with patch(
-        "eval.benchmark_runner._call_simple_evaluate",
-        side_effect=RuntimeError("OOM"),
-    ):
+    with _patch_load(), _patch_eval(RuntimeError("OOM")):
         result = run_benchmarks("model.pt", ["mmlu", "gsm8k"])
 
     assert len(result.benchmark_results) == 2
@@ -57,11 +64,10 @@ def test_missing_task_in_results_records_zero() -> None:
 
 def test_average_score_computed_correctly() -> None:
     """Average is the mean of all benchmark scores."""
-    raw = _fake_lm_eval_output({
-        "mmlu": {"acc,none": 0.80},
-        "hellaswag": {"acc_norm,none": 0.60},
-    })
-    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+    raw_mmlu = _fake_lm_eval_output({"mmlu": {"acc,none": 0.80}})
+    raw_hella = _fake_lm_eval_output({"hellaswag": {"acc_norm,none": 0.60}})
+    calls = iter([raw_mmlu, raw_hella])
+    with _patch_load(), patch("eval.benchmark_runner._call_simple_evaluate", side_effect=lambda *a: next(calls)):
         result = run_benchmarks("model.pt", ["mmlu", "hellaswag"])
 
     assert result.average_score == 70.0
@@ -70,7 +76,7 @@ def test_average_score_computed_correctly() -> None:
 def test_single_benchmark_average_equals_score() -> None:
     """Single benchmark: average equals that benchmark's score."""
     raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.835}})
-    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+    with _patch_load(), _patch_eval(raw):
         result = run_benchmarks("model.pt", ["mmlu"])
 
     assert result.average_score == 83.5
@@ -78,10 +84,7 @@ def test_single_benchmark_average_equals_score() -> None:
 
 def test_all_failed_average_is_zero() -> None:
     """If evaluation raises, average is 0."""
-    with patch(
-        "eval.benchmark_runner._call_simple_evaluate",
-        side_effect=RuntimeError("dead"),
-    ):
+    with _patch_load(), _patch_eval(RuntimeError("dead")):
         result = run_benchmarks("model.pt", ["mmlu"])
 
     assert result.average_score == 0.0
@@ -94,7 +97,7 @@ def test_partial_results_written_on_success(tmp_path: Path) -> None:
     """Partial results file is written after evaluation."""
     output = tmp_path / "r.json"
     raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.90}})
-    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+    with _patch_load(), _patch_eval(raw):
         run_benchmarks("model.pt", ["mmlu"], output_path=str(output))
 
     assert output.exists()
@@ -126,7 +129,7 @@ def test_write_partial_results_format(tmp_path: Path) -> None:
 def test_base_model_results_populated() -> None:
     """Base model benchmarks are returned in base_results."""
     raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.75}})
-    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+    with _patch_load(), _patch_eval(raw):
         result = run_benchmarks("model.pt", ["mmlu"], base_model_path="base.pt")
 
     assert result.base_model_path == "base.pt"
@@ -135,21 +138,22 @@ def test_base_model_results_populated() -> None:
 
 
 def test_base_model_failure_does_not_affect_primary() -> None:
-    """Primary results are preserved even if base model evaluation fails."""
-    call_count = [0]
+    """Primary results are preserved even if base model loading fails."""
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.90}})
+    load_count = [0]
 
-    def side_effect(model_path, task_names, max_samples):
-        call_count[0] += 1
-        if call_count[0] == 1:
-            return _fake_lm_eval_output({"mmlu": {"acc,none": 0.90}})
-        raise RuntimeError("base model dead")
+    def mock_load(path):
+        load_count[0] += 1
+        if load_count[0] > 1:
+            raise RuntimeError("base model dead")
+        return ("hf", "pretrained=fake")
 
-    with patch("eval.benchmark_runner._call_simple_evaluate", side_effect=side_effect):
+    with patch("eval.benchmark_runner._load_model_once", side_effect=mock_load), _patch_eval(raw):
         result = run_benchmarks("model.pt", ["mmlu"], base_model_path="base.pt")
 
     assert result.benchmark_results[0].score == 90.0
-    assert result.base_results[0].score == 0.0
-    assert "error" in result.base_results[0].details
+    # Base model failed to load — no base results
+    assert len(result.base_results) == 0
 
 
 # ── EvaluationResult structure ───────────────────────────────────────────
@@ -158,7 +162,7 @@ def test_base_model_failure_does_not_affect_primary() -> None:
 def test_result_contains_model_path() -> None:
     """model_path is preserved in the result."""
     raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.5}})
-    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+    with _patch_load(), _patch_eval(raw):
         result = run_benchmarks("/my/model.pt", ["mmlu"])
 
     assert result.model_path == "/my/model.pt"

@@ -32,7 +32,10 @@ class EvaluationResult:
 
 
 AVAILABLE_BENCHMARKS = (
-    "mmlu", "humaneval", "gsm8k", "hellaswag", "arc", "truthfulqa", "winogrande",
+    "mmlu", "hellaswag", "arc", "arc_easy", "winogrande", "truthfulqa",
+    "gsm8k", "math", "gpqa", "bbh",
+    "humaneval", "mbpp",
+    "boolq", "piqa", "openbookqa",
 )
 
 # Our short names -> lm-eval task names.  Unmapped names pass through as-is.
@@ -40,20 +43,36 @@ _TASK_NAME_MAP: dict[str, str] = {
     "mmlu": "mmlu",
     "hellaswag": "hellaswag",
     "arc": "arc_challenge",
+    "arc_easy": "arc_easy",
     "winogrande": "winogrande",
     "gsm8k": "gsm8k",
+    "math": "hendrycks_math",
     "truthfulqa": "truthfulqa_mc1",
+    "gpqa": "gpqa",
+    "bbh": "bbh",
     "humaneval": "humaneval",
+    "mbpp": "mbpp",
+    "boolq": "boolq",
+    "piqa": "piqa",
+    "openbookqa": "openbookqa",
 }
 
 _PREFERRED_METRIC: dict[str, str] = {
     "mmlu": "acc,none",
     "hellaswag": "acc_norm,none",
     "arc_challenge": "acc_norm,none",
+    "arc_easy": "acc_norm,none",
     "winogrande": "acc,none",
     "gsm8k": "exact_match,strict-match",
+    "hendrycks_math": "exact_match,none",
     "truthfulqa_mc1": "acc,none",
+    "gpqa": "acc_norm,none",
+    "bbh": "acc_norm,none",
     "humaneval": "pass@1,none",
+    "mbpp": "pass@1,none",
+    "boolq": "acc,none",
+    "piqa": "acc_norm,none",
+    "openbookqa": "acc_norm,none",
 }
 
 
@@ -98,11 +117,42 @@ def run_benchmarks(
     our_names = list(benchmarks)
     print(f"CRUCIBLE_AGENT: Running {len(benchmarks)} benchmarks via lm-eval...", flush=True)
 
-    results = _evaluate_model(model_path, task_names, our_names, max_samples)
-    if output_path:
-        _write_partial_results(output_path, model_path, results, len(benchmarks))
+    # Load the model once and reuse across all benchmarks
+    try:
+        model_obj, model_args = _load_model_once(model_path)
+    except Exception as exc:
+        print(f"CRUCIBLE_AGENT: Failed to load model: {exc}", flush=True)
+        results = _all_failed(our_names, task_names, exc)
+        if output_path:
+            _write_partial_results(output_path, model_path, results, len(benchmarks))
+        return EvaluationResult(
+            model_path=model_path, benchmark_results=tuple(results),
+            average_score=0.0, base_model_path=base_model_path,
+        )
+
+    results = _evaluate_model(
+        model_obj, model_args, task_names, our_names, max_samples, output_path, model_path,
+    )
     avg = sum(r.score for r in results) / max(len(results), 1)
-    base_results = _run_base_comparison(base_model_path, task_names, our_names, max_samples)
+
+    # Free primary model before loading base model
+    del model_obj
+    _gc_collect()
+
+    base_results: list[BenchmarkResult] = []
+    if base_model_path:
+        print("CRUCIBLE_AGENT: Running base model comparison...", flush=True)
+        try:
+            base_obj, base_args = _load_model_once(base_model_path)
+        except Exception as exc:
+            print(f"CRUCIBLE_AGENT: Failed to load base model: {exc}", flush=True)
+            base_results = []
+        else:
+            base_results = _evaluate_model(
+                base_obj, base_args, task_names, our_names, max_samples, None, base_model_path,
+            )
+            del base_obj
+            _gc_collect()
 
     return EvaluationResult(
         model_path=model_path,
@@ -113,72 +163,81 @@ def run_benchmarks(
     )
 
 
+def _load_model_once(model_path: str) -> tuple[Any, str | None]:
+    """Load the model once, return (model_object, model_args_string).
+
+    For HF models: returns ("hf", model_args_string) so simple_evaluate
+    can use its built-in HF loader.
+    For Crucible .pt: returns (CrucibleLM instance, None).
+    """
+    resolved = _resolve_hf_path(model_path)
+    if resolved:
+        return "hf", f"pretrained={resolved}"
+    from eval.crucible_lm_wrapper import CrucibleLM
+    return CrucibleLM(model_path), None
+
+
 def _evaluate_model(
-    model_path: str,
+    model_obj: Any,
+    model_args: str | None,
     task_names: list[str],
     our_names: list[str],
     max_samples: int | None,
+    output_path: str | None,
+    model_path: str,
 ) -> list[BenchmarkResult]:
-    """Run lm-eval against *model_path* and return per-task results."""
-    try:
-        raw = _call_simple_evaluate(model_path, task_names, max_samples)
-    except Exception as exc:
-        print(f"CRUCIBLE_AGENT: lm-eval evaluation failed: {exc}", flush=True)
-        return _all_failed(our_names, task_names, exc)
+    """Run lm-eval one benchmark at a time to keep memory bounded.
 
+    The model is loaded once and reused. Each benchmark's dataset is
+    freed after scoring before the next benchmark starts.
+    """
     results: list[BenchmarkResult] = []
-    for our_name, task_name in zip(our_names, task_names):
-        result = _extract_benchmark_result(task_name, our_name, raw)
+    for i, (task_name, our_name) in enumerate(zip(task_names, our_names), 1):
+        print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] Running {our_name}...", flush=True)
+        try:
+            raw = _call_simple_evaluate(model_obj, model_args, [task_name], max_samples)
+            result = _extract_benchmark_result(task_name, our_name, raw)
+        except Exception as exc:
+            print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} FAILED: {exc}", flush=True)
+            result = BenchmarkResult(
+                benchmark_name=our_name, score=0.0, num_examples=0,
+                correct=0, details={"error": str(exc)},
+            )
         results.append(result)
-        print(
-            f"CRUCIBLE_AGENT: {our_name} done — score: {result.score}",
-            flush=True,
-        )
+        print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} done — score: {result.score}", flush=True)
+        if output_path:
+            _write_partial_results(output_path, model_path, results, len(task_names))
+        _gc_collect()
     return results
 
 
 def _call_simple_evaluate(
-    model_path: str,
+    model_obj: Any,
+    model_args: str | None,
     task_names: list[str],
     max_samples: int | None,
 ) -> dict[str, Any]:
-    """Dispatch to lm_eval.simple_evaluate for the right model type."""
+    """Run lm_eval.simple_evaluate with a pre-loaded model."""
+    import os
+    os.environ["HF_ALLOW_CODE_EVAL"] = "1"
     _ensure_lm_eval()
     from lm_eval import simple_evaluate
-    from serve.hf_model_loader import is_huggingface_model_id
 
     needs_unsafe = "humaneval" in task_names
-    if is_huggingface_model_id(model_path):
-        return _evaluate_hf_model(simple_evaluate, model_path, task_names, max_samples, needs_unsafe)
-    return _evaluate_crucible_model(simple_evaluate, model_path, task_names, max_samples, needs_unsafe)
-
-
-def _evaluate_hf_model(
-    simple_evaluate: Any, model_path: str, task_names: list[str],
-    max_samples: int | None, needs_unsafe: bool,
-) -> dict[str, Any]:
-    """Run lm-eval with the built-in hf model type."""
-    kwargs: dict[str, Any] = {
-        "model": "hf", "model_args": f"pretrained={model_path}",
-        "tasks": task_names, "limit": max_samples, "batch_size": "auto",
-        "device": _resolve_device(),
-    }
+    kwargs: dict[str, Any] = {"tasks": task_names, "limit": max_samples}
     if needs_unsafe:
         kwargs["confirm_run_unsafe_code"] = True
-    return simple_evaluate(**kwargs)
 
+    if model_args is not None:
+        # HF model: pass model type string + args
+        kwargs["model"] = model_obj
+        kwargs["model_args"] = model_args
+        kwargs["batch_size"] = "auto"
+        kwargs["device"] = _resolve_device()
+    else:
+        # CrucibleLM instance: pass directly
+        kwargs["model"] = model_obj
 
-def _evaluate_crucible_model(
-    simple_evaluate: Any, model_path: str, task_names: list[str],
-    max_samples: int | None, needs_unsafe: bool,
-) -> dict[str, Any]:
-    """Run lm-eval with the CrucibleLM wrapper."""
-    from eval.crucible_lm_wrapper import CrucibleLM
-
-    lm = CrucibleLM(model_path)
-    kwargs: dict[str, Any] = {"model": lm, "tasks": task_names, "limit": max_samples}
-    if needs_unsafe:
-        kwargs["confirm_run_unsafe_code"] = True
     return simple_evaluate(**kwargs)
 
 
@@ -215,13 +274,27 @@ def _pick_primary_metric(task_name: str, task_results: dict[str, Any]) -> float:
 
 
 def _get_num_examples(task_name: str, raw: dict[str, Any]) -> int:
-    """Extract sample count from lm-eval output."""
+    """Extract sample count from lm-eval output.
+
+    For group tasks like MMLU, the top-level entry is None so we sum
+    the effective counts from all subtasks that start with the group name.
+    """
     for key in ("n-samples", "n_samples"):
-        n = (raw.get(key) or {}).get(task_name)
+        samples_map = raw.get(key) or {}
+        n = samples_map.get(task_name)
         if isinstance(n, (int, float)):
             return int(n)
         if isinstance(n, dict):
             return int(n.get("effective", n.get("original", 0)))
+        # Group task: sum subtask counts
+        if n is None and samples_map:
+            prefix = task_name + "_"
+            total = 0
+            for sub_key, sub_val in samples_map.items():
+                if sub_key.startswith(prefix) and isinstance(sub_val, dict):
+                    total += int(sub_val.get("effective", sub_val.get("original", 0)))
+            if total > 0:
+                return total
     return 0
 
 
@@ -233,15 +306,36 @@ def _all_failed(our_names: list[str], task_names: list[str], exc: Exception) -> 
     ]
 
 
-def _run_base_comparison(
-    base_model_path: str | None, task_names: list[str],
-    our_names: list[str], max_samples: int | None,
-) -> list[BenchmarkResult]:
-    """Evaluate the base model if a path was provided."""
-    if not base_model_path:
-        return []
-    print("CRUCIBLE_AGENT: Running base model comparison...", flush=True)
-    return _evaluate_model(base_model_path, task_names, our_names, max_samples)
+def _gc_collect() -> None:
+    """Force garbage collection and free GPU cache between benchmarks."""
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+
+def _resolve_hf_path(model_path: str) -> str | None:
+    """Resolve a model path to an HF-loadable path, or None for Crucible .pt.
+
+    Handles: HF repo IDs (``gpt2``), local HF directories (with
+    ``config.json``), and ``.pt`` files that have an adjacent
+    ``hf_model/`` directory produced by trl training.
+    """
+    import os
+    from serve.hf_model_loader import is_huggingface_model_id
+
+    if is_huggingface_model_id(model_path):
+        return model_path
+    # .pt file with sibling hf_model/ directory (trl training output)
+    if model_path.endswith(".pt") and os.path.isfile(model_path):
+        hf_dir = os.path.join(os.path.dirname(model_path), "hf_model")
+        if os.path.isdir(hf_dir) and os.path.exists(os.path.join(hf_dir, "config.json")):
+            return hf_dir
+    return None
 
 
 def _resolve_device() -> str:

@@ -284,17 +284,18 @@ label,
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    background: var(--accent-muted);
-    color: var(--accent-text);
-    border: 1px solid var(--accent);
+    background: var(--bg-base);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 0.75rem;
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: all var(--transition-fast);
 }
 
 .bench-combo-tag:hover {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: var(--accent);
+    color: var(--accent-text);
 }
 
 .bench-chip-x {
@@ -368,6 +369,67 @@ label,
     width: 16px;
     font-size: 0.75rem;
     color: var(--accent);
+}
+
+.bench-combo-tag--active {
+    background: var(--accent-muted);
+    color: var(--accent-text);
+    border-color: var(--accent);
+}
+
+/* ─── Eval Benchmark Grid ─── */
+
+.eval-benchmark-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 6px 12px 8px;
+}
+
+.eval-benchmark-category {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.eval-category-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.eval-category-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.eval-benchmark-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-base);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    user-select: none;
+}
+
+.eval-benchmark-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent-text);
+}
+
+.eval-benchmark-chip--active {
+    background: var(--accent-muted);
+    border-color: var(--accent);
+    color: var(--accent-text);
 }
 
 .ff .path-input {
