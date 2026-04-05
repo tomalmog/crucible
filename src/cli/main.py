@@ -21,6 +21,7 @@ from cli.activation_patching_command import (
     run_activation_patching_command,
 )
 from cli.benchmark_command import add_benchmark_command, run_benchmark_command
+from cli.benchmark_registry_command import add_benchmark_registry_command, run_benchmark_registry_command
 from cli.chat_command import add_chat_command, run_chat_command
 from cli.compare_command import add_compare_command, run_compare_command
 from cli.compute_command import add_compute_command, run_compute_command
@@ -120,6 +121,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_agent_chat_command,
     add_run_script_command,
     add_hub_download_command,
+    add_benchmark_registry_command,
 )
 
 
@@ -182,6 +184,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "agent-chat": run_agent_chat_command,
         "run-script": run_run_script_command,
         "hub-download": run_hub_download_command,
+        "benchmark-registry": run_benchmark_registry_command,
     }
 
 

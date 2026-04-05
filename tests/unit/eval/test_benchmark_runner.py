@@ -11,11 +11,10 @@ from eval.benchmark_runner import (
 
 def test_available_benchmarks() -> None:
     """Available benchmarks list is populated."""
-    assert len(AVAILABLE_BENCHMARKS) == 15
+    assert len(AVAILABLE_BENCHMARKS) == 14
     assert "mmlu" in AVAILABLE_BENCHMARKS
     assert "humaneval" in AVAILABLE_BENCHMARKS
     assert "gsm8k" in AVAILABLE_BENCHMARKS
-    assert "gpqa" in AVAILABLE_BENCHMARKS
     assert "bbh" in AVAILABLE_BENCHMARKS
 
 

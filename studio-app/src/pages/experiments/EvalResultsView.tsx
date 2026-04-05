@@ -19,7 +19,6 @@ interface BenchmarkInfo {
 
 const BENCHMARKS: BenchmarkInfo[] = [
   { name: "mmlu", label: "MMLU", category: "knowledge" },
-  { name: "gpqa", label: "GPQA", category: "knowledge" },
   { name: "truthfulqa", label: "TruthfulQA", category: "knowledge" },
   { name: "gsm8k", label: "GSM8K", category: "reasoning" },
   { name: "math", label: "MATH", category: "reasoning" },
@@ -44,7 +43,7 @@ interface Preset {
 const PRESETS: Preset[] = [
   { label: "Quick", description: "Fast sanity check", benchmarks: ["hellaswag", "arc_easy", "boolq", "piqa"] },
   { label: "Standard", description: "Open LLM Leaderboard set", benchmarks: ["mmlu", "hellaswag", "arc", "winogrande", "truthfulqa", "gsm8k"] },
-  { label: "Reasoning", description: "Math & logic focused", benchmarks: ["mmlu", "gsm8k", "math", "bbh", "gpqa", "arc"] },
+  { label: "Reasoning", description: "Math & logic focused", benchmarks: ["mmlu", "gsm8k", "math", "bbh", "arc"] },
   { label: "Code", description: "Code generation", benchmarks: ["humaneval", "mbpp"] },
   { label: "Comprehensive", description: "All benchmarks", benchmarks: BENCHMARKS.map((b) => b.name) },
 ];

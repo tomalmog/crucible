@@ -33,7 +33,7 @@ class EvaluationResult:
 
 AVAILABLE_BENCHMARKS = (
     "mmlu", "hellaswag", "arc", "arc_easy", "winogrande", "truthfulqa",
-    "gsm8k", "math", "gpqa", "bbh",
+    "gsm8k", "math", "bbh",
     "humaneval", "mbpp",
     "boolq", "piqa", "openbookqa",
 )
@@ -48,7 +48,6 @@ _TASK_NAME_MAP: dict[str, str] = {
     "gsm8k": "gsm8k",
     "math": "hendrycks_math",
     "truthfulqa": "truthfulqa_mc1",
-    "gpqa": "gpqa",
     "bbh": "bbh",
     "humaneval": "humaneval",
     "mbpp": "mbpp",
@@ -66,7 +65,6 @@ _PREFERRED_METRIC: dict[str, str] = {
     "gsm8k": "exact_match,strict-match",
     "hendrycks_math": "exact_match,none",
     "truthfulqa_mc1": "acc,none",
-    "gpqa": "acc_norm,none",
     "bbh": "acc_norm,none",
     "humaneval": "pass@1,none",
     "mbpp": "pass@1,none",
@@ -223,8 +221,20 @@ def _call_simple_evaluate(
     _ensure_lm_eval()
     from lm_eval import simple_evaluate
 
+    from eval.custom_benchmarks import get_benchmarks_include_path
+    from core.config import CrucibleConfig
+
+    # Load custom task configs if any exist
+    include_path = get_benchmarks_include_path(CrucibleConfig.from_env().data_root)
+    task_manager = None
+    if include_path:
+        from lm_eval.tasks import TaskManager
+        task_manager = TaskManager(include_path=include_path)
+
     needs_unsafe = "humaneval" in task_names
     kwargs: dict[str, Any] = {"tasks": task_names, "limit": max_samples}
+    if task_manager is not None:
+        kwargs["task_manager"] = task_manager
     if needs_unsafe:
         kwargs["confirm_run_unsafe_code"] = True
 
