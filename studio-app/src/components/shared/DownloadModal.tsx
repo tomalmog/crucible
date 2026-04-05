@@ -99,7 +99,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
   const handleDownload = useCallback(async () => {
     if (!dataRoot) return;
     try {
-      const effectiveName = registryName.trim() || repoId;
+      const effectiveName = (registryName.trim() || repoId).replace(/\//g, "_");
       const label = `Hub Download · ${effectiveName}`;
 
       if (dest === "remote") {
@@ -189,7 +189,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
                 <input
                   value={registryName}
                   onChange={(e) => setRegistryName(e.currentTarget.value)}
-                  placeholder={repoId}
+                  placeholder={repoId.replace(/\//g, "_")}
                 />
               </label>
               {kind === "dataset" && availableSplits.length > 1 && (
@@ -225,7 +225,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
                       <input
                         value={registryName}
                         onChange={(e) => setRegistryName(e.currentTarget.value)}
-                        placeholder={repoId}
+                        placeholder={repoId.replace(/\//g, "_")}
                       />
                     </label>
                   )}
