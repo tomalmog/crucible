@@ -3,11 +3,12 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   createColumnHelper,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowUp, ArrowDown, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Plus, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { useCrucible } from "../../context/CrucibleContext";
@@ -172,6 +173,8 @@ export function EvalTasksPage() {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 15 } },
   });
 
   // ── Detail view ──────────────────────────────────────────────────
@@ -257,6 +260,34 @@ export function EvalTasksPage() {
           </tbody>
         </table>
       </div>
+
+      {table.getPageCount() > 1 && (
+        <div className="dataset-pagination">
+          <span className="text-muted text-sm">
+            Showing {table.getState().pagination.pageIndex * 15 + 1}–
+            {Math.min((table.getState().pagination.pageIndex + 1) * 15, data.length)} of {data.length}
+          </span>
+          <div className="pagination-controls">
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              disabled={!table.getCanPreviousPage()}
+              onClick={() => table.previousPage()}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="text-sm">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              disabled={!table.getCanNextPage()}
+              onClick={() => table.nextPage()}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <AddBenchmarkModal

@@ -1787,6 +1787,7 @@ label,
     width: 100%;
     border-collapse: collapse;
     font-size: 0.8125rem;
+    table-layout: fixed;
 }
 
 .registry-table thead {
@@ -1851,6 +1852,21 @@ label,
 .registry-table tbody tr:last-child td {
     border-bottom: none;
 }
+
+.registry-table th:nth-child(1),
+.registry-table td:nth-child(1) { width: 30%; }
+
+.registry-table th:nth-child(2),
+.registry-table td:nth-child(2) { width: 12%; }
+
+.registry-table th:nth-child(3),
+.registry-table td:nth-child(3) { width: 14%; }
+
+.registry-table th:nth-child(4),
+.registry-table td:nth-child(4) { width: 16%; }
+
+.registry-table th:nth-child(5),
+.registry-table td:nth-child(5) { width: 16%; }
 
 .registry-table th:last-child,
 .registry-table td:last-child {
