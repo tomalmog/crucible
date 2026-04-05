@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
+from typing import Iterable
 
 from core.constants import (
     CHECKPOINT_DEDUP_RECORDS_FILE_NAME,
@@ -158,18 +159,18 @@ class IngestCheckpointStore:
         return self._checkpoint_dir / CHECKPOINT_ENRICHED_RECORDS_FILE_NAME
 
 
-def _write_source_records(records_path: Path, records: list[SourceTextRecord]) -> None:
-    """Write source text records to JSONL file."""
-    lines = []
-    for record in records:
-        row: dict[str, object] = {
-            "source_uri": record.source_uri,
-            "text": record.text,
-        }
-        if record.extra_fields:
-            row["extra_fields"] = dict(record.extra_fields)
-        lines.append(json.dumps(row, sort_keys=True))
-    records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+def _write_source_records(records_path: Path, records: Iterable[SourceTextRecord]) -> None:
+    """Write source text records to JSONL file, line-by-line."""
+    with open(records_path, "w", encoding="utf-8") as fh:
+        for record in records:
+            row: dict[str, object] = {
+                "source_uri": record.source_uri,
+                "text": record.text,
+            }
+            if record.extra_fields:
+                row["extra_fields"] = dict(record.extra_fields)
+            fh.write(json.dumps(row, sort_keys=True))
+            fh.write("\n")
 
 
 def _read_source_records(records_path: Path) -> list[SourceTextRecord]:

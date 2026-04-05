@@ -17,9 +17,14 @@ _TEXT_COLUMNS = ("text", "content", "sentence", "document")
 _PROMPT_COLUMNS = ("prompt", "instruction", "input", "question")
 _RESPONSE_COLUMNS = ("response", "output", "answer", "completion")
 
+_BATCH_SIZE = 10_000
+
 
 def read_parquet_records(file_path: Path, text_field: str = "") -> list[SourceTextRecord]:
     """Read text records from a parquet file.
+
+    Uses batched reading via ``ParquetFile.iter_batches()`` to avoid
+    loading the entire file into memory at once.
 
     Tries common column names for text extraction: ``text``,
     ``content``, ``sentence``, ``document``.  Falls back to
@@ -43,8 +48,10 @@ def read_parquet_records(file_path: Path, text_field: str = "") -> list[SourceTe
             "Install pyarrow to ingest .parquet files."
         ) from error
 
-    table = pq.read_table(file_path)
-    columns = {c.lower(): c for c in table.column_names}
+    pf = pq.ParquetFile(file_path)
+    col_names = pf.schema_arrow.names
+    num_rows = pf.metadata.num_rows
+    columns = {c.lower(): c for c in col_names}
 
     # Explicit text_field override
     if text_field:
@@ -52,12 +59,11 @@ def read_parquet_records(file_path: Path, text_field: str = "") -> list[SourceTe
         if not original:
             raise CrucibleIngestError(
                 f"Column '{text_field}' not found in {file_path}. "
-                f"Available columns: {table.column_names}."
+                f"Available columns: {col_names}."
             )
-        all_cols = set(table.column_names)
-        extra_cols = [c for c in table.column_names if c != original]
+        extra_cols = [c for c in col_names if c != original]
         records = _extract_single_column_with_extras(
-            file_path, table, original, extra_cols,
+            file_path, pf, original, extra_cols,
         )
         if not records:
             raise CrucibleIngestError(
@@ -67,28 +73,28 @@ def read_parquet_records(file_path: Path, text_field: str = "") -> list[SourceTe
 
     text_col = _find_column(columns, _TEXT_COLUMNS)
     if text_col:
-        records = _extract_single_column(file_path, table, text_col)
+        records = _extract_single_column(file_path, pf, text_col)
         if not records:
             raise CrucibleIngestError(
                 f"Column '{text_col}' in {file_path} exists but all values are empty or null. "
-                f"Total rows: {table.num_rows}. Verify the file has non-empty text."
+                f"Total rows: {num_rows}. Verify the file has non-empty text."
             )
         return records
 
     prompt_col = _find_column(columns, _PROMPT_COLUMNS)
     response_col = _find_column(columns, _RESPONSE_COLUMNS)
     if prompt_col and response_col:
-        records = _extract_prompt_response(file_path, table, prompt_col, response_col)
+        records = _extract_prompt_response(file_path, pf, prompt_col, response_col)
         if not records:
             raise CrucibleIngestError(
                 f"Columns '{prompt_col}'/'{response_col}' in {file_path} exist but all rows "
-                f"have empty or null values. Total rows: {table.num_rows}."
+                f"have empty or null values. Total rows: {num_rows}."
             )
         return records
 
     raise CrucibleIngestError(
         f"Cannot identify a text column in {file_path}. "
-        f"Columns found: {table.column_names}. "
+        f"Columns found: {col_names}. "
         "Expected one of: text, content, sentence, document, "
         "or prompt+response pair."
     )
@@ -105,64 +111,77 @@ def _find_column(
 
 
 def _extract_single_column(
-    file_path: Path, table: object, column: str,
+    file_path: Path, pf: object, column: str,
 ) -> list[SourceTextRecord]:
-    """Extract records from a single text column."""
-    import pyarrow as pa
+    """Extract records from a single text column using batched reading."""
+    import pyarrow.parquet as pq_mod
 
-    assert isinstance(table, pa.Table)
-    series = table.column(column)
+    assert isinstance(pf, pq_mod.ParquetFile)
     records: list[SourceTextRecord] = []
-    for idx, value in enumerate(series):
-        text = value.as_py()
-        if isinstance(text, str) and text.strip():
-            records.append(SourceTextRecord(
-                source_uri=f"{file_path}:{idx}", text=text,
-            ))
+    row_offset = 0
+    for batch in pf.iter_batches(batch_size=_BATCH_SIZE, columns=[column]):
+        series = batch.column(column)
+        for idx, value in enumerate(series):
+            text = value.as_py()
+            if isinstance(text, str) and text.strip():
+                records.append(SourceTextRecord(
+                    source_uri=f"{file_path}:{row_offset + idx}", text=text,
+                ))
+        row_offset += batch.num_rows
     return records
 
 
 def _extract_single_column_with_extras(
-    file_path: Path, table: object, text_col: str, extra_cols: list[str],
+    file_path: Path, pf: object, text_col: str, extra_cols: list[str],
 ) -> list[SourceTextRecord]:
     """Extract records from a text column, preserving other columns as extras."""
-    import pyarrow as pa
+    import pyarrow.parquet as pq_mod
 
-    assert isinstance(table, pa.Table)
-    text_series = table.column(text_col)
-    extra_series = {c: table.column(c) for c in extra_cols}
+    assert isinstance(pf, pq_mod.ParquetFile)
+    all_cols = [text_col] + extra_cols
     records: list[SourceTextRecord] = []
-    for idx, value in enumerate(text_series):
-        text = value.as_py()
-        if isinstance(text, str) and text.strip():
-            extras = {}
-            for c, series in extra_series.items():
-                val = series[idx].as_py()
-                if isinstance(val, (str, int, float, bool)):
-                    extras[c] = str(val)
-            records.append(SourceTextRecord(
-                source_uri=f"{file_path}:{idx}", text=text, extra_fields=extras,
-            ))
+    row_offset = 0
+    for batch in pf.iter_batches(batch_size=_BATCH_SIZE, columns=all_cols):
+        text_series = batch.column(text_col)
+        for idx, value in enumerate(text_series):
+            text = value.as_py()
+            if isinstance(text, str) and text.strip():
+                extras = {}
+                for c in extra_cols:
+                    val = batch.column(c)[idx].as_py()
+                    if isinstance(val, (str, int, float, bool)):
+                        extras[c] = str(val)
+                records.append(SourceTextRecord(
+                    source_uri=f"{file_path}:{row_offset + idx}",
+                    text=text,
+                    extra_fields=extras,
+                ))
+        row_offset += batch.num_rows
     return records
 
 
 def _extract_prompt_response(
-    file_path: Path, table: object,
+    file_path: Path, pf: object,
     prompt_col: str, response_col: str,
 ) -> list[SourceTextRecord]:
     """Extract records by combining prompt and response columns."""
-    import pyarrow as pa
+    import pyarrow.parquet as pq_mod
 
-    assert isinstance(table, pa.Table)
-    prompts = table.column(prompt_col)
-    responses = table.column(response_col)
+    assert isinstance(pf, pq_mod.ParquetFile)
     records: list[SourceTextRecord] = []
-    for idx, (prompt, response) in enumerate(zip(prompts, responses)):
-        p_text = prompt.as_py()
-        r_text = response.as_py()
-        if isinstance(p_text, str) and isinstance(r_text, str) and p_text.strip():
-            records.append(SourceTextRecord(
-                source_uri=f"{file_path}:{idx}",
-                text=f"{p_text}\n{r_text}",
-            ))
+    row_offset = 0
+    for batch in pf.iter_batches(
+        batch_size=_BATCH_SIZE, columns=[prompt_col, response_col],
+    ):
+        prompts = batch.column(prompt_col)
+        responses = batch.column(response_col)
+        for idx, (prompt, response) in enumerate(zip(prompts, responses)):
+            p_text = prompt.as_py()
+            r_text = response.as_py()
+            if isinstance(p_text, str) and isinstance(r_text, str) and p_text.strip():
+                records.append(SourceTextRecord(
+                    source_uri=f"{file_path}:{row_offset + idx}",
+                    text=f"{p_text}\n{r_text}",
+                ))
+        row_offset += batch.num_rows
     return records

@@ -30,6 +30,7 @@ const METHOD_DISPLAY: Record<string, string> = {
   "gguf-export": "GGUF Export",
   "hf-export": "HuggingFace Export",
   "hub-download": "Hub Download",
+  ingest: "Ingest",
 };
 
 /**

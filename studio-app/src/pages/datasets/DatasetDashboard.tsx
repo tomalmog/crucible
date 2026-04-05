@@ -4,7 +4,8 @@ import { BarChart } from "../../components/shared/BarChart";
 import { EmptyState } from "../../components/shared/EmptyState";
 
 export function DatasetDashboard() {
-  const { dashboard } = useCrucible();
+  const { dataRoot, dashboard } = useCrucible();
+  const datasetPath = dashboard ? `${dataRoot}/datasets/${dashboard.dataset_name}` : "";
 
   if (!dashboard) {
     return <EmptyState title="No dashboard data" description="Select a dataset to view quality and source composition." />;
@@ -22,6 +23,11 @@ export function DatasetDashboard() {
         <MetricCard label="Records" value={String(dashboard.record_count)} />
         <MetricCard label="Avg Token Length" value={String(dashboard.avg_token_length)} />
         <MetricCard label="Token Range" value={`${dashboard.min_token_length} – ${dashboard.max_token_length}`} />
+      </div>
+
+      <div className="panel">
+        <h4 className="panel-title">Path</h4>
+        <code className="text-mono text-sm text-muted" style={{ wordBreak: "break-all" }}>{datasetPath}</code>
       </div>
 
       {dashboard.field_names.length > 0 && (

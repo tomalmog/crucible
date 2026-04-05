@@ -26,6 +26,7 @@ const NON_TRAINING_TYPES = new Set([
   "eval", "logit-lens", "activation-pca", "activation-patch",
   "linear-probe", "sae-train", "sae-analyze", "steer-compute", "steer-apply",
   "hub-download",
+  "ingest",
 ]);
 
 export function UnifiedJobRow({

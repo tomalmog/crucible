@@ -13,7 +13,7 @@ import { UnifiedJobRow } from "./UnifiedJobRow";
 
 type StatusFilter = "all" | "running" | "completed" | "failed";
 type LocationFilter = "all" | "local" | "remote";
-type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp" | "hub";
+type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp" | "hub" | "ingest";
 
 const INTERP_COMMANDS = new Set([
   "logit-lens", "activation-pca", "activation-patch",
@@ -26,10 +26,11 @@ function classifyUnifiedJob(job: JobRecord): TaskTypeFilter {
   if (job.jobType === "eval") return "eval";
   if (job.jobType && INTERP_COMMANDS.has(job.jobType)) return "interp";
   if (job.jobType === "hub-download") return "hub";
+  if (job.jobType === "ingest") return "ingest";
   return "training";
 }
 
-const TYPE_TABS: readonly TaskTypeFilter[] = ["all", "training", "eval", "sweep", "interp", "hub"] as const;
+const TYPE_TABS: readonly TaskTypeFilter[] = ["all", "training", "eval", "sweep", "interp", "ingest", "hub"] as const;
 const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "running", "completed", "failed"] as const;
 const LOCATION_OPTIONS: readonly LocationFilter[] = ["all", "local", "remote"] as const;
 

@@ -2,6 +2,9 @@
 
 This module coordinates source loading, transforms, checkpoints,
 and dataset writes for resumable ingest workflows.
+
+Records are enriched and saved in batches to avoid holding three
+full copies (source + dedup + enriched) in memory simultaneously.
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ from transforms.quality_scoring import score_quality
 
 _LOGGER = get_logger(__name__)
 
+BATCH_SIZE = 10_000
+
 
 class IngestPipelineRunner:
     """Stateful runner for resumable ingest pipeline execution."""
@@ -43,11 +48,12 @@ class IngestPipelineRunner:
         """Execute ingest pipeline and return dataset name."""
         source_records = self._load_source_records()
         dedup_records = self._load_deduplicated_records(source_records)
-        enriched_records = self._load_enriched_records(dedup_records)
-        self._save_dataset(enriched_records)
+        # Free source list — dedup_records is the only copy now
+        del source_records
+        record_count = self._enrich_and_save(dedup_records)
         self._checkpoint.clear()
         _log_ingest_completion(
-            self._options, len(source_records), len(enriched_records),
+            self._options, len(dedup_records), record_count,
         )
         return self._options.dataset_name
 
@@ -72,13 +78,29 @@ class IngestPipelineRunner:
         self._state = self._checkpoint.update_stage(self._state, "deduplicated")
         return deduplicated_records
 
-    def _load_enriched_records(self, dedup_records: list[SourceTextRecord]) -> list[DataRecord]:
+    def _enrich_and_save(self, dedup_records: list[SourceTextRecord]) -> int:
+        """Enrich and save records in batches, writing incrementally."""
         if self._checkpoint.has_stage(self._state, "enriched"):
-            return self._checkpoint.load_enriched_records()
-        enriched_records = _build_enriched_records(dedup_records, self._options.quality_model)
-        self._checkpoint.save_enriched_records(enriched_records)
+            enriched = self._checkpoint.load_enriched_records()
+            self._save_dataset(enriched)
+            return len(enriched)
+
+        total = len(dedup_records)
+        all_enriched: list[DataRecord] = []
+
+        for batch_start in range(0, total, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total)
+            batch = dedup_records[batch_start:batch_end]
+            enriched_batch = _build_enriched_records(
+                batch, self._options.quality_model,
+            )
+            all_enriched.extend(enriched_batch)
+            print(f"INGEST_PROGRESS: {batch_end}/{total} records enriched")
+
+        self._checkpoint.save_enriched_records(all_enriched)
         self._state = self._checkpoint.update_stage(self._state, "enriched")
-        return enriched_records
+        self._save_dataset(all_enriched)
+        return len(all_enriched)
 
     def _save_dataset(self, records: list[DataRecord]) -> None:
         write_request = DatasetWriteRequest(

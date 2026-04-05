@@ -238,7 +238,6 @@ export function DatasetsPage() {
 
       {showIngest && (
         <IngestModal
-          onComplete={() => setShowIngest(false)}
           onClose={() => setShowIngest(false)}
         />
       )}

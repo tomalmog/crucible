@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from core.types import DataRecord, RecordMetadata
 
@@ -64,15 +64,17 @@ def data_record_from_payload(payload: dict[str, Any]) -> DataRecord:
     )
 
 
-def write_data_records_jsonl(records_path: Path, records: list[DataRecord]) -> None:
-    """Write DataRecord list to JSONL file.
+def write_data_records_jsonl(records_path: Path, records: Iterable[DataRecord]) -> None:
+    """Write DataRecord iterable to JSONL file, line-by-line.
 
     Args:
         records_path: Output JSONL file path.
-        records: Records to serialize.
+        records: Records to serialize (may be a generator).
     """
-    lines = [json.dumps(data_record_to_payload(record), sort_keys=True) for record in records]
-    records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with open(records_path, "w", encoding="utf-8") as fh:
+        for record in records:
+            fh.write(json.dumps(data_record_to_payload(record), sort_keys=True))
+            fh.write("\n")
 
 
 def read_data_records_jsonl(records_path: Path) -> list[DataRecord]:

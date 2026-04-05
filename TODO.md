@@ -2,24 +2,7 @@
 
 ## Technical Debt — Needs Design Decisions
 
-### 1. Streaming Ingest for Large Datasets
-
-**Problem:** `input_reader.py` loads the entire file into memory. Multi-GB datasets will OOM.
-
-**Current behavior:** JSONL, Parquet, and CSV files are read in full before writing to Lance storage.
-
-**Options:**
-- **JSONL:** Read and yield one record at a time, write to Lance in batches (e.g., 10k records per batch). Python file iteration is already line-by-line, just need to batch the Lance writes instead of collecting everything first.
-- **Parquet:** pyarrow supports reading in row groups natively — wire that up instead of `.read().to_pydict()` which materializes everything.
-- **CSV:** Python's csv module is already line-by-line, just batch the writes.
-
-**Decision needed:**
-- What's the target file size? 1-2GB or 10GB+? Determines whether batched reads are sufficient or if we need a full out-of-core pipeline with progress reporting.
-- Should we add a progress bar / record count during ingest?
-
----
-
-### 2. Real GRPO/RLVR with Reward Functions
+### 1. Real GRPO/RLVR with Reward Functions
 
 **Problem:** GRPO and RLVR currently fall back to SFT with a printed warning. They're not doing reinforcement learning.
 
@@ -37,5 +20,5 @@
 
 ## New Features — Ready to Build
 
-### 3. Custom Eval Benchmarks
+### 2. Custom Eval Benchmarks
 Let users define their own evaluation tasks (question/answer pairs) beyond the 7 hardcoded benchmarks. High interest from labs.
