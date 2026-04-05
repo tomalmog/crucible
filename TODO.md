@@ -16,9 +16,3 @@
 - trl's `GRPOTrainer` generates completions during training (online RL). This is much slower than SFT. Is that acceptable, or do we want an offline approximation?
 - Do we need reward model support (separate model that scores completions), or just rule-based reward functions for now?
 
----
-
-## New Features — Ready to Build
-
-### 2. Custom Eval Benchmarks
-Let users define their own evaluation tasks (question/answer pairs) beyond the 7 hardcoded benchmarks. High interest from labs.

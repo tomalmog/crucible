@@ -1,11 +1,14 @@
-"""Tests for benchmark_runner resilience: per-benchmark exception isolation,
-base model comparison error handling, partial result writing, and edge cases."""
+"""Tests for benchmark_runner resilience with lm-eval-harness backend.
+
+Validates error handling, partial results, and result structure when
+benchmarks are delegated to lm_eval.simple_evaluate().
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -14,294 +17,165 @@ from eval.benchmark_runner import (
     BenchmarkResult,
     EvaluationResult,
     run_benchmarks,
+    _write_partial_results,
+    _extract_benchmark_result,
 )
 
 
-def _make_eval_model() -> MagicMock:
-    model = MagicMock()
-    model.torch_module = MagicMock()
-    model.torch_module.cuda = MagicMock()
-    model.torch_module.cuda.is_available.return_value = False
-    return model
+def _fake_lm_eval_output(task_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Build a dict shaped like lm_eval.simple_evaluate() output."""
+    n_samples = {task: 100 for task in task_results}
+    return {"results": task_results, "n-samples": n_samples}
 
 
-def _make_passing_result(name: str, score: float = 75.0) -> BenchmarkResult:
-    return BenchmarkResult(benchmark_name=name, score=score, num_examples=10, correct=7)
+# ── Per-benchmark error isolation ────────────────────────────────────────
 
 
-# ── Per-benchmark isolation ──────────────────────────────────────────────────
-
-
-def test_failing_benchmark_zero_score_recorded(tmp_path: Path) -> None:
-    """A single benchmark failure records score=0 with error detail; others run normally."""
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=RuntimeError("OOM")),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", return_value=_make_passing_result("gsm8k")),
+def test_evaluation_failure_records_all_zero() -> None:
+    """If simple_evaluate raises, all benchmarks get score=0 with error."""
+    with patch(
+        "eval.benchmark_runner._call_simple_evaluate",
+        side_effect=RuntimeError("OOM"),
     ):
         result = run_benchmarks("model.pt", ["mmlu", "gsm8k"])
 
-    assert len(result.benchmark_results) == 2
-    mmlu = next(r for r in result.benchmark_results if r.benchmark_name == "mmlu")
-    gsm8k = next(r for r in result.benchmark_results if r.benchmark_name == "gsm8k")
-    assert mmlu.score == 0.0
-    assert "error" in mmlu.details
-    assert "OOM" in mmlu.details["error"]
-    assert gsm8k.score == 75.0
-
-
-def test_one_failing_benchmark_does_not_abort_others() -> None:
-    """A failing benchmark must NOT stop remaining benchmarks from executing."""
-    ran = []
-
-    def run_mmlu(model_path, *, max_samples=None, eval_model=None):
-        ran.append("mmlu")
-        raise RuntimeError("mmlu dead")
-
-    def run_gsm8k(model_path, *, max_samples=None, eval_model=None):
-        ran.append("gsm8k")
-        return _make_passing_result("gsm8k")
-
-    def run_arc(model_path, *, max_samples=None, eval_model=None):
-        ran.append("arc")
-        return _make_passing_result("arc")
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=run_mmlu),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", side_effect=run_gsm8k),
-        patch("eval.benchmarks.arc.run_arc", side_effect=run_arc),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "gsm8k", "arc"])
-
-    assert "mmlu" in ran
-    assert "gsm8k" in ran
-    assert "arc" in ran
-    assert len(result.benchmark_results) == 3
-
-
-def test_all_benchmarks_fail_returns_zero_average() -> None:
-    """If all benchmarks fail, average score is 0.0 and all results are recorded."""
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=ValueError("bad")),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", side_effect=ValueError("bad")),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "gsm8k"])
-
-    assert result.average_score == 0.0
     assert len(result.benchmark_results) == 2
     assert all(r.score == 0.0 for r in result.benchmark_results)
+    assert all("OOM" in r.details["error"] for r in result.benchmark_results)
 
 
-# ── Base model comparison error isolation ────────────────────────────────────
+def test_missing_task_in_results_records_zero() -> None:
+    """A task missing from lm-eval output gets score=0 with error detail."""
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.75}})
+    result = _extract_benchmark_result("gsm8k", "gsm8k", raw)
+    assert result.score == 0.0
+    assert "error" in result.details
 
 
-def test_base_model_benchmark_failure_records_zero_score() -> None:
-    """A base model benchmark failure records 0 score and continues remaining benchmarks."""
-    call_count = {"mmlu": 0, "gsm8k": 0}
-
-    def run_mmlu(model_path, *, max_samples=None, eval_model=None):
-        call_count["mmlu"] += 1
-        return _make_passing_result("mmlu")
-
-    def run_gsm8k(model_path, *, max_samples=None, eval_model=None):
-        call_count["gsm8k"] += 1
-        if call_count["gsm8k"] > 1:
-            raise RuntimeError("base model gsm8k dead")
-        return _make_passing_result("gsm8k")
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=run_mmlu),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", side_effect=run_gsm8k),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "gsm8k"], base_model_path="base.pt")
-
-    assert len(result.benchmark_results) == 2
-    assert result.benchmark_results[0].score == 75.0
-    assert len(result.base_results) == 2
-    failed_base = next(r for r in result.base_results if r.benchmark_name == "gsm8k")
-    assert failed_base.score == 0.0
-    assert "error" in failed_base.details
+# ── Average score correctness ────────────────────────────────────────────
 
 
-def test_base_model_all_fail_fine_model_unaffected() -> None:
-    """All base benchmarks failing doesn't affect fine model scores."""
-    call_count = [0]
+def test_average_score_computed_correctly() -> None:
+    """Average is the mean of all benchmark scores."""
+    raw = _fake_lm_eval_output({
+        "mmlu": {"acc,none": 0.80},
+        "hellaswag": {"acc_norm,none": 0.60},
+    })
+    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+        result = run_benchmarks("model.pt", ["mmlu", "hellaswag"])
 
-    def run_mmlu(model_path, *, max_samples=None, eval_model=None):
-        call_count[0] += 1
-        if call_count[0] > 1:
-            raise RuntimeError("base dead")
-        return _make_passing_result("mmlu", score=90.0)
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=run_mmlu),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu"], base_model_path="base.pt")
-
-    assert result.benchmark_results[0].score == 90.0
-    assert len(result.base_results) == 1
-    assert result.base_results[0].score == 0.0
+    assert result.average_score == 70.0
 
 
-def test_base_model_benchmarks_all_run_even_if_first_fails() -> None:
-    """When base model is provided and first benchmark fails, remaining still run."""
-    ran = []
-    call_count = {"mmlu": 0, "arc": 0}
-
-    def run_mmlu(model_path, *, max_samples=None, eval_model=None):
-        call_count["mmlu"] += 1
-        if call_count["mmlu"] > 1:  # second call is for base model
-            ran.append("base-mmlu")
-            raise RuntimeError("base mmlu dead")
-        ran.append("mmlu")
-        return _make_passing_result("mmlu")
-
-    def run_arc(model_path, *, max_samples=None, eval_model=None):
-        call_count["arc"] += 1
-        if call_count["arc"] > 1:
-            ran.append("base-arc")
-        else:
-            ran.append("arc")
-        return _make_passing_result("arc")
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=run_mmlu),
-        patch("eval.benchmarks.arc.run_arc", side_effect=run_arc),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "arc"], base_model_path="base.pt")
-
-    assert "base-arc" in ran, "base model arc benchmark must run even if base mmlu fails"
-    assert len(result.base_results) == 2
-
-
-# ── Partial result writing ────────────────────────────────────────────────────
-
-
-def test_partial_results_written_after_each_benchmark(tmp_path: Path) -> None:
-    """_write_partial_results is called once per completed benchmark."""
-    write_calls = []
-
-    def capture_write(path, model_path, results, total):
-        write_calls.append(len(results))
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu")),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", return_value=_make_passing_result("gsm8k")),
-        patch("eval.benchmark_runner._write_partial_results", wraps=capture_write),
-    ):
-        run_benchmarks("model.pt", ["mmlu", "gsm8k"], output_path=str(tmp_path / "r.json"))
-
-    assert write_calls == [1, 2]  # called after each benchmark with cumulative count
-
-
-def test_partial_result_status_transitions() -> None:
-    """First write is 'partial'; last write is 'completed'."""
-    statuses = []
-
-    def capture_write(path, model_path, results, total):
-        statuses.append("completed" if len(results) >= total else "partial")
-
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu")),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", return_value=_make_passing_result("gsm8k")),
-        patch("eval.benchmark_runner._write_partial_results", wraps=capture_write),
-    ):
-        run_benchmarks("model.pt", ["mmlu", "gsm8k"], output_path="r.json")
-
-    assert statuses[0] == "partial"
-    assert statuses[-1] == "completed"
-
-
-# ── Input validation ──────────────────────────────────────────────────────────
-
-
-def test_unknown_benchmark_raises_clearly() -> None:
-    from core.errors import CrucibleBenchmarkError
-    with pytest.raises(CrucibleBenchmarkError, match="No valid benchmark names"):
-        run_benchmarks("model.pt", ["definitely_not_real"])
-
-
-def test_empty_benchmarks_list_raises() -> None:
-    from core.errors import CrucibleBenchmarkError
-    with pytest.raises(CrucibleBenchmarkError):
-        run_benchmarks("model.pt", [])
-
-
-def test_mixed_valid_and_invalid_runs_only_valid() -> None:
-    """Valid benchmarks run; invalid names are skipped without crashing."""
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu")),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "nonexistent_benchmark_xyz"])
-
-    assert len(result.benchmark_results) == 1
-    assert result.benchmark_results[0].benchmark_name == "mmlu"
-
-
-# ── Average score correctness ─────────────────────────────────────────────────
-
-
-def test_average_score_rounded_to_two_decimals() -> None:
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=BenchmarkResult(
-            benchmark_name="mmlu", score=66.666666, num_examples=3, correct=2,
-        )),
-        patch("eval.benchmarks.gsm8k.run_gsm8k", return_value=BenchmarkResult(
-            benchmark_name="gsm8k", score=33.333333, num_examples=3, correct=1,
-        )),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu", "gsm8k"])
-
-    assert result.average_score == 50.0
-
-
-def test_single_benchmark_average_equals_its_score() -> None:
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu", score=83.5)),
-    ):
+def test_single_benchmark_average_equals_score() -> None:
+    """Single benchmark: average equals that benchmark's score."""
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.835}})
+    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
         result = run_benchmarks("model.pt", ["mmlu"])
 
     assert result.average_score == 83.5
 
 
-def test_single_failed_benchmark_average_is_zero() -> None:
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", side_effect=RuntimeError("dead")),
+def test_all_failed_average_is_zero() -> None:
+    """If evaluation raises, average is 0."""
+    with patch(
+        "eval.benchmark_runner._call_simple_evaluate",
+        side_effect=RuntimeError("dead"),
     ):
         result = run_benchmarks("model.pt", ["mmlu"])
 
     assert result.average_score == 0.0
 
 
-# ── EvaluationResult structure ────────────────────────────────────────────────
+# ── Partial result writing ───────────────────────────────────────────────
+
+
+def test_partial_results_written_on_success(tmp_path: Path) -> None:
+    """Partial results file is written after evaluation."""
+    output = tmp_path / "r.json"
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.90}})
+    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+        run_benchmarks("model.pt", ["mmlu"], output_path=str(output))
+
+    assert output.exists()
+    import json
+    data = json.loads(output.read_text())
+    assert data["status"] == "completed"
+    assert len(data["benchmarks"]) == 1
+
+
+def test_write_partial_results_format(tmp_path: Path) -> None:
+    """_write_partial_results produces correct JSON structure."""
+    path = str(tmp_path / "partial.json")
+    results = [
+        BenchmarkResult(benchmark_name="mmlu", score=80.0, num_examples=100, correct=80),
+        BenchmarkResult(benchmark_name="gsm8k", score=60.0, num_examples=50, correct=30),
+    ]
+    _write_partial_results(path, "model.pt", results, 3)
+
+    import json
+    data = json.loads(Path(path).read_text())
+    assert data["status"] == "partial"
+    assert data["benchmarks_completed"] == 2
+    assert data["benchmarks_total"] == 3
+
+
+# ── Base model comparison ────────────────────────────────────────────────
+
+
+def test_base_model_results_populated() -> None:
+    """Base model benchmarks are returned in base_results."""
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.75}})
+    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+        result = run_benchmarks("model.pt", ["mmlu"], base_model_path="base.pt")
+
+    assert result.base_model_path == "base.pt"
+    assert len(result.base_results) == 1
+    assert result.base_results[0].benchmark_name == "mmlu"
+
+
+def test_base_model_failure_does_not_affect_primary() -> None:
+    """Primary results are preserved even if base model evaluation fails."""
+    call_count = [0]
+
+    def side_effect(model_path, task_names, max_samples):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return _fake_lm_eval_output({"mmlu": {"acc,none": 0.90}})
+        raise RuntimeError("base model dead")
+
+    with patch("eval.benchmark_runner._call_simple_evaluate", side_effect=side_effect):
+        result = run_benchmarks("model.pt", ["mmlu"], base_model_path="base.pt")
+
+    assert result.benchmark_results[0].score == 90.0
+    assert result.base_results[0].score == 0.0
+    assert "error" in result.base_results[0].details
+
+
+# ── EvaluationResult structure ───────────────────────────────────────────
 
 
 def test_result_contains_model_path() -> None:
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu")),
-    ):
-        result = run_benchmarks("/path/to/model.pt", ["mmlu"])
+    """model_path is preserved in the result."""
+    raw = _fake_lm_eval_output({"mmlu": {"acc,none": 0.5}})
+    with patch("eval.benchmark_runner._call_simple_evaluate", return_value=raw):
+        result = run_benchmarks("/my/model.pt", ["mmlu"])
 
-    assert result.model_path == "/path/to/model.pt"
+    assert result.model_path == "/my/model.pt"
 
 
-def test_result_base_model_path_preserved() -> None:
-    with (
-        patch("eval.benchmarks._model_loader.load_eval_model", return_value=_make_eval_model()),
-        patch("eval.benchmarks.mmlu.run_mmlu", return_value=_make_passing_result("mmlu")),
-    ):
-        result = run_benchmarks("model.pt", ["mmlu"], base_model_path="/base/model.pt")
+def test_task_name_mapping() -> None:
+    """Our short names are mapped to lm-eval task names correctly."""
+    from eval.benchmark_runner import _TASK_NAME_MAP
+    assert _TASK_NAME_MAP["arc"] == "arc_challenge"
+    assert _TASK_NAME_MAP["truthfulqa"] == "truthfulqa_mc1"
+    assert _TASK_NAME_MAP["mmlu"] == "mmlu"
 
-    assert result.base_model_path == "/base/model.pt"
+
+def test_extract_benchmark_result_prefers_acc_norm() -> None:
+    """Preferred metric is used when available."""
+    raw = _fake_lm_eval_output({
+        "hellaswag": {"acc,none": 0.60, "acc_norm,none": 0.70},
+    })
+    result = _extract_benchmark_result("hellaswag", "hellaswag", raw)
+    assert result.score == 70.0  # acc_norm preferred for hellaswag
