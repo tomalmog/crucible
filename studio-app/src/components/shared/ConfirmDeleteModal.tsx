@@ -46,12 +46,13 @@ export function ConfirmDeleteModal({
             {description && ` ${description}`}
           </p>
           {checkbox && (
-            <label className="error-alert-prominent checkbox-row" style={{ marginTop: 12 }}>
+            <label className="error-alert-prominent" style={{ flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 0, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={checkbox.checked}
                 disabled={isDeleting}
                 onChange={(e) => checkbox.onChange(e.currentTarget.checked)}
+                style={{ width: "auto" }}
               />
               <span>{checkbox.label}</span>
             </label>

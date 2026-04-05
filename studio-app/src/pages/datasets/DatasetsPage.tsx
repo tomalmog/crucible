@@ -30,6 +30,7 @@ export function DatasetsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showIngest, setShowIngest] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleteFiles, setDeleteFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
   const [transferError, setTransferError] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function DatasetsPage() {
     setDeleting(true);
     try {
       if (isLocal) {
-        await deleteDataset(dataRoot, pendingDelete);
+        await deleteDataset(dataRoot, pendingDelete, deleteFiles);
         await refreshDatasets();
       } else {
         await deleteRemoteDataset(dataRoot, selectedCluster, pendingDelete);
@@ -90,6 +91,7 @@ export function DatasetsPage() {
       if (detailName === pendingDelete) setDetailName(null);
     } finally {
       setPendingDelete(null);
+      setDeleteFiles(false);
       setDeleting(false);
     }
   }
@@ -246,9 +248,15 @@ export function DatasetsPage() {
         <ConfirmDeleteModal
           title="Delete Dataset"
           itemName={pendingDelete}
+          description="This will remove the dataset from the registry."
+          checkbox={isLocal ? {
+            label: "Also delete data files from disk",
+            checked: deleteFiles,
+            onChange: setDeleteFiles,
+          } : undefined}
           isDeleting={deleting}
           onConfirm={() => handleDeleteDataset().catch(console.error)}
-          onCancel={() => setPendingDelete(null)}
+          onCancel={() => { setPendingDelete(null); setDeleteFiles(false); }}
         />
       )}
     </>

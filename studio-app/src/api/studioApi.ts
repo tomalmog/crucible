@@ -19,8 +19,8 @@ export async function getModelArchitecture(modelPath: string): Promise<Record<st
   return invoke<Record<string, unknown> | null>("get_model_architecture", { modelPath });
 }
 
-export async function deleteDataset(dataRoot: string, datasetName: string): Promise<void> {
-  return invoke<void>("delete_dataset", { dataRoot, datasetName });
+export async function deleteDataset(dataRoot: string, datasetName: string, deleteFiles = false): Promise<void> {
+  return invoke<void>("delete_dataset", { dataRoot, datasetName, deleteFiles });
 }
 
 export async function listDatasets(dataRoot: string): Promise<DatasetEntry[]> {

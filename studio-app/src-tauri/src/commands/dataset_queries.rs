@@ -28,9 +28,9 @@ pub fn list_datasets(data_root: String) -> Result<Vec<DatasetEntry>, String> {
         return Ok(vec![]);
     }
     let mut names = read_child_dirs(&datasets_dir)?;
-    // Only include datasets that have a records.jsonl file — empty directories
-    // (e.g. from failed ingests) should not appear in the list.
-    names.retain(|name| datasets_dir.join(name).join("records.jsonl").exists());
+    // Only include datasets that have a manifest.json — unregistered datasets
+    // (manifest removed) and empty directories should not appear in the list.
+    names.retain(|name| datasets_dir.join(name).join("manifest.json").exists());
     names.sort();
     let mut entries = Vec::with_capacity(names.len());
     for name in names {
@@ -249,13 +249,27 @@ pub fn load_training_history(history_path: String) -> Result<TrainingHistory, St
 }
 
 #[tauri::command]
-pub fn delete_dataset(data_root: String, dataset_name: String) -> Result<(), String> {
+pub fn delete_dataset(
+    data_root: String,
+    dataset_name: String,
+    delete_files: bool,
+) -> Result<(), String> {
     let dataset_dir = dataset_root(&data_root, &dataset_name);
     if !dataset_dir.exists() {
         return Err(format!("Dataset '{}' not found", dataset_name));
     }
-    fs::remove_dir_all(&dataset_dir)
-        .map_err(|e| format!("Failed to delete dataset '{}': {}", dataset_name, e))
+    if delete_files {
+        fs::remove_dir_all(&dataset_dir)
+            .map_err(|e| format!("Failed to delete dataset '{}': {}", dataset_name, e))
+    } else {
+        // Unregister only: remove manifest so the dataset no longer appears in listings
+        let manifest = dataset_dir.join("manifest.json");
+        if manifest.exists() {
+            fs::remove_file(&manifest)
+                .map_err(|e| format!("Failed to unregister dataset '{}': {}", dataset_name, e))?;
+        }
+        Ok(())
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
