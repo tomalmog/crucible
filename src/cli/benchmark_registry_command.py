@@ -68,6 +68,11 @@ def run_benchmark_registry_command(client: CrucibleClient, args: argparse.Namesp
             description=args.description,
         )
         print(f"Added benchmark '{info.name}'")
+        # Resolve entry count in-process
+        from eval.custom_benchmarks import resolve_entry_count
+        count = resolve_entry_count(data_root, args.name)
+        if count > 0:
+            print(f"Resolved {count} entries")
         return 0
 
     if action == "list":
