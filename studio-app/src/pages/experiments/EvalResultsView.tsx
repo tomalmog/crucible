@@ -1,62 +1,14 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
 import { ModelSelect } from "../../components/shared/ModelSelect";
-import { startCrucibleCommand } from "../../api/studioApi";
+import { Search } from "lucide-react";
+import { startCrucibleCommand, listBenchmarks } from "../../api/studioApi";
 import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { evalLabel } from "../../utils/jobLabels";
-
-// ── Benchmark catalog ────────────────────────────────────────────────
-
-interface BenchmarkInfo {
-  name: string;
-  label: string;
-  category: "knowledge" | "reasoning" | "code" | "commonsense";
-}
-
-const BENCHMARKS: BenchmarkInfo[] = [
-  { name: "mmlu", label: "MMLU", category: "knowledge" },
-  { name: "truthfulqa", label: "TruthfulQA", category: "knowledge" },
-  { name: "gsm8k", label: "GSM8K", category: "reasoning" },
-  { name: "math", label: "MATH", category: "reasoning" },
-  { name: "bbh", label: "BBH", category: "reasoning" },
-  { name: "arc", label: "ARC Challenge", category: "reasoning" },
-  { name: "arc_easy", label: "ARC Easy", category: "reasoning" },
-  { name: "hellaswag", label: "HellaSwag", category: "commonsense" },
-  { name: "winogrande", label: "WinoGrande", category: "commonsense" },
-  { name: "boolq", label: "BoolQ", category: "commonsense" },
-  { name: "piqa", label: "PIQA", category: "commonsense" },
-  { name: "openbookqa", label: "OpenBookQA", category: "commonsense" },
-  { name: "humaneval", label: "HumanEval", category: "code" },
-  { name: "mbpp", label: "MBPP", category: "code" },
-];
-
-interface Preset {
-  label: string;
-  description: string;
-  benchmarks: string[];
-}
-
-const PRESETS: Preset[] = [
-  { label: "Quick", description: "Fast sanity check", benchmarks: ["hellaswag", "arc_easy", "boolq", "piqa"] },
-  { label: "Standard", description: "Open LLM Leaderboard set", benchmarks: ["mmlu", "hellaswag", "arc", "winogrande", "truthfulqa", "gsm8k"] },
-  { label: "Reasoning", description: "Math & logic focused", benchmarks: ["mmlu", "gsm8k", "math", "bbh", "arc"] },
-  { label: "Code", description: "Code generation", benchmarks: ["humaneval", "mbpp"] },
-  { label: "Comprehensive", description: "All benchmarks", benchmarks: BENCHMARKS.map((b) => b.name) },
-];
-
-const CATEGORIES = ["knowledge", "reasoning", "commonsense", "code"] as const;
-const CATEGORY_LABELS: Record<string, string> = {
-  knowledge: "Knowledge",
-  reasoning: "Reasoning",
-  commonsense: "Commonsense",
-  code: "Code",
-};
-
-// ── Component ────────────────────────────────────────────────────────
 
 interface EvalResultsViewProps {
   prefill?: Record<string, unknown>;
@@ -74,12 +26,11 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(
     Array.isArray(prefill?.selectedBenchmarks)
       ? new Set(prefill.selectedBenchmarks as string[])
-      : new Set(PRESETS[0].benchmarks), // Default to Quick
+      : new Set<string>(),
   );
   const [maxSamples, setMaxSamples] = useState(
     typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "",
   );
-  const [customTasks, setCustomTasks] = useState("");
   const [partition, setPartition] = useState(
     typeof prefill?.partition === "string" ? prefill.partition : "",
   );
@@ -97,9 +48,25 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registryBenchmarks, setRegistryBenchmarks] = useState<{ name: string; displayName: string }[]>([]);
+  const [benchSearch, setBenchSearch] = useState("");
 
   const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
   const isSlurm = clusterBackend === "slurm";
+
+  // Load benchmarks from registry
+  useEffect(() => {
+    if (!dataRoot) return;
+    listBenchmarks(dataRoot)
+      .then((items) => setRegistryBenchmarks(items.map((b) => ({ name: b.name, displayName: b.displayName }))))
+      .catch(() => setRegistryBenchmarks([]));
+  }, [dataRoot]);
+
+  const filteredBenchmarks = useMemo(() => {
+    if (!benchSearch.trim()) return registryBenchmarks;
+    const q = benchSearch.trim().toLowerCase();
+    return registryBenchmarks.filter((b) => b.displayName.toLowerCase().includes(q) || b.name.includes(q));
+  }, [registryBenchmarks, benchSearch]);
 
   const toggleBenchmark = useCallback((name: string) => {
     setSelectedBenchmarks((prev) => {
@@ -110,35 +77,20 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     });
   }, []);
 
-  const applyPreset = useCallback((preset: Preset) => {
-    setSelectedBenchmarks(new Set(preset.benchmarks));
-  }, []);
-
-  // Combine selected catalog benchmarks + custom task names
-  const allBenchmarks = useMemo(() => {
-    const all = new Set(selectedBenchmarks);
-    if (customTasks.trim()) {
-      for (const t of customTasks.split(",").map((s) => s.trim()).filter(Boolean)) {
-        all.add(t);
-      }
-    }
-    return all;
-  }, [selectedBenchmarks, customTasks]);
-
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!modelPath.trim()) m.push("model");
-    if (allBenchmarks.size === 0) m.push("benchmarks");
+    if (selectedBenchmarks.size === 0) m.push("benchmarks");
     if (isRemote && !clusterName) m.push("cluster");
     return m;
-  }, [modelPath, allBenchmarks, isRemote, clusterName]);
+  }, [modelPath, selectedBenchmarks, isRemote, clusterName]);
 
   function snapshotConfig(): Record<string, unknown> {
     return {
       page: "benchmarks",
       modelPath,
       baseModelPath,
-      selectedBenchmarks: Array.from(allBenchmarks),
+      selectedBenchmarks: Array.from(selectedBenchmarks),
       maxSamples,
       cluster: clusterName,
       partition,
@@ -154,7 +106,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     setSubmitting(true);
     setError(null);
     try {
-      const benchmarks = Array.from(allBenchmarks).join(",");
+      const benchmarks = Array.from(selectedBenchmarks).join(",");
       const selectedEntry = models.find(
         (m) => m.remotePath === modelPath || m.modelPath === modelPath,
       );
@@ -201,6 +153,8 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     }
   }
 
+  const allSelected = registryBenchmarks.length > 0 && registryBenchmarks.every((b) => selectedBenchmarks.has(b.name));
+
   return (
     <CommandFormPanel
       title="Model Evaluation"
@@ -230,56 +184,42 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         </div>
       )}
 
-      {/* Benchmarks with presets inline */}
-      <FormField label="">
-        <div className="eval-benchmark-grid">
-          <div className="eval-benchmark-category">
-            <div className="eval-category-label">Presets</div>
-            <div className="eval-category-items">
-              {PRESETS.map((p) => {
-                const isActive = p.benchmarks.length === selectedBenchmarks.size
-                  && p.benchmarks.every((b) => selectedBenchmarks.has(b));
-                return (
-                  <span
-                    key={p.label}
-                    className={`bench-combo-tag ${isActive ? "bench-combo-tag--active" : ""}`}
-                    onClick={() => applyPreset(p)}
-                    title={p.description}
-                  >
-                    {p.label}
-                  </span>
-                );
-              })}
-            </div>
+      <FormField label="Benchmarks" required>
+        <div className="eval-checklist-toolbar">
+          <div className="registry-search" style={{ maxWidth: 220 }}>
+            <Search size={14} />
+            <input
+              value={benchSearch}
+              onChange={(e) => setBenchSearch(e.currentTarget.value)}
+              placeholder="Search benchmarks..."
+            />
           </div>
-          {CATEGORIES.map((cat) => (
-            <div key={cat} className="eval-benchmark-category">
-              <div className="eval-category-label">{CATEGORY_LABELS[cat]}</div>
-              <div className="eval-category-items">
-                {BENCHMARKS.filter((b) => b.category === cat).map((b) => (
-                  <label key={b.name} className={`eval-benchmark-chip ${selectedBenchmarks.has(b.name) ? "eval-benchmark-chip--active" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedBenchmarks.has(b.name)}
-                      onChange={() => toggleBenchmark(b.name)}
-                      style={{ display: "none" }}
-                    />
-                    {b.label}
-                  </label>
-                ))}
-              </div>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                if (allSelected) setSelectedBenchmarks(new Set());
+                else setSelectedBenchmarks(new Set(registryBenchmarks.map((b) => b.name)));
+              }}
+            >
+              {allSelected ? "Clear All" : "Select All"}
+            </button>
+            <span className="text-muted text-sm">{selectedBenchmarks.size} selected</span>
+          </div>
+        </div>
+        <div className="eval-checklist">
+          {filteredBenchmarks.map((b) => (
+            <label key={b.name} className="eval-checklist-row">
+              <input
+                type="checkbox"
+                checked={selectedBenchmarks.has(b.name)}
+                onChange={() => toggleBenchmark(b.name)}
+              />
+              <span>{b.displayName}</span>
+            </label>
           ))}
         </div>
-      </FormField>
-
-      {/* Custom tasks */}
-      <FormField label="Custom Tasks" hint="comma-separated lm-eval task names (14,000+ available)">
-        <input
-          value={customTasks}
-          onChange={(e) => setCustomTasks(e.currentTarget.value)}
-          placeholder="e.g. agieval, copa, social_iqa"
-        />
       </FormField>
 
       <FormField label="Max Samples" hint="optional, leave empty for full dataset">
