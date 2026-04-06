@@ -39,7 +39,21 @@ def run_agent_chat_command(client: CrucibleClient, args: argparse.Namespace) -> 
     if action == "clear":
         if conversation_path.exists():
             conversation_path.unlink()
+        from serve.studio_agent import delete_pending_chain
+        delete_pending_chain(conversation_path.parent)
         print(json.dumps({"messages": []}))
+        return 0
+
+    if action == "load_chain":
+        from serve.studio_agent import load_pending_chain
+        chain = load_pending_chain(conversation_path.parent)
+        print(json.dumps({"chain": chain}))
+        return 0
+
+    if action == "cancel_chain":
+        from serve.studio_agent import delete_pending_chain
+        delete_pending_chain(conversation_path.parent)
+        print(json.dumps({"ok": True}))
         return 0
 
     # action == "chat"

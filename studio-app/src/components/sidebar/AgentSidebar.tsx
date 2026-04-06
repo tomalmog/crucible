@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Send, X } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, Send, X } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAgentChat } from "../../hooks/useAgentChat";
@@ -9,7 +9,7 @@ interface AgentSidebarProps {
 }
 
 export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
-  const { messages, isLoading, error, sendMessage, clearConversation } = useAgentChat();
+  const { messages, isLoading, error, sendMessage, clearConversation, pendingChain, continueChain, cancelChain } = useAgentChat();
   const [draft, setDraft] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
   const historyIndexRef = useRef(-1);
@@ -127,6 +127,52 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
         {error && (
           <div className="agent-error">
             {error}
+          </div>
+        )}
+
+        {pendingChain && (
+          <div className="agent-chain-banner">
+            {!pendingChain.jobComplete ? (
+              <>
+                <div className="agent-chain-header">
+                  <Loader2 size={14} className="spin" />
+                  <span>Waiting for job to complete...</span>
+                </div>
+                <div className="agent-chain-steps">
+                  {pendingChain.steps.map((step, i) => (
+                    <div key={i} className="agent-chain-step">
+                      <span className="agent-chain-step-num">{i + 1}</span>
+                      {step}
+                    </div>
+                  ))}
+                </div>
+                <div className="agent-chain-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={cancelChain}>Cancel</button>
+                </div>
+              </>
+            ) : pendingChain.jobState === "completed" ? (
+              <>
+                <div className="agent-chain-header agent-chain-ready">
+                  <CheckCircle2 size={14} />
+                  <span>Job completed — ready to continue</span>
+                </div>
+                <div className="agent-chain-steps">
+                  <div className="agent-chain-step">
+                    <span className="agent-chain-step-num">→</span>
+                    {pendingChain.steps[0]}
+                  </div>
+                  {pendingChain.steps.length > 1 && (
+                    <div className="agent-chain-step text-tertiary">
+                      + {pendingChain.steps.length - 1} more step{pendingChain.steps.length > 2 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
+                <div className="agent-chain-actions">
+                  <button className="btn btn-primary btn-sm" onClick={continueChain} disabled={isLoading}>Continue</button>
+                  <button className="btn btn-ghost btn-sm" onClick={cancelChain}>Cancel</button>
+                </div>
+              </>
+            ) : null}
           </div>
         )}
 

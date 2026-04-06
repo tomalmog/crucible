@@ -186,6 +186,28 @@ edit their training script (shown in "Current Training Script" below).
   (no "Current Training Script" section below), tell them to switch to the
   Code tab in the training wizard so you can see and edit the script.
 
+## Job Chaining
+
+When the user asks you to perform multiple steps that involve remote jobs (e.g.
+"train model A, then LoRA fine-tune it, then benchmark it"), submit only the
+FIRST job. Then declare the remaining steps in a <pending_chain> tag so they
+run automatically after the job completes.
+
+Usage: include <pending_chain>...</pending_chain> in your response AFTER
+submitting a remote job. List each remaining step on its own line.
+- Only use this when you've submitted a remote job AND have clearly defined
+  follow-up steps that depend on the job's output.
+- Each step should be a complete, self-contained instruction that you can
+  execute when re-activated (include model names, dataset names, parameters).
+- Only include one <pending_chain> tag per response.
+- Do NOT include the step you just submitted — only REMAINING steps.
+
+Example:
+<pending_chain>
+LoRA fine-tune the output model on dataset 'instruct-v2' with rank=16, learning_rate=2e-4, call it "my-lora"
+Run MMLU and HellaSwag benchmarks on the LoRA-tuned model
+</pending_chain>
+
 ## Page Navigation
 You can navigate the user to any Studio page by including a <navigate_to> tag in your
 response. The user will see the page change and a badge in the chat confirming it.
@@ -393,6 +415,25 @@ def run_agent_turn(
             r"<navigate_to>.*?</navigate_to>", "", full_text, flags=re.DOTALL,
         ).strip()
 
+    # Extract pending_chain if the agent declared follow-up steps
+    pending_chain = None
+    chain_match = re.search(
+        r"<pending_chain>(.*?)</pending_chain>", full_text, re.DOTALL,
+    )
+    if chain_match:
+        chain_text = chain_match.group(1).strip()
+        full_text = re.sub(
+            r"<pending_chain>.*?</pending_chain>", "", full_text, flags=re.DOTALL,
+        ).strip()
+        # Find the job_id from tool results in this turn
+        chain_job_id = _extract_submitted_job_id(messages)
+        if chain_job_id and chain_text:
+            steps = [s.strip() for s in chain_text.splitlines() if s.strip()]
+            _save_pending_chain(
+                conversation_path.parent, chain_job_id, steps, user_message,
+            )
+            pending_chain = {"job_id": chain_job_id, "steps": steps}
+
     result: dict[str, Any] = {
         "role": "assistant",
         "content": full_text,
@@ -402,6 +443,8 @@ def run_agent_turn(
         result["script_update"] = script_update
     if navigate_to:
         result["navigate_to"] = navigate_to
+    if pending_chain:
+        result["pending_chain"] = pending_chain
     return result
 
 
@@ -437,3 +480,63 @@ def load_conversation_for_display(conversation_path: Path) -> list[dict[str, Any
                         entry["tools_used"] = tool_names
                     display.append(entry)
     return display
+
+
+# ── Pending chain helpers ─────────────────────────────────────────
+
+_CHAIN_FILE = "pending_chain.json"
+
+
+def _save_pending_chain(
+    agent_dir: Path,
+    job_id: str,
+    steps: list[str],
+    original_request: str,
+) -> None:
+    from datetime import datetime, timezone
+    data = {
+        "waiting_on_job_id": job_id,
+        "remaining_steps": steps,
+        "original_request": original_request,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    path = agent_dir / _CHAIN_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2))
+
+
+def load_pending_chain(agent_dir: Path) -> dict[str, Any] | None:
+    path = agent_dir / _CHAIN_FILE
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def delete_pending_chain(agent_dir: Path) -> None:
+    path = agent_dir / _CHAIN_FILE
+    if path.exists():
+        path.unlink()
+
+
+def _extract_submitted_job_id(messages: list[dict[str, Any]]) -> str | None:
+    """Find the job_id from the most recent tool result in the conversation."""
+    for msg in reversed(messages):
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            # Tool result blocks
+            result_content = block.get("content", "")
+            if isinstance(result_content, str) and '"job_id"' in result_content:
+                try:
+                    parsed = json.loads(result_content)
+                    if "job_id" in parsed:
+                        return parsed["job_id"]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+    return None

@@ -3552,6 +3552,57 @@ label,
     border-radius: var(--radius-md);
 }
 
+.agent-chain-banner {
+    padding: 10px 12px;
+    margin: 0 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.agent-chain-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.agent-chain-header.agent-chain-ready {
+    color: var(--success);
+}
+.agent-chain-header.agent-chain-failed {
+    color: var(--error);
+}
+.agent-chain-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 2px;
+}
+.agent-chain-step {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+}
+.agent-chain-step-num {
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 14px;
+    flex-shrink: 0;
+}
+.agent-chain-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
 .agent-input-row {
     display: grid;
     grid-template-columns: 1fr auto;

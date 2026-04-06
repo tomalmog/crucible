@@ -871,32 +871,38 @@ def submit_remote_eval(
         time_limit: Job time limit (e.g. "04:00:00").
     """
     try:
-        from core.slurm_types import SlurmResourceConfig
-        from serve.remote_job_submitter import submit_remote_eval_job
-        method_args: dict[str, object] = {
+        _ensure_backends()
+        from core.job_types import JobSpec, ResourceConfig
+        from core.backend_registry import get_backend
+        from store.cluster_registry import load_cluster
+        data_root = _data_root()
+        cluster = load_cluster(data_root, cluster_name)
+        backend = get_backend(cluster.backend)
+        eval_args: dict[str, object] = {
             "model_path": model_path,
             "benchmarks": benchmarks,
         }
         if max_samples > 0:
-            method_args["max_samples"] = max_samples
+            eval_args["max_samples"] = max_samples
         if base_model:
-            method_args["base_model_path"] = base_model
-        resources = SlurmResourceConfig(
-            partition=partition,
-            gpus_per_node=gpus_per_node,
-            memory=memory,
-            time_limit=time_limit,
-        )
-        record = submit_remote_eval_job(
-            data_root=_data_root(),
+            eval_args["base_model_path"] = base_model
+        label = model_name or f"Eval · {model_path.split('/')[-1]}"
+        spec = JobSpec(
+            job_type="eval",
+            method_args=eval_args,
+            backend=cluster.backend,
+            label=label,
             cluster_name=cluster_name,
-            method_args=method_args,
-            resources=resources,
-            model_name=model_name,
+            resources=ResourceConfig(
+                partition=partition,
+                gpus_per_node=gpus_per_node,
+                memory=memory,
+                time_limit=time_limit,
+            ),
         )
+        record = backend.submit(data_root, spec)
         return json.dumps({
             "job_id": record.job_id,
-            "slurm_job_id": record.slurm_job_id,
             "cluster": cluster_name,
             "state": record.state,
         })
