@@ -4,8 +4,67 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from store.dataset_sdk import CrucibleClient
+
+
+_MODEL_PATH_FIELDS = (
+    "base_model", "base_model_path", "policy_model_path",
+    "teacher_model_path", "student_model_path", "reference_model_path",
+    "initial_weights_path",
+)
+
+
+def _resolve_model_names(
+    data_root: Path, method_args: dict, remote: bool = False,
+) -> dict:
+    """Resolve Crucible model names to actual paths in method_args."""
+    from store.model_registry import ModelRegistry
+    try:
+        registry = ModelRegistry(data_root)
+    except Exception:
+        return method_args
+
+    for field in _MODEL_PATH_FIELDS:
+        value = method_args.get(field)
+        if not isinstance(value, str) or not value:
+            continue
+        if "/" in value or value.startswith(".") or value.endswith(".pt"):
+            continue
+        try:
+            entry = registry.get_model(value)
+            if remote and entry.remote_path:
+                method_args[field] = entry.remote_path
+            elif entry.model_path:
+                method_args[field] = entry.model_path
+        except Exception:
+            pass
+    return method_args
+
+
+def _validate_model_fields(method_args: dict) -> None:
+    """Raise early if any model-path field looks like a bare name.
+
+    Catches common mistakes (passing a Crucible model name like 'jupiter'
+    instead of a real path) before the job is submitted to a remote cluster.
+    """
+    for field in _MODEL_PATH_FIELDS:
+        value = method_args.get(field)
+        if not isinstance(value, str) or not value:
+            continue
+        if "/" in value or value.startswith(".") or value.endswith(".pt"):
+            continue
+        # Well-known single-word HF model IDs
+        _KNOWN_SHORT_HF = {"gpt2", "distilgpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
+        if value in _KNOWN_SHORT_HF:
+            continue
+        raise ValueError(
+            f"'{value}' in field '{field}' is not a valid model path or "
+            f"HuggingFace model ID, and was not found in the model registry. "
+            f"Use a full path (e.g. /path/to/model.pt) or a HuggingFace ID "
+            f"(e.g. 'gpt2' or 'meta-llama/Llama-2-7b')."
+        )
 
 
 def add_dispatch_command(
@@ -50,9 +109,16 @@ def run_dispatch_command(
         dict(t) for t in raw.get("sweep_trials", [])
     )
 
+    method_args = dict(raw.get("method_args", {}))
+    is_remote = str(raw.get("backend", "local")) != "local"
+    method_args = _resolve_model_names(
+        client._config.data_root, method_args, remote=is_remote,
+    )
+    _validate_model_fields(method_args)
+
     spec = JobSpec(
         job_type=str(raw["job_type"]),
-        method_args=dict(raw.get("method_args", {})),
+        method_args=method_args,
         backend=str(raw.get("backend", "local")),  # type: ignore[arg-type]
         label=str(raw.get("label", "")),
         cluster_name=str(raw.get("cluster_name", "")),

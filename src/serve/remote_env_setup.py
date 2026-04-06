@@ -131,8 +131,15 @@ def ensure_eval_packages(session: SshSession) -> None:
         return
     print("CRUCIBLE_ENV_SETUP: installing eval packages...", flush=True)
     pip_list = " ".join(f"'{p}'" for p in _EVAL_PACKAGES)
+    # Pin numpy<2 and force pre-built wheels for compiled packages
+    # (numpy, scikit-learn) to avoid building from source on clusters
+    # with old GCC. lm-eval itself is pure Python so it's fine from sdist.
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install {pip_list}"),
+        conda_cmd(
+            f"conda run -n {ENV_NAME} pip install "
+            f"--only-binary numpy,scikit-learn "
+            f"'numpy<2' {pip_list}"
+        ),
         timeout=600,
     )
     if code != 0:

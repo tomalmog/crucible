@@ -200,6 +200,44 @@ def _nest_flat_keys(method: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+_MODEL_PATH_FIELDS = (
+    "base_model", "base_model_path", "policy_model_path",
+    "teacher_model_path", "student_model_path", "reference_model_path",
+    "initial_weights_path",
+)
+
+
+def _resolve_model_names_via_registry(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Resolve bare model names to paths using the model registry.
+
+    If a model-path field contains a bare name (no '/', not starting with '.',
+    not ending with '.pt') that matches a registered model, replace it with
+    the model's actual path. Works locally and on remote agents.
+    """
+    try:
+        from store.model_registry import ModelRegistry
+        from core.config import CrucibleConfig
+        config = CrucibleConfig.from_env()
+        registry = ModelRegistry(config.data_root)
+    except Exception:
+        return kwargs
+
+    for field in _MODEL_PATH_FIELDS:
+        value = kwargs.get(field)
+        if not isinstance(value, str) or not value:
+            continue
+        if "/" in value or value.startswith(".") or value.endswith(".pt"):
+            continue
+        try:
+            entry = registry.get_model(value)
+            resolved = entry.model_path or entry.remote_path
+            if resolved:
+                kwargs[field] = resolved
+        except Exception:
+            pass
+    return kwargs
+
+
 def dispatch_training(
     client: Any,
     method: str,
@@ -227,6 +265,7 @@ def dispatch_training(
             f"Unknown training method '{method}'. "
             f"Valid methods: {', '.join(ALL_TRAINING_METHODS)}"
         )
+    kwargs = _resolve_model_names_via_registry(kwargs)
     client_method_name, options_class = TRAINING_METHOD_DISPATCH[method]
     nested = _nest_flat_keys(method, kwargs)
     options = _coerce_dataclass_kwargs(options_class, nested)

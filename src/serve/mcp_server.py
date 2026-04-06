@@ -75,11 +75,21 @@ All methods accept these shared fields:
 - `batch_size` (int, default 16)
 - `max_token_length` (int, default 512)
 - `precision_mode` ("auto", "fp32", "fp16", "bf16")
-- `output_dir` (string, where to save the model)
-- `model_name` (string, name for the model registry)
+- `output_dir` (string, default "./outputs/train", where to save the model)
+- `model_name` (string, name for the model registry, defaults to output dir name)
 
 LoRA-specific: `lora_rank` (int), `lora_alpha` (float), `lora_dropout` (float)
 DPO-specific: `beta` (float, default 0.1)
+
+## Model Names vs Model Paths
+
+Fields like `base_model`, `base_model_path`, `policy_model_path`, etc. expect
+either a **HuggingFace model ID** (e.g. "gpt2", "meta-llama/Llama-2-7b") or a
+**local file path** (e.g. "/path/to/model.pt" or "/path/to/model-dir/").
+
+Crucible model **names** (like "jupiter" or "my-sft-model") are NOT valid values
+for these fields. To use a registered Crucible model, call `list_models()` first
+to get its `path` field, then pass that path.
 
 ## Typical Workflows
 
@@ -189,6 +199,62 @@ def _try_auto_register_remote(data_root: Path, job: Any, model_path: str | None 
             registry.register_model(model_name, mp, run_id=job.job_id)
     except Exception:
         pass
+
+
+# Fields in method_args that hold model identifiers and should be resolved.
+_MODEL_PATH_FIELDS = (
+    "base_model", "base_model_path", "policy_model_path",
+    "teacher_model_path", "student_model_path", "reference_model_path",
+    "initial_weights_path",
+)
+
+
+def _resolve_model_names(method_args: dict, remote: bool = False) -> dict:
+    """Resolve Crucible model names to actual paths in method_args.
+
+    If a value for a model-path field matches a registered model name
+    (and is not already a valid filesystem path or HuggingFace-style ID
+    containing '/'), replace it with the model's actual path.
+    For remote jobs, prefer the remote path; for local, the local path.
+    """
+    from store.model_registry import ModelRegistry
+    registry = ModelRegistry(_data_root())
+
+    for field in _MODEL_PATH_FIELDS:
+        value = method_args.get(field)
+        if not isinstance(value, str) or not value:
+            continue
+        # Skip if it looks like a real path or HuggingFace model ID
+        if "/" in value or value.startswith(".") or value.endswith(".pt"):
+            continue
+        # Try resolving as a registered model name
+        try:
+            entry = registry.get_model(value)
+            if remote and entry.remote_path:
+                method_args[field] = entry.remote_path
+            elif entry.model_path:
+                method_args[field] = entry.model_path
+        except Exception:
+            pass  # not a registered name — leave as-is (might be a HF model ID)
+    return method_args
+
+
+def _validate_model_fields(method_args: dict) -> None:
+    """Raise early if any model-path field looks like a bare name."""
+    _KNOWN_SHORT_HF = {"gpt2", "distilgpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
+    for field in _MODEL_PATH_FIELDS:
+        value = method_args.get(field)
+        if not isinstance(value, str) or not value:
+            continue
+        if "/" in value or value.startswith(".") or value.endswith(".pt"):
+            continue
+        if value in _KNOWN_SHORT_HF:
+            continue
+        raise ValueError(
+            f"'{value}' in '{field}' is not a valid model path or HuggingFace "
+            f"model ID, and was not found in the model registry. Use a full "
+            f"path or a HuggingFace ID (e.g. 'meta-llama/Llama-2-7b')."
+        )
 
 
 def _run_with_job(job_type: str, label: str, fn: Any, config: dict | None = None) -> str:
@@ -513,7 +579,8 @@ def train(
         from core.training_methods import dispatch_training
         from store.model_registry import ModelRegistry
         client = _get_client()
-        kwargs = json.loads(method_args)
+        kwargs = _resolve_model_names(json.loads(method_args), remote=False)
+        _validate_model_fields(kwargs)
 
         def do_train():
             result = dispatch_training(client, method, kwargs)
@@ -567,10 +634,13 @@ def submit_remote_training(
         cluster = load_cluster(data_root, cluster_name)
         backend_kind = cluster.backend
         backend = get_backend(backend_kind)
+        resolved_args = _resolve_model_names(json.loads(method_args), remote=True)
+        _validate_model_fields(resolved_args)
         spec = JobSpec(
             job_type=method,
-            method_args=json.loads(method_args),
+            method_args=resolved_args,
             backend=backend_kind,
+            label=resolved_args.get("model_name") or method,
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,

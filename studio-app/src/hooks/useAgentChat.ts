@@ -98,6 +98,11 @@ export function useAgentChat(): UseAgentChatReturn {
         selectedModel: selectedModel?.modelName || null,
         selectedDataset: selectedDataset || null,
         modelNames: models.map((m) => m.modelName).slice(0, 20),
+        modelPaths: models.slice(0, 20).reduce<Record<string, string>>((acc, m) => {
+          if (m.modelPath) acc[m.modelName] = m.modelPath;
+          if (m.remotePath) acc[`${m.modelName} (remote)`] = m.remotePath;
+          return acc;
+        }, {}),
         datasetNames: datasets.map((d) => d.name).slice(0, 20),
         ...(scriptContext ? { script: scriptContext } : {}),
       };

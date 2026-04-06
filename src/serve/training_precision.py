@@ -96,6 +96,15 @@ def _is_bf16_supported(torch_module: Any) -> bool:
     cuda_module = getattr(torch_module, "cuda", None)
     if cuda_module is None:
         return False
+    # Require compute capability >= 8.0 (Ampere+) for reliable bf16.
+    # Older GPUs (Maxwell, Pascal, Volta, Turing) may report bf16 support
+    # via is_bf16_supported() but lack the SDPA kernels needed for training.
+    try:
+        major, _ = cuda_module.get_device_capability(0)
+        if major < 8:
+            return False
+    except Exception:
+        pass
     bf16_probe = getattr(cuda_module, "is_bf16_supported", None)
     if callable(bf16_probe):
         return bool(bf16_probe())

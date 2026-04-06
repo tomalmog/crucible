@@ -152,6 +152,28 @@ Rules:
 - Never fabricate information. If you don't know something, say so.
 - Never pretend to execute actions you didn't actually perform via tools.
 
+## Using Default Values
+
+When the user doesn't specify a value, use sensible defaults instead of asking:
+- `output_dir`: default `"./outputs/<method>-<model>"` (e.g. "./outputs/lora-gpt2")
+- `model_name`: derive from the output dir or method name
+- `epochs`: 3
+- `batch_size`: 16
+- `learning_rate`: use the method default (1e-3 for basic, 2e-5 for SFT/DPO/KTO/ORPO, 2e-4 for LoRA/QLoRA)
+- `max_token_length`: 512
+Only ask the user for values when they are truly required and have no default
+(e.g. which dataset to use, which model to fine-tune).
+
+## Model Name Resolution
+
+The "Available models" list in Studio State shows model **names**, but training
+tools require model **paths**. The names alone are NOT valid for fields like
+`base_model_path`, `policy_model_path`, etc.
+- Always call `list_models()` to resolve a model name to its actual path before
+  passing it to any training, eval, or interp tool.
+- HuggingFace model IDs (e.g. "gpt2", "meta-llama/Llama-2-7b") can be used
+  directly — they don't need resolution.
+
 ## Training Script Interaction
 When the user has the Code tab open in the training wizard, you can see and
 edit their training script (shown in "Current Training Script" below).
@@ -221,6 +243,10 @@ def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
         context_lines.append(f"- Selected dataset: {app_context['selectedDataset']}")
     if app_context.get("modelNames"):
         context_lines.append(f"- Available models: {', '.join(app_context['modelNames'])}")
+    if app_context.get("modelPaths"):
+        paths = app_context["modelPaths"]
+        path_lines = [f"  {name}: {path}" for name, path in paths.items()]
+        context_lines.append("- Model paths (use these in tool calls, not names):\n" + "\n".join(path_lines))
     if app_context.get("datasetNames"):
         context_lines.append(f"- Available datasets: {', '.join(app_context['datasetNames'])}")
 

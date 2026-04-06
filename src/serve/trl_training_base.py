@@ -19,11 +19,40 @@ from serve.training_artifacts import ensure_training_output_dir
 from serve.training_metadata import save_training_config
 
 
+def _validate_model_id(model_id: str) -> None:
+    """Raise early if model_id looks like a Crucible registry name, not a path.
+
+    Bare names like "jupiter" or "my-model" that don't contain "/" and aren't
+    local paths are almost certainly registry names that weren't resolved.
+    """
+    if not model_id:
+        return
+    from pathlib import Path
+    # HuggingFace IDs contain "/" (e.g. "meta-llama/Llama-2-7b")
+    # Local paths start with "/" or "." or end with ".pt"
+    # Well-known single-word HF models: gpt2, distilgpt2, bert-*, etc.
+    if "/" in model_id or model_id.startswith(".") or model_id.endswith(".pt"):
+        return
+    if Path(model_id).exists():
+        return
+    # Check if it's a known HF short name (these work without "/")
+    _KNOWN_SHORT_HF = {"gpt2", "distilgpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
+    if model_id in _KNOWN_SHORT_HF:
+        return
+    raise ValueError(
+        f"'{model_id}' looks like a Crucible model name, not a model path or "
+        f"HuggingFace model ID. Use the model's file path instead "
+        f"(run `crucible list-models` to find it), or use a HuggingFace model "
+        f"ID like 'gpt2' or 'meta-llama/Llama-2-7b'."
+    )
+
+
 def load_hf_model_and_tokenizer(
     model_id: str,
     precision_mode: str,
 ) -> tuple[Any, Any]:
     """Load a HuggingFace model and tokenizer for training."""
+    _validate_model_id(model_id)
     torch = _import_torch()
     transformers = _import_transformers()
 
