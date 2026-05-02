@@ -1,14 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  flexRender,
+  createColumnHelper,
+  type SortingState,
+} from "@tanstack/react-table";
+import {
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  Search,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Download,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { TabBar } from "../../components/shared/TabBar";
 import { DetailPage } from "../../components/shared/DetailPage";
-import { ListRow } from "../../components/shared/ListRow";
-import { EmptyState } from "../../components/shared/EmptyState";
 import { RegisterModelModal } from "../../components/shared/RegisterModelModal";
 import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
-import { formatSize } from "../../components/shared/RegistryRow";
 import { ClusterSelect } from "../../components/shared/ClusterSelect";
+import { formatSize } from "../../components/shared/RegistryRow";
 import { useCrucible } from "../../context/CrucibleContext";
 import { useCrucibleCommand } from "../../hooks/useCrucibleCommand";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
@@ -18,34 +37,53 @@ import { ModelMergeForm } from "./ModelMergeForm";
 import type { ModelEntry } from "../../types/models";
 import type { ClusterConfig } from "../../types/remote";
 
+// ── Types ────────────────────────────────────────────────────────────
+
 type DetailTab = "overview" | "merge";
-type LocationTab = "local" | "remote";
+type LocationFilter = "local" | "remote";
 const DETAIL_TABS = ["overview", "merge"] as const;
-const LOCATION_TABS = ["local", "remote"] as const;
 
 const POLL_MS = 400;
+const PAGE_SIZE = 15;
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function locationLabel(m: ModelEntry): string {
+  return m.hasLocal ? "Local" : "Remote";
+}
+
+// ── Component ────────────────────────────────────────────────────────
 
 export function ModelsPage() {
   const { dataRoot, models, setSelectedModel, refreshModels } = useCrucible();
   const command = useCrucibleCommand();
+
+  // Detail view state
   const [detailEntry, setDetailEntry] = useState<ModelEntry | null>(null);
   const [tab, setTab] = useState<DetailTab>("overview");
-  const [locationTab, setLocationTab] = useState<LocationTab>("local");
+
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [search, setSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("local");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Modals
   const [showRegister, setShowRegister] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ModelEntry | null>(null);
   const [deleteLocalFiles, setDeleteLocalFiles] = useState(true);
 
+  // Cluster & remote state
   const [clusters, setClusters] = useState<ClusterConfig[]>([]);
   const [selectedCluster, setSelectedCluster] = useState("");
   const [remoteSizes, setRemoteSizes] = useState<Record<string, number>>({});
   const [transferring, setTransferring] = useState<Set<string>>(new Set());
   const [transferError, setTransferError] = useState<string | null>(null);
-  const hostToCluster = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of clusters) map.set(c.host, c.name);
-    return map;
-  }, [clusters]);
+
+  // ── Cluster loading ──────────────────────────────────────────────
 
   useEffect(() => {
     listClusters(dataRoot)
@@ -56,21 +94,31 @@ export function ModelsPage() {
       .catch(console.error);
   }, [dataRoot]);
 
-  const fetchRemoteSizes = useCallback(async (bypassCache?: boolean) => {
-    if (!selectedCluster) return;
-    try {
-      const sizes = await getRemoteModelSizes(dataRoot, selectedCluster, bypassCache);
-      setRemoteSizes(sizes);
-    } catch {
-      setRemoteSizes({});
-    }
-  }, [dataRoot, selectedCluster]);
+  const clusterHost = useMemo(
+    () => clusters.find((c) => c.name === selectedCluster)?.host ?? selectedCluster,
+    [clusters, selectedCluster],
+  );
+
+  const fetchRemoteSizes = useCallback(
+    async (bypassCache?: boolean) => {
+      if (!selectedCluster) return;
+      try {
+        const sizes = await getRemoteModelSizes(dataRoot, selectedCluster, bypassCache);
+        setRemoteSizes(sizes);
+      } catch {
+        setRemoteSizes({});
+      }
+    },
+    [dataRoot, selectedCluster],
+  );
 
   useEffect(() => {
-    if (locationTab === "remote" && selectedCluster) {
+    if (locationFilter === "remote" && selectedCluster) {
       fetchRemoteSizes().catch(console.error);
     }
-  }, [locationTab, selectedCluster, fetchRemoteSizes]);
+  }, [locationFilter, selectedCluster, fetchRemoteSizes]);
+
+  // ── Transfer helpers ─────────────────────────────────────────────
 
   const pollUntilDone = useCallback(async (taskId: string) => {
     while (true) {
@@ -116,6 +164,8 @@ export function ModelsPage() {
     }
   }
 
+  // ── Actions ──────────────────────────────────────────────────────
+
   function handleSelect(entry: ModelEntry) {
     setSelectedModel(entry);
     setDetailEntry(entry);
@@ -140,11 +190,113 @@ export function ModelsPage() {
   async function handleRefresh(): Promise<void> {
     setIsRefreshing(true);
     await refreshModels();
-    if (locationTab === "remote") {
+    if (locationFilter === "remote") {
       await fetchRemoteSizes(true);
     }
     setIsRefreshing(false);
   }
+
+  // ── Filtered data ────────────────────────────────────────────────
+
+  const data = useMemo(() => {
+    let rows = locationFilter === "local"
+      ? models.filter((m) => m.hasLocal)
+      : models.filter((m) => m.hasRemote && (!selectedCluster || m.remoteHost === clusterHost));
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter((r) => r.modelName.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [models, locationFilter, selectedCluster, clusterHost, search]);
+
+  // ── Table columns ────────────────────────────────────────────────
+
+  const columns = useMemo(() => {
+    const c = createColumnHelper<ModelEntry>();
+    return [
+      c.accessor("modelName", {
+        header: "Name",
+        cell: (info) => <span className="registry-table-name">{info.getValue()}</span>,
+      }),
+      c.accessor("sizeBytes", {
+        header: "Size",
+        cell: (info) => {
+          const m = info.row.original;
+          const bytes = m.hasRemote && remoteSizes[m.modelName]
+            ? remoteSizes[m.modelName]
+            : m.sizeBytes;
+          return <span className="text-muted">{formatSize(bytes)}</span>;
+        },
+      }),
+      c.accessor("createdAt", {
+        header: "Created",
+        cell: (info) => {
+          const v = info.getValue();
+          return <span className="text-muted">{v ? formatDate(v) : "\u2014"}</span>;
+        },
+      }),
+      c.display({
+        id: "location",
+        header: "Location",
+        cell: (info) => (
+          <span className="text-muted">{locationLabel(info.row.original)}</span>
+        ),
+      }),
+      c.display({
+        id: "actions",
+        header: "",
+        cell: (info) => {
+          const m = info.row.original;
+          return (
+            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+              {m.hasLocal && clusters.length > 0 && (
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  title="Push to remote cluster"
+                  disabled={transferring.has(m.modelName)}
+                  onClick={(e) => { e.stopPropagation(); handlePushModel(m).catch(console.error); }}
+                >
+                  {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
+                </button>
+              )}
+              {m.hasRemote && !m.hasLocal && (
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  title="Pull to local"
+                  disabled={transferring.has(m.modelName)}
+                  onClick={(e) => { e.stopPropagation(); handlePullModel(m).catch(console.error); }}
+                >
+                  {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                </button>
+              )}
+              <button
+                className="btn btn-ghost btn-sm btn-icon"
+                title="Delete model"
+                onClick={(e) => { e.stopPropagation(); setDeleteLocalFiles(true); setPendingDelete(m); }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          );
+        },
+      }),
+    ];
+  }, [clusters, transferring, remoteSizes]);
+
+  // ── Table instance ───────────────────────────────────────────────
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: PAGE_SIZE } },
+  });
+
+  // ── Detail view ──────────────────────────────────────────────────
 
   if (detailEntry) {
     return (
@@ -156,96 +308,122 @@ export function ModelsPage() {
     );
   }
 
-  const clusterHost = clusters.find((c) => c.name === selectedCluster)?.host ?? selectedCluster;
-  const filtered = models.filter((m) =>
-    locationTab === "local"
-      ? m.hasLocal
-      : m.hasRemote && (!selectedCluster || m.remoteHost === clusterHost),
-  );
+  // ── List view ────────────────────────────────────────────────────
 
-  const emptyMsg = locationTab === "local"
-    ? "No local models. Train a model or download one from the Hub."
-    : "No remote models.";
+  const pageIndex = table.getState().pagination.pageIndex;
+  const totalRows = data.length;
+  const start = pageIndex * PAGE_SIZE + 1;
+  const end = Math.min((pageIndex + 1) * PAGE_SIZE, totalRows);
 
   return (
     <>
-      <PageHeader title="Models">
-        {clusters.length > 0 && (
+      <PageHeader title="Models" />
+
+      <div className="registry-toolbar">
+        <div className="registry-search">
+          <Search size={14} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            placeholder="Search models..."
+          />
+        </div>
+        <div className="registry-filters">
+          {(["local", "remote"] as const).map((f) => (
+            <button
+              key={f}
+              className={`registry-filter-chip ${locationFilter === f ? "registry-filter-chip--active" : ""}`}
+              onClick={() => setLocationFilter(f)}
+            >
+              {f === "local" ? "Local" : "Remote"}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        {locationFilter === "remote" && clusters.length > 0 && (
           <ClusterSelect clusters={clusters} value={selectedCluster} onChange={setSelectedCluster} />
         )}
-        <button className="btn" onClick={() => setShowRegister(true)}>
-          <Plus size={14} /> Register
-        </button>
         <button
           className="btn"
           onClick={() => handleRefresh().catch(console.error)}
           disabled={isRefreshing}
         >
-          {isRefreshing ? "Refreshing..." : "Refresh"}
+          <RefreshCw size={14} /> Refresh
         </button>
-      </PageHeader>
-
-      <TabBar
-        tabs={LOCATION_TABS}
-        active={locationTab}
-        onChange={setLocationTab}
-        format={(t) => t.charAt(0).toUpperCase() + t.slice(1)}
-      />
+        <button className="btn" onClick={() => setShowRegister(true)}>
+          <Plus size={14} /> Add Model
+        </button>
+      </div>
 
       {transferError && (
         <p className="error-text" style={{ marginBottom: 8 }}>{transferError}</p>
       )}
 
-      {filtered.length === 0 ? (
-        <EmptyState title="No models" description={emptyMsg} />
-      ) : (
-        <div className="panel panel-flush">
-          {filtered.map((m) => (
-            <ListRow
-              key={m.modelName + m.modelPath}
-              name={m.modelName}
-              meta={
-                <>
-                  {locationTab === "local" && m.hasRemote && <span className="badge">Also Remote</span>}
-                  {locationTab === "remote" && m.remoteHost && (
-                    <span className="badge">{hostToCluster.get(m.remoteHost) || m.remoteHost}</span>
-                  )}
-                  <span>{formatSize(locationTab === "remote" ? (remoteSizes[m.modelName] ?? m.sizeBytes) : m.sizeBytes)}</span>
-                </>
-              }
-              actions={
-                <>
-                  {locationTab === "local" ? (
-                    <button
-                      className="btn btn-ghost btn-sm btn-icon"
-                      title="Push to remote cluster"
-                      disabled={clusters.length === 0 || transferring.has(m.modelName)}
-                      onClick={(e) => { e.stopPropagation(); handlePushModel(m).catch(console.error); }}
-                    >
-                      {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Upload size={14} />}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-ghost btn-sm btn-icon"
-                      title="Pull to local"
-                      disabled={transferring.has(m.modelName)}
-                      onClick={(e) => { e.stopPropagation(); handlePullModel(m).catch(console.error); }}
-                    >
-                      {transferring.has(m.modelName) ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-sm btn-icon"
-                    title="Delete model"
-                    onClick={() => { setDeleteLocalFiles(true); setPendingDelete(m); }}
+      <div className="registry-table-wrap">
+        <table className="registry-table">
+          <thead>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    onClick={header.column.getToggleSortingHandler()}
+                    className={header.column.getCanSort() ? "sortable" : ""}
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </>
-              }
-              onClick={() => handleSelect(m)}
-            />
-          ))}
+                    <div className="registry-th-content">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {{
+                        asc: <ArrowUp size={12} />,
+                        desc: <ArrowDown size={12} />,
+                      }[header.column.getIsSorted() as string] ?? null}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                onClick={() => handleSelect(row.original)}
+                style={{ cursor: "pointer" }}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {table.getPageCount() > 1 && (
+        <div className="dataset-pagination">
+          <span className="text-muted text-sm">
+            Showing {start}&ndash;{end} of {totalRows}
+          </span>
+          <div className="pagination-controls">
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              disabled={!table.getCanPreviousPage()}
+              onClick={() => table.previousPage()}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="text-sm">
+              Page {pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <button
+              className="btn btn-ghost btn-sm btn-icon"
+              disabled={!table.getCanNextPage()}
+              onClick={() => table.nextPage()}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
       )}
 
