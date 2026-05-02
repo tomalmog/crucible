@@ -11,7 +11,7 @@ Crucible Studio is the desktop application that gives you a visual interface for
 
 ### Sidebar Navigation
 
-The left sidebar is your main navigation. It is split into two sections — **Workspace** (Training, Datasets, Models, Chat, Benchmarks, Hub) and **Tools** (Jobs, Clusters, A/B Compare, Docs, Settings). Click any item to switch views.
+The left sidebar is your main navigation. It is split into two sections — **Workspace** (Training, Datasets, Models, Chat, Benchmarks, Hub) and **Tools** (Jobs, Clusters, Docs, Settings). Click any item to switch views.
 
 ### Training
 
@@ -42,10 +42,6 @@ Monitor all running and completed training jobs — both local and remote. Each 
 ### Clusters
 
 Register, validate, and manage Slurm cluster connections for remote training. Add a cluster by providing SSH credentials and workspace path, then validate the connection before submitting jobs.
-
-### A/B Compare
-
-Send the same prompt to two different models side by side and compare their responses. Rate which response is better (A, B, or Tie) and export your preferences as DPO training data for further model alignment.
 
 ### Docs
 

@@ -133,21 +133,18 @@ to get its `path` field, then pass that path.
 **9. Hyperparameter sweep:**
 1. `run_sweep("sft", "my-dataset", '[{"name":"learning_rate","values":[1e-4,1e-3]}]')` -- grid/random search
 
-**10. A/B model comparison:**
-1. `ab_chat("model_a.pt", "model_b.pt", "Explain transformers")` -- compare two models side-by-side
-
-**11. LoRA merge:**
+**10. LoRA merge:**
 1. `lora_merge("adapter/", "gpt2", "merged.pt")` -- merge LoRA into base model
 
-**12. Dataset curation:**
+**11. Dataset curation:**
 1. `curate_dataset("my-data", "score")` -- score quality of each record
 2. `curate_dataset("my-data", "stats")` -- distribution statistics
 3. `curate_dataset("my-data", "filter", min_quality=0.7)` -- filter low-quality records
 
-**13. Synthetic data generation:**
+**12. Synthetic data generation:**
 1. `generate_synthetic_data("seeds.txt", count=1000)` -- generate training data from prompts
 
-**14. Hardware detection:**
+**13. Hardware detection:**
 1. `hardware_profile()` -- detect GPUs, recommended precision, batch size
 
 ## Remote Clusters
@@ -1640,41 +1637,6 @@ def run_sweep(
         })
     except Exception as exc:
         return json.dumps({"error": f"Sweep failed: {exc}"})
-
-
-# ── A/B Chat ──────────────────────────────────────────────────────────
-
-
-@mcp.tool()
-def ab_chat(
-    model_a: str,
-    model_b: str,
-    prompt: str,
-    max_new_tokens: int = 100,
-) -> str:
-    """Generate responses from two models for side-by-side comparison.
-
-    Useful for comparing model quality before and after fine-tuning,
-    or between different training configurations.
-
-    Args:
-        model_a: Path to first model (or HuggingFace model ID).
-        model_b: Path to second model (or HuggingFace model ID).
-        prompt: Input prompt to send to both models.
-        max_new_tokens: Maximum tokens to generate per model.
-    """
-    try:
-        from serve.ab_chat import generate_ab_responses
-        comparison = generate_ab_responses(prompt, model_a, model_b)
-        return json.dumps({
-            "prompt": comparison.prompt,
-            "response_a": comparison.response_a,
-            "response_b": comparison.response_b,
-            "model_a": model_a,
-            "model_b": model_b,
-        }, indent=2)
-    except Exception as exc:
-        return json.dumps({"error": f"A/B chat failed: {exc}"})
 
 
 # ── LoRA Merge ────────────────────────────────────────────────────────

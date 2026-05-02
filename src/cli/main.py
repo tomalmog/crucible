@@ -12,7 +12,6 @@ from typing import Callable, Sequence
 
 from core.job_types import JobRecord
 
-from cli.ab_chat_command import add_ab_chat_command, run_ab_chat_command
 from cli.agent_command import add_agent_chat_command, run_agent_chat_command
 from cli.run_script_command import add_run_script_command, run_run_script_command
 from cli.activation_pca_command import add_activation_pca_command, run_activation_pca_command
@@ -108,7 +107,7 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_grpo_command, add_qlora_command, add_kto_command, add_orpo_command,
     add_suggest_command, add_hub_command,
     add_eval_command, add_curate_command,
-    add_merge_command, add_ab_chat_command, add_recipe_command,
+    add_merge_command, add_recipe_command,
     add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
     add_logit_lens_command, add_activation_pca_command, add_activation_patching_command,
@@ -161,7 +160,6 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "eval": run_eval_command,
         "curate": run_curate_command,
         "merge": run_merge_command,
-        "ab-chat": run_ab_chat_command,
         "recipe": run_recipe_command,
         "multimodal-train": run_multimodal_command,
         "synthetic": run_synthetic_command,

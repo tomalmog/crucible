@@ -28,7 +28,7 @@ _TOOL_NAMES = [
     "list_jobs", "job_status", "job_logs", "job_result", "cancel_job", "delete_job",
     "run_benchmark", "submit_remote_eval", "chat", "run_interp",
     "export_model", "merge_models", "list_clusters", "cluster_info",
-    "hub_search_models", "hub_download_model", "run_sweep", "ab_chat",
+    "hub_search_models", "hub_download_model", "run_sweep",
     "lora_merge", "curate_dataset", "generate_synthetic_data",
     "hardware_profile",
 ]
@@ -215,7 +215,7 @@ response. The user will see the page change and a badge in the chat confirming i
 Valid routes:
 /dashboard (Dashboard), /training (Training), /benchmarks (Eval),
 /interpretability (Interpretability), /datasets (Datasets), /models (Models),
-/eval-tasks (Benchmarks), /chat (Chat), /compare-chat (A/B Compare),
+/eval-tasks (Benchmarks), /chat (Chat),
 /hub (Hub), /export (Export), /jobs (Jobs), /clusters (Clusters),
 /resources (Resources), /docs (Docs), /settings (Settings)
 
@@ -237,7 +237,6 @@ _VALID_ROUTES: dict[str, str] = {
     "/models": "Models",
     "/eval-tasks": "Benchmarks",
     "/chat": "Chat",
-    "/compare-chat": "A/B Compare",
     "/hub": "Hub",
     "/export": "Export",
     "/jobs": "Jobs",
