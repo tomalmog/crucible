@@ -4,9 +4,9 @@ import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarSection } from "./SidebarSection";
 import {
   Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
-  Activity, Server, GitCompare, BookOpen, Settings, HardDrive, Palette,
-  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, PackageOpen,
-  LayoutDashboard, Bot, ClipboardList,
+  Activity, Server, BookOpen, Settings, HardDrive, Palette,
+  PanelLeftClose, PanelLeftOpen, PackageOpen,
+  LayoutDashboard, Bot, ClipboardList, Sparkles,
 } from "lucide-react";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
@@ -80,30 +80,13 @@ export function AppSidebar() {
     <aside className="app-sidebar">
       <div className="sidebar-brand">
         <h2>
-          <span className="brand-icon">C</span>
+          <img className="brand-icon" src="/crucible-logo.png" alt="Crucible" />
           <span>Crucible</span>
         </h2>
-        <div className="sidebar-nav-arrows">
-          <button
-            className={`sidebar-arrow${canGoBack ? "" : " disabled"}`}
-            onClick={goBack}
-            disabled={!canGoBack}
-            title="Go back"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            className={`sidebar-arrow${canGoForward ? "" : " disabled"}`}
-            onClick={goForward}
-            disabled={!canGoForward}
-            title="Go forward"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
       </div>
 
       <nav className="sidebar-nav">
+        <SidebarNavItem to="/build" icon={<Sparkles size={16} />} label="Build" />
         <SidebarNavItem to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" />
 
         <SidebarSection label="Workspace">
@@ -120,7 +103,6 @@ export function AppSidebar() {
 
         <SidebarSection label="Tools">
           <SidebarNavItem to="/chat" icon={<MessageSquare size={16} />} label="Chat" />
-          <SidebarNavItem to="/compare-chat" icon={<GitCompare size={16} />} label="A/B Compare" />
           <SidebarNavItem to="/hub" icon={<Globe size={16} />} label="Hub" />
           <SidebarNavItem to="/export" icon={<PackageOpen size={16} />} label="Export" />
         </SidebarSection>

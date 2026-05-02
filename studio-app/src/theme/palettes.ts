@@ -167,7 +167,7 @@ export const PALETTES: ColorPalette[] = [
     name: "Tangerine Graphite",
     preview: ["#FF8C00", "#333333", "#f2f1f0", "#e07000"],
     accent: "#FF8C00", accentDark: "#e07000", accentLight: "#FFA726",
-    bgBase: "#f2f1f0", sidebar: "#2a2a2a",
+    bgBase: "#f2f1f0", sidebar: "#1f1f1f",
     grayH: 0, grayS: 0,
   }),
 
