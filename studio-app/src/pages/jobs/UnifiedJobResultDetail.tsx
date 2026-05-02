@@ -37,6 +37,13 @@ interface EvalBenchmark {
   error?: string;
 }
 
+interface ComparisonModelResult {
+  model_path: string;
+  model_name: string;
+  average_score: number;
+  benchmarks: EvalBenchmark[];
+}
+
 interface ResultData {
   status?: string;
   model_path?: string;
@@ -50,6 +57,9 @@ interface ResultData {
   average_score?: number;
   benchmarks?: EvalBenchmark[];
   base_benchmarks?: EvalBenchmark[];
+  // comparison eval
+  models?: ComparisonModelResult[];
+  benchmark_names?: string[];
   [key: string]: unknown;
 }
 
@@ -202,8 +212,25 @@ function LocalResultRouter({ job, localTask, onBack }: {
 
   const isEval = job.jobType === "eval";
 
+  // Check for comparison eval: JSON output with job_type: "eval-compare"
+  const parsedStdout = useMemo(() => {
+    try {
+      const lines = localTask.stdout.split("\n");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith("{") && line.includes("eval-compare")) return JSON.parse(line);
+      }
+      const full = JSON.parse(localTask.stdout);
+      if (full?.job_type === "eval-compare") return full;
+    } catch { /* not JSON */ }
+    return null;
+  }, [localTask.stdout]);
+
+  const isEvalCompare = isEval && parsedStdout?.job_type === "eval-compare";
+
   if (isFailed) return <LocalFailedView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isSweep) return <LocalSweepView job={job} localTask={localTask} onBack={onBack} config={config} />;
+  if (isEvalCompare) return <ComparisonEvalView job={job} result={parsedStdout} onBack={onBack} config={config} logs={localTask.stdout} />;
   if (isEval) return <LocalEvalView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isInterp) return <LocalInterpView job={job} localTask={localTask} onBack={onBack} config={config} />;
   if (isExport) return <LocalExportView job={job} localTask={localTask} onBack={onBack} config={config} />;
@@ -521,6 +548,7 @@ function RemoteResultRouter({ job, onBack }: { job: JobRecord; onBack: () => voi
   if (job.state === "failed" || result.status === "failed") {
     return <RemoteFailedView job={job} result={result} onBack={onBack} config={config} />;
   }
+  if (result.job_type === "eval-compare") return <ComparisonEvalView job={job} result={result} onBack={onBack} config={config} />;
   if (result.job_type === "eval") return <RemoteEvalView job={job} result={result} onBack={onBack} config={config} />;
   if (INTERP_TYPES.has(result.job_type || "")) return <RemoteInterpView job={job} result={result} onBack={onBack} config={config} />;
   if (result.job_type === "sweep" || result.trials) return <RemoteSweepView job={job} result={result} onBack={onBack} config={config} />;
@@ -639,6 +667,216 @@ function BenchmarkBarChart({ benchmarks, baseBenchmarks }: {
         )}
         <text className="training-axis-label" x={24} y={BAR_CHART_HEIGHT / 2} transform={`rotate(-90 24 ${BAR_CHART_HEIGHT / 2})`}>Accuracy</text>
       </svg>
+    </div>
+  );
+}
+
+// ── Comparison eval result (multi-model) ────────────────────────────────
+
+const COMP_COLORS = [
+  "#769FCD", "#d97706", "#34d399", "#f87171", "#a78bfa", "#fb923c", "#38bdf8",
+];
+
+function ComparisonEvalView({ job, result, onBack, config, logs }: {
+  job: JobRecord;
+  result: ResultData;
+  onBack: () => void;
+  config: Record<string, unknown>;
+  logs?: string;
+}) {
+  const models = (result.models ?? []) as ComparisonModelResult[];
+  const allBenchNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const m of models) for (const b of m.benchmarks) names.add(b.name);
+    return [...names].sort();
+  }, [models]);
+
+  const bestModel = useMemo(() => {
+    if (models.length === 0) return null;
+    return models.reduce((best, m) => m.average_score > best.average_score ? m : best, models[0]);
+  }, [models]);
+
+  // Build lookup: modelPath → benchName → score%
+  const scoreMap = useMemo(() => {
+    const m = new Map<string, Map<string, number>>();
+    for (const model of models) {
+      const inner = new Map<string, number>();
+      for (const b of model.benchmarks) {
+        inner.set(b.name, b.num_examples > 0 ? (b.correct / b.num_examples) * 100 : 0);
+      }
+      m.set(model.model_path, inner);
+    }
+    return m;
+  }, [models]);
+
+  if (models.length === 0) {
+    return (
+      <div className="panel stack-lg">
+        <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
+        <h3>{job.label || job.jobId} — Evaluation Comparison</h3>
+        <div className="empty-state">No model results found.</div>
+        {logs && <LogsSection logs={logs} />}
+      </div>
+    );
+  }
+
+  const chartW = 1000;
+  const chartH = 440;
+  const bounds = { top: 58, right: 28, bottom: 100, left: 86 };
+  const innerW = chartW - bounds.left - bounds.right;
+  const innerH = chartH - bounds.top - bounds.bottom;
+  const nGroups = allBenchNames.length;
+  const nModels = models.length;
+  const groupWidth = innerW / Math.max(nGroups, 1);
+  const barWidth = Math.min(groupWidth * 0.8 / nModels, 56);
+  const totalBarsW = barWidth * nModels;
+  const yTicks = [0, 25, 50, 75, 100];
+  const mapY = (v: number) => bounds.top + innerH - (v / 100) * innerH;
+  const mapX = (gi: number) => bounds.left + groupWidth * gi + groupWidth / 2;
+
+  return (
+    <div className="panel stack-lg">
+      <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
+      <h3>{job.label || job.jobId} — Evaluation Comparison</h3>
+
+      {/* Summary cards */}
+      <div className="stats-grid">
+        <div className="metric-card"><span className="metric-label">Models</span><span className="metric-value">{models.length}</span></div>
+        <div className="metric-card"><span className="metric-label">Benchmarks</span><span className="metric-value">{allBenchNames.length}</span></div>
+        {bestModel && (
+          <div className="metric-card">
+            <span className="metric-label">Best Model</span>
+            <span className="metric-value text-sm">{bestModel.model_name}</span>
+          </div>
+        )}
+        {bestModel && (
+          <div className="metric-card">
+            <span className="metric-label">Best Avg Score</span>
+            <span className="metric-value">{bestModel.average_score.toFixed(1)}%</span>
+          </div>
+        )}
+        {job.backendCluster && (
+          <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>
+        )}
+      </div>
+
+      {/* Comparison table — leads the page */}
+      <div className="docs-table-wrap">
+        <table className="docs-table">
+          <thead>
+            <tr>
+              <th>Benchmark</th>
+              {models.map((m, i) => (
+                <th key={m.model_path}>
+                  <span style={{ color: COMP_COLORS[i % COMP_COLORS.length] }}>■</span>{" "}
+                  {m.model_name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {allBenchNames.map((name) => {
+              const scores = models.map((m) => scoreMap.get(m.model_path)?.get(name) ?? null);
+              const validScores = scores.filter((s): s is number => s !== null);
+              const best = validScores.length > 0 ? Math.max(...validScores) : null;
+              return (
+                <tr key={name}>
+                  <td style={{ fontWeight: 500 }}>{name.toUpperCase()}</td>
+                  {scores.map((score, i) => {
+                    const isBest = score !== null && score === best && validScores.length > 1;
+                    const hasError = models[i].benchmarks.find((b) => b.name === name)?.error;
+                    return (
+                      <td
+                        key={models[i].model_path}
+                        style={isBest ? { fontWeight: 700, color: "var(--clr-success)" } : undefined}
+                        title={hasError ? String(hasError) : undefined}
+                      >
+                        {score !== null ? `${score.toFixed(1)}%` : <span className="text-muted">—</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {/* Average row */}
+            <tr style={{ borderTop: "2px solid var(--border)" }}>
+              <td style={{ fontWeight: 700 }}>AVERAGE</td>
+              {models.map((m) => {
+                const isBest = bestModel?.model_path === m.model_path && models.length > 1;
+                return (
+                  <td
+                    key={m.model_path}
+                    style={isBest ? { fontWeight: 700, color: "var(--clr-success)" } : { fontWeight: 600 }}
+                  >
+                    {m.average_score.toFixed(1)}%
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Grouped bar chart */}
+      {allBenchNames.length > 0 && (
+        <div className="training-chart-card">
+          <svg viewBox={`0 0 ${chartW} ${chartH}`} className="training-chart-svg">
+            <text className="training-chart-title" x={chartW / 2} y={30}>Benchmark Comparison</text>
+            {yTicks.map((v) => (
+              <g key={`y-${v}`}>
+                <line className="training-grid-line" x1={bounds.left} x2={chartW - bounds.right} y1={mapY(v)} y2={mapY(v)} />
+                <text className="training-axis-tick training-axis-tick-y" x={bounds.left - 10} y={mapY(v) + 4}>{v}%</text>
+              </g>
+            ))}
+            <line className="training-axis-line" x1={bounds.left} x2={chartW - bounds.right} y1={mapY(0)} y2={mapY(0)} />
+            <line className="training-axis-line" x1={bounds.left} x2={bounds.left} y1={bounds.top} y2={mapY(0)} />
+
+            {allBenchNames.map((name, gi) => {
+              const cx = mapX(gi);
+              const startX = cx - totalBarsW / 2;
+              return (
+                <g key={name}>
+                  {models.map((m, mi) => {
+                    const score = scoreMap.get(m.model_path)?.get(name) ?? 0;
+                    const barH = (score / 100) * innerH;
+                    const x = startX + mi * barWidth;
+                    const color = COMP_COLORS[mi % COMP_COLORS.length];
+                    return (
+                      <g key={m.model_path}>
+                        <rect x={x} y={mapY(score)} width={barWidth * 0.85} height={barH} fill={color} rx={3} />
+                        {score > 5 && (
+                          <text className="training-axis-tick" x={x + barWidth * 0.425} y={mapY(score) - 5} textAnchor="middle" style={{ fontSize: 9 }}>
+                            {score.toFixed(1)}%
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                  <text className="training-axis-tick training-axis-tick-x" x={cx} y={mapY(0) + 22}>{name.toUpperCase()}</text>
+                </g>
+              );
+            })}
+
+            {/* Legend */}
+            <g transform={`translate(${bounds.left}, ${bounds.top - 28})`}>
+              {models.map((m, i) => {
+                const xOff = i * 130;
+                const label = m.model_name.length > 14 ? m.model_name.slice(0, 14) + "…" : m.model_name;
+                return (
+                  <g key={m.model_path} transform={`translate(${xOff}, 0)`}>
+                    <rect x={0} y={3} width={12} height={12} fill={COMP_COLORS[i % COMP_COLORS.length]} rx={2} />
+                    <text className="training-legend-label" x={18} y={13} style={{ fontSize: 11 }}>{label}</text>
+                  </g>
+                );
+              })}
+            </g>
+
+            <text className="training-axis-label" x={24} y={chartH / 2} transform={`rotate(-90 24 ${chartH / 2})`}>Accuracy</text>
+          </svg>
+        </div>
+      )}
+
+      {logs ? <LogsSection logs={logs} /> : <LogsSection jobId={job.jobId} jobState={job.state} />}
     </div>
   );
 }
