@@ -74,6 +74,24 @@ _PREFERRED_METRIC: dict[str, str] = {
 }
 
 
+@dataclass(frozen=True)
+class ModelComparisonResult:
+    """Result from evaluating multiple models on the same benchmarks."""
+
+    model_results: tuple["SingleModelResult", ...]
+    benchmark_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SingleModelResult:
+    """Per-model result inside a comparison run."""
+
+    model_path: str
+    model_name: str
+    average_score: float
+    benchmark_results: tuple[BenchmarkResult, ...]
+
+
 def _write_partial_results(
     output_path: str,
     model_path: str,
@@ -94,6 +112,41 @@ def _write_partial_results(
              "num_examples": r.num_examples, "correct": r.correct,
              **({"error": r.details["error"]} if r.details.get("error") else {})}
             for r in results
+        ],
+    }
+    try:
+        with open(output_path, "w") as f:
+            json.dump(data, f, indent=2)
+    except OSError:
+        pass
+
+
+def _write_comparison_partial(
+    output_path: str,
+    completed: list["SingleModelResult"],
+    total_models: int,
+    benchmark_names: list[str],
+) -> None:
+    """Write incremental multi-model comparison results."""
+    data = {
+        "status": "completed" if len(completed) >= total_models else "partial",
+        "job_type": "eval-compare",
+        "models_completed": len(completed),
+        "models_total": total_models,
+        "benchmark_names": benchmark_names,
+        "models": [
+            {
+                "model_path": m.model_path,
+                "model_name": m.model_name,
+                "average_score": m.average_score,
+                "benchmarks": [
+                    {"name": r.benchmark_name, "score": r.score,
+                     "num_examples": r.num_examples, "correct": r.correct,
+                     **({"error": r.details["error"]} if r.details.get("error") else {})}
+                    for r in m.benchmark_results
+                ],
+            }
+            for m in completed
         ],
     }
     try:
@@ -161,6 +214,63 @@ def run_benchmarks(
     )
 
 
+def run_comparison(
+    model_paths: list[str],
+    benchmarks: list[str],
+    max_samples: int | None = None,
+    output_path: str | None = None,
+) -> ModelComparisonResult:
+    """Evaluate multiple models on the same benchmarks and aggregate results."""
+    task_names = [_TASK_NAME_MAP.get(b, b) for b in benchmarks]
+    our_names = list(benchmarks)
+    completed: list[SingleModelResult] = []
+
+    for idx, model_path in enumerate(model_paths, 1):
+        model_name = _model_display_name(model_path)
+        print(
+            f"CRUCIBLE_AGENT: Model {idx}/{len(model_paths)}: {model_name}", flush=True,
+        )
+        try:
+            model_obj, model_args = _load_model_once(model_path)
+        except Exception as exc:
+            print(f"CRUCIBLE_AGENT: Failed to load {model_name}: {exc}", flush=True)
+            results = _all_failed(our_names, task_names, exc)
+            completed.append(SingleModelResult(
+                model_path=model_path,
+                model_name=model_name,
+                average_score=0.0,
+                benchmark_results=tuple(results),
+            ))
+        else:
+            results = _evaluate_model(
+                model_obj, model_args, task_names, our_names, max_samples, None, model_path,
+            )
+            avg = sum(r.score for r in results) / max(len(results), 1)
+            completed.append(SingleModelResult(
+                model_path=model_path,
+                model_name=model_name,
+                average_score=round(avg, 2),
+                benchmark_results=tuple(results),
+            ))
+            del model_obj
+            _gc_collect()
+
+        if output_path:
+            _write_comparison_partial(output_path, completed, len(model_paths), our_names)
+
+    return ModelComparisonResult(
+        model_results=tuple(completed),
+        benchmark_names=tuple(our_names),
+    )
+
+
+def _model_display_name(model_path: str) -> str:
+    """Short human-readable name from a model path."""
+    import os
+    name = os.path.basename(model_path.rstrip("/"))
+    return name if name else model_path
+
+
 def _load_model_once(model_path: str) -> tuple[Any, str | None]:
     """Load the model once, return (model_object, model_args_string).
 
@@ -175,6 +285,31 @@ def _load_model_once(model_path: str) -> tuple[Any, str | None]:
     return CrucibleLM(model_path), None
 
 
+def _is_generate_until_task(task_name: str) -> bool:
+    """Check if a task uses generate_until by loading its config from lm-eval.
+
+    Returns True if the task (or any subtask in a group) uses generate_until.
+    Returns False for multiple_choice / loglikelihood tasks, or on any error.
+    """
+    try:
+        _ensure_lm_eval()
+        from lm_eval.tasks import TaskManager
+        tm = TaskManager()
+        task_dict = tm.load_task_or_group([task_name])
+
+        def _walk(d: dict[str, Any]) -> bool:
+            for v in d.values():
+                if hasattr(v, "OUTPUT_TYPE") and v.OUTPUT_TYPE == "generate_until":
+                    return True
+                if isinstance(v, dict) and _walk(v):
+                    return True
+            return False
+
+        return _walk(task_dict)
+    except Exception:
+        return False
+
+
 def _evaluate_model(
     model_obj: Any,
     model_args: str | None,
@@ -186,21 +321,40 @@ def _evaluate_model(
 ) -> list[BenchmarkResult]:
     """Run lm-eval one benchmark at a time to keep memory bounded.
 
-    The model is loaded once and reused. Each benchmark's dataset is
-    freed after scoring before the next benchmark starts.
+    On macOS, generate_until benchmarks are skipped — they use a
+    multiprocessing pool that crashes Python 3.13 with no catchable
+    exception.  On Linux this is not an issue.
     """
+    import sys
+    is_macos = sys.platform == "darwin"
+
     results: list[BenchmarkResult] = []
     for i, (task_name, our_name) in enumerate(zip(task_names, our_names), 1):
         print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] Running {our_name}...", flush=True)
-        try:
-            raw = _call_simple_evaluate(model_obj, model_args, [task_name], max_samples)
-            result = _extract_benchmark_result(task_name, our_name, raw)
-        except Exception as exc:
-            print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} FAILED: {exc}", flush=True)
-            result = BenchmarkResult(
-                benchmark_name=our_name, score=0.0, num_examples=0,
-                correct=0, details={"error": str(exc)},
+
+        if is_macos and _is_generate_until_task(task_name):
+            print(
+                f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} skipped — "
+                "this benchmark uses text generation which crashes on macOS "
+                "due to a Python multiprocessing bug. "
+                "Run on a remote Linux cluster instead.",
+                flush=True,
             )
+            result = BenchmarkResult(
+                benchmark_name=our_name, score=0.0, num_examples=0, correct=0,
+                details={"error": "crashes on macOS — run on a remote cluster"},
+            )
+        else:
+            try:
+                raw = _call_simple_evaluate(model_obj, model_args, [task_name], max_samples)
+                result = _extract_benchmark_result(task_name, our_name, raw)
+            except Exception as exc:
+                print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} FAILED: {exc}", flush=True)
+                result = BenchmarkResult(
+                    benchmark_name=our_name, score=0.0, num_examples=0,
+                    correct=0, details={"error": str(exc)},
+                )
+
         results.append(result)
         print(f"CRUCIBLE_AGENT: [{i}/{len(task_names)}] {our_name} done — score: {result.score}", flush=True)
         if output_path:

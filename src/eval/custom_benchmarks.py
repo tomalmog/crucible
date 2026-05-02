@@ -24,25 +24,26 @@ class BenchmarkInfo:
     entries: int
     description: str
     created_at: str
+    local_compatible: bool = True  # False if generate_until (crashes on macOS)
 
 
 # ── Default benchmarks seeded on first access ────────────────────────
 
 _DEFAULTS: list[dict[str, object]] = [
-    {"name": "mmlu", "display_name": "MMLU", "entries": 14042, "description": "Massive Multitask Language Understanding — 57 subjects from STEM to humanities."},
-    {"name": "hellaswag", "display_name": "HellaSwag", "entries": 10042, "description": "Commonsense reasoning — choose the most plausible sentence continuation."},
-    {"name": "arc", "display_name": "ARC Challenge", "entries": 1172, "description": "AI2 Reasoning Challenge (hard set) — grade-school science questions."},
-    {"name": "arc_easy", "display_name": "ARC Easy", "entries": 2376, "description": "AI2 Reasoning Challenge (easy set) — simpler science questions."},
-    {"name": "winogrande", "display_name": "WinoGrande", "entries": 1267, "description": "Pronoun resolution requiring commonsense reasoning."},
-    {"name": "truthfulqa", "display_name": "TruthfulQA", "entries": 817, "description": "Tests whether models generate truthful answers to tricky questions."},
-    {"name": "gsm8k", "display_name": "GSM8K", "entries": 1319, "description": "Grade school math word problems requiring multi-step reasoning."},
-    {"name": "math", "display_name": "MATH", "entries": 5000, "description": "Competition-level mathematics from AMC, AIME, and Olympiad problems."},
-    {"name": "bbh", "display_name": "BBH", "entries": 6511, "description": "Big-Bench Hard — 23 challenging reasoning tasks."},
-    {"name": "humaneval", "display_name": "HumanEval", "entries": 164, "description": "Python code generation — complete functions and pass unit tests."},
-    {"name": "mbpp", "display_name": "MBPP", "entries": 500, "description": "Mostly Basic Python Problems — simpler code generation tasks."},
-    {"name": "boolq", "display_name": "BoolQ", "entries": 3270, "description": "Yes/no reading comprehension questions from Wikipedia passages."},
-    {"name": "piqa", "display_name": "PIQA", "entries": 1838, "description": "Physical Intuition QA — commonsense about physical world interactions."},
-    {"name": "openbookqa", "display_name": "OpenBookQA", "entries": 500, "description": "Science QA requiring reasoning with provided science facts."},
+    {"name": "mmlu", "display_name": "MMLU", "entries": 14042, "description": "Massive Multitask Language Understanding — 57 subjects from STEM to humanities.", "local_compatible": True},
+    {"name": "hellaswag", "display_name": "HellaSwag", "entries": 10042, "description": "Commonsense reasoning — choose the most plausible sentence continuation.", "local_compatible": True},
+    {"name": "arc", "display_name": "ARC Challenge", "entries": 1172, "description": "AI2 Reasoning Challenge (hard set) — grade-school science questions.", "local_compatible": True},
+    {"name": "arc_easy", "display_name": "ARC Easy", "entries": 2376, "description": "AI2 Reasoning Challenge (easy set) — simpler science questions.", "local_compatible": True},
+    {"name": "winogrande", "display_name": "WinoGrande", "entries": 1267, "description": "Pronoun resolution requiring commonsense reasoning.", "local_compatible": True},
+    {"name": "truthfulqa", "display_name": "TruthfulQA", "entries": 817, "description": "Tests whether models generate truthful answers to tricky questions.", "local_compatible": True},
+    {"name": "gsm8k", "display_name": "GSM8K", "entries": 1319, "description": "Grade school math word problems requiring multi-step reasoning.", "local_compatible": False},
+    {"name": "math", "display_name": "MATH", "entries": 5000, "description": "Competition-level mathematics from AMC, AIME, and Olympiad problems.", "local_compatible": False},
+    {"name": "bbh", "display_name": "BBH", "entries": 6511, "description": "Big-Bench Hard — 23 challenging reasoning tasks.", "local_compatible": False},
+    {"name": "humaneval", "display_name": "HumanEval", "entries": 164, "description": "Python code generation — complete functions and pass unit tests.", "local_compatible": False},
+    {"name": "mbpp", "display_name": "MBPP", "entries": 500, "description": "Mostly Basic Python Problems — simpler code generation tasks.", "local_compatible": False},
+    {"name": "boolq", "display_name": "BoolQ", "entries": 3270, "description": "Yes/no reading comprehension questions from Wikipedia passages.", "local_compatible": True},
+    {"name": "piqa", "display_name": "PIQA", "entries": 1838, "description": "Physical Intuition QA — commonsense about physical world interactions.", "local_compatible": True},
+    {"name": "openbookqa", "display_name": "OpenBookQA", "entries": 500, "description": "Science QA requiring reasoning with provided science facts.", "local_compatible": True},
 ]
 
 
@@ -61,6 +62,7 @@ def _ensure_defaults(data_root: Path) -> None:
             "entries": d["entries"],
             "description": d["description"],
             "created_at": now,
+            "local_compatible": d.get("local_compatible", True),
         }
         entry_dir = bench_root / str(d["name"])
         entry_dir.mkdir(exist_ok=True)
@@ -89,6 +91,7 @@ def list_benchmarks(data_root: Path) -> list[BenchmarkInfo]:
             entries=meta.get("entries", 0),
             description=meta.get("description", ""),
             created_at=meta.get("created_at", ""),
+            local_compatible=meta.get("local_compatible", True),
         ))
     return results
 
@@ -111,6 +114,12 @@ def add_lm_eval_benchmark(
 
     bench_dir.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
+
+    # Detect if this task uses generate_until (not macOS-compatible)
+    from eval.benchmark_runner import _is_generate_until_task, _TASK_NAME_MAP
+    task_name = _TASK_NAME_MAP.get(name, name)
+    local_ok = not _is_generate_until_task(task_name)
+
     meta = {
         "name": name,
         "display_name": display_name or name,
@@ -118,6 +127,7 @@ def add_lm_eval_benchmark(
         "entries": 0,
         "description": description or f"lm-eval task: {name}",
         "created_at": now,
+        "local_compatible": local_ok,
     }
     (bench_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return BenchmarkInfo(**meta)
@@ -228,6 +238,7 @@ num_fewshot: 0
         "entries": entries,
         "description": "Custom benchmark",
         "created_at": now,
+        "local_compatible": True,
     }
     (bench_dir / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return BenchmarkInfo(**meta)

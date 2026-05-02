@@ -10,14 +10,43 @@ import argparse
 import json
 
 from eval.evaluation_harness import EvaluationHarness
-from eval.benchmark_runner import AVAILABLE_BENCHMARKS
+from eval.benchmark_runner import AVAILABLE_BENCHMARKS, run_comparison
 from store.dataset_sdk import CrucibleClient
 
 
 def run_eval_command(client: CrucibleClient, args: argparse.Namespace) -> int:
     """Handle eval command invocation."""
-    harness = EvaluationHarness(client._config.data_root)
     benchmarks = args.benchmarks.split(",") if args.benchmarks else None
+
+    # Multi-model comparison mode
+    model_paths = getattr(args, "model_paths", None)
+    if model_paths:
+        paths = [p.strip() for p in model_paths.split(",") if p.strip()]
+        if benchmarks is None:
+            benchmarks = list(AVAILABLE_BENCHMARKS)
+        result = run_comparison(paths, benchmarks, max_samples=args.max_samples)
+        print(json.dumps({
+            "status": "completed",
+            "job_type": "eval-compare",
+            "models": [
+                {
+                    "model_path": m.model_path,
+                    "model_name": m.model_name,
+                    "average_score": m.average_score,
+                    "benchmarks": [
+                        {"name": r.benchmark_name, "score": r.score,
+                         "num_examples": r.num_examples, "correct": r.correct,
+                         **({"error": r.details["error"]} if r.details.get("error") else {})}
+                        for r in m.benchmark_results
+                    ],
+                }
+                for m in result.model_results
+            ],
+        }), flush=True)
+        return 0
+
+    # Single-model mode (backwards compat)
+    harness = EvaluationHarness(client._config.data_root)
     result = harness.evaluate(
         model_path=args.model_path,
         benchmarks=benchmarks,
@@ -41,11 +70,18 @@ def run_eval_command(client: CrucibleClient, args: argparse.Namespace) -> int:
 def add_eval_command(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register eval subcommand."""
     parser = subparsers.add_parser("eval", help="Run evaluation benchmarks against a model")
-    parser.add_argument("--model-path", required=True, help="Path to the model to evaluate")
+    # Single-model (backwards compat)
+    parser.add_argument("--model-path", default=None, help="Path to the model to evaluate")
+    # Multi-model comparison
+    parser.add_argument(
+        "--model-paths",
+        default=None,
+        help="Comma-separated list of model paths for comparison evaluation",
+    )
     parser.add_argument(
         "--benchmarks",
         default=None,
         help=f"Comma-separated list of benchmarks ({','.join(AVAILABLE_BENCHMARKS)})",
     )
-    parser.add_argument("--base-model", help="Optional base model path for comparison")
+    parser.add_argument("--base-model", help="Optional base model path for comparison (single-model mode only)")
     parser.add_argument("--max-samples", type=int, default=None, help="Max examples per benchmark")

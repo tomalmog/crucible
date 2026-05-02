@@ -252,6 +252,7 @@ pub struct BenchmarkRegistryEntry {
     pub entries: u64,
     pub description: String,
     pub created_at: String,
+    pub local_compatible: bool,
 }
 
 #[tauri::command]
@@ -285,6 +286,7 @@ pub fn list_benchmarks(data_root: String) -> Result<Vec<BenchmarkRegistryEntry>,
             entries: meta.get("entries").and_then(|v| v.as_u64()).unwrap_or(0),
             description: meta.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             created_at: meta.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            local_compatible: meta.get("local_compatible").and_then(|v| v.as_bool()).unwrap_or(true),
         });
     }
     Ok(entries)
@@ -329,28 +331,31 @@ fn _is_dir_empty(path: &Path) -> bool {
 }
 
 fn _seed_default_benchmarks(bench_dir: &Path) {
+    // (name, display, entries, description, local_compatible)
+    // local_compatible=false for generate_until benchmarks that crash on macOS
     let defaults = [
-        ("mmlu", "MMLU", 14042, "Massive Multitask Language Understanding — 57 subjects from STEM to humanities."),
-        ("hellaswag", "HellaSwag", 10042, "Commonsense reasoning — choose the most plausible sentence continuation."),
-        ("arc", "ARC Challenge", 1172, "AI2 Reasoning Challenge (hard set) — grade-school science questions."),
-        ("arc_easy", "ARC Easy", 2376, "AI2 Reasoning Challenge (easy set) — simpler science questions."),
-        ("winogrande", "WinoGrande", 1267, "Pronoun resolution requiring commonsense reasoning."),
-        ("truthfulqa", "TruthfulQA", 817, "Tests whether models generate truthful answers to tricky questions."),
-        ("gsm8k", "GSM8K", 1319, "Grade school math word problems requiring multi-step reasoning."),
-        ("math", "MATH", 5000, "Competition-level mathematics from AMC, AIME, and Olympiad problems."),
-        ("bbh", "BBH", 6511, "Big-Bench Hard — 23 challenging reasoning tasks."),
-        ("humaneval", "HumanEval", 164, "Python code generation — complete functions and pass unit tests."),
-        ("mbpp", "MBPP", 500, "Mostly Basic Python Problems — simpler code generation tasks."),
-        ("boolq", "BoolQ", 3270, "Yes/no reading comprehension questions from Wikipedia passages."),
-        ("piqa", "PIQA", 1838, "Physical Intuition QA — commonsense about physical world interactions."),
-        ("openbookqa", "OpenBookQA", 500, "Science QA requiring reasoning with provided science facts."),
+        ("mmlu", "MMLU", 14042, "Massive Multitask Language Understanding — 57 subjects from STEM to humanities.", true),
+        ("hellaswag", "HellaSwag", 10042, "Commonsense reasoning — choose the most plausible sentence continuation.", true),
+        ("arc", "ARC Challenge", 1172, "AI2 Reasoning Challenge (hard set) — grade-school science questions.", true),
+        ("arc_easy", "ARC Easy", 2376, "AI2 Reasoning Challenge (easy set) — simpler science questions.", true),
+        ("winogrande", "WinoGrande", 1267, "Pronoun resolution requiring commonsense reasoning.", true),
+        ("truthfulqa", "TruthfulQA", 817, "Tests whether models generate truthful answers to tricky questions.", true),
+        ("gsm8k", "GSM8K", 1319, "Grade school math word problems requiring multi-step reasoning.", false),
+        ("math", "MATH", 5000, "Competition-level mathematics from AMC, AIME, and Olympiad problems.", false),
+        ("bbh", "BBH", 6511, "Big-Bench Hard — 23 challenging reasoning tasks.", false),
+        ("humaneval", "HumanEval", 164, "Python code generation — complete functions and pass unit tests.", false),
+        ("mbpp", "MBPP", 500, "Mostly Basic Python Problems — simpler code generation tasks.", false),
+        ("boolq", "BoolQ", 3270, "Yes/no reading comprehension questions from Wikipedia passages.", true),
+        ("piqa", "PIQA", 1838, "Physical Intuition QA — commonsense about physical world interactions.", true),
+        ("openbookqa", "OpenBookQA", 500, "Science QA requiring reasoning with provided science facts.", true),
     ];
     let _ = fs::create_dir_all(bench_dir);
-    for (name, display, entries, desc) in defaults {
+    for (name, display, entries, desc, local_ok) in defaults {
         let entry_dir = bench_dir.join(name);
         let _ = fs::create_dir_all(&entry_dir);
+        let local_str = if local_ok { "true" } else { "false" };
         let meta = format!(
-            "{{\n  \"name\": \"{name}\",\n  \"display_name\": \"{display}\",\n  \"type\": \"lm-eval\",\n  \"entries\": {entries},\n  \"description\": \"{desc}\",\n  \"created_at\": \"\"\n}}"
+            "{{\n  \"name\": \"{name}\",\n  \"display_name\": \"{display}\",\n  \"type\": \"lm-eval\",\n  \"entries\": {entries},\n  \"description\": \"{desc}\",\n  \"created_at\": \"\",\n  \"local_compatible\": {local_str}\n}}"
         );
         let _ = fs::write(entry_dir.join("meta.json"), meta);
     }

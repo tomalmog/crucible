@@ -27,6 +27,7 @@ export interface BenchmarkEntry {
   description: string;
   lastRun: string | null;
   bestScore: number | null;
+  localCompatible: boolean;
 }
 
 // ── Component ────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ export function EvalTasksPage() {
         setBenchmarks(items.map((b) => ({
           name: b.name, displayName: b.displayName, type: b.type,
           entries: b.entries, description: b.description,
-          lastRun: null, bestScore: null,
+          lastRun: null, bestScore: null, localCompatible: b.localCompatible,
         })));
         if (!hasZero) stopPolling();
       } catch { /* ignore */ }
@@ -88,6 +89,7 @@ export function EvalTasksPage() {
           description: b.description,
           lastRun: null,
           bestScore: null,
+          localCompatible: b.localCompatible,
         })),
       );
     } catch {
@@ -129,6 +131,12 @@ export function EvalTasksPage() {
       c.accessor("type", {
         header: "Type",
         cell: (info) => <span className="text-muted">{info.getValue()}</span>,
+      }),
+      c.accessor("localCompatible", {
+        header: "Local",
+        cell: (info) => info.getValue()
+          ? <span style={{ color: "var(--success)", fontSize: "0.75rem" }}>supported</span>
+          : <span className="text-muted" style={{ fontSize: "0.75rem" }} title="Uses text generation — crashes on macOS. Run on a remote cluster.">remote only</span>,
       }),
       c.accessor("entries", {
         header: "Entries",

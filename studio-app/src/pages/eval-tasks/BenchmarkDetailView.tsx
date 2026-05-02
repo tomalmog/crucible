@@ -189,10 +189,18 @@ export function BenchmarkDetailView({ benchmark, onBack }: BenchmarkDetailViewPr
           <MetricCard label="Name" value={benchmark.displayName} />
           <MetricCard label="Type" value={benchmark.type} />
           <MetricCard label="Entries" value={benchmark.entries.toLocaleString()} />
+          <MetricCard label="Local" value={benchmark.localCompatible ? "Supported" : "Remote only"} />
           {benchmark.bestScore !== null && (
             <MetricCard label="Best Score" value={`${benchmark.bestScore.toFixed(1)}%`} />
           )}
         </div>
+
+        {!benchmark.localCompatible && (
+          <div className="info-banner">
+            This benchmark uses text generation which crashes on macOS due to a Python multiprocessing bug.
+            Run it on a remote Linux cluster instead.
+          </div>
+        )}
 
         <div className="panel">
           <h4 className="panel-title">Description</h4>

@@ -72,6 +72,7 @@ export interface BenchmarkRegistryEntry {
   entries: number;
   description: string;
   createdAt: string;
+  localCompatible: boolean;
 }
 
 export async function listBenchmarks(dataRoot: string): Promise<BenchmarkRegistryEntry[]> {

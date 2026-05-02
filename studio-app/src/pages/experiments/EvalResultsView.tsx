@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
 import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
 import { FormField } from "../../components/shared/FormField";
-import { ModelSelect } from "../../components/shared/ModelSelect";
-import { Search } from "lucide-react";
-import { startCrucibleCommand, listBenchmarks } from "../../api/studioApi";
+import { ModelMultiSelect } from "../../components/shared/ModelMultiSelect";
+import { BenchmarkMultiSelect } from "../../components/shared/BenchmarkMultiSelect";
+import { startCrucibleCommand } from "../../api/studioApi";
 import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { evalLabel } from "../../utils/jobLabels";
@@ -17,17 +17,19 @@ interface EvalResultsViewProps {
 export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const { dataRoot, models } = useCrucible();
   const navigate = useNavigate();
-  const [modelPath, setModelPath] = useState(
-    typeof prefill?.modelPath === "string" ? prefill.modelPath : "",
+
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(
+    Array.isArray(prefill?.selectedModels)
+      ? new Set(prefill.selectedModels as string[])
+      : new Set<string>(),
   );
-  const [baseModelPath, setBaseModelPath] = useState(
-    typeof prefill?.baseModelPath === "string" ? prefill.baseModelPath : "",
-  );
+
   const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(
     Array.isArray(prefill?.selectedBenchmarks)
       ? new Set(prefill.selectedBenchmarks as string[])
       : new Set<string>(),
   );
+
   const [maxSamples, setMaxSamples] = useState(
     typeof prefill?.maxSamples === "string" ? prefill.maxSamples : "",
   );
@@ -48,48 +50,24 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [registryBenchmarks, setRegistryBenchmarks] = useState<{ name: string; displayName: string }[]>([]);
-  const [benchSearch, setBenchSearch] = useState("");
 
-  const { isRemote, clusterName, clusterBackend } = useInterpLocation(modelPath);
+  // For remote detection — use first selected model
+  const firstModel = useMemo(() => [...selectedModels][0] ?? "", [selectedModels]);
+  const { isRemote, clusterName, clusterBackend } = useInterpLocation(firstModel);
   const isSlurm = clusterBackend === "slurm";
-
-  // Load benchmarks from registry
-  useEffect(() => {
-    if (!dataRoot) return;
-    listBenchmarks(dataRoot)
-      .then((items) => setRegistryBenchmarks(items.map((b) => ({ name: b.name, displayName: b.displayName }))))
-      .catch(() => setRegistryBenchmarks([]));
-  }, [dataRoot]);
-
-  const filteredBenchmarks = useMemo(() => {
-    if (!benchSearch.trim()) return registryBenchmarks;
-    const q = benchSearch.trim().toLowerCase();
-    return registryBenchmarks.filter((b) => b.displayName.toLowerCase().includes(q) || b.name.includes(q));
-  }, [registryBenchmarks, benchSearch]);
-
-  const toggleBenchmark = useCallback((name: string) => {
-    setSelectedBenchmarks((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }, []);
 
   const missing = useMemo(() => {
     const m: string[] = [];
-    if (!modelPath.trim()) m.push("model");
+    if (selectedModels.size === 0) m.push("models");
     if (selectedBenchmarks.size === 0) m.push("benchmarks");
     if (isRemote && !clusterName) m.push("cluster");
     return m;
-  }, [modelPath, selectedBenchmarks, isRemote, clusterName]);
+  }, [selectedModels, selectedBenchmarks, isRemote, clusterName]);
 
   function snapshotConfig(): Record<string, unknown> {
     return {
       page: "benchmarks",
-      modelPath,
-      baseModelPath,
+      selectedModels: Array.from(selectedModels),
       selectedBenchmarks: Array.from(selectedBenchmarks),
       maxSamples,
       cluster: clusterName,
@@ -106,23 +84,27 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
     setSubmitting(true);
     setError(null);
     try {
+      const modelPaths = Array.from(selectedModels);
       const benchmarks = Array.from(selectedBenchmarks).join(",");
-      const selectedEntry = models.find(
-        (m) => m.remotePath === modelPath || m.modelPath === modelPath,
-      );
-      const cfg = snapshotConfig();
-      const selectedModelName = selectedEntry?.modelName || "model";
 
+      const firstEntry = models.find(
+        (m) => m.remotePath === modelPaths[0] || m.modelPath === modelPaths[0],
+      );
+      const firstName = firstEntry?.modelName ?? modelPaths[0];
+      const labelSuffix = modelPaths.length > 1 ? ` +${modelPaths.length - 1}` : "";
+      const label = evalLabel(firstName + labelSuffix);
+
+      const cfg = snapshotConfig();
       let args: string[];
+
       if (isRemote && clusterName) {
         const methodArgs: Record<string, unknown> = {
-          model_path: modelPath,
+          model_paths: modelPaths.join(","),
           benchmarks,
         };
-        if (baseModelPath.trim()) methodArgs.base_model_path = baseModelPath.trim();
         if (maxSamples.trim()) methodArgs.max_samples = parseInt(maxSamples, 10);
         args = buildDispatchSpec("eval", methodArgs, clusterBackend as "slurm" | "ssh", {
-          label: evalLabel(selectedModelName),
+          label,
           clusterName,
           resources: isSlurm ? {
             partition: partition || "",
@@ -137,14 +119,13 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       } else {
         args = [
           "eval",
-          "--model-path", modelPath,
+          "--model-paths", modelPaths.join(","),
           "--benchmarks", benchmarks,
         ];
-        if (baseModelPath.trim()) args.push("--base-model", baseModelPath.trim());
         if (maxSamples.trim()) args.push("--max-samples", maxSamples);
       }
 
-      await startCrucibleCommand(dataRoot, args, evalLabel(selectedModelName), cfg);
+      await startCrucibleCommand(dataRoot, args, label, cfg);
       navigate("/jobs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -152,8 +133,6 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       setSubmitting(false);
     }
   }
-
-  const allSelected = registryBenchmarks.length > 0 && registryBenchmarks.every((b) => selectedBenchmarks.has(b.name));
 
   return (
     <CommandFormPanel
@@ -165,61 +144,24 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       onSubmit={() => submitEval().catch(console.error)}
       error={error}
     >
-      <div className="grid-2">
-        <FormField label="Model" required>
-          <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Base Model" hint="optional, for comparison">
-          <ModelSelect
-            value={baseModelPath}
-            onChange={setBaseModelPath}
-            placeholder="select base model (optional)"
-          />
-        </FormField>
-      </div>
-
       {isRemote && (
         <div className="info-banner">
           Remote model selected — job will run on cluster <strong>{clusterName}</strong>
         </div>
       )}
 
+      <FormField label="Models" required>
+        <ModelMultiSelect
+          selected={selectedModels}
+          onChange={setSelectedModels}
+        />
+      </FormField>
+
       <FormField label="Benchmarks" required>
-        <div className="eval-checklist-toolbar">
-          <div className="registry-search" style={{ maxWidth: 220 }}>
-            <Search size={14} />
-            <input
-              value={benchSearch}
-              onChange={(e) => setBenchSearch(e.currentTarget.value)}
-              placeholder="Search benchmarks..."
-            />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => {
-                if (allSelected) setSelectedBenchmarks(new Set());
-                else setSelectedBenchmarks(new Set(registryBenchmarks.map((b) => b.name)));
-              }}
-            >
-              {allSelected ? "Clear All" : "Select All"}
-            </button>
-            <span className="text-muted text-sm">{selectedBenchmarks.size} selected</span>
-          </div>
-        </div>
-        <div className="eval-checklist">
-          {filteredBenchmarks.map((b) => (
-            <label key={b.name} className="eval-checklist-row">
-              <input
-                type="checkbox"
-                checked={selectedBenchmarks.has(b.name)}
-                onChange={() => toggleBenchmark(b.name)}
-              />
-              <span>{b.displayName}</span>
-            </label>
-          ))}
-        </div>
+        <BenchmarkMultiSelect
+          selected={selectedBenchmarks}
+          onChange={setSelectedBenchmarks}
+        />
       </FormField>
 
       <FormField label="Max Samples" hint="optional, leave empty for full dataset">
