@@ -1,0 +1,69 @@
+@media (max-width: 720px) {
+    .interp-observatory,
+    .interp-hero,
+    .model-anatomy-card,
+    .interp-workflow-panel,
+    .interp-tool-shell {
+        max-width: 100%;
+    }
+
+    .interp-hero,
+    .model-anatomy-card,
+    .interp-evidence-card,
+    .interp-example-gallery,
+    .interp-tool-shell {
+        padding: 14px;
+        border-radius: 10px;
+    }
+
+    .interp-agent-brief li,
+    .model-stream-header,
+    .model-anatomy-topline,
+    .model-anatomy-footer,
+    .interp-tool-heading,
+    .interp-evidence-header,
+    .prompt-duel,
+    .steering-comparison,
+    .steering-vector-stage,
+    .dictionary-dimensions,
+    .feature-density-rail {
+        grid-template-columns: 1fr;
+    }
+
+    .interp-agent-brief small {
+        text-align: left;
+    }
+
+    .model-layer-ribbon {
+        grid-auto-columns: minmax(12px, 18px);
+    }
+
+    .model-layer-button {
+        height: 76px;
+    }
+
+    .model-anatomy-topline,
+    .model-anatomy-footer,
+    .interp-evidence-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .model-anatomy-status,
+    .interp-evidence-badge {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .evidence-summary-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .evidence-summary-item:nth-child(odd) {
+        border-left: 0;
+    }
+
+    .prediction-card {
+        grid-template-columns: 1fr;
+    }
+}

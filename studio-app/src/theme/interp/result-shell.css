@@ -1,0 +1,273 @@
+.interp-workflow-card,
+.interp-tool-shell,
+.interp-evidence-card,
+.interp-job-board,
+.interp-example-gallery {
+    border: 1px solid var(--border);
+    border-color: var(--border);
+    background: var(--bg-base);
+}
+
+.interp-evidence-card,
+.interp-job-board,
+.interp-example-gallery {
+    position: relative;
+    min-width: 0;
+    padding: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.interp-tool-shell {
+    display: grid;
+    gap: 16px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+}
+
+.interp-tool-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.interp-tool-heading p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.interp-tool-shell .tab-list,
+.interp-example-gallery .tab-list {
+    width: 100%;
+    margin-bottom: 0;
+    overflow-x: auto;
+}
+
+.interp-tool-shell .tab-item {
+    flex: 1;
+    min-width: max-content;
+}
+
+.interp-tool-body > .panel {
+    border-radius: 12px;
+    background: var(--bg-base);
+    box-shadow: none;
+}
+
+.interp-evidence-header h3 {
+    font-size: clamp(1.25rem, 2vw, 1.8rem);
+    letter-spacing: -0.04em;
+}
+
+.interp-evidence-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.interp-chart-frame {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-base);
+}
+
+.chart-scroll-card {
+    overflow-x: auto;
+}
+
+.probability-swatch {
+    display: inline-block;
+    width: 24px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.probability-swatch-15 {
+    opacity: 0.15;
+}
+
+.probability-swatch-35 {
+    opacity: 0.35;
+}
+
+.probability-swatch-60 {
+    opacity: 0.6;
+}
+
+.probability-swatch-85 {
+    opacity: 0.85;
+}
+
+.prediction-ribbon {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.prediction-card,
+.feature-dossier-card,
+.generation-panel,
+.prompt-duel article,
+.activation-exemplar-list article {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    box-shadow: none;
+}
+
+.prediction-card {
+    display: grid;
+    grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+}
+
+.prediction-token,
+.prompt-duel article span,
+.generation-panel > span,
+.feature-dossier-topline span,
+.causal-map-title span,
+.interp-callout span {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.prediction-flow {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+}
+
+.prediction-flow i {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+}
+
+.prediction-flow strong.changed {
+    color: var(--accent-text);
+}
+
+.logit-cell-rect {
+    shape-rendering: crispEdges;
+}
+
+.prompt-duel,
+.steering-comparison,
+.activation-atlas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.prompt-duel article,
+.generation-panel {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+}
+
+.prompt-duel p,
+.generation-panel p,
+.generation-panel strong,
+.feature-dossier-card p,
+.activation-exemplar-list p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.generation-panel.steered {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent-muted) 48%, var(--bg-base));
+}
+
+.interp-callout,
+.interp-artifact-path {
+    display: grid;
+    gap: 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    background: var(--bg-surface);
+}
+
+.interp-callout p,
+.interp-artifact-path {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.causal-map-title {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    margin-bottom: 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+}
+
+.activation-atlas-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+}
+
+.variance-bars,
+.feature-density-rail,
+.dictionary-dimensions,
+.causal-layer-strip,
+.probe-heatmap,
+.vector-balance {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+}
+
+.variance-bars div {
+    display: grid;
+    grid-template-columns: 44px minmax(120px, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+.variance-bars progress,
+.feature-density-rail progress,
+.cluster-row progress,
+.feature-activation-meter {
+    width: 100%;
+    height: 8px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: var(--bg-inset);
+}

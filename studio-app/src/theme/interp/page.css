@@ -1,0 +1,153 @@
+/* ─── Interpretability Observatory ─── */
+
+.interp-observatory {
+    display: grid;
+    gap: 22px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-bottom: 40px;
+}
+
+.interp-form-suite {
+    display: grid;
+    gap: 14px;
+    scroll-margin-top: 20px;
+}
+
+.interp-form-suite > div {
+    scroll-margin-top: 20px;
+}
+
+.interp-hero {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+    gap: 20px;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-base);
+    box-shadow: none;
+}
+
+.interp-hero::before,
+.model-anatomy-card::before {
+    content: none;
+}
+
+.interp-hero-copy {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+    min-width: 0;
+    padding: 4px 0;
+}
+
+.interp-kicker {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.interp-kicker::before {
+    content: "";
+    display: block;
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--accent);
+    border-radius: 0;
+    background: transparent;
+}
+
+.interp-hero-copy h1 {
+    max-width: 560px;
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(2rem, 3.35vw, 3.15rem);
+    font-weight: 800;
+    line-height: 0.96;
+    letter-spacing: -0.05em;
+    overflow-wrap: anywhere;
+}
+
+.interp-hero-copy > p {
+    max-width: 600px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.interp-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.interp-agent-brief {
+    max-width: 620px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+}
+
+.interp-agent-brief > span {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.interp-agent-brief ol {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.interp-agent-brief li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border-light);
+}
+
+.interp-agent-brief li:first-child {
+    border-top: 0;
+}
+
+.interp-agent-brief strong {
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.interp-agent-brief small {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}

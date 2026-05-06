@@ -1,0 +1,41 @@
+.form-lab-page {
+    display: grid;
+    gap: 18px;
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+.form-lab-header-note,
+.form-lab-kicker {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 650;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.form-lab-hero {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-base);
+}
+
+.form-lab-hero {
+    padding: 16px 18px;
+}
+
+.form-lab-hero h2 {
+    margin: 6px 0 4px;
+    font-size: clamp(1.65rem, 2.3vw, 2.1rem);
+    line-height: 1;
+    letter-spacing: -0.045em;
+}
+
+.form-lab-hero p {
+    max-width: 640px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}

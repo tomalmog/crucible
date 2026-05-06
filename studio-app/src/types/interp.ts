@@ -48,6 +48,8 @@ export interface PatchingResult {
   clean_text: string;
   corrupted_text: string;
   metric: string;
+  clean_token?: string;
+  corrupt_token?: string;
   clean_metric: number;
   corrupted_metric: number;
   layer_results: PatchingLayerResult[];
@@ -81,6 +83,9 @@ export interface SaeTrainResult {
   final_loss: number;
   final_recon_loss: number;
   final_sparsity_loss: number;
+  average_l0?: number;
+  dead_features?: number;
+  fvu?: number;
   history: { epoch: number; loss: number; recon_loss: number; sparsity_loss: number }[];
 }
 

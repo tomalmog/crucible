@@ -1,0 +1,129 @@
+.model-anatomy-inspector {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.3fr) minmax(150px, auto);
+    gap: 14px;
+    align-items: stretch;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-base);
+}
+
+.selected-layer-panel,
+.model-evidence-empty,
+.model-evidence-ledger,
+.model-routing-actions {
+    min-width: 0;
+}
+
+.selected-layer-panel strong,
+.model-evidence-ledger th,
+.model-evidence-ledger td {
+    font-family: var(--font-mono);
+}
+
+.selected-layer-panel strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.selected-layer-panel p,
+.model-evidence-empty p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.model-evidence-ledger {
+    display: grid;
+    gap: 8px;
+}
+
+.model-evidence-ledger table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.model-evidence-ledger th,
+.model-evidence-ledger td {
+    padding: 7px 0;
+    border-top: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    text-align: left;
+}
+
+.model-evidence-ledger td {
+    color: var(--text);
+    text-align: right;
+}
+
+.model-routing-actions {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+}
+
+.model-routing-actions .btn {
+    justify-content: center;
+    width: 100%;
+}
+
+.model-anatomy-footer {
+    padding-top: 14px;
+    border-top: 1px solid var(--border-light);
+}
+
+.model-anatomy-empty {
+    align-content: center;
+    min-height: 280px;
+}
+
+.model-anatomy-empty p {
+    max-width: 380px;
+    overflow-wrap: anywhere;
+}
+
+.model-anatomy-legend,
+.model-anatomy-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.model-anatomy-legend span,
+.model-anatomy-metrics span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.model-anatomy-metrics {
+    justify-content: flex-end;
+    font-family: var(--font-mono);
+}
+
+.legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.legend-swatch.block,
+.legend-swatch.mlp {
+    background: var(--gray-500);
+}
+
+.legend-swatch.moe {
+    background: var(--accent-dark);
+}
+
+.legend-swatch.evidence {
+    background: var(--success);
+}

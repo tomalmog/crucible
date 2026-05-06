@@ -1,0 +1,151 @@
+.interp-section-heading {
+    display: grid;
+    gap: 6px;
+}
+.interp-section-heading h2,
+.interp-tool-heading h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.25rem;
+    letter-spacing: -0.035em;
+}
+
+.interp-section-heading p,
+.interp-evidence-header p {
+    max-width: min(520px, 100%);
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.interp-workflow-panel {
+    display: grid;
+    gap: 14px;
+}
+
+.interp-workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.interp-workflow-card {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    align-items: start;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color var(--transition-normal),
+        background var(--transition-normal);
+}
+
+.interp-workflow-card:hover,
+.interp-workflow-card.active {
+    border-color: var(--accent);
+    background: var(--bg-surface);
+}
+
+.interp-workflow-card.active::after {
+    content: "";
+    position: absolute;
+    inset: auto 12px 0;
+    height: 3px;
+    background: var(--accent);
+}
+
+.interp-workflow-eyebrow {
+    color: var(--accent-text);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.interp-workflow-card strong {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+
+.interp-workflow-card span:not(.interp-workflow-eyebrow) {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.interp-workflow-card em {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-style: normal;
+}
+
+.evidence-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-base);
+    overflow: hidden;
+}
+
+.evidence-summary-item {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 12px;
+    border-left: 1px solid var(--border-light);
+}
+
+.evidence-summary-item:first-child {
+    border-left: 0;
+}
+
+.evidence-summary-item dt {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.evidence-summary-item dd {
+    margin: 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.evidence-summary-item span {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+.evidence-summary-item.positive {
+    border-top: 3px solid var(--success);
+}
+
+.evidence-summary-item.critical {
+    border-top: 3px solid var(--error);
+}
+
+.interp-workflow-card,
+.interp-tool-shell,
+.interp-evidence-card,
+.interp-job-board,
+.interp-example-gallery,
+.interp-chart-frame {
+    box-shadow: none;
+}

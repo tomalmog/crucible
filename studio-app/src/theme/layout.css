@@ -339,6 +339,11 @@
     gap: 10px;
 }
 
+.stack-md {
+    display: grid;
+    gap: 16px;
+}
+
 .stack-lg {
     display: grid;
     gap: 20px;

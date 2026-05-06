@@ -1,70 +1,109 @@
-import type { SteerComputeResult, SteerApplyResult } from "../../types/interp";
+import type { ReactNode } from "react";
+import type { SteerApplyResult, SteerComputeResult } from "../../types/interp";
+import { EvidenceSummary } from "./EvidenceSummary";
+import { formatNumber } from "./interpDisplay";
 
-export function SteerComputeResults({ result }: { result: SteerComputeResult }) {
+export function SteerComputeResults({ result }: { result: SteerComputeResult }): ReactNode {
   return (
-    <div className="panel stack-sm">
-      <h3>Steering Vector Computed</h3>
-      <div className="stats-grid">
-        <div className="metric-card">
-          <span className="metric-label">Vector Norm</span>
-          <span className="metric-value">{result.vector_norm.toFixed(4)}</span>
+    <div className="interp-evidence-card stack-md">
+      <div className="interp-evidence-header">
+        <div>
+          <span className="interp-kicker">Steer compute</span>
+          <h3>Activation steering vector</h3>
+          <p>
+            Estimate a contrastive activation direction and compare generations
+            after applying it at the selected layer.
+          </p>
         </div>
-        <div className="metric-card">
-          <span className="metric-label">Cosine Similarity</span>
-          <span className="metric-value">{result.cosine_similarity.toFixed(4)}</span>
+        <span className="interp-evidence-badge">{result.layer_name}</span>
+      </div>
+      <EvidenceSummary
+        items={[
+          { label: "Vector norm", value: formatNumber(result.vector_norm, 4), tone: "positive" },
+          { label: "Cosine similarity", value: formatNumber(result.cosine_similarity, 4) },
+          { label: "Positive samples", value: String(result.num_positive) },
+          { label: "Negative samples", value: String(result.num_negative) },
+        ]}
+      />
+      <VectorBalance result={result} />
+      <div className="steering-vector-stage">
+        <div className="steering-vector-line" aria-hidden="true">
+          <span />
         </div>
-        <div className="metric-card">
-          <span className="metric-label">Positive Samples</span>
-          <span className="metric-value">{result.num_positive}</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Negative Samples</span>
-          <span className="metric-value">{result.num_negative}</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Layer</span>
-          <span className="metric-value text-sm">{result.layer_name}</span>
-        </div>
+        <article>
+          <span>positive set</span>
+          <strong>{result.num_positive} examples</strong>
+        </article>
+        <article>
+          <span>negative contrast</span>
+          <strong>{result.num_negative} examples</strong>
+        </article>
       </div>
       {result.steering_vector_path && (
-        <p className="text-secondary text-sm">Vector saved to: {result.steering_vector_path}</p>
+        <div className="interp-artifact-path">Vector saved to: {result.steering_vector_path}</div>
       )}
     </div>
   );
 }
 
-export function SteerApplyResults({ result }: { result: SteerApplyResult }) {
+export function SteerApplyResults({ result }: { result: SteerApplyResult }): ReactNode {
   return (
-    <div className="panel stack-sm">
-      <h3>Steered Generation</h3>
-      <div className="stats-grid">
-        <div className="metric-card">
-          <span className="metric-label">Coefficient</span>
-          <span className="metric-value">{result.coefficient}</span>
+    <div className="interp-evidence-card stack-md">
+      <div className="interp-evidence-header">
+        <div>
+          <span className="interp-kicker">Steer apply</span>
+          <h3>Original and steered generation</h3>
+          <p>
+            Apply a direction to the residual stream and compare the generated behavior
+            against the original continuation.
+          </p>
         </div>
-        <div className="metric-card">
-          <span className="metric-label">Layer</span>
-          <span className="metric-value text-sm">{result.layer_name}</span>
-        </div>
-        <div className="metric-card">
-          <span className="metric-label">Max New Tokens</span>
-          <span className="metric-value">{result.max_new_tokens}</span>
-        </div>
+        <span className="interp-evidence-badge">coefficient {result.coefficient}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <h4 style={{ marginBottom: 4 }}>Original</h4>
-          <pre className="console" style={{ fontSize: "0.8125rem", whiteSpace: "pre-wrap" }}>
-            <strong>{result.input_text}</strong>{"\n\n"}{result.original_text}
-          </pre>
-        </div>
-        <div>
-          <h4 style={{ marginBottom: 4 }}>Steered</h4>
-          <pre className="console" style={{ fontSize: "0.8125rem", whiteSpace: "pre-wrap" }}>
-            <strong>{result.input_text}</strong>{"\n\n"}{result.steered_text}
-          </pre>
-        </div>
+      <EvidenceSummary
+        items={[
+          { label: "Coefficient", value: String(result.coefficient), tone: "positive" },
+          { label: "Layer", value: result.layer_name },
+          { label: "Max new tokens", value: String(result.max_new_tokens) },
+        ]}
+      />
+      <div className="steering-comparison">
+        <GenerationPanel title="Original" input={result.input_text} output={result.original_text} />
+        <GenerationPanel title="Steered" input={result.input_text} output={result.steered_text} isSteered />
       </div>
     </div>
+  );
+}
+
+function VectorBalance({ result }: { result: SteerComputeResult }): ReactNode {
+  const total = Math.max(result.num_positive + result.num_negative, 1);
+  return (
+    <div className="vector-balance">
+      <span className="metric-label">Contrast set balance</span>
+      <div>
+        <span style={{ flexGrow: result.num_positive / total }}>positive</span>
+        <span style={{ flexGrow: result.num_negative / total }}>negative</span>
+      </div>
+    </div>
+  );
+}
+
+function GenerationPanel({
+  input,
+  isSteered = false,
+  output,
+  title,
+}: {
+  input: string;
+  isSteered?: boolean;
+  output: string;
+  title: string;
+}): ReactNode {
+  return (
+    <article className={`generation-panel${isSteered ? " steered" : ""}`}>
+      <span>{title}</span>
+      <strong>{input}</strong>
+      <p>{output}</p>
+    </article>
   );
 }

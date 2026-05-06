@@ -9,6 +9,15 @@ import { Bot } from "lucide-react";
 import "./theme/variables.css";
 import "./theme/reset.css";
 import "./theme/components.css";
+import "./theme/interp/page.css";
+import "./theme/interp/anatomy-board.css";
+import "./theme/interp/anatomy-inspector.css";
+import "./theme/interp/workflow.css";
+import "./theme/interp/result-shell.css";
+import "./theme/interp/result-metrics.css";
+import "./theme/interp/sae-steering.css";
+import "./theme/interp/responsive.css";
+import "./theme/form-lab.css";
 import "./theme/form-lab-platform.css";
 import "./theme/layout.css";
 

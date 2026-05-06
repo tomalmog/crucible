@@ -1,0 +1,167 @@
+.dictionary-dimensions {
+    grid-template-columns: auto auto minmax(40px, 1fr) auto auto;
+    align-items: center;
+}
+
+.dictionary-dimensions div {
+    display: grid;
+    gap: 2px;
+}
+
+.dictionary-dimensions strong {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+}
+
+.dictionary-dimensions span,
+.dictionary-dimensions small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.dictionary-dimensions i {
+    height: 1px;
+    background: var(--border);
+}
+
+.feature-density-rail {
+    grid-template-columns: auto minmax(140px, 1fr) auto;
+    align-items: center;
+}
+
+.feature-density-rail strong {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+}
+
+.feature-atlas-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.feature-dossier-card {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+}
+
+.feature-dossier-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.feature-index-pill {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.feature-dossier-card h4 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.steering-vector-stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+}
+
+.steering-vector-stage article {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 4px;
+}
+
+.steering-vector-line {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 50%;
+    height: 2px;
+    background: var(--border);
+}
+
+.steering-vector-line span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    background: var(--bg-base);
+    transform: translate(-50%, -50%);
+}
+
+.vector-balance > div {
+    display: flex;
+    min-height: 34px;
+    border: 1px solid var(--border);
+}
+
+.vector-balance > div span {
+    display: grid;
+    flex-basis: 0;
+    place-items: center;
+    min-width: 80px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+}
+
+.vector-balance > div span:first-child {
+    background: var(--success-muted);
+}
+
+.vector-balance > div span:last-child {
+    background: var(--error-muted);
+    border-left: 1px solid var(--border);
+}
+
+.interp-example-gallery {
+    display: grid;
+    gap: 16px;
+}
+
+.interp-example-caption {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.interp-example-stage {
+    min-width: 0;
+}
+
+.interp-example-duo {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 1180px) {
+    .interp-hero,
+    .interp-workflow-grid,
+    .activation-atlas-grid,
+    .interp-example-duo {
+        grid-template-columns: 1fr;
+    }
+
+    .model-anatomy-inspector {
+        grid-template-columns: 1fr;
+    }
+}
