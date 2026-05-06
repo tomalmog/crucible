@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactFormCard,
+  CompactInfoBanner,
+  CompactInlineField,
+} from "../../components/shared/CompactForm";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
@@ -111,63 +114,66 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Activation PCA"
+      description="Sample activations, project them into a low-dimensional map, and keep the tuning controls tucked into one row."
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Analysis"}
+      actionLabel={isRemote ? "Submit to Cluster" : "Run PCA"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="grid-2">
-        <FormField label="Model" required>
+      <div className="platform-form-grid platform-form-grid-3">
+        <CompactInlineField label="Model" required>
           <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Dataset" required>
+        </CompactInlineField>
+        <CompactInlineField label="Dataset" required>
           <DatasetSelect value={dataset} onChange={setDataset} />
-        </FormField>
-        <FormField label="Layer Index" hint="-1 = last layer">
+        </CompactInlineField>
+        <CompactInlineField hint="for LoRA and QLoRA" label="Base model">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional"
+          />
+        </CompactInlineField>
+      </div>
+      <div className="platform-form-grid platform-form-grid-4">
+        <CompactInlineField hint="-1 = last" label="Layer">
           <input
             type="number"
             value={layerIndex}
             onChange={(e) => setLayerIndex(e.currentTarget.value)}
           />
-        </FormField>
-        <FormField label="Max Samples">
+        </CompactInlineField>
+        <CompactInlineField label="Samples">
           <input
             type="number"
             min={1}
             value={maxSamples}
             onChange={(e) => setMaxSamples(e.currentTarget.value)}
           />
-        </FormField>
-        <FormField label="Granularity">
+        </CompactInlineField>
+        <CompactInlineField label="Granularity">
           <select value={granularity} onChange={(e) => setGranularity(e.currentTarget.value)}>
             <option value="sample">Per Sample</option>
             <option value="token">Per Token</option>
           </select>
-        </FormField>
-        <FormField label="Color Field" hint="metadata field">
+        </CompactInlineField>
+        <CompactInlineField hint="metadata" label="Color field">
           <input
             value={colorField}
             onChange={(e) => setColorField(e.currentTarget.value)}
-            placeholder="e.g. label, category"
+            placeholder="label"
           />
-        </FormField>
-        <FormField label="Base Model" hint="for LoRA/QLoRA models">
-          <input
-            value={baseModel}
-            onChange={(e) => setBaseModel(e.currentTarget.value)}
-            placeholder="optional — HuggingFace ID or path"
-          />
-        </FormField>
+        </CompactInlineField>
       </div>
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
-    </CommandFormPanel>
+    </CompactFormCard>
   );
 }

@@ -1,17 +1,15 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
-import { ModelSelect } from "../../components/shared/ModelSelect";
-import { DatasetSelect } from "../../components/shared/DatasetSelect";
+import {
+  CompactFormCard,
+  CompactInfoBanner,
+} from "../../components/shared/CompactForm";
 import { datasetColumns, startCrucibleCommand } from "../../api/studioApi";
 import { buildDispatchSpec } from "../../api/commandArgs";
 import { useInterpLocation } from "../../hooks/useInterpLocation";
 import { jobLabel } from "../../utils/jobLabels";
-
-type SteerMode = "compute" | "apply";
-type ComputeSource = "simple" | "dataset" | "two-datasets";
+import { SteeringFormFields, type ComputeSource, type SteerMode } from "./SteeringFormFields";
 
 interface SteeringFormProps {
   prefill?: Record<string, unknown>;
@@ -207,130 +205,59 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Activation Steering"
+      description="Keep compute and apply workflows in one card, with source-specific controls that only appear when needed."
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : mode === "compute" ? "Compute Vector" : "Apply Steering"}
+      actionLabel={isRemote ? "Submit to Cluster" : mode === "compute" ? "Compute vector" : "Apply steering"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="filter-pills" style={{ marginBottom: 12 }}>
-        <button className={`filter-pill${mode === "compute" ? " active" : ""}`} onClick={() => setMode("compute")}>Compute</button>
-        <button className={`filter-pill${mode === "apply" ? " active" : ""}`} onClick={() => setMode("apply")}>Apply</button>
-      </div>
-
-      <div className="grid-2">
-        <FormField label="Model" required>
-          <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Base Model" hint="for LoRA/QLoRA models">
-          <input
-            value={baseModel}
-            onChange={(e) => setBaseModel(e.currentTarget.value)}
-            placeholder="optional — HuggingFace ID or path"
-          />
-        </FormField>
-
-        {mode === "compute" && (
-          <FormField label="Source">
-            <select value={computeSource} onChange={(e) => setComputeSource(e.currentTarget.value as ComputeSource)}>
-              <option value="simple">Simple (two texts)</option>
-              <option value="dataset">Dataset (paired columns)</option>
-              <option value="two-datasets">Two Datasets</option>
-            </select>
-          </FormField>
-        )}
-      </div>
-
-      {mode === "compute" && computeSource === "simple" && (
-        <>
-          <FormField label="Positive Text" required>
-            <textarea value={positiveText} onChange={(e) => setPositiveText(e.currentTarget.value)}
-              placeholder="Love, joy, happiness, kindness" rows={2} />
-          </FormField>
-          <FormField label="Negative Text" required>
-            <textarea value={negativeText} onChange={(e) => setNegativeText(e.currentTarget.value)}
-              placeholder="Hate, anger, sadness, cruelty" rows={2} />
-          </FormField>
-        </>
-      )}
-
-      {mode === "compute" && computeSource === "dataset" && (
-        <>
-          <FormField label="Dataset" required>
-            <DatasetSelect value={dataset} onChange={setDataset} />
-          </FormField>
-          <div className="grid-2">
-            <FormField label="Positive Column" required>
-              <select value={positiveColumn} onChange={(e) => setPositiveColumn(e.currentTarget.value)}>
-                <option value="">Select column...</option>
-                {columns.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Negative Column" required>
-              <select value={negativeColumn} onChange={(e) => setNegativeColumn(e.currentTarget.value)}>
-                <option value="">Select column...</option>
-                {columns.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </FormField>
-          </div>
-        </>
-      )}
-
-      {mode === "compute" && computeSource === "two-datasets" && (
-        <div className="grid-2">
-          <FormField label="Positive Dataset" required>
-            <DatasetSelect value={positiveDataset} onChange={setPositiveDataset} />
-          </FormField>
-          <FormField label="Negative Dataset" required>
-            <DatasetSelect value={negativeDataset} onChange={setNegativeDataset} />
-          </FormField>
-        </div>
-      )}
-
-      {mode === "compute" && (
-        <div className="grid-2">
-          <FormField label="Layer Index" hint="-1 = last layer">
-            <input type="number" value={layerIndex} onChange={(e) => setLayerIndex(e.currentTarget.value)} />
-          </FormField>
-          <FormField label="Max Samples">
-            <input type="number" min={1} value={maxSamples} onChange={(e) => setMaxSamples(e.currentTarget.value)} />
-          </FormField>
-        </div>
-      )}
-
-      {mode === "apply" && (
-        <>
-          <div className="grid-2">
-            <FormField label="Vector Path" required hint="Path to steering_vector.pt">
-              <input value={vectorPath} onChange={(e) => setVectorPath(e.currentTarget.value)}
-                placeholder="./outputs/interp/steering_vector.pt" />
-            </FormField>
-            <FormField label="Coefficient">
-              <input type="number" step="0.1" value={coefficient} onChange={(e) => setCoefficient(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Max New Tokens">
-              <input type="number" min={1} value={maxNewTokens} onChange={(e) => setMaxNewTokens(e.currentTarget.value)} />
-            </FormField>
-          </div>
-          <FormField label="Input Text" required>
-            <textarea value={inputText} onChange={(e) => setInputText(e.currentTarget.value)}
-              placeholder="Once upon a time" rows={3} />
-          </FormField>
-        </>
-      )}
+      <SteeringFormFields
+        baseModel={baseModel}
+        coefficient={coefficient}
+        columns={columns}
+        computeSource={computeSource}
+        dataset={dataset}
+        inputText={inputText}
+        layerIndex={layerIndex}
+        maxNewTokens={maxNewTokens}
+        maxSamples={maxSamples}
+        mode={mode}
+        modelPath={modelPath}
+        negativeColumn={negativeColumn}
+        negativeDataset={negativeDataset}
+        negativeText={negativeText}
+        positiveColumn={positiveColumn}
+        positiveDataset={positiveDataset}
+        positiveText={positiveText}
+        setBaseModel={setBaseModel}
+        setCoefficient={setCoefficient}
+        setComputeSource={setComputeSource}
+        setDataset={setDataset}
+        setInputText={setInputText}
+        setLayerIndex={setLayerIndex}
+        setMaxNewTokens={setMaxNewTokens}
+        setMaxSamples={setMaxSamples}
+        setMode={setMode}
+        setModelPath={setModelPath}
+        setNegativeColumn={setNegativeColumn}
+        setNegativeDataset={setNegativeDataset}
+        setNegativeText={setNegativeText}
+        setPositiveColumn={setPositiveColumn}
+        setPositiveDataset={setPositiveDataset}
+        setPositiveText={setPositiveText}
+        setVectorPath={setVectorPath}
+        vectorPath={vectorPath}
+      />
 
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
-    </CommandFormPanel>
+    </CompactFormCard>
   );
 }

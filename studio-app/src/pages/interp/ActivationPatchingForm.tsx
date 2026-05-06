@@ -1,8 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactField,
+  CompactFormCard,
+  CompactInfoBanner,
+  CompactInlineField,
+} from "../../components/shared/CompactForm";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildDispatchSpec } from "../../api/commandArgs";
@@ -99,54 +103,55 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Activation Patching"
+      description="Compare clean and corrupted prompts, then score restoration strength with a compact side-by-side setup."
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Analysis"}
+      actionLabel={isRemote ? "Submit to Cluster" : "Run Patching"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="grid-2">
-        <FormField label="Model" required>
+      <div className="platform-form-grid platform-form-grid-3">
+        <CompactInlineField label="Model" required>
           <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Metric">
+        </CompactInlineField>
+        <CompactInlineField hint="adapters only" label="Base model">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional"
+          />
+        </CompactInlineField>
+        <CompactInlineField label="Metric">
           <select value={metric} onChange={(e) => setMetric(e.currentTarget.value)}>
             <option value="logit_diff">Logit Difference</option>
             <option value="prob">Max Probability</option>
           </select>
-        </FormField>
-        <FormField label="Base Model" hint="for LoRA/QLoRA models">
-          <input
-            value={baseModel}
-            onChange={(e) => setBaseModel(e.currentTarget.value)}
-            placeholder="optional — HuggingFace ID or path"
-          />
-        </FormField>
+        </CompactInlineField>
       </div>
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
-      <FormField label="Clean Text" required>
+      <CompactField label="Clean text" required>
         <textarea
           value={cleanText}
           onChange={(e) => setCleanText(e.currentTarget.value)}
           placeholder="The capital of France is"
           rows={2}
         />
-      </FormField>
-      <FormField label="Corrupted Text" required>
+      </CompactField>
+      <CompactField label="Corrupted text" required>
         <textarea
           value={corruptedText}
           onChange={(e) => setCorruptedText(e.currentTarget.value)}
           placeholder="The capital of Germany is"
           rows={2}
         />
-      </FormField>
-    </CommandFormPanel>
+      </CompactField>
+    </CompactFormCard>
   );
 }

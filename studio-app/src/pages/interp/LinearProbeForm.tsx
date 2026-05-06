@@ -1,8 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactField,
+  CompactFormCard,
+  CompactInfoBanner,
+  CompactInlineField,
+} from "../../components/shared/CompactForm";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
@@ -112,58 +116,61 @@ export function LinearProbeForm({ prefill }: LinearProbeFormProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Linear Probe"
+      description="Fit a fast classifier on a chosen layer and keep the optimization knobs visible without taking over the page."
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Analysis"}
+      actionLabel={isRemote ? "Submit to Cluster" : "Train Probe"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="grid-2">
-        <FormField label="Model" required>
+      <div className="platform-form-grid platform-form-grid-3">
+        <CompactInlineField label="Model" required>
           <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Dataset" required>
+        </CompactInlineField>
+        <CompactInlineField label="Dataset" required>
           <DatasetSelect value={dataset} onChange={setDataset} />
-        </FormField>
-        <FormField label="Label Field" required hint="metadata field for classification">
+        </CompactInlineField>
+        <CompactInlineField hint="for LoRA and QLoRA" label="Base model">
           <input
-            value={labelField}
-            onChange={(e) => setLabelField(e.currentTarget.value)}
-            placeholder="e.g. label, category, sentiment"
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional"
           />
-        </FormField>
-        <FormField label="Layer Index" hint="-1=last, -2=all layers">
+        </CompactInlineField>
+      </div>
+      <CompactField hint="classification target" label="Label field" required>
+        <input
+          value={labelField}
+          onChange={(e) => setLabelField(e.currentTarget.value)}
+          placeholder="sentiment"
+        />
+      </CompactField>
+      <div className="platform-form-grid platform-form-grid-4">
+        <CompactInlineField hint="-1 = last" label="Layer">
           <input
             type="number"
             value={layerIndex}
             onChange={(e) => setLayerIndex(e.currentTarget.value)}
           />
-        </FormField>
-        <FormField label="Max Samples">
+        </CompactInlineField>
+        <CompactInlineField label="Samples">
           <input type="number" min={1} value={maxSamples} onChange={(e) => setMaxSamples(e.currentTarget.value)} />
-        </FormField>
-        <FormField label="Epochs">
+        </CompactInlineField>
+        <CompactInlineField label="Epochs">
           <input type="number" min={1} value={epochs} onChange={(e) => setEpochs(e.currentTarget.value)} />
-        </FormField>
-        <FormField label="Learning Rate">
+        </CompactInlineField>
+        <CompactInlineField label="Learning rate">
           <input type="number" step="0.0001" value={learningRate} onChange={(e) => setLearningRate(e.currentTarget.value)} />
-        </FormField>
-        <FormField label="Base Model" hint="for LoRA/QLoRA models">
-          <input
-            value={baseModel}
-            onChange={(e) => setBaseModel(e.currentTarget.value)}
-            placeholder="optional — HuggingFace ID or path"
-          />
-        </FormField>
+        </CompactInlineField>
       </div>
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
-    </CommandFormPanel>
+    </CompactFormCard>
   );
 }

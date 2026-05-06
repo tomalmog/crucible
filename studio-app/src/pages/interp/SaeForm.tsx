@@ -1,8 +1,13 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactField,
+  CompactFormCard,
+  CompactInfoBanner,
+  CompactInlineField,
+  CompactToggleGroup,
+} from "../../components/shared/CompactForm";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { DatasetSelect } from "../../components/shared/DatasetSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
@@ -15,6 +20,11 @@ type SaeMode = "train" | "analyze";
 interface SaeFormProps {
   prefill?: Record<string, unknown>;
 }
+
+const SAE_MODE_OPTIONS: ReadonlyArray<{ label: string; value: SaeMode }> = [
+  { label: "Train", value: "train" },
+  { label: "Analyze", value: "analyze" },
+];
 
 export function SaeForm({ prefill }: SaeFormProps) {
   const { dataRoot } = useCrucible();
@@ -144,84 +154,93 @@ export function SaeForm({ prefill }: SaeFormProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Sparse Autoencoder"
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : mode === "train" ? "Train SAE" : "Analyze"}
+      description="Switch between training and feature inspection without losing the dense, compact layout."
+      actionLabel={isRemote ? "Submit to Cluster" : mode === "train" ? "Train SAE" : "Analyze SAE"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="filter-pills" style={{ marginBottom: 12 }}>
-        <button className={`filter-pill${mode === "train" ? " active" : ""}`} onClick={() => setMode("train")}>Train</button>
-        <button className={`filter-pill${mode === "analyze" ? " active" : ""}`} onClick={() => setMode("analyze")}>Analyze</button>
-      </div>
+      <CompactField label="Mode">
+        <CompactToggleGroup
+          label="SAE mode"
+          onChange={setMode}
+          options={SAE_MODE_OPTIONS}
+          value={mode}
+        />
+      </CompactField>
 
-      <div className="grid-2">
-        <FormField label="Model" required>
-          <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Base Model" hint="for LoRA/QLoRA models">
-          <input
-            value={baseModel}
-            onChange={(e) => setBaseModel(e.currentTarget.value)}
-            placeholder="optional — HuggingFace ID or path"
-          />
-        </FormField>
-
-        {mode === "train" && (
-          <>
-            <FormField label="Dataset" required>
+      {mode === "train" ? (
+        <>
+          <div className="platform-form-grid platform-form-grid-3">
+            <CompactInlineField label="Model" required>
+              <ModelSelect value={modelPath} onChange={setModelPath} />
+            </CompactInlineField>
+            <CompactInlineField label="Dataset" required>
               <DatasetSelect value={dataset} onChange={setDataset} />
-            </FormField>
-            <FormField label="Layer Index" hint="-1 = last layer">
+            </CompactInlineField>
+            <CompactInlineField hint="for LoRA and QLoRA" label="Base model">
+              <input value={baseModel} onChange={(e) => setBaseModel(e.currentTarget.value)} placeholder="optional" />
+            </CompactInlineField>
+          </div>
+          <div className="platform-form-grid platform-form-grid-4">
+            <CompactInlineField hint="-1 = last" label="Layer">
               <input type="number" value={layerIndex} onChange={(e) => setLayerIndex(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Latent Dim" hint="0 = auto (4x hidden)">
+            </CompactInlineField>
+            <CompactInlineField hint="0 = auto" label="Latent dim">
               <input type="number" min={0} value={latentDim} onChange={(e) => setLatentDim(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Max Samples">
+            </CompactInlineField>
+            <CompactInlineField label="Samples">
               <input type="number" min={1} value={maxSamples} onChange={(e) => setMaxSamples(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Epochs">
+            </CompactInlineField>
+            <CompactInlineField label="Epochs">
               <input type="number" min={1} value={epochs} onChange={(e) => setEpochs(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Learning Rate">
+            </CompactInlineField>
+          </div>
+          <div className="platform-form-grid platform-form-grid-2">
+            <CompactInlineField label="Learning rate">
               <input type="number" step="0.0001" value={learningRate} onChange={(e) => setLearningRate(e.currentTarget.value)} />
-            </FormField>
-            <FormField label="Sparsity Coefficient">
+            </CompactInlineField>
+            <CompactInlineField label="Sparsity coeff.">
               <input type="number" step="0.0001" value={sparsityCoeff} onChange={(e) => setSparsityCoeff(e.currentTarget.value)} />
-            </FormField>
-          </>
-        )}
-
-        {mode === "analyze" && (
-          <>
-            <FormField label="SAE Path" required hint="Path to trained .pt file">
+            </CompactInlineField>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="platform-form-grid platform-form-grid-3">
+            <CompactInlineField label="Model" required>
+              <ModelSelect value={modelPath} onChange={setModelPath} />
+            </CompactInlineField>
+            <CompactInlineField hint="trained .pt file" label="SAE path" required>
               <input value={saePath} onChange={(e) => setSaePath(e.currentTarget.value)} placeholder="./outputs/interp/sae_model.pt" />
-            </FormField>
-            <FormField label="Dataset" hint="Select the training dataset to see what each feature responds to">
-              <DatasetSelect value={dataset} onChange={setDataset} />
-            </FormField>
-            <FormField label="Top K Features">
-              <input type="number" min={1} value={topK} onChange={(e) => setTopK(e.currentTarget.value)} />
-            </FormField>
-          </>
-        )}
-      </div>
-
-      {mode === "analyze" && (
-        <FormField label="Input Text" required>
+            </CompactInlineField>
+            <CompactInlineField hint="for LoRA and QLoRA" label="Base model">
+              <input value={baseModel} onChange={(e) => setBaseModel(e.currentTarget.value)} placeholder="optional" />
+            </CompactInlineField>
+          </div>
+          <CompactField label="Input text" required>
           <textarea value={inputText} onChange={(e) => setInputText(e.currentTarget.value)} placeholder="Enter text to analyze..." rows={3} />
-        </FormField>
+          </CompactField>
+          <div className="platform-form-grid platform-form-grid-2">
+            <CompactInlineField hint="optional context" label="Dataset">
+              <DatasetSelect value={dataset} onChange={setDataset} />
+            </CompactInlineField>
+            <CompactInlineField label="Top K features">
+              <input type="number" min={1} value={topK} onChange={(e) => setTopK(e.currentTarget.value)} />
+            </CompactInlineField>
+          </div>
+        </>
       )}
 
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
-    </CommandFormPanel>
+    </CompactFormCard>
   );
 }

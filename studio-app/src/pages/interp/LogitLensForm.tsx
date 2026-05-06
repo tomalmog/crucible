@@ -1,8 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactField,
+  CompactFormCard,
+  CompactInfoBanner,
+  CompactInlineField,
+} from "../../components/shared/CompactForm";
 import { ModelSelect } from "../../components/shared/ModelSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { buildDispatchSpec } from "../../api/commandArgs";
@@ -98,55 +102,56 @@ export function LogitLensForm({ prefill }: LogitLensFormProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
       title="Logit Lens"
+      description="Project hidden states through the unembedding and inspect decoded predictions by layer."
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Analysis"}
+      actionLabel={isRemote ? "Submit to Cluster" : "Run Logit Lens"}
       runningLabel="Submitting..."
+      isRunning={submitting}
       onSubmit={() => submit().catch(console.error)}
       error={error}
     >
-      <div className="grid-2">
-        <FormField label="Model" required>
-          <ModelSelect value={modelPath} onChange={setModelPath} />
-        </FormField>
-        <FormField label="Top K">
-          <input
-            type="number"
-            min={1}
-            value={topK}
-            onChange={(e) => setTopK(e.currentTarget.value)}
-          />
-        </FormField>
-      </div>
-      {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
-      )}
-      <FormField label="Input Text" required>
+      <CompactField label="Model" required>
+        <ModelSelect value={modelPath} onChange={setModelPath} />
+      </CompactField>
+      <CompactField label="Input text" required>
         <textarea
           value={inputText}
           onChange={(e) => setInputText(e.currentTarget.value)}
           placeholder="Enter text to analyze..."
           rows={3}
         />
-      </FormField>
-      <FormField label="Layer Indices" hint="comma-separated, leave empty for all">
-        <input
-          value={layerIndices}
-          onChange={(e) => setLayerIndices(e.currentTarget.value)}
-          placeholder="e.g. 0,3,5,11"
-        />
-      </FormField>
-      <FormField label="Base Model" hint="for LoRA/QLoRA models">
-        <input
-          value={baseModel}
-          onChange={(e) => setBaseModel(e.currentTarget.value)}
-          placeholder="optional — HuggingFace ID or path"
-        />
-      </FormField>
-    </CommandFormPanel>
+      </CompactField>
+      <div className="platform-form-grid platform-form-grid-3">
+        <CompactInlineField label="Top K">
+          <input
+            type="number"
+            min={1}
+            value={topK}
+            onChange={(e) => setTopK(e.currentTarget.value)}
+          />
+        </CompactInlineField>
+        <CompactInlineField hint="empty = all" label="Layers">
+          <input
+            value={layerIndices}
+            onChange={(e) => setLayerIndices(e.currentTarget.value)}
+            placeholder="0, 3, 5, 11"
+          />
+        </CompactInlineField>
+        <CompactInlineField hint="adapters only" label="Base model">
+          <input
+            value={baseModel}
+            onChange={(e) => setBaseModel(e.currentTarget.value)}
+            placeholder="optional"
+          />
+        </CompactInlineField>
+      </div>
+      {isRemote && (
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
+      )}
+    </CompactFormCard>
   );
 }
