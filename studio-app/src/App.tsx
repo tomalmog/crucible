@@ -9,6 +9,7 @@ import { Bot } from "lucide-react";
 import "./theme/variables.css";
 import "./theme/reset.css";
 import "./theme/components.css";
+import "./theme/form-lab-platform.css";
 import "./theme/layout.css";
 
 const SIDEBAR_KEY = "crucible_sidebar_collapsed";
