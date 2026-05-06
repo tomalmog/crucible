@@ -17,9 +17,15 @@ from pathlib import Path
 
 from core.chat_types import ChatOptions
 from core.errors import CrucibleRemoteError
-from core.slurm_types import SlurmResourceConfig
+from core.slurm_types import ClusterConfig, SlurmResourceConfig
 from serve.agent_bundler import build_agent_tarball
-from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
+from serve.remote_env_setup import ensure_remote_env
+from serve.remote_runtime import (
+    build_compute_node_command,
+    resolve_cluster_runtime,
+    runtime_python_command,
+    uses_managed_conda_env,
+)
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
 
@@ -52,6 +58,7 @@ def stream_remote_chat(
     )
 
     with SshSession(cluster) as session:
+        cluster = resolve_cluster_runtime(cluster, session)
         # Redirect setup output to stderr so it doesn't pollute
         # the chat data channel (stdout is the token stream).
         saved_stdout = sys.stdout
@@ -61,10 +68,10 @@ def stream_remote_chat(
                 from serve.ssh_submit_helpers import provision_env
                 env_activate = provision_env(session, cluster)
             else:
-                ensure_remote_env(session)
+                if uses_managed_conda_env(cluster):
+                    ensure_remote_env(session)
                 env_activate = ""
-            workspace = session.resolve_path(cluster.remote_workspace)
-            bundle_dir = f"{workspace}/{_BUNDLE_DIR_NAME}"
+            bundle_dir = f"{cluster.remote_workspace}/{_BUNDLE_DIR_NAME}"
             _sync_bundle(session, tarball, bundle_dir)
             _upload_runner_script(session, bundle_dir, options)
         finally:
@@ -73,10 +80,7 @@ def stream_remote_chat(
         if is_ssh:
             command = _build_ssh_command(bundle_dir, env_activate)
         else:
-            command = _build_srun_command(
-                cluster.module_loads, bundle_dir, resources,
-                default_partition=cluster.default_partition,
-            )
+            command = _build_srun_command(cluster, bundle_dir, resources)
         yield from session.stream_command(command, timeout=1800)
 
 
@@ -150,30 +154,16 @@ def _build_ssh_command(
 
 
 def _build_srun_command(
-    module_loads: tuple[str, ...],
+    cluster: ClusterConfig,
     bundle_dir: str,
     resources: SlurmResourceConfig,
-    default_partition: str = "",
 ) -> str:
     """Build the srun command that runs inference on a compute node."""
-    parts: list[str] = list(module_loads)
-    parts.append(CONDA_ACTIVATE)
-    parts.append(f"cd {bundle_dir}")
-
-    srun = ["srun", "--nodes=1", "--ntasks=1"]
-    gres = f"gpu:{resources.gpu_type}:1" if resources.gpu_type else "gpu:1"
-    srun.append(f"--gres={gres}")
-    partition = resources.partition or default_partition
-    if partition:
-        srun.append(f"--partition={partition}")
-    if resources.memory:
-        srun.append(f"--mem={resources.memory}")
-    if resources.time_limit:
-        srun.append(f"--time={resources.time_limit}")
-    srun.append(f"python -u {_RUNNER_FILENAME}")
-
-    parts.append(" ".join(srun))
-    return " && ".join(parts)
+    runtime_python = runtime_python_command(cluster)
+    inner_command = (
+        f"cd {shlex.quote(bundle_dir)} && {runtime_python} -u {_RUNNER_FILENAME}"
+    )
+    return build_compute_node_command(cluster, resources, inner_command)
 
 
 # Runner script template uploaded to the remote cluster.

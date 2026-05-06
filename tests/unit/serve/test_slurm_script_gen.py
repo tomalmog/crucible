@@ -81,7 +81,24 @@ def test_single_node_script_execution() -> None:
     )
     assert "cd /scratch/crucible/rj-test123" in script
     assert "tar xzf crucible-agent.tar.gz" in script
-    assert "python3 crucible_agent_entry.py --config training_config.json" in script
+    assert "crucible_agent_entry.py --config training_config.json" in script
+
+
+def test_single_node_script_uses_managed_env_python() -> None:
+    """Managed env scripts should run via the activated conda interpreter."""
+    script = generate_single_node_script(
+        _make_cluster(), _make_resources(), "rj-test123", "sft",
+    )
+    assert '"${CONDA_PREFIX:?managed crucible env inactive}/bin/python"' in script
+
+
+def test_single_node_script_bootstraps_node_local_env() -> None:
+    """Managed env scripts should prepare Conda on the allocated node."""
+    script = generate_single_node_script(
+        _make_cluster(), _make_resources(), "rj-test123", "sft",
+    )
+    assert "CONDA_ENVS_PATH=/var/tmp/testuser-crucible-conda/envs" in script
+    assert "preparing node-local crucible env" in script
 
 
 def test_single_node_script_no_partition_when_empty() -> None:
@@ -108,7 +125,15 @@ def test_multi_node_script_has_torchrun() -> None:
     )
     assert "#SBATCH --nodes=4" in script
     assert "#SBATCH --ntasks-per-node=1" in script
-    assert "srun python3 -m torch.distributed.run" in script
+    assert "-m torch.distributed.run" in script
+
+
+def test_multi_node_script_uses_managed_env_python() -> None:
+    """Managed env multi-node jobs should launch torchrun via env python."""
+    script = generate_multi_node_script(
+        _make_cluster(), _make_resources(nodes=4), "rj-test123", "sft",
+    )
+    assert 'srun "${CONDA_PREFIX:?managed crucible env inactive}/bin/python"' in script
 
 
 def test_multi_node_script_nccl_env() -> None:
@@ -165,3 +190,18 @@ def test_extra_sbatch_directives() -> None:
         _make_cluster(), resources, "rj-test123", "sft",
     )
     assert "#SBATCH --account=myproject" in script
+
+
+def test_explicit_python_path_skips_conda_activation() -> None:
+    """Explicit runtimes should not inject the managed crucible env."""
+    cluster = ClusterConfig(
+        name="test-hpc",
+        host="hpc.example.com",
+        user="testuser",
+        python_path="/shared/envs/demo/bin/python",
+        remote_workspace="/scratch/crucible",
+    )
+    script = generate_single_node_script(
+        cluster, _make_resources(), "rj-test123", "sft",
+    )
+    assert "conda activate crucible" not in script

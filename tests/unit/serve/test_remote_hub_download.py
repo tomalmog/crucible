@@ -18,6 +18,9 @@ def _make_session(responses: list[tuple[str, str, int]]) -> MagicMock:
     """Build a mock SshSession with scripted execute() responses."""
     session = MagicMock()
     session.execute = MagicMock(side_effect=responses)
+    session.cluster.user = "testuser"
+    session.cluster.remote_workspace = "/scratch/crucible"
+    session.resolve_path = MagicMock(side_effect=lambda path: path)
     return session
 
 
@@ -89,3 +92,16 @@ def test_run_snapshot_download_raises_when_path_missing() -> None:
         _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
 
 
+def test_run_snapshot_download_uses_managed_conda_when_needed() -> None:
+    """Managed downloads should execute via conda run in node-local storage."""
+    session = _make_session([
+        ("downloaded_to=/scratch/models/test", "", 0),
+        ("", "", 0),
+    ])
+    session.upload_text = MagicMock()
+
+    _run_snapshot_download(session, "org/model", "/scratch/models/test", None)
+
+    download_command = session.execute.call_args_list[0].args[0]
+    assert "conda run -n crucible python /scratch/models/test/_crucible_download.py" in download_command
+    assert "CONDA_ENVS_PATH=/var/tmp/testuser-crucible-conda/envs" in download_command

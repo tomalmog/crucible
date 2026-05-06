@@ -22,6 +22,7 @@ def _make_session(responses: list[tuple[str, str, int]]) -> MagicMock:
     """Build a mock SshSession with scripted execute() responses."""
     session = MagicMock()
     session.execute = MagicMock(side_effect=responses)
+    session.resolve_path = MagicMock(side_effect=lambda path: path)
     return session
 
 
@@ -192,6 +193,34 @@ def test_validate_cluster_returns_error_when_env_setup_fails(
     assert len(result.errors) == 1
     assert "conda not found" in result.errors[0]
     assert result.python_ok is False
+
+
+def test_validate_cluster_skips_env_setup_for_explicit_python() -> None:
+    """Explicit cluster runtimes should not provision the crucible env."""
+    cluster = ClusterConfig(
+        name="test-hpc",
+        host="hpc.example.com",
+        user="jdoe",
+        python_path="/shared/envs/demo/bin/python",
+    )
+    ctx = _patch_session([
+        ("Python 3.11.0\n", "", 0),
+        ("torch=2.6.0\ncuda=True\ncuda_ver=12.4\n", "", 0),
+        ("gpu*\nmain\n", "", 0),
+        ("gpu:a100:4\n", "", 0),
+        ("", "", 1),
+    ])
+    with (
+        patch("serve.cluster_validator.SshSession", return_value=ctx),
+        patch("serve.cluster_validator.ensure_remote_env") as ensure_mock,
+        patch("serve.cluster_validator.build_compute_node_command", side_effect=[
+            "srun python --version",
+            "srun python -c torch",
+        ]),
+    ):
+        result = validate_cluster(cluster)
+    assert ensure_mock.call_count == 0
+    assert result.python_ok is True
 
 
 # -- update_cluster_validated -------------------------------------------------

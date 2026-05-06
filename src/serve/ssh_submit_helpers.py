@@ -23,12 +23,14 @@ def provision_env(session: SshSession, cluster: ClusterConfig) -> str:
     1. Try existing conda → create/use crucible env (HPC clusters).
     2. If conda not installed, install Miniconda first, then create env.
     """
-    from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
+    from serve.managed_conda_env import managed_conda_activate
+    from serve.remote_env_setup import ensure_remote_env
 
     # Try existing conda
     try:
         ensure_remote_env(session)
-        return CONDA_ACTIVATE
+        remote_workspace = session.resolve_path(cluster.remote_workspace)
+        return managed_conda_activate(remote_workspace, cluster.user)
     except CrucibleRemoteError:
         pass
 
@@ -36,7 +38,8 @@ def provision_env(session: SshSession, cluster: ClusterConfig) -> str:
     print("SSH_RUNNER: conda not found — installing Miniconda...", flush=True)
     _install_miniconda(session)
     ensure_remote_env(session)
-    return CONDA_ACTIVATE
+    remote_workspace = session.resolve_path(cluster.remote_workspace)
+    return managed_conda_activate(remote_workspace, cluster.user)
 
 
 def _install_miniconda(session: SshSession) -> None:

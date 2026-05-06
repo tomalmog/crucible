@@ -14,6 +14,9 @@ def _make_session(responses: list[tuple[str, str, int]]) -> MagicMock:
     """Build a mock SshSession with scripted execute() responses."""
     session = MagicMock()
     session.execute = MagicMock(side_effect=responses)
+    session.cluster.user = "testuser"
+    session.cluster.remote_workspace = "/scratch/crucible"
+    session.resolve_path = MagicMock(side_effect=lambda path: path)
     return session
 
 
@@ -30,6 +33,8 @@ class TestEnvExists:
         assert session.execute.call_count == 3
         cmd = session.execute.call_args_list[0].args[0]
         assert "conda env list" in cmd
+        package_check = session.execute.call_args_list[2].args[0]
+        assert "__import__('yaml'); __import__('numpy')" in package_check
 
     def test_detects_env_among_multiple(self) -> None:
         output = (
@@ -58,10 +63,13 @@ class TestEnvCreation:
             ("", "", 1),  # srun nvidia-smi (fallback)
             ("", "", 0),  # torch install (cu124 default)
             ("", "", 0),  # pip install remaining
+            ("torch=2.6.0\n", "", 0),  # torch verify
+            ("", "", 0),  # package verify
         ])
         ensure_remote_env(session)
         calls = session.execute.call_args_list
         assert "conda create -n crucible python=3.11 -y" in calls[2].args[0]
+        assert "CONDA_ENVS_PATH=/var/tmp/testuser-crucible-conda/envs" in calls[2].args[0]
         torch_call = next(c for c in calls if "torch" in c.args[0] and "pip" in c.args[0])
         assert "cu124" in torch_call.args[0]
         pip_call = next(c for c in calls if "pyyaml" in c.args[0])
@@ -76,9 +84,11 @@ class TestEnvCreation:
             ("", "", 1),  # srun nvidia-smi
             ("", "", 0),  # torch install
             ("", "", 0),  # pip install remaining
+            ("torch=2.6.0\n", "", 0),  # torch verify
+            ("", "", 0),  # package verify
         ])
         ensure_remote_env(session)
-        assert session.execute.call_count == 7
+        assert session.execute.call_count == 9
 
     def test_commands_include_conda_init(self) -> None:
         """Conda commands should source conda.sh init first."""
@@ -90,6 +100,8 @@ class TestEnvCreation:
             ("", "", 1),  # srun nvidia-smi
             ("", "", 0),  # torch install
             ("", "", 0),  # pip install remaining
+            ("torch=2.6.0\n", "", 0),  # torch verify
+            ("", "", 0),  # package verify
         ])
         ensure_remote_env(session)
         for c in session.execute.call_args_list:
@@ -98,6 +110,28 @@ class TestEnvCreation:
             if "nvidia-smi" in cmd or "srun" in cmd:
                 continue
             assert "profile.d/conda.sh" in cmd
+
+    def test_uses_node_local_envs_path(self) -> None:
+        """Managed conda commands should write envs under executable node storage."""
+        session = _make_session([
+            ("", "", 0),  # env list
+            ("", "", 0),  # conda tos accept
+            ("", "", 0),  # conda create
+            ("", "", 1),  # nvidia-smi
+            ("", "", 1),  # srun nvidia-smi
+            ("", "", 0),  # torch install
+            ("", "", 0),  # pip install remaining
+            ("torch=2.6.0\n", "", 0),  # torch verify
+            ("", "", 0),  # package verify
+        ])
+        session.cluster.user = "watuser"
+        session.cluster.remote_workspace = "/scratch/watgpu/crucible-jobs"
+
+        ensure_remote_env(session)
+
+        create_command = session.execute.call_args_list[2].args[0]
+        assert "CONDA_ENVS_PATH=/var/tmp/watuser-crucible-conda/envs" in create_command
+        assert "CONDA_PKGS_DIRS=/var/tmp/watuser-crucible-conda/pkgs" in create_command
 
 
 class TestErrors:

@@ -14,11 +14,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.errors import CrucibleRemoteError
+from serve.managed_conda_env import (
+    ENV_NAME,
+    managed_conda_command,
+)
 
 if TYPE_CHECKING:
     from serve.ssh_connection import SshSession
 
-ENV_NAME = "crucible"
 _PIP_PACKAGES = (
     "pyyaml", "numpy<2", "matplotlib", "tokenizers",
     "transformers", "accelerate", "safetensors", "datasets",
@@ -33,26 +36,6 @@ _IMPORT_NAMES: dict[str, str] = {
     "pyyaml": "yaml",
     "lm-eval": "lm_eval",
 }
-
-# Shell snippet that sources conda's init script from common locations.
-# We must NOT use ``eval "$(conda shell.bash hook)" || fallback`` because
-# when conda is not on PATH the subshell produces empty output and
-# ``eval ""`` exits 0, so the fallback never runs.  Instead we always
-# scan for conda.sh in well-known paths.
-CONDA_INIT = (
-    "for p in "
-    "$HOME/miniconda3 $HOME/anaconda3 $HOME/miniforge3 "
-    "/opt/conda /opt/miniconda3 /opt/anaconda3; do "
-    'if [ -f "$p/etc/profile.d/conda.sh" ]; then '
-    '. "$p/etc/profile.d/conda.sh"; break; fi; done'
-)
-
-CONDA_ACTIVATE = f"{CONDA_INIT} && conda activate {ENV_NAME}"
-
-
-def conda_cmd(command: str) -> str:
-    """Wrap *command* so conda is initialised in the shell first."""
-    return f"{CONDA_INIT} && {command}"
 
 
 def ensure_remote_env(session: SshSession) -> None:
@@ -85,7 +68,9 @@ def ensure_remote_env(session: SshSession) -> None:
         try:
             _ensure_torch_installed(session)
             return
-        except CrucibleRemoteError:
+        except CrucibleRemoteError as exc:
+            if _is_env_runtime_error(str(exc)):
+                raise
             print(
                 "CRUCIBLE_ENV_SETUP: crucible env is broken — rebuilding...",
                 flush=True,
@@ -95,7 +80,9 @@ def ensure_remote_env(session: SshSession) -> None:
     print("CRUCIBLE_ENV_SETUP: creating crucible conda env...", flush=True)
     try:
         _create_env(session)
-    except CrucibleRemoteError:
+    except CrucibleRemoteError as exc:
+        if _is_env_runtime_error(str(exc)):
+            raise
         # First attempt failed (e.g. stale partial env) — retry once
         print(
             "CRUCIBLE_ENV_SETUP: creation failed — cleaning up and retrying...",
@@ -118,11 +105,12 @@ def ensure_eval_packages(session: SshSession) -> None:
         clean = pkg.split("<")[0].split(">")[0].strip()
         return _IMPORT_NAMES.get(clean, clean)
 
-    imports = " ".join(
+    imports = "; ".join(
         f"__import__('{_import_name(p)}')" for p in _EVAL_PACKAGES
     )
     _, _, code = session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             f'conda run -n {ENV_NAME} python -c "{imports}"'
         ),
         timeout=60,
@@ -135,7 +123,8 @@ def ensure_eval_packages(session: SshSession) -> None:
     # (numpy, scikit-learn) to avoid building from source on clusters
     # with old GCC. lm-eval itself is pure Python so it's fine from sdist.
     _, stderr, code = session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             f"conda run -n {ENV_NAME} pip install "
             f"--only-binary numpy,scikit-learn "
             f"'numpy<2' {pip_list}"
@@ -175,7 +164,7 @@ def _remove_legacy_forge_env(session: SshSession) -> None:
         flush=True,
     )
     session.execute(
-        conda_cmd("conda remove -n forge --all -y"),
+        managed_conda_command(session, "conda remove -n forge --all -y"),
         timeout=120,
     )
     print(
@@ -194,8 +183,9 @@ def _ensure_torch_installed(session: SshSession) -> None:
     version.
     """
     check_script = "import torch; print('torch=' + torch.__version__)"
-    stdout, _, code = session.execute(
-        conda_cmd(
+    stdout, stderr, code = session.execute(
+        managed_conda_command(
+            session,
             f'conda run -n {ENV_NAME} python -c "{check_script}"'
         ),
         timeout=60,
@@ -204,6 +194,7 @@ def _ensure_torch_installed(session: SshSession) -> None:
         # Verify required packages are present
         _ensure_packages_installed(session)
         return
+    _raise_env_runtime_error(stdout, stderr)
 
     print(
         "CRUCIBLE_ENV_SETUP: torch not found in crucible env — installing...",
@@ -212,7 +203,8 @@ def _ensure_torch_installed(session: SshSession) -> None:
     cuda_tag = _detect_cuda_tag(session)
     torch_install = _torch_install_spec(cuda_tag)
     _, stderr, code = session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             f"conda run -n {ENV_NAME} pip install {torch_install}",
         ),
         timeout=600,
@@ -220,6 +212,18 @@ def _ensure_torch_installed(session: SshSession) -> None:
     if code != 0:
         raise CrucibleRemoteError(f"torch install failed: {stderr.strip()}")
     print("CRUCIBLE_ENV_SETUP: torch installed.", flush=True)
+    verify_stdout, verify_stderr, verify_code = session.execute(
+        managed_conda_command(
+            session,
+            f'conda run -n {ENV_NAME} python -c "{check_script}"'
+        ),
+        timeout=60,
+    )
+    if verify_code != 0 or "torch=" not in verify_stdout:
+        _raise_env_runtime_error(verify_stdout, verify_stderr)
+        raise CrucibleRemoteError(
+            "torch install finished but the crucible env still cannot import torch."
+        )
     _ensure_packages_installed(session)
 
 
@@ -229,11 +233,12 @@ def _ensure_packages_installed(session: SshSession) -> None:
         clean = pkg.split("<")[0].split(">")[0].strip()
         return _IMPORT_NAMES.get(clean, clean)
 
-    imports = " ".join(
+    imports = "; ".join(
         f"__import__('{_import_name(p)}')" for p in _PIP_PACKAGES
     )
     _, _, code = session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             f'conda run -n {ENV_NAME} python -c "{imports}"'
         ),
         timeout=60,
@@ -246,7 +251,10 @@ def _ensure_packages_installed(session: SshSession) -> None:
     )
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}"),
+        managed_conda_command(
+            session,
+            f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}",
+        ),
         timeout=600,
     )
     if code != 0:
@@ -256,7 +264,7 @@ def _ensure_packages_installed(session: SshSession) -> None:
 def _remove_env(session: SshSession) -> None:
     """Remove the ``crucible`` conda env.  Ignores errors if already gone."""
     session.execute(
-        conda_cmd(f"conda remove -n {ENV_NAME} --all -y"),
+        managed_conda_command(session, f"conda remove -n {ENV_NAME} --all -y"),
         timeout=120,
     )
 
@@ -264,7 +272,7 @@ def _remove_env(session: SshSession) -> None:
 def _list_env_names(session: SshSession) -> set[str]:
     """Return the set of conda env names on the remote cluster."""
     stdout, _, code = session.execute(
-        conda_cmd("conda env list"), timeout=60,
+        managed_conda_command(session, "conda env list"), timeout=60,
     )
     if code != 0:
         raise CrucibleRemoteError(
@@ -343,7 +351,8 @@ def _create_env(session: SshSession) -> None:
     """Create the ``crucible`` conda env and install dependencies."""
     # Accept conda ToS non-interactively (required since conda 25.x).
     session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             "conda config --set solver libmamba 2>/dev/null; "
             "yes | conda tos accept --override-channels "
             "--channel https://repo.anaconda.com/pkgs/main 2>/dev/null; "
@@ -353,7 +362,7 @@ def _create_env(session: SshSession) -> None:
         timeout=30,
     )
     _, stderr, code = session.execute(
-        conda_cmd(f"conda create -n {ENV_NAME} python=3.11 -y"),
+        managed_conda_command(session, f"conda create -n {ENV_NAME} python=3.11 -y"),
         timeout=300,
     )
     if code != 0:
@@ -364,7 +373,8 @@ def _create_env(session: SshSession) -> None:
     torch_install = _torch_install_spec(cuda_tag)
     print(f"CRUCIBLE_ENV_SETUP: Installing torch ({cuda_tag})...", flush=True)
     _, stderr, code = session.execute(
-        conda_cmd(
+        managed_conda_command(
+            session,
             f"conda run -n {ENV_NAME} pip install {torch_install}",
         ),
         timeout=600,
@@ -374,8 +384,29 @@ def _create_env(session: SshSession) -> None:
 
     pip_list = " ".join(f"'{p}'" for p in _PIP_PACKAGES)
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}"),
+        managed_conda_command(
+            session,
+            f"conda run -n {ENV_NAME} pip install --only-binary :all: {pip_list}",
+        ),
         timeout=600,
     )
     if code != 0:
         raise CrucibleRemoteError(f"pip install failed: {stderr.strip()}")
+    _ensure_torch_installed(session)
+
+
+def _raise_env_runtime_error(stdout: str, stderr: str) -> None:
+    """Raise a clearer error when the managed env exists but cannot execute."""
+    details = "\n".join(part for part in (stderr.strip(), stdout.strip()) if part)
+    if _is_env_runtime_error(details):
+        raise CrucibleRemoteError(
+            "The managed crucible env is on a noexec filesystem and cannot run. "
+            "Move remote_workspace to an exec-enabled shared path or set "
+            "cluster python_path to an executable shared environment."
+        )
+
+
+def _is_env_runtime_error(message: str) -> bool:
+    """Return whether the error points to a non-executable env runtime."""
+    lowered = message.lower()
+    return "permission denied" in lowered or "failed to map segment" in lowered

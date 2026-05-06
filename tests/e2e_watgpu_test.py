@@ -6,10 +6,8 @@ remote training submission, job status, and path quoting.
 
 from __future__ import annotations
 
-import json
 import os
 import shlex
-import subprocess
 import sys
 import time
 import traceback
@@ -49,7 +47,8 @@ def test_remote_env_setup() -> None:
     t0 = time.time()
     try:
         from core.config import CrucibleConfig
-        from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
+        from serve.managed_conda_env import managed_conda_activate
+        from serve.remote_env_setup import ensure_remote_env
         from serve.ssh_connection import SshSession
         from store.cluster_registry import load_cluster
 
@@ -58,10 +57,14 @@ def test_remote_env_setup() -> None:
 
         with SshSession(cluster) as session:
             ensure_remote_env(session)
+            env_activate = managed_conda_activate(
+                session.resolve_path(cluster.remote_workspace),
+                cluster.user,
+            )
 
             # Verify torch is importable
             stdout, stderr, code = session.execute(
-                f'{CONDA_ACTIVATE} && python -c "import torch; print(torch.__version__)"',
+                f'{env_activate} && python -c "import torch; print(torch.__version__)"',
                 timeout=60,
             )
             assert code == 0, f"torch import failed (exit {code}): {stderr.strip()}"
@@ -69,7 +72,7 @@ def test_remote_env_setup() -> None:
 
             # Verify trl
             stdout2, stderr2, code2 = session.execute(
-                f'{CONDA_ACTIVATE} && python -c "import trl; print(trl.__version__)"',
+                f'{env_activate} && python -c "import trl; print(trl.__version__)"',
                 timeout=60,
             )
             assert code2 == 0, f"trl import failed (exit {code2}): {stderr2.strip()}"
@@ -77,7 +80,7 @@ def test_remote_env_setup() -> None:
 
             # Verify peft
             stdout3, stderr3, code3 = session.execute(
-                f'{CONDA_ACTIVATE} && python -c "import peft; print(peft.__version__)"',
+                f'{env_activate} && python -c "import peft; print(peft.__version__)"',
                 timeout=60,
             )
             assert code3 == 0, f"peft import failed (exit {code3}): {stderr3.strip()}"

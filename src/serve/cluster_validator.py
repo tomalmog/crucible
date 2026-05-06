@@ -15,7 +15,14 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, ClusterValidationResult
-from serve.remote_env_setup import CONDA_ACTIVATE, ensure_remote_env
+from serve.managed_conda_env import managed_conda_activate
+from serve.remote_env_setup import ensure_remote_env
+from serve.remote_runtime import (
+    build_compute_node_command,
+    resolve_cluster_runtime,
+    uses_managed_conda_env,
+    validation_resources,
+)
 from serve.ssh_connection import SshSession
 
 
@@ -30,6 +37,7 @@ def validate_ssh_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     errors: list[str] = []
 
     with SshSession(cluster) as session:
+        cluster = resolve_cluster_runtime(cluster, session)
         if cluster.docker_image:
             result = _check_ssh_python(session, cluster, result, errors)
             result = _check_docker(session, result, errors)
@@ -53,6 +61,10 @@ def _validate_bare_ssh_env(
 
     If conda is not installed, installs Miniconda automatically.
     """
+    if not uses_managed_conda_env(cluster):
+        result = _check_python(session, cluster, result, errors)
+        result = _check_torch(session, cluster, result, errors)
+        return result
     try:
         ensure_remote_env(session)
     except Exception:
@@ -86,11 +98,13 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
     errors: list[str] = []
 
     with SshSession(cluster) as session:
-        try:
-            ensure_remote_env(session)
-        except Exception as exc:
-            errors.append(f"Failed to provision crucible env: {exc}")
-            return replace(result, errors=tuple(errors))
+        cluster = resolve_cluster_runtime(cluster, session)
+        if uses_managed_conda_env(cluster):
+            try:
+                ensure_remote_env(session)
+            except Exception as exc:
+                errors.append(f"Failed to provision crucible env: {exc}")
+                return replace(result, errors=tuple(errors))
 
         result = _check_python(session, cluster, result, errors)
         result = _check_torch(session, cluster, result, errors)
@@ -103,7 +117,7 @@ def validate_cluster(cluster: ClusterConfig) -> ClusterValidationResult:
 def _env_prefix(cluster: ClusterConfig) -> str:
     """Build a shell prefix that loads modules and activates the crucible env."""
     parts: list[str] = list(cluster.module_loads)
-    parts.append(CONDA_ACTIVATE)
+    parts.append(managed_conda_activate(cluster.remote_workspace, cluster.user))
     return " && ".join(parts)
 
 
@@ -114,11 +128,19 @@ def _check_python(
     errors: list[str],
 ) -> ClusterValidationResult:
     """Check if Python is accessible inside the crucible env."""
-    prefix = _env_prefix(cluster)
     py = cluster.python_path
-    stdout, stderr, code = session.execute(
-        f"{prefix} && {shlex.quote(py)} --version", timeout=30,
-    )
+    if uses_managed_conda_env(cluster):
+        prefix = _env_prefix(cluster)
+        stdout, stderr, code = session.execute(
+            f"{prefix} && {shlex.quote(py)} --version", timeout=30,
+        )
+    else:
+        command = build_compute_node_command(
+            cluster,
+            validation_resources(cluster),
+            f"{shlex.quote(py)} --version",
+        )
+        stdout, stderr, code = session.execute(command, timeout=180)
     if code == 0:
         version = stdout.strip() or stderr.strip()
         return replace(result, python_ok=True, python_version=version)
@@ -133,7 +155,6 @@ def _check_torch(
     errors: list[str],
 ) -> ClusterValidationResult:
     """Check if PyTorch and CUDA are available inside the crucible env."""
-    prefix = _env_prefix(cluster)
     py = cluster.python_path
     script = (
         "import torch; "
@@ -142,9 +163,15 @@ def _check_torch(
         "v=torch.version.cuda or ''; "
         "print(f'cuda_ver={v}')"
     )
-    stdout, stderr, code = session.execute(
-        f'{prefix} && {shlex.quote(py)} -c "{script}"', timeout=30,
+    command = build_compute_node_command(
+        cluster,
+        validation_resources(cluster),
+        f'{shlex.quote(py)} -c "{script}"',
     )
+    if uses_managed_conda_env(cluster):
+        stdout, stderr, code = session.execute(command, timeout=1800)
+    else:
+        stdout, stderr, code = session.execute(command, timeout=180)
     if code != 0:
         errors.append(f"PyTorch not available: {stderr.strip()}")
         return result

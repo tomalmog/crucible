@@ -12,7 +12,14 @@ from pathlib import Path
 
 from core.constants import sanitize_remote_name
 from core.errors import CrucibleRemoteError
-from serve.remote_env_setup import ENV_NAME, conda_cmd, ensure_remote_env
+from core.slurm_types import ClusterConfig
+from serve.managed_conda_env import ENV_NAME, managed_conda_command
+from serve.remote_env_setup import ensure_remote_env
+from serve.remote_runtime import (
+    resolve_cluster_runtime,
+    runtime_python_command,
+    uses_managed_conda_env,
+)
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
 
@@ -46,17 +53,19 @@ def download_model_to_cluster(
 
     with SshSession(cluster) as session:
         _progress("Connecting to cluster...")
+        cluster = resolve_cluster_runtime(cluster, session)
 
-        ensure_remote_env(session)
-        _ensure_hf_hub_installed(session)
+        _prepare_hub_runtime(session, cluster)
+        python_command = None
+        if not uses_managed_conda_env(cluster):
+            python_command = runtime_python_command(cluster)
 
         # Resolve ~ so snapshot_download gets an absolute path.
-        workspace = session.resolve_path(cluster.remote_workspace)
-        remote_path = _build_remote_model_path(workspace, repo_id)
+        remote_path = _build_remote_model_path(cluster.remote_workspace, repo_id)
         session.mkdir_p(remote_path)
 
         _progress(f"Downloading {repo_id}...")
-        _run_snapshot_download(session, repo_id, remote_path, revision)
+        _run_snapshot_download(session, repo_id, remote_path, revision, python_command)
         _progress(f"Download complete: {remote_path}")
 
     if register:
@@ -99,18 +108,20 @@ def download_dataset_to_cluster(
 
     with SshSession(cluster) as session:
         _progress("Connecting to cluster...")
+        cluster = resolve_cluster_runtime(cluster, session)
 
-        ensure_remote_env(session)
-        _ensure_hf_hub_installed(session)
+        _prepare_hub_runtime(session, cluster)
+        python_command = None
+        if not uses_managed_conda_env(cluster):
+            python_command = runtime_python_command(cluster)
 
         # Resolve ~ so snapshot_download gets an absolute path.
-        workspace = session.resolve_path(cluster.remote_workspace)
-        remote_path = _build_remote_dataset_path(workspace, repo_id)
+        remote_path = _build_remote_dataset_path(cluster.remote_workspace, repo_id)
         session.mkdir_p(remote_path)
 
         _progress(f"Downloading {repo_id}...")
         _run_snapshot_download(
-            session, repo_id, remote_path, revision,
+            session, repo_id, remote_path, revision, python_command,
             repo_type="dataset",
         )
         # Write metadata.json so list_remote_datasets discovers it
@@ -153,7 +164,7 @@ def _ensure_hf_hub_installed(session: SshSession) -> None:
     """Install ``huggingface_hub`` in the crucible env if missing."""
     check = 'import huggingface_hub; print("hf_ok")'
     stdout, _, code = session.execute(
-        conda_cmd(f'conda run -n {ENV_NAME} python -c "{check}"'),
+        managed_conda_command(session, f'conda run -n {ENV_NAME} python -c "{check}"'),
         timeout=30,
     )
     if code == 0 and "hf_ok" in stdout:
@@ -161,7 +172,41 @@ def _ensure_hf_hub_installed(session: SshSession) -> None:
 
     _progress("Installing huggingface_hub...")
     _, stderr, code = session.execute(
-        conda_cmd(f"conda run -n {ENV_NAME} pip install 'huggingface_hub'"),
+        managed_conda_command(
+            session,
+            f"conda run -n {ENV_NAME} pip install 'huggingface_hub'",
+        ),
+        timeout=300,
+    )
+    if code != 0:
+        raise CrucibleRemoteError(
+            f"Failed to install huggingface_hub: {stderr.strip()}"
+        )
+
+
+def _prepare_hub_runtime(session: SshSession, cluster: ClusterConfig) -> None:
+    """Ensure the configured remote runtime can import ``huggingface_hub``."""
+    if uses_managed_conda_env(cluster):
+        ensure_remote_env(session)
+        _ensure_hf_hub_installed(session)
+        return
+    _ensure_hf_hub_for_python(session, cluster)
+
+
+def _ensure_hf_hub_for_python(session: SshSession, cluster: ClusterConfig) -> None:
+    """Install ``huggingface_hub`` for an explicit cluster Python path."""
+    python_command = runtime_python_command(cluster)
+    check = 'import huggingface_hub; print("hf_ok")'
+    stdout, _, code = session.execute(
+        f"{python_command} -c {shlex.quote(check)}",
+        timeout=30,
+    )
+    if code == 0 and "hf_ok" in stdout:
+        return
+
+    _progress("Installing huggingface_hub...")
+    _, stderr, code = session.execute(
+        f"{python_command} -m pip install 'huggingface_hub'",
         timeout=300,
     )
     if code != 0:
@@ -185,6 +230,7 @@ def _run_snapshot_download(
     repo_id: str,
     target_dir: str,
     revision: str | None,
+    python_command: str | None = None,
     repo_type: str = "model",
 ) -> None:
     """Execute ``huggingface_hub.snapshot_download`` on the remote.
@@ -224,9 +270,7 @@ def _run_snapshot_download(
 
     try:
         stdout, stderr, code = session.execute(
-            conda_cmd(
-                f"conda run -n {ENV_NAME} python {shlex.quote(remote_script)}"
-            ),
+            _snapshot_command(session, remote_script, python_command),
             timeout=1800,
         )
     finally:
@@ -242,3 +286,17 @@ def _run_snapshot_download(
             f"Download succeeded but path not reported. "
             f"stdout: {stdout[:300]}"
         )
+
+
+def _snapshot_command(
+    session: SshSession,
+    remote_script: str,
+    python_command: str | None,
+) -> str:
+    """Build the remote command that executes the uploaded download script."""
+    if python_command:
+        return f"{python_command} {shlex.quote(remote_script)}"
+    return managed_conda_command(
+        session,
+        f"conda run -n {ENV_NAME} python {shlex.quote(remote_script)}",
+    )

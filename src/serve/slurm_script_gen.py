@@ -10,7 +10,7 @@ import shlex
 from datetime import datetime, timezone
 
 from core.slurm_types import ClusterConfig, SlurmResourceConfig
-from serve.remote_env_setup import CONDA_INIT
+from serve.remote_runtime import runtime_python_command, runtime_setup_lines
 
 
 def generate_single_node_script(
@@ -23,6 +23,7 @@ def generate_single_node_script(
     """Generate an sbatch script for a single-node training job."""
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
+    runtime_python = runtime_python_command(cluster)
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
     job_name = f"crucible-{training_method}-{date_tag}"
 
@@ -52,7 +53,7 @@ def generate_single_node_script(
     lines.extend(_memory_diagnostic_lines())
     lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
     lines.append(
-        f"{cluster.python_path} crucible_agent_entry.py --config {config_filename}"
+        f"{runtime_python} crucible_agent_entry.py --config {config_filename}"
     )
     lines.extend(_post_agent_diagnostic_lines())
 
@@ -69,6 +70,7 @@ def generate_multi_node_script(
     """Generate an sbatch script for multi-node distributed training."""
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
+    runtime_python = runtime_python_command(cluster)
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
     job_name = f"crucible-{training_method}-{date_tag}"
 
@@ -108,9 +110,7 @@ def generate_multi_node_script(
     lines.append("export NCCL_DEBUG=INFO")
     lines.append("")
 
-    lines.append(
-        f"srun {cluster.python_path} -m torch.distributed.run \\"
-    )
+    lines.append(f"srun {runtime_python} -m torch.distributed.run \\")
     lines.append("    --nproc_per_node=$SLURM_GPUS_ON_NODE \\")
     lines.append("    --nnodes=$SLURM_NNODES \\")
     lines.append("    --node_rank=$SLURM_NODEID \\")
@@ -145,6 +145,7 @@ def generate_sweep_script(
     """
     workdir = f"{cluster.remote_workspace}/{job_id}"
     partition = resources.partition or cluster.default_partition
+    runtime_python = runtime_python_command(cluster)
     date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
     job_name = f"crucible-sweep-{training_method}-{date_tag}"
 
@@ -175,7 +176,7 @@ def generate_sweep_script(
     lines.extend(_memory_diagnostic_lines())
     lines.append(f"echo 'CRUCIBLE: Starting {training_method} agent...'")
     lines.append(
-        f"{cluster.python_path} crucible_agent_entry.py "
+        f"{runtime_python} crucible_agent_entry.py "
         "--config trials/trial_${SLURM_ARRAY_TASK_ID}.json"
     )
     lines.extend(_post_agent_diagnostic_lines())
@@ -273,10 +274,4 @@ def _gpu_gres_line(resources: SlurmResourceConfig) -> str:
 
 def _module_load_lines(cluster: ClusterConfig) -> list[str]:
     """Build module load and conda activate lines from cluster config."""
-    lines: list[str] = []
-    for cmd in cluster.module_loads:
-        lines.append(cmd)
-    lines.append(CONDA_INIT)
-    lines.append("conda activate crucible")
-    lines.append("")
-    return lines
+    return runtime_setup_lines(cluster)
