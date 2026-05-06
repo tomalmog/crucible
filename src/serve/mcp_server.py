@@ -10,6 +10,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -113,13 +114,59 @@ to get its `path` field, then pass that path.
 1. `chat(model_path, "Hello, explain neural networks")` -- generate text
 
 **5. Analyze a model (interpretability):**
-1. `run_interp("logit-lens", model_path, '{"input_text": "The cat sat on"}')` -- layer-by-layer predictions
-2. `run_interp("activation-pca", model_path, '{"dataset_name": "sft-mini"}')` -- PCA of activations
-3. `run_interp("linear-probe", model_path, '{"dataset_name": "...", "label_field": "label"}')` -- train linear classifiers on activations
-4. `run_interp("sae-train", model_path, '{"dataset_name": "..."}')` -- train sparse autoencoder on activations
-5. `run_interp("sae-analyze", model_path, '{"sae_path": "...", "input_text": "..."}')` -- decompose text through trained SAE
-6. `run_interp("steer-compute", model_path, '{"positive_text": "...", "negative_text": "..."}')` -- compute steering vector
-7. `run_interp("steer-apply", model_path, '{"steering_vector_path": "...", "input_text": "..."}')` -- generate with steering
+Use `run_interp` for local runs and `submit_remote_interp` for remote GPU jobs.
+Available methods only: `logit-lens`, `activation-pca`, `activation-patch`,
+`linear-probe`, `sae-train`, `sae-analyze`, `steer-compute`, `steer-apply`.
+Do not claim unavailable interpretability tools.
+
+Prerequisites and returned evidence:
+1. `logit-lens`: requires `input_text`; returns `input_tokens` and
+   `layers[].predictions`. Use for layer-wise next-token projection, not proof
+   of why a token was chosen.
+2. `activation-pca`: requires `dataset_name` with text records; accepts
+   `layer_index`, `max_samples`, `granularity`, `color_field`; returns 2D
+   `points` and `explained_variance`. Use for geometry/separation checks.
+3. `activation-patch`: requires `clean_text`, `corrupted_text`,
+   `target_token_index`, and `metric` (`logit_diff` or `prob`); returns
+   `layer_results[].recovery`. Use to rank candidate causal layers for one
+   clean/corrupted contrast.
+4. `linear-probe`: requires `dataset_name` and `label_field` with at least two
+   label values; returns `layers[].accuracy` and confusion matrices. Use for
+   decodability evidence, not proof the model uses the feature.
+5. `sae-train`: requires `dataset_name`; returns `sae_path`, `fvu`,
+   `average_l0`, and `dead_features`.
+6. `sae-analyze`: requires the exact `sae_path` returned by `sae-train` plus
+   `input_text`; optional `dataset_name` adds returned feature associations.
+7. `steer-compute`: requires both sides of a contrast, either
+   `positive_text`/`negative_text` or `positive_dataset`/`negative_dataset`;
+   returns `steering_vector_path`, `vector_norm`, and contrast counts.
+8. `steer-apply`: requires the exact `steering_vector_path` returned by
+   `steer-compute` plus `input_text`; returns `original_text` and
+   `steered_text`.
+
+Concrete investigation recipes:
+- Prompt triage: resolve model path with `list_models()` -> run `logit-lens` on
+  2-3 representative prompts -> compare layer prediction changes.
+- Representation separation: check `list_datasets()` -> run `activation-pca`
+  with `dataset_name` and optional `color_field` -> if labels exist, follow
+  with `linear-probe` using the same `label_field`.
+- Minimal causal contrast: collect clean prompt, corrupted prompt, target token
+  index, and metric -> run `activation-patch` -> report high-recovery layers as
+  candidates, not complete circuits.
+- Feature discovery: run `sae-train` -> parse `sae_path` from the JSON result
+  -> run `sae-analyze` with that exact path and a specific prompt.
+- Steering intervention: run `steer-compute` -> parse
+  `steering_vector_path` from the JSON result -> run `steer-apply` with that
+  exact path, coefficient, and prompt.
+- Remote long run: choose a cluster with `list_clusters()`; for dataset-based
+  methods, verify with `list_remote_datasets()` or run `push_dataset()`; submit
+  one `submit_remote_interp()` job; use `job_status()`/`job_result()` before
+  any dependent step because generated artifact paths are unknown until the
+  result JSON exists.
+
+Do not claim support for attribution graphs, circuit discovery, neuron-level
+autolabeling, full dashboards, or automated causal proofs unless a real tool
+returns that artifact.
 
 **6. Export a model:**
 1. `export_model(model_path, "onnx", "./exports")` -- export to ONNX/safetensors/gguf/hf
@@ -607,7 +654,10 @@ def submit_remote_training(
     method: str,
     method_args: str,
     partition: str = "",
+    nodes: int = 1,
     gpus_per_node: int = 1,
+    cpus_per_task: int = 4,
+    gpu_type: str = "",
     memory: str = "32G",
     time_limit: str = "04:00:00",
 ) -> str:
@@ -618,7 +668,10 @@ def submit_remote_training(
         method: Training method (sft, lora-train, dpo-train, etc.).
         method_args: JSON string of training arguments.
         partition: Slurm partition (leave empty for default).
+        nodes: Number of Slurm nodes.
         gpus_per_node: Number of GPUs per node.
+        cpus_per_task: CPU cores per task.
+        gpu_type: Slurm GPU type/GRES name (for example a2laytongpu).
         memory: Memory allocation (e.g. "32G").
         time_limit: Job time limit (e.g. "04:00:00").
     """
@@ -641,7 +694,10 @@ def submit_remote_training(
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,
+                nodes=nodes,
                 gpus_per_node=gpus_per_node,
+                cpus_per_task=cpus_per_task,
+                gpu_type=gpu_type,
                 memory=memory,
                 time_limit=time_limit,
             ),
@@ -849,7 +905,10 @@ def submit_remote_eval(
     base_model: str = "",
     model_name: str = "",
     partition: str = "",
+    nodes: int = 1,
     gpus_per_node: int = 1,
+    cpus_per_task: int = 4,
+    gpu_type: str = "",
     memory: str = "32G",
     time_limit: str = "04:00:00",
 ) -> str:
@@ -863,7 +922,10 @@ def submit_remote_eval(
         base_model: Base model for LoRA/QLoRA .pt files (HF model ID).
         model_name: Label for the job record.
         partition: Slurm partition (leave empty for default).
+        nodes: Number of Slurm nodes.
         gpus_per_node: Number of GPUs per node.
+        cpus_per_task: CPU cores per task.
+        gpu_type: Slurm GPU type/GRES name (for example a2laytongpu).
         memory: Memory allocation (e.g. "32G").
         time_limit: Job time limit (e.g. "04:00:00").
     """
@@ -892,7 +954,10 @@ def submit_remote_eval(
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,
+                nodes=nodes,
                 gpus_per_node=gpus_per_node,
+                cpus_per_task=cpus_per_task,
+                gpu_type=gpu_type,
                 memory=memory,
                 time_limit=time_limit,
             ),
@@ -913,18 +978,33 @@ def submit_remote_interp(
     interp_method: str,
     method_args_json: str = "{}",
     partition: str = "",
+    nodes: int = 1,
     gpus_per_node: int = 1,
+    cpus_per_task: int = 4,
+    gpu_type: str = "",
     memory: str = "32G",
     time_limit: str = "04:00:00",
 ) -> str:
-    """Submit an interpretability job to a remote GPU cluster.
+    """Submit one remote interpretability job; dependent artifact paths must
+    come from `job_result(job_id)` before follow-up jobs run.
+
+    `method_args_json` must include `model_path`; unlike local `run_interp`,
+    the remote submitter receives every method argument in one JSON object.
+    Use a remote-accessible model path, not a bare Studio model name. For
+    dataset-based methods, the named dataset must already be present on the
+    cluster or be pushed before submission.
+    For dependent remote work, wait for `job_result(job_id)` before using
+    generated paths such as `sae_path` or `steering_vector_path`.
 
     Args:
         cluster_name: Name of the registered cluster.
         interp_method: Tool name (logit-lens, activation-pca, activation-patch, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply).
-        method_args_json: JSON string of tool arguments (model_path, input_text, etc.).
+        method_args_json: JSON string of tool arguments including model_path.
         partition: Slurm partition (leave empty for default).
+        nodes: Number of Slurm nodes.
         gpus_per_node: Number of GPUs per node.
+        cpus_per_task: CPU cores per task.
+        gpu_type: Slurm GPU type/GRES name (for example a2laytongpu).
         memory: Memory allocation (e.g. "32G").
         time_limit: Job time limit (e.g. "04:00:00").
     """
@@ -943,7 +1023,10 @@ def submit_remote_interp(
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,
+                nodes=nodes,
                 gpus_per_node=gpus_per_node,
+                cpus_per_task=cpus_per_task,
+                gpu_type=gpu_type,
                 memory=memory,
                 time_limit=time_limit,
             ),
@@ -965,7 +1048,10 @@ def submit_remote_sweep(
     method: str,
     trial_configs_json: str = "[]",
     partition: str = "",
+    nodes: int = 1,
     gpus_per_node: int = 1,
+    cpus_per_task: int = 4,
+    gpu_type: str = "",
     memory: str = "32G",
     time_limit: str = "04:00:00",
 ) -> str:
@@ -976,7 +1062,10 @@ def submit_remote_sweep(
         method: Training method for each trial (e.g. "sft", "lora-train").
         trial_configs_json: JSON array of per-trial method_args dicts.
         partition: Slurm partition (leave empty for default).
+        nodes: Number of Slurm nodes.
         gpus_per_node: Number of GPUs per node.
+        cpus_per_task: CPU cores per task.
+        gpu_type: Slurm GPU type/GRES name (for example a2laytongpu).
         memory: Memory allocation (e.g. "32G").
         time_limit: Job time limit per trial (e.g. "04:00:00").
     """
@@ -997,7 +1086,10 @@ def submit_remote_sweep(
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,
+                nodes=nodes,
                 gpus_per_node=gpus_per_node,
+                cpus_per_task=cpus_per_task,
+                gpu_type=gpu_type,
                 memory=memory,
                 time_limit=time_limit,
             ),
@@ -1061,26 +1153,50 @@ def run_interp(
     model_path: str,
     args_json: str = "{}",
 ) -> str:
-    """Run an interpretability analysis tool on a model.
+    """Run one supported interpretability tool and chain returned artifacts
+    such as `sae_path` or `steering_vector_path` into follow-up tools.
+
+    Prerequisites:
+        logit-lens: requires input_text.
+        activation-pca: requires a dataset_name with text records.
+        linear-probe: requires dataset_name plus a label_field.
+        activation-patch: requires clean_text, corrupted_text, and target index.
+        sae-train: requires dataset_name and returns sae_path.
+        sae-analyze: requires a sae_path returned by sae-train.
+        steer-compute: requires a positive/negative text or dataset contrast.
+        steer-apply: requires a steering_vector_path returned by steer-compute.
+
+    Important returned artifact keys:
+        sae-train returns sae_path.
+        steer-compute returns steering_vector_path.
+        activation-patch returns layer_results with recovery scores.
+        sae-analyze returns top_features and may include associated_texts when
+        dataset_name is provided.
+        layer-scoped tools return layer_index/layer_name fields where available.
+
+    Do not use this as an attribution-graph, circuit-discovery, autointerp,
+    or neuron-labeling tool. It produces evidence for an investigation, not a
+    definitive mechanistic proof by itself.
 
     Args:
         tool_name: Tool to run. One of: logit-lens, activation-pca,
-                   activation-patching, linear-probe, sae-train,
+                   activation-patch, linear-probe, sae-train,
                    sae-analyze, steer-compute, steer-apply.
         model_path: Path to the model to analyze.
         args_json: JSON string of tool-specific arguments.
                    logit-lens: {"input_text": "...", "top_k": 5, "layer_indices": "0,1,2"}
                    activation-pca: {"dataset_name": "...", "layer_index": -1, "max_samples": 500, "granularity": "sample"}
-                   activation-patching: {"clean_text": "...", "corrupted_text": "...", "target_token_index": -1, "metric": "logit_diff"}
+                   activation-patch: {"clean_text": "...", "corrupted_text": "...", "target_token_index": -1, "metric": "logit_diff"}
                    linear-probe: {"dataset_name": "...", "label_field": "label", "layer_index": -1, "max_samples": 500, "epochs": 10, "learning_rate": 0.001}
                    sae-train: {"dataset_name": "...", "layer_index": -1, "latent_dim": 0, "max_samples": 500, "epochs": 10, "learning_rate": 0.001, "sparsity_coeff": 0.001}
-                   sae-analyze: {"sae_path": "/path/to/sae_model.pt", "input_text": "...", "dataset_name": "", "top_k_features": 10}
+                   sae-analyze: {"sae_path": "/path/to/sae_model.pt", "input_text": "...", "dataset_name": "", "top_k_features": 10, "top_k_texts": 3}
                    steer-compute: {"positive_text": "...", "negative_text": "...", "layer_index": -1, "max_samples": 100}
                    steer-apply: {"steering_vector_path": "/path/to/steering_vector.pt", "input_text": "...", "coefficient": 1.0, "max_new_tokens": 50}
     """
     try:
         import tempfile
         extra = json.loads(args_json)
+        tool_name = "activation-patch" if tool_name == "activation-patching" else tool_name
         output_dir = extra.pop("output_dir", None) or tempfile.mkdtemp(prefix="crucible-interp-")
         base_model = extra.pop("base_model", None)
         label = Path(model_path).stem if "/" in model_path or os.sep in model_path else model_path
@@ -1129,7 +1245,7 @@ def run_interp(
                 return run_activation_pca(opts, records)
             return _run_with_job(tool_name, label, do_work, config_dict)
 
-        if tool_name == "activation-patching":
+        if tool_name == "activation-patch":
             from core.activation_patching_types import ActivationPatchingOptions
             from serve.activation_patching_runner import run_activation_patching
             opts = ActivationPatchingOptions(
@@ -1223,6 +1339,7 @@ def run_interp(
                 base_model=base_model,
                 dataset_name=dataset_name,
                 top_k_features=int(extra.get("top_k_features", 10)),
+                top_k_texts=int(extra.get("top_k_texts", 3)),
             )
             def do_work():
                 return run_sae_analyze(opts, records or None)
@@ -1281,7 +1398,7 @@ def run_interp(
                 return run_steer_apply(opts)
             return _run_with_job(tool_name, label, do_work, config_dict)
 
-        return json.dumps({"error": f"Unknown interp tool: {tool_name}. Use: logit-lens, activation-pca, activation-patching, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply"})
+        return json.dumps({"error": f"Unknown interp tool: {tool_name}. Use: logit-lens, activation-pca, activation-patch, linear-probe, sae-train, sae-analyze, steer-compute, steer-apply"})
     except Exception as exc:
         return json.dumps({"error": f"Interp tool failed: {exc}"})
 
@@ -1412,6 +1529,111 @@ def merge_models(
 
 
 @mcp.tool()
+def register_cluster(
+    cluster_name: str,
+    host: str,
+    user: str,
+    backend: str = "ssh",
+    ssh_port: int = 22,
+    ssh_key_path: str = "",
+    password: str = "",
+    partition: str = "",
+    module_loads: str = "",
+    remote_workspace: str = "~/crucible-jobs",
+    python_path: str = "python3",
+    docker_image: str = "",
+    validate: bool = True,
+) -> str:
+    """Register a remote cluster so the agent can submit jobs to it.
+
+    Args:
+        cluster_name: Name to save the cluster under.
+        host: SSH host or alias.
+        user: SSH username.
+        backend: Backend kind: ssh, slurm, or http-api.
+        ssh_port: SSH port.
+        ssh_key_path: Path to a private key file.
+        password: SSH password if key auth is not used.
+        partition: Default Slurm partition.
+        module_loads: Comma-separated shell module load commands.
+        remote_workspace: Remote base directory for Crucible jobs.
+        python_path: Remote Python executable path.
+        docker_image: Optional Docker image for ssh backend.
+        validate: Whether to validate immediately after registration.
+    """
+    try:
+        from dataclasses import replace as dc_replace
+
+        from core.slurm_types import ClusterConfig
+        from serve.cluster_validator import (
+            update_cluster_validated,
+            validate_cluster as run_cluster_validation,
+            validate_ssh_cluster,
+        )
+        from store.cluster_registry import load_cluster, save_cluster
+
+        existing = None
+        try:
+            existing = load_cluster(_data_root(), cluster_name)
+        except Exception:
+            pass
+        cluster = ClusterConfig(
+            name=cluster_name,
+            host=host,
+            user=user,
+            ssh_port=ssh_port or 22,
+            ssh_key_path=ssh_key_path or (existing.ssh_key_path if existing else ""),
+            password=password or (existing.password if existing else ""),
+            default_partition=partition,
+            module_loads=tuple(
+                item.strip() for item in module_loads.split(",") if item.strip()
+            ),
+            remote_workspace=remote_workspace,
+            python_path=python_path,
+            partitions=existing.partitions if existing else (),
+            gpu_types=existing.gpu_types if existing else (),
+            validated_at=existing.validated_at if existing else "",
+            backend=backend,
+            docker_image=docker_image or (existing.docker_image if existing else ""),
+        )
+        validation_payload: dict[str, object] | None = None
+        if validate:
+            result = (
+                validate_ssh_cluster(cluster)
+                if backend == "ssh"
+                else run_cluster_validation(cluster)
+            )
+            if result.python_ok and (backend == "ssh" or result.slurm_ok):
+                cluster = update_cluster_validated(cluster)
+                if result.partitions:
+                    cluster = dc_replace(cluster, partitions=result.partitions)
+                if result.gpu_types:
+                    cluster = dc_replace(cluster, gpu_types=result.gpu_types)
+            validation_payload = {
+                "python_ok": result.python_ok,
+                "torch_ok": result.torch_ok,
+                "cuda_ok": result.cuda_ok,
+                "slurm_ok": result.slurm_ok,
+                "gpu_types": list(result.gpu_types),
+                "partitions": list(result.partitions),
+                "errors": list(result.errors),
+            }
+        save_cluster(_data_root(), cluster)
+        response: dict[str, object] = {
+            "cluster_name": cluster.name,
+            "backend": cluster.backend,
+            "host": cluster.host,
+            "user": cluster.user,
+            "validated": bool(cluster.validated_at),
+        }
+        if validation_payload is not None:
+            response["validation"] = validation_payload
+        return json.dumps(response, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to register cluster: {exc}"})
+
+
+@mcp.tool()
 def list_clusters() -> str:
     """List all registered remote clusters."""
     try:
@@ -1428,6 +1650,67 @@ def list_clusters() -> str:
         return json.dumps(results, indent=2)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
+
+
+@mcp.tool()
+def validate_cluster(cluster_name: str) -> str:
+    """Validate a registered cluster and refresh its detected capabilities.
+
+    Args:
+        cluster_name: Name of the registered cluster.
+    """
+    try:
+        from dataclasses import replace as dc_replace
+
+        from serve.cluster_validator import (
+            update_cluster_validated,
+            validate_cluster as run_cluster_validation,
+            validate_ssh_cluster,
+        )
+        from store.cluster_registry import load_cluster, save_cluster
+
+        cluster = load_cluster(_data_root(), cluster_name)
+        result = (
+            validate_ssh_cluster(cluster)
+            if cluster.backend == "ssh"
+            else run_cluster_validation(cluster)
+        )
+        if result.python_ok and (cluster.backend == "ssh" or result.slurm_ok):
+            updated = update_cluster_validated(cluster)
+            if result.partitions:
+                updated = dc_replace(updated, partitions=result.partitions)
+            if result.gpu_types:
+                updated = dc_replace(updated, gpu_types=result.gpu_types)
+            save_cluster(_data_root(), updated)
+        return json.dumps({
+            "cluster_name": cluster.name,
+            "backend": cluster.backend,
+            "python_ok": result.python_ok,
+            "torch_ok": result.torch_ok,
+            "cuda_ok": result.cuda_ok,
+            "slurm_ok": result.slurm_ok,
+            "gpu_types": list(result.gpu_types),
+            "partitions": list(result.partitions),
+            "errors": list(result.errors),
+        }, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to validate cluster: {exc}"})
+
+
+@mcp.tool()
+def remove_cluster(cluster_name: str) -> str:
+    """Remove a registered cluster.
+
+    Args:
+        cluster_name: Name of the cluster to delete.
+    """
+    try:
+        from store.cluster_registry import remove_cluster as drop_cluster
+
+        drop_cluster(_data_root(), cluster_name)
+        return json.dumps({"cluster_name": cluster_name, "removed": True}, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Failed to remove cluster: {exc}"})
 
 
 @mcp.tool()
@@ -1484,6 +1767,26 @@ def hub_search_models(query: str, limit: int = 10) -> str:
 
 
 @mcp.tool()
+def hub_search_datasets(query: str, limit: int = 10) -> str:
+    """Search HuggingFace Hub for datasets.
+
+    Args:
+        query: Search query.
+        limit: Max results.
+    """
+    try:
+        from serve.huggingface_hub import search_datasets
+
+        results = search_datasets(query, limit)
+        return json.dumps([
+            {"id": dataset.repo_id, "downloads": dataset.downloads}
+            for dataset in results
+        ], indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Dataset search failed: {exc}"})
+
+
+@mcp.tool()
 def hub_download_model(repo_id: str) -> str:
     """Download a model from HuggingFace Hub and register it.
 
@@ -1504,6 +1807,40 @@ def hub_download_model(repo_id: str) -> str:
         })
     except Exception as exc:
         return json.dumps({"error": f"Hub download failed: {exc}"})
+
+
+@mcp.tool()
+def hub_download_dataset(
+    repo_id: str,
+    dataset_name: str = "",
+    split: str = "train",
+    subset: str = "",
+) -> str:
+    """Download a dataset from HuggingFace Hub and register it locally.
+
+    Args:
+        repo_id: HuggingFace dataset ID.
+        dataset_name: Local Crucible dataset name. Defaults to repo_id.
+        split: Dataset split to download.
+        subset: Optional dataset config/subset name.
+    """
+    try:
+        from core.ingest_types import IngestOptions
+        from serve.huggingface_hub import download_dataset
+
+        client = _get_client()
+        root = _data_root()
+        target_dir = str(root / "pulled-datasets")
+        path = download_dataset(repo_id, target_dir, None, split=split, subset=subset)
+        client.ingest(IngestOptions(dataset_name=dataset_name or repo_id, source_uri=path))
+        return json.dumps({
+            "dataset_name": dataset_name or repo_id,
+            "dataset_path": path,
+            "split": split,
+            "subset": subset,
+        }, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Dataset download failed: {exc}"})
 
 
 # ── Sweeps ────────────────────────────────────────────────────────────
