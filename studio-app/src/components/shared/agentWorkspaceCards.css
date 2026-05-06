@@ -1,0 +1,212 @@
+.agent-workspace-card {
+    min-width: 0;
+}
+
+.agent-eval-comparison-card {
+    gap: 16px;
+}
+
+.agent-eval-comparison {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.agent-eval-comparison-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.45fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+}
+
+.agent-eval-comparison-panel {
+    margin-top: 0;
+    height: 100%;
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-panel--right {
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-panel--leading-left {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.agent-eval-comparison-panel--leading-right {
+    border-color: color-mix(in srgb, var(--success) 38%, var(--border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.agent-eval-comparison-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.agent-eval-comparison-heading strong {
+    overflow-wrap: anywhere;
+}
+
+.agent-eval-comparison-heading span {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.agent-eval-comparison-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.agent-eval-comparison-meta::before {
+    content: "";
+    width: 8px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.8;
+}
+
+.agent-eval-comparison-meta--left {
+    color: var(--accent-text);
+}
+
+.agent-eval-comparison-meta--right {
+    color: var(--success);
+}
+
+.agent-eval-comparison-meta--tie {
+    color: var(--text-tertiary);
+}
+
+.agent-eval-comparison-outcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+    text-align: center;
+}
+
+.agent-eval-comparison-outcome strong {
+    color: var(--text);
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.agent-eval-comparison-outcome p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.agent-eval-comparison-outcome--left {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-outcome--right {
+    border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-outcome--tie {
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-benchmarks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agent-eval-comparison-benchmark {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(78px, 0.7fr) auto minmax(78px, 0.7fr);
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-benchmark--left {
+    border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-benchmark--right {
+    border-color: color-mix(in srgb, var(--success) 24%, var(--border));
+    background: var(--bg-base);
+}
+
+.agent-eval-comparison-benchmark-name {
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.agent-eval-comparison-score {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    justify-self: center;
+}
+
+.agent-eval-comparison-score--winner {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.agent-eval-comparison-score--missing {
+    color: var(--text-tertiary);
+}
+
+.agent-eval-comparison-delta {
+    min-width: 92px;
+    justify-content: center;
+    text-align: center;
+}
+
+@media (max-width: 900px) {
+    .agent-eval-comparison-overview {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .agent-eval-comparison-benchmark {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .agent-eval-comparison-benchmark-name {
+        grid-column: 1 / -1;
+    }
+
+    .agent-eval-comparison-score {
+        justify-self: stretch;
+        text-align: center;
+    }
+}

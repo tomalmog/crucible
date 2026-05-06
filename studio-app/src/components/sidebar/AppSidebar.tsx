@@ -123,18 +123,20 @@ export function AppSidebar() {
       <div className="sidebar-footer">
         <button
           className="sidebar-collapse-btn"
-          onClick={() => window.dispatchEvent(new CustomEvent("agent-toggle"))}
-          title="Toggle AI Agent"
-        >
-          <Bot size={16} />
-        </button>
-        <button
-          className="sidebar-collapse-btn"
           onClick={toggleCollapsed}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
+        {!collapsed && (
+          <button
+            className="sidebar-collapse-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent("agent-toggle"))}
+            title="Toggle AI Agent"
+          >
+            <Bot size={16} />
+          </button>
+        )}
       </div>
     </aside>
   );

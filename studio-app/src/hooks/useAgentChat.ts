@@ -2,204 +2,226 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useCrucible } from "../context/CrucibleContext";
 import { useScript } from "../context/ScriptContext";
-import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
+import { loadAgentJobCompletion } from "../api/agentJobPreviews";
 import { getJob } from "../api/jobsApi";
+import { buildAgentChatContext, buildChainContinuationPrompt } from "./agentChatPayload";
+import { runAgentCommand } from "./agentCommandRunner";
+import { inferPreviewWorkspace, readWorkspaceDirective } from "./agentWorkspaceDirective";
+import type {
+  AgentChatSummary,
+  AgentJobPreview,
+  AgentMessage,
+  AgentTraceEvent,
+  AgentWorkspaceDirective,
+} from "../types/agent";
 import { TERMINAL_JOB_STATES } from "../types/jobs";
 
-const API_KEY_STORAGE = "crucible_anthropic_api_key";
+const ANTHROPIC_API_KEY_STORAGE = "crucible_anthropic_api_key";
+const OPENAI_API_KEY_STORAGE = "crucible_openai_api_key";
 const PROVIDER_STORAGE = "crucible_agent_provider";
+const OPENAI_MODEL_STORAGE = "crucible_agent_openai_model";
 const OLLAMA_MODEL_STORAGE = "crucible_agent_ollama_model";
 const OLLAMA_URL_STORAGE = "crucible_agent_ollama_url";
 const GEMINI_MODEL_STORAGE = "crucible_agent_gemini_model";
 const GEMINI_API_KEY_STORAGE = "crucible_gemini_api_key";
-const POLL_MS = 500;
 const CHAIN_POLL_MS = 3000;
-
-export interface AgentMessage {
-  role: "user" | "assistant";
-  content: string;
-  toolsUsed?: string[];
-  scriptUpdated?: boolean;
-  navigatedTo?: string;
-}
+const AUTO_CONTINUE_DELAY_MS = 2200;
 
 export interface PendingChain {
+  chatId: string;
   jobId: string;
   steps: string[];
   jobComplete: boolean;
   jobState: string | null;
   jobModelPath: string | null;
   jobModelName: string | null;
+  autoContinueAt: number | null;
 }
 
 export interface UseAgentChatReturn {
+  activeChatId: string | null;
+  chats: AgentChatSummary[];
   messages: AgentMessage[];
+  currentTrace: AgentTraceEvent[];
   isLoading: boolean;
   error: string | null;
   sendMessage: (text: string) => Promise<void>;
   clearConversation: () => Promise<void>;
+  createChat: () => Promise<void>;
+  switchChat: (chatId: string) => Promise<void>;
+  deleteChat: (chatId: string) => Promise<void>;
+  searchChats: (query: string) => Promise<void>;
   pendingChain: PendingChain | null;
   continueChain: () => Promise<void>;
   cancelChain: () => Promise<void>;
 }
-
-async function runAgentCommand(
-  dataRoot: string,
-  payload: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  // config_json (4th arg) is written to .crucible/agent/_payload.json by Rust
-  const { task_id } = await startCrucibleCommand(
-    dataRoot,
-    ["agent-chat", "--payload-file", "placeholder"],
-    "agent-chat",
-    payload,
-  );
-  while (true) {
-    const status = await getCrucibleCommandStatus(task_id);
-    if (status.status !== "running") {
-      if (status.status === "failed") {
-        const errMsg = status.stderr?.trim() || "Agent command failed";
-        throw new Error(errMsg);
-      }
-      const stdout = status.stdout?.trim() || "{}";
-      try {
-        return JSON.parse(stdout) as Record<string, unknown>;
-      } catch {
-        throw new Error(`Invalid agent response: ${stdout.slice(0, 200)}`);
-      }
-    }
-    await new Promise((r) => setTimeout(r, POLL_MS));
-  }
-}
-
 export function useAgentChat(): UseAgentChatReturn {
   const { dataRoot, models, datasets, selectedModel, selectedDataset } = useCrucible();
   const location = useLocation();
   const navigate = useNavigate();
   const { registration: scriptReg } = useScript();
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chats, setChats] = useState<AgentChatSummary[]>([]);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [currentTrace, setCurrentTrace] = useState<AgentTraceEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingChain, setPendingChain] = useState<PendingChain | null>(null);
   const hasLoaded = useRef(false);
+  const currentTraceRef = useRef<AgentTraceEvent[]>([]);
 
-  // Load conversation history + chain state on mount
+  function applyLoadedChatState(res: Record<string, unknown>): void {
+    setMessages(readAgentMessages(res.messages));
+    setChats(readChatSummaries(res.chats));
+    const nextChatId = typeof res.active_chat_id === "string" ? res.active_chat_id : null;
+    setActiveChatId(nextChatId);
+    setPendingChain(readPendingChain(res.chain, nextChatId));
+    currentTraceRef.current = [];
+    setCurrentTrace([]);
+    setError(null);
+  }
+
   useEffect(() => {
     if (hasLoaded.current || !dataRoot) return;
     hasLoaded.current = true;
     runAgentCommand(dataRoot, { action: "load" })
       .then((res) => {
-        const msgs = res.messages as AgentMessage[] | undefined;
-        if (msgs) setMessages(msgs);
+        applyLoadedChatState(res);
       })
       .catch(() => { /* no history yet */ });
-    runAgentCommand(dataRoot, { action: "load_chain" })
-      .then((res) => {
-        const chain = res.chain as { waiting_on_job_id: string; remaining_steps: string[] } | null;
-        if (chain) {
-          setPendingChain({
-            jobId: chain.waiting_on_job_id,
-            steps: chain.remaining_steps,
-            jobComplete: false,
-            jobState: null,
-            jobModelPath: null,
-            jobModelName: null,
-          });
-        }
-      })
-      .catch(() => {});
   }, [dataRoot]);
 
-  // Poll the chain's job for completion
   useEffect(() => {
     if (!pendingChain || pendingChain.jobComplete || !dataRoot) return;
-    const interval = setInterval(async () => {
+    let isActive = true;
+    let isCompleting = false;
+
+    // React to remote-job completion so the agent can surface artifacts
+    // immediately and continue the chain without waiting for another prompt.
+    const checkPendingJob = async (): Promise<void> => {
+      if (isCompleting) return;
       try {
         const job = await getJob(dataRoot, pendingChain.jobId);
-        if (TERMINAL_JOB_STATES.has(job.state)) {
-          if (job.state !== "completed") {
-            // Job failed or was cancelled — auto-cancel the chain
-            setPendingChain(null);
-            runAgentCommand(dataRoot, { action: "cancel_chain" }).catch(() => {});
-            const errorDetail = job.errorMessage ? `: ${job.errorMessage}` : "";
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: `The job ${pendingChain.jobId} **${job.state}**${errorDetail}. The remaining chain steps have been cancelled.\n\nYou can fix the issue and ask me to retry.`,
-              },
-            ]);
-          } else {
-            setPendingChain((prev) => prev ? {
-              ...prev,
-              jobComplete: true,
-              jobState: job.state,
-              jobModelPath: job.modelPath || null,
-              jobModelName: job.modelName || null,
-            } : null);
-          }
+        if (!TERMINAL_JOB_STATES.has(job.state)) return;
+        if (job.state !== "completed") {
+          if (!isActive) return;
+          setPendingChain(null);
+          runAgentCommand(dataRoot, {
+            action: "cancel_chain",
+            chat_id: pendingChain.chatId,
+          }).catch(() => {});
+          const errorDetail = job.errorMessage ? `: ${job.errorMessage}` : "";
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `The job ${pendingChain.jobId} **${job.state}**${errorDetail}. The remaining chain steps have been cancelled.\n\nYou can fix the issue and ask me to retry.`,
+            },
+          ]);
+          return;
         }
+
+        isCompleting = true;
+        const completion = await loadAgentJobCompletion(dataRoot, job);
+        if (!isActive) return;
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: completion.content,
+            artifact: completion.preview || undefined,
+            workspaceDirective: completion.preview ? inferPreviewWorkspace(completion.preview) : undefined,
+          },
+        ]);
+        setPendingChain((prev) => prev ? {
+          ...prev,
+          jobComplete: true,
+          jobState: job.state,
+          jobModelPath: completion.modelPath,
+          jobModelName: job.modelName || null,
+          autoContinueAt: Date.now() + AUTO_CONTINUE_DELAY_MS,
+        } : null);
       } catch {
-        // Job might not exist yet or was deleted
+        // The remote record may not be readable yet; the next poll will retry.
       }
+    };
+
+    void checkPendingJob();
+    const interval = setInterval(async () => {
+      await checkPendingJob();
     }, CHAIN_POLL_MS);
-    return () => clearInterval(interval);
-  }, [dataRoot, pendingChain?.jobId, pendingChain?.jobComplete]);
+
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [dataRoot, pendingChain?.chatId, pendingChain?.jobId, pendingChain?.jobComplete]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (isLoading || !text.trim()) return;
 
-    const apiKey = localStorage.getItem(API_KEY_STORAGE) || "";
+    const anthropicApiKey = localStorage.getItem(ANTHROPIC_API_KEY_STORAGE) || "";
     setError(null);
     setIsLoading(true);
-    // Don't show auto-continue messages as regular user messages
+    currentTraceRef.current = [];
+    setCurrentTrace([]);
     const isChainContinue = text.startsWith("[Chain continuation]");
     if (!isChainContinue) {
       setMessages((prev) => [...prev, { role: "user", content: text }]);
     }
 
     try {
-      // Include training script context only when the Code tab is active
       const scriptContext = scriptReg && scriptReg.viewTabRef.current === "code"
         ? { trainingScript: scriptReg.contentRef.current, trainingMethod: scriptReg.method }
         : null;
-
-      const context = {
-        currentPage: location.pathname,
-        selectedModel: selectedModel?.modelName || null,
-        selectedDataset: selectedDataset || null,
-        modelNames: models.map((m) => m.modelName).slice(0, 20),
-        modelPaths: models.slice(0, 20).reduce<Record<string, string>>((acc, m) => {
-          if (m.modelPath) acc[m.modelName] = m.modelPath;
-          if (m.remotePath) acc[`${m.modelName} (remote)`] = m.remotePath;
-          return acc;
-        }, {}),
-        datasetNames: datasets.map((d) => d.name).slice(0, 20),
-        ...(scriptContext ? { script: scriptContext } : {}),
-      };
+      const context = buildAgentChatContext(
+        location.pathname,
+        selectedModel?.modelName || null,
+        selectedDataset || null,
+        models,
+        datasets,
+        scriptContext,
+      );
 
       const provider = localStorage.getItem(PROVIDER_STORAGE) || "anthropic";
       const effectiveApiKey = provider === "gemini"
         ? (localStorage.getItem(GEMINI_API_KEY_STORAGE) || "")
-        : apiKey;
+        : provider === "openai"
+          ? (localStorage.getItem(OPENAI_API_KEY_STORAGE) || "")
+          : anthropicApiKey;
       const res = await runAgentCommand(dataRoot, {
         action: "chat",
+        chat_id: activeChatId || undefined,
         message: text,
         context,
         api_key: effectiveApiKey,
         provider,
         model: provider === "ollama" ? (localStorage.getItem(OLLAMA_MODEL_STORAGE) || "")
              : provider === "gemini" ? (localStorage.getItem(GEMINI_MODEL_STORAGE) || "")
+             : provider === "openai" ? (localStorage.getItem(OPENAI_MODEL_STORAGE) || "")
              : "",
         ollama_url: provider === "ollama" ? (localStorage.getItem(OLLAMA_URL_STORAGE) || "") : "",
+      }, (event) => {
+        currentTraceRef.current = [...currentTraceRef.current, event];
+        setCurrentTrace(currentTraceRef.current);
       });
 
       if (res.error) {
         setError(res.error as string);
+        currentTraceRef.current = [];
+        setCurrentTrace([]);
         if (!isChainContinue) {
           setMessages((prev) => prev.slice(0, -1));
         }
-      } else if (res.content) {
+      } else if (res.content || Array.isArray(res.artifact_messages)) {
+        const responseChatId = typeof res.chat_id === "string" ? res.chat_id : activeChatId;
+        if (responseChatId) {
+          setActiveChatId(responseChatId);
+        }
+        const nextChats = readChatSummaries(res.chats);
+        if (nextChats.length > 0) {
+          setChats(nextChats);
+        }
         const toolsUsed = res.tools_used as string[] | undefined;
         const didUpdateScript = !!(res.script_update && scriptReg?.setContent);
         if (didUpdateScript) {
@@ -209,82 +231,265 @@ export function useAgentChat(): UseAgentChatReturn {
         if (navigatedTo) {
           navigate(navigatedTo);
         }
-        // Handle pending chain from response
         const chainData = res.pending_chain as { job_id: string; steps: string[] } | undefined;
-        if (chainData) {
+        if (chainData && responseChatId) {
           setPendingChain({
+            chatId: responseChatId,
             jobId: chainData.job_id,
             steps: chainData.steps,
             jobComplete: false,
             jobState: null,
             jobModelPath: null,
             jobModelName: null,
+            autoContinueAt: null,
           });
         }
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: res.content as string,
-            toolsUsed: toolsUsed?.length ? toolsUsed : undefined,
-            scriptUpdated: didUpdateScript || undefined,
-            navigatedTo: navigatedTo || undefined,
-          },
-        ]);
+        const artifactMessages = readAgentMessages(res.artifact_messages);
+        const fallbackMessage: AgentMessage = {
+          role: "assistant",
+          content: typeof res.content === "string" ? res.content : "",
+          toolsUsed: toolsUsed?.length ? toolsUsed : undefined,
+          scriptUpdated: didUpdateScript || undefined,
+          navigatedTo: navigatedTo || undefined,
+          trace: currentTraceRef.current.length ? [...currentTraceRef.current] : undefined,
+          workspaceDirective: readWorkspaceDirective(res),
+        };
+        const nextMessages = artifactMessages.length > 0
+          ? artifactMessages
+          : [fallbackMessage];
+        setMessages((prev) => [...prev, ...nextMessages]);
+        currentTraceRef.current = [];
+        setCurrentTrace([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      currentTraceRef.current = [];
+      setCurrentTrace([]);
       if (!isChainContinue) {
         setMessages((prev) => prev.slice(0, -1));
       }
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, dataRoot, location.pathname, selectedModel, selectedDataset, models, datasets]);
+  }, [isLoading, dataRoot, activeChatId, location.pathname, selectedModel, selectedDataset, models, datasets]);
 
   const continueChain = useCallback(async () => {
-    if (!pendingChain || !dataRoot) return;
-    const chain = pendingChain;
-
-    // Build context message with job result info
-    const parts = [
-      `[Chain continuation] Job ${chain.jobId} finished with state: ${chain.jobState}.`,
-    ];
-    if (chain.jobModelPath) parts.push(`Output model path: ${chain.jobModelPath}`);
-    if (chain.jobModelName) parts.push(`Registered model name: ${chain.jobModelName}`);
-    parts.push(`\nPlease proceed with the next step: ${chain.steps[0]}`);
-    if (chain.steps.length > 1) {
-      parts.push(`\nRemaining steps after this: ${chain.steps.slice(1).join("; ")}`);
-    }
-
-    // Clear chain before sending — agent may create a new one
+    if (!pendingChain || !dataRoot || pendingChain.steps.length === 0) return;
+    const continuationPrompt = buildChainContinuationPrompt(pendingChain);
     setPendingChain(null);
     try {
-      await runAgentCommand(dataRoot, { action: "cancel_chain" });
-    } catch { /* best effort */ }
-
-    await sendMessage(parts.join("\n"));
+      await runAgentCommand(dataRoot, {
+        action: "cancel_chain",
+        chat_id: pendingChain.chatId,
+      });
+    } catch {}
+    await sendMessage(continuationPrompt);
   }, [pendingChain, dataRoot, sendMessage]);
 
+  useEffect(() => {
+    if (!pendingChain?.jobComplete || pendingChain.jobState !== "completed" || !pendingChain.autoContinueAt) {
+      return;
+    }
+    if (isLoading) return;
+
+    // Give the user a brief chance to see the artifact preview before the
+    // agent resumes the remaining plan automatically.
+    const waitMs = Math.max(pendingChain.autoContinueAt - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => {
+      void continueChain();
+    }, waitMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [continueChain, isLoading, pendingChain]);
+
   const cancelChain = useCallback(async () => {
+    const chatId = pendingChain?.chatId ?? activeChatId;
     setPendingChain(null);
     try {
-      await runAgentCommand(dataRoot, { action: "cancel_chain" });
-    } catch { /* best effort */ }
+      await runAgentCommand(dataRoot, { action: "cancel_chain", chat_id: chatId || undefined });
+    } catch {}
     setMessages((prev) => [
       ...prev,
       { role: "assistant", content: "Chain cancelled." },
     ]);
-  }, [dataRoot]);
+  }, [activeChatId, dataRoot, pendingChain?.chatId]);
 
-  const clearConversation = useCallback(async () => {
+  const createChat = useCallback(async () => {
     try {
-      await runAgentCommand(dataRoot, { action: "clear" });
-      setMessages([]);
-      setError(null);
-      setPendingChain(null);
-    } catch { /* best effort */ }
+      const res = await runAgentCommand(dataRoot, { action: "create_chat" });
+      applyLoadedChatState(res);
+    } catch {}
   }, [dataRoot]);
 
-  return { messages, isLoading, error, sendMessage, clearConversation, pendingChain, continueChain, cancelChain };
+  const switchChat = useCallback(async (chatId: string) => {
+    if (!dataRoot || isLoading || chatId === activeChatId) return;
+    try {
+      const res = await runAgentCommand(dataRoot, { action: "load", chat_id: chatId });
+      applyLoadedChatState(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [activeChatId, dataRoot, isLoading]);
+
+  const deleteChat = useCallback(async (chatId: string) => {
+    if (!dataRoot || isLoading) return;
+    try {
+      const res = await runAgentCommand(dataRoot, { action: "delete_chat", chat_id: chatId });
+      applyLoadedChatState(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [dataRoot, isLoading]);
+
+  const searchChats = useCallback(async (query: string) => {
+    if (!dataRoot) return;
+    try {
+      const res = await runAgentCommand(dataRoot, { action: "search_chats", query });
+      const nextChats = readChatSummaries(res.chats);
+      setChats(nextChats);
+    } catch {}
+  }, [dataRoot]);
+
+  const clearConversation = createChat;
+
+  return {
+    activeChatId,
+    chats,
+    messages,
+    currentTrace,
+    isLoading,
+    error,
+    sendMessage,
+    clearConversation,
+    createChat,
+    switchChat,
+    deleteChat,
+    searchChats,
+    pendingChain,
+    continueChain,
+    cancelChain,
+  };
+}
+
+function readAgentMessages(value: unknown): AgentMessage[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    const message = readAgentMessage(item);
+    return message ? [message] : [];
+  });
+}
+
+function readAgentMessage(value: unknown): AgentMessage | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const role = value.role;
+  const content = value.content;
+  if ((role !== "assistant" && role !== "user") || typeof content !== "string") {
+    return null;
+  }
+  return {
+    role,
+    content,
+    toolsUsed: readStringArray(value.tools_used ?? value.toolsUsed),
+    artifact: isAgentJobPreview(value.artifact) ? value.artifact : undefined,
+    workspaceDirective: isWorkspaceDirective(value.workspaceDirective)
+      ? value.workspaceDirective
+      : undefined,
+  };
+}
+
+function readChatSummaries(value: unknown): AgentChatSummary[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    const summary = readChatSummary(item);
+    return summary ? [summary] : [];
+  });
+}
+
+function readChatSummary(value: unknown): AgentChatSummary | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const id = value.id;
+  const title = value.title;
+  const preview = value.preview;
+  const createdAt = value.createdAt;
+  const updatedAt = value.updatedAt;
+  const messageCount = value.messageCount;
+  if (
+    typeof id !== "string"
+    || typeof title !== "string"
+    || typeof preview !== "string"
+    || typeof createdAt !== "string"
+    || typeof updatedAt !== "string"
+    || typeof messageCount !== "number"
+  ) {
+    return null;
+  }
+  return { id, title, preview, createdAt, updatedAt, messageCount };
+}
+
+function readPendingChain(value: unknown, chatId: string | null): PendingChain | null {
+  if (!chatId || !isRecord(value)) {
+    return null;
+  }
+  const jobId = value.waiting_on_job_id;
+  const steps = value.remaining_steps;
+  if (typeof jobId !== "string" || !Array.isArray(steps)) {
+    return null;
+  }
+  return {
+    chatId,
+    jobId,
+    steps: steps.filter((step): step is string => typeof step === "string"),
+    jobComplete: false,
+    jobState: null,
+    jobModelPath: null,
+    jobModelName: null,
+    autoContinueAt: null,
+  };
+}
+
+function isAgentJobPreview(value: unknown): value is AgentJobPreview {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    (value.kind === "training" || value.kind === "eval" || value.kind === "interp")
+    && typeof value.jobId === "string"
+    && typeof value.title === "string"
+  );
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const strings = value.filter((item): item is string => typeof item === "string");
+  return strings.length > 0 ? strings : undefined;
+}
+
+function isWorkspaceDirective(value: unknown): value is AgentWorkspaceDirective {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return isWorkspaceMode(value.mode)
+    && Array.isArray(value.cards)
+    && value.cards.every((card) => typeof card === "string");
+}
+
+function isWorkspaceMode(value: unknown): value is AgentWorkspaceDirective["mode"] {
+  return value === "auto"
+    || value === "focus"
+    || value === "compare"
+    || value === "board"
+    || value === "plan";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

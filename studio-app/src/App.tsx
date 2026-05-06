@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Outlet } from "react-router";
 import { CrucibleProvider } from "./context/CrucibleContext";
 import { CommandProvider } from "./context/CommandContext";
+import { AgentChatProvider } from "./context/AgentChatContext";
 import { ScriptContext, ScriptRegistration, ScriptContextValue } from "./context/ScriptContext";
 import { AppSidebar } from "./components/sidebar/AppSidebar";
 import { AgentSidebar } from "./components/sidebar/AgentSidebar";
-import { Bot } from "lucide-react";
 import "./theme/variables.css";
 import "./theme/reset.css";
 import "./theme/components.css";
@@ -65,20 +65,15 @@ function App() {
     <CrucibleProvider>
       <CommandProvider>
         <ScriptContext.Provider value={scriptCtx}>
-        <main className={`app-shell${collapsed ? " sidebar-collapsed" : ""}${agentVisible ? " agent-open" : ""}`}>
-          <AppSidebar />
-          <div className="page-content">
-            <Outlet />
-            <button
-              className={`agent-toggle-fab${agentVisible ? " agent-toggle-fab-hidden" : ""}`}
-              onClick={() => setAgentVisible(true)}
-              title="Open AI Agent"
-            >
-              <Bot size={18} />
-            </button>
-          </div>
-          <AgentSidebar onClose={() => setAgentVisible(false)} />
-        </main>
+          <AgentChatProvider>
+            <main className={`app-shell${collapsed ? " sidebar-collapsed" : ""}${agentVisible ? " agent-open" : ""}`}>
+              <AppSidebar />
+              <div className="page-content">
+                <Outlet />
+              </div>
+              <AgentSidebar onClose={() => setAgentVisible(false)} />
+            </main>
+          </AgentChatProvider>
         </ScriptContext.Provider>
       </CommandProvider>
     </CrucibleProvider>

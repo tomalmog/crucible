@@ -11,8 +11,15 @@
 .page-content {
     overflow-y: auto;
     overflow-x: hidden;
+    min-width: 0;
     padding: 32px 40px;
     background: var(--bg-base);
+}
+
+@media (max-width: 720px) {
+    .page-content {
+        padding: 20px;
+    }
 }
 
 .app-shell.sidebar-collapsed {
@@ -63,11 +70,7 @@
 }
 
 .sidebar-brand h2 span {
-    background: linear-gradient(135deg, #FF8C00 0%, #e07000 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    color: var(--accent);
     font-family: var(--font-display, var(--font-body));
 }
 
@@ -162,6 +165,14 @@
 .sidebar-footer {
     padding: 12px 10px;
     border-top: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.sidebar-collapsed .sidebar-footer {
+    justify-content: flex-start;
 }
 
 .sidebar-collapse-btn {
@@ -464,6 +475,7 @@
         grid-template-columns: 1fr;
     }
 
+    .grid-2,
     .grid-3 {
         grid-template-columns: 1fr;
     }

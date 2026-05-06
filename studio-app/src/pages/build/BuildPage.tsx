@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, Send } from "lucide-react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { useAgentChat } from "../../hooks/useAgentChat";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AgentChatHistory } from "../../components/shared/AgentChatHistory";
+import { useAgentChatState } from "../../context/AgentChatContext";
+import { BuildComposer } from "./BuildComposer";
+import { BuildConversationPane } from "./BuildConversationPane";
 
 const EXAMPLE_PROMPTS = [
   "Summarize support tickets",
@@ -32,6 +32,7 @@ function useAutoGrow(value: string) {
 
 export function BuildPage(): React.ReactNode {
   const {
+    currentTrace,
     messages,
     isLoading,
     error,
@@ -39,9 +40,8 @@ export function BuildPage(): React.ReactNode {
     pendingChain,
     continueChain,
     cancelChain,
-  } = useAgentChat();
+  } = useAgentChatState();
   const [draft, setDraft] = useState("");
-  const threadRef = useRef<HTMLDivElement>(null);
   const historyIndexRef = useRef(-1);
   const heroTextareaRef = useAutoGrow(draft);
   const replyTextareaRef = useAutoGrow(draft);
@@ -50,12 +50,6 @@ export function BuildPage(): React.ReactNode {
     () => messages.filter((m) => m.role === "user").map((m) => m.content),
     [messages],
   );
-
-  useEffect(() => {
-    if (threadRef.current) {
-      threadRef.current.scrollTop = threadRef.current.scrollHeight;
-    }
-  }, [messages, isLoading]);
 
   function handleSubmit(e: React.FormEvent): void {
     e.preventDefault();
@@ -98,161 +92,68 @@ export function BuildPage(): React.ReactNode {
 
   return (
     <div className={`build-page ${isEmpty ? "build-page-empty" : ""}`}>
-      {isEmpty ? (
-        <div className="build-hero">
-          <h1 className="build-hero-title">What do you want to build?</h1>
-          <p className="build-hero-subtitle">
-            Crucible will train, fine-tune, evaluate, and ship it for you.
-          </p>
+      <div className="build-agent-shell">
+        <aside className="build-chat-rail">
+          <div className="build-chat-rail-header">
+            <span>Chats</span>
+            <p>Search old runs or start fresh.</p>
+          </div>
+          <AgentChatHistory className="agent-chat-history-build" />
+        </aside>
 
-          <form className="build-composer build-composer-hero" onSubmit={handleSubmit}>
-            <textarea
-              ref={heroTextareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.currentTarget.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe what you want to build..."
-              rows={1}
-              autoFocus
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              className="build-send-btn"
-              disabled={isLoading || !draft.trim()}
-              title="Send"
-              aria-label="Send"
-            >
-              <Send size={16} />
-            </button>
-          </form>
+        <main className="build-agent-stage">
+          {isEmpty ? (
+            <div className="build-hero">
+              <h1 className="build-hero-title">What do you want to build?</h1>
+              <p className="build-hero-subtitle">
+                Crucible will train, fine-tune, evaluate, and ship it for you.
+              </p>
 
-          <div className="build-examples">
-            {EXAMPLE_PROMPTS.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                className="build-example-chip"
-                onClick={() => sendMessage(prompt)}
+              <BuildComposer
+                draft={draft}
                 disabled={isLoading}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="build-conversation">
-          <div className="build-thread" ref={threadRef}>
-            {messages.map((msg, i) => (
-              <article key={i} className={`build-message ${msg.role}`}>
-                <header>{msg.role === "user" ? "You" : "Crucible"}</header>
-                {msg.role === "user" ? (
-                  <p>{msg.content}</p>
-                ) : (
-                  <div className="agent-markdown">
-                    <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
-                  </div>
-                )}
-                {msg.toolsUsed && msg.toolsUsed.length > 0 && (
-                  <div className="agent-tool-badge">Used: {msg.toolsUsed.join(", ")}</div>
-                )}
-                {msg.scriptUpdated && (
-                  <div className="agent-tool-badge">Updated training script</div>
-                )}
-                {msg.navigatedTo && (
-                  <div className="agent-tool-badge">Navigated to {msg.navigatedTo}</div>
-                )}
-              </article>
-            ))}
-            {isLoading && (
-              <div className="agent-loading">
-                <Loader2 size={14} className="spin" /> Thinking...
+                isHero
+                placeholder="Describe what you want to build..."
+                textareaRef={heroTextareaRef}
+                onDraftChange={setDraft}
+                onKeyDown={handleKeyDown}
+                onSubmit={handleSubmit}
+              />
+
+              <div className="build-examples">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="build-example-chip"
+                    onClick={() => sendMessage(prompt)}
+                    disabled={isLoading}
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-
-          {error && <div className="agent-error">{error}</div>}
-
-          {pendingChain && (
-            <div className="agent-chain-banner build-chain-banner">
-              {!pendingChain.jobComplete ? (
-                <>
-                  <div className="agent-chain-header">
-                    <Loader2 size={14} className="spin" />
-                    <span>Waiting for job to complete...</span>
-                  </div>
-                  <div className="agent-chain-steps">
-                    {pendingChain.steps.map((step, i) => (
-                      <div key={i} className="agent-chain-step">
-                        <span className="agent-chain-step-num">{i + 1}</span>
-                        {step}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="agent-chain-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={cancelChain}>
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              ) : pendingChain.jobState === "completed" ? (
-                <>
-                  <div className="agent-chain-header agent-chain-ready">
-                    <CheckCircle2 size={14} />
-                    <span>Job completed — ready to continue</span>
-                  </div>
-                  <div className="agent-chain-steps">
-                    <div className="agent-chain-step">
-                      <span className="agent-chain-step-num">→</span>
-                      {pendingChain.steps[0]}
-                    </div>
-                    {pendingChain.steps.length > 1 && (
-                      <div className="agent-chain-step text-tertiary">
-                        + {pendingChain.steps.length - 1} more step
-                        {pendingChain.steps.length > 2 ? "s" : ""}
-                      </div>
-                    )}
-                  </div>
-                  <div className="agent-chain-actions">
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={continueChain}
-                      disabled={isLoading}
-                    >
-                      Continue
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={cancelChain}>
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              ) : null}
+            </div>
+          ) : (
+            <div className="build-session">
+              <BuildConversationPane
+                currentTrace={currentTrace}
+                draft={draft}
+                error={error}
+                isLoading={isLoading}
+                messages={messages}
+                pendingChain={pendingChain}
+                replyTextareaRef={replyTextareaRef}
+                onCancelChain={() => void cancelChain()}
+                onContinueChain={() => void continueChain()}
+                onDraftChange={setDraft}
+                onKeyDown={handleKeyDown}
+                onSubmit={handleSubmit}
+              />
             </div>
           )}
-
-          <form className="build-composer" onSubmit={handleSubmit}>
-            <textarea
-              ref={replyTextareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.currentTarget.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Reply to Crucible..."
-              rows={1}
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              className="build-send-btn"
-              disabled={isLoading || !draft.trim()}
-              title="Send"
-              aria-label="Send"
-            >
-              <Send size={16} />
-            </button>
-          </form>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 }

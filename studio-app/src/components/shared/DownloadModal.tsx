@@ -87,6 +87,18 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
     }
   }, [dataRoot]);
 
+  useEffect(() => {
+    if (dlStatus !== "downloading" || !cmd.output) return;
+    const progressLine = cmd.output
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .reverse()
+      .find((line) => line.startsWith("DOWNLOAD_REMOTE:") || line.startsWith("CRUCIBLE_ENV_SETUP:"));
+    if (!progressLine) return;
+    setStatusMsg(progressLine.replace(/^DOWNLOAD_REMOTE:\s*/, "").replace(/^CRUCIBLE_ENV_SETUP:\s*/, ""));
+  }, [cmd.output, dlStatus]);
+
   // Close on Escape
   useEffect(() => {
     function handler(e: KeyboardEvent) {

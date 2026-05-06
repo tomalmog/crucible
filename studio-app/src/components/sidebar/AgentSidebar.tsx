@@ -2,14 +2,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Plus, Send, X } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useAgentChat } from "../../hooks/useAgentChat";
+import { useAgentChatState } from "../../context/AgentChatContext";
+import { AgentChatHistory } from "../shared/AgentChatHistory";
+import { AgentEventTimeline } from "../shared/AgentEventTimeline";
+import { AgentJobPreviewCard } from "../shared/AgentJobPreviewCard";
 
 interface AgentSidebarProps {
   onClose: () => void;
 }
 
 export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
-  const { messages, isLoading, error, sendMessage, clearConversation, pendingChain, continueChain, cancelChain } = useAgentChat();
+  const {
+    messages,
+    currentTrace,
+    isLoading,
+    error,
+    sendMessage,
+    createChat,
+    pendingChain,
+    continueChain,
+    cancelChain,
+  } = useAgentChatState();
   const [draft, setDraft] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
   const historyIndexRef = useRef(-1);
@@ -71,11 +84,12 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
       <div className="agent-sidebar-inner">
         <div className="agent-sidebar-header">
           <h3>AI Agent</h3>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div className="agent-sidebar-actions">
             <button
               className="btn btn-ghost btn-sm btn-icon"
-              onClick={() => clearConversation()}
-              title="New conversation"
+              onClick={() => void createChat()}
+              title="New chat"
+              disabled={isLoading}
             >
               <Plus size={14} />
             </button>
@@ -88,6 +102,8 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
             </button>
           </div>
         </div>
+
+        <AgentChatHistory />
 
         <div className="agent-chat-thread" ref={threadRef}>
           {messages.length === 0 && !isLoading && (
@@ -102,6 +118,7 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
                 ? <p>{msg.content}</p>
                 : <div className="agent-markdown"><Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown></div>
               }
+              {msg.artifact && <AgentJobPreviewCard artifact={msg.artifact} />}
               {msg.toolsUsed && msg.toolsUsed.length > 0 && (
                 <div className="agent-tool-badge">
                   Used: {msg.toolsUsed.join(", ")}
@@ -115,12 +132,20 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
                   Navigated to {msg.navigatedTo}
                 </div>
               )}
+              {msg.trace && msg.trace.length > 0 && (
+                <AgentEventTimeline events={msg.trace} />
+              )}
             </article>
           ))}
           {isLoading && (
-            <div className="agent-loading">
-              <Loader2 size={14} className="spin" /> Thinking...
-            </div>
+            <>
+              <div className="agent-loading">
+                <Loader2 size={14} className="spin" /> Thinking...
+              </div>
+              <div className="agent-live-trace">
+                <AgentEventTimeline events={currentTrace} />
+              </div>
+            </>
           )}
         </div>
 
@@ -154,7 +179,7 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
               <>
                 <div className="agent-chain-header agent-chain-ready">
                   <CheckCircle2 size={14} />
-                  <span>Job completed — ready to continue</span>
+                  <span>Job completed — continuing automatically</span>
                 </div>
                 <div className="agent-chain-steps">
                   <div className="agent-chain-step">
@@ -168,7 +193,7 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
                   )}
                 </div>
                 <div className="agent-chain-actions">
-                  <button className="btn btn-primary btn-sm" onClick={continueChain} disabled={isLoading}>Continue</button>
+                  <button className="btn btn-primary btn-sm" onClick={continueChain} disabled={isLoading}>Continue now</button>
                   <button className="btn btn-ghost btn-sm" onClick={cancelChain}>Cancel</button>
                 </div>
               </>

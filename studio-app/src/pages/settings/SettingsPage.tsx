@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Check, Eye, EyeOff } from "lucide-react";
 
-const AGENT_API_KEY = "crucible_anthropic_api_key";
+const ANTHROPIC_API_KEY = "crucible_anthropic_api_key";
+const OPENAI_API_KEY = "crucible_openai_api_key";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
@@ -14,8 +15,11 @@ export function SettingsPage() {
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [paletteId, setPaletteId] = useState(getPaletteId());
   const [agentProvider, setAgentProvider] = useState(() => localStorage.getItem("crucible_agent_provider") ?? "anthropic");
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(AGENT_API_KEY) ?? "");
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [anthropicApiKey, setAnthropicApiKey] = useState(() => localStorage.getItem(ANTHROPIC_API_KEY) ?? "");
+  const [anthropicApiKeyVisible, setAnthropicApiKeyVisible] = useState(false);
+  const [openaiModel, setOpenaiModel] = useState(() => localStorage.getItem("crucible_agent_openai_model") ?? "gpt-4.1-mini");
+  const [openaiApiKey, setOpenaiApiKey] = useState(() => localStorage.getItem(OPENAI_API_KEY) ?? "");
+  const [openaiApiKeyVisible, setOpenaiApiKeyVisible] = useState(false);
   const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem("crucible_agent_ollama_model") ?? "llama3.1");
   const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem("crucible_agent_ollama_url") ?? "http://localhost:11434");
   const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem("crucible_agent_gemini_model") ?? "gemini-2.5-flash");
@@ -91,6 +95,7 @@ export function SettingsPage() {
               }}
             >
               <option value="anthropic">Anthropic (Claude API)</option>
+              <option value="openai">OpenAI (GPT API)</option>
               <option value="ollama">Ollama (Local)</option>
               <option value="gemini">Google Gemini (Vertex AI)</option>
             </select>
@@ -99,26 +104,64 @@ export function SettingsPage() {
             <FormField label="Anthropic API Key">
               <div style={{ display: "flex", gap: 8 }}>
                 <input
-                  type={apiKeyVisible ? "text" : "password"}
-                  value={apiKey}
+                  type={anthropicApiKeyVisible ? "text" : "password"}
+                  value={anthropicApiKey}
                   onChange={(e) => {
                     const val = e.currentTarget.value;
-                    setApiKey(val);
-                    localStorage.setItem(AGENT_API_KEY, val);
+                    setAnthropicApiKey(val);
+                    localStorage.setItem(ANTHROPIC_API_KEY, val);
                   }}
                   placeholder="sk-ant-..."
                   style={{ flex: 1 }}
                 />
                 <button
                   className="btn btn-ghost btn-sm btn-icon"
-                  onClick={() => setApiKeyVisible(!apiKeyVisible)}
-                  title={apiKeyVisible ? "Hide" : "Show"}
+                  onClick={() => setAnthropicApiKeyVisible(!anthropicApiKeyVisible)}
+                  title={anthropicApiKeyVisible ? "Hide" : "Show"}
                 >
-                  {apiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {anthropicApiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
               <p className="ff-hint">Also checks ANTHROPIC_API_KEY env var.</p>
             </FormField>
+          )}
+          {agentProvider === "openai" && (
+            <>
+              <FormField label="OpenAI API Key">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type={openaiApiKeyVisible ? "text" : "password"}
+                    value={openaiApiKey}
+                    onChange={(e) => {
+                      const val = e.currentTarget.value;
+                      setOpenaiApiKey(val);
+                      localStorage.setItem(OPENAI_API_KEY, val);
+                    }}
+                    placeholder="sk-proj-..."
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => setOpenaiApiKeyVisible(!openaiApiKeyVisible)}
+                    title={openaiApiKeyVisible ? "Hide" : "Show"}
+                  >
+                    {openaiApiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="ff-hint">Also checks OPENAI_API_KEY env var.</p>
+              </FormField>
+              <FormField label="Model">
+                <input
+                  value={openaiModel}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setOpenaiModel(val);
+                    localStorage.setItem("crucible_agent_openai_model", val);
+                  }}
+                  placeholder="gpt-4.1-mini"
+                />
+              </FormField>
+            </>
           )}
           {agentProvider === "ollama" && (
             <>
