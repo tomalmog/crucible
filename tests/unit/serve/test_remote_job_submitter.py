@@ -142,6 +142,21 @@ def test_submit_remote_job_calls_ensure_env(
     assert _patch_all["ensure_remote_env"].call_count == 1
 
 
+def test_submit_remote_job_skips_managed_env_for_explicit_python(
+    _patch_all: dict[str, MagicMock],
+) -> None:
+    """Explicit remote runtimes should bypass managed env provisioning."""
+    _patch_all["load_cluster"].return_value = ClusterConfig(
+        name=_CLUSTER_NAME,
+        host="test.example.com",
+        user="testuser",
+        remote_workspace=_WORKSPACE,
+        python_path="/shared/envs/demo/bin/python",
+    )
+    _call_submit()
+    assert _patch_all["ensure_remote_env"].call_count == 0
+
+
 def test_submit_remote_job_uploads_bundle(
     _patch_all: dict[str, MagicMock],
 ) -> None:

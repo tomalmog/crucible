@@ -27,6 +27,7 @@ from serve.remote_data_upload import (
     _upload_script,
 )
 from serve.remote_env_setup import ensure_remote_env
+from serve.remote_runtime import resolve_cluster_runtime, uses_managed_conda_env
 from serve.slurm_script_gen import generate_sweep_script
 from serve.ssh_connection import SshSession
 from store.cluster_registry import load_cluster
@@ -80,11 +81,7 @@ def _resolve_cluster_workspace(
     cluster: ClusterConfig, session: SshSession,
 ) -> ClusterConfig:
     """Return a copy of *cluster* with remote_workspace as an absolute path."""
-    from dataclasses import replace as dc_replace
-    resolved = session.resolve_path(cluster.remote_workspace)
-    if resolved != cluster.remote_workspace:
-        return dc_replace(cluster, remote_workspace=resolved)
-    return cluster
+    return resolve_cluster_runtime(cluster, session)
 
 
 def _update_phase(
@@ -163,7 +160,8 @@ def submit_remote_job(
             )
             session.mkdir_p(workdir)
             _update_phase(data_root, job_id, "Provisioning environment...")
-            ensure_remote_env(session)
+            if uses_managed_conda_env(cluster):
+                ensure_remote_env(session)
             _update_phase(data_root, job_id, "Uploading training bundle...")
             _upload_bundle(session, tarball, workdir)
             # Verify dataset exists on cluster and resolve data file
@@ -218,7 +216,7 @@ def submit_remote_job(
         raise
 
     return update_remote_job_state(
-        data_root, job_id, "running",
+        data_root, job_id, "pending",
         slurm_job_id=slurm_job_id,
         remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
         submit_phase="",
@@ -283,9 +281,11 @@ def submit_remote_eval_job(
             )
             session.mkdir_p(workdir)
             _update_phase(data_root, job_id, "Provisioning environment...")
-            ensure_remote_env(session)
-            from serve.remote_env_setup import ensure_eval_packages
-            ensure_eval_packages(session)
+            if uses_managed_conda_env(cluster):
+                ensure_remote_env(session)
+                from serve.remote_env_setup import ensure_eval_packages
+
+                ensure_eval_packages(session)
             _update_phase(data_root, job_id, "Uploading eval bundle...")
             _upload_bundle(session, tarball, workdir)
             _upload_config(session, config_payload, workdir)
@@ -303,7 +303,7 @@ def submit_remote_eval_job(
         raise
 
     return update_remote_job_state(
-        data_root, job_id, "running",
+        data_root, job_id, "pending",
         slurm_job_id=slurm_job_id,
         remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
         submit_phase="",
@@ -370,7 +370,8 @@ def submit_remote_interp_job(
             )
             session.mkdir_p(workdir)
             _update_phase(data_root, job_id, "Provisioning environment...")
-            ensure_remote_env(session)
+            if uses_managed_conda_env(cluster):
+                ensure_remote_env(session)
             _update_phase(data_root, job_id, "Uploading interp bundle...")
             _upload_bundle(session, tarball, workdir)
             # Sync tokenizer/config files next to the remote model
@@ -429,7 +430,7 @@ def submit_remote_interp_job(
         raise
 
     return update_remote_job_state(
-        data_root, job_id, "running",
+        data_root, job_id, "pending",
         slurm_job_id=slurm_job_id,
         remote_log_path=f"{workdir}/slurm-{slurm_job_id}.out",
         submit_phase="",
@@ -494,7 +495,8 @@ def submit_remote_sweep(
             session.mkdir_p(workdir)
             session.mkdir_p(f"{workdir}/trials")
             _update_phase(data_root, job_id, "Provisioning environment...")
-            ensure_remote_env(session)
+            if uses_managed_conda_env(cluster):
+                ensure_remote_env(session)
             _update_phase(data_root, job_id, "Uploading training bundle...")
             _upload_bundle(session, tarball, workdir)
             # Verify dataset exists on cluster if specified
@@ -555,7 +557,7 @@ def submit_remote_sweep(
         raise
 
     return update_remote_job_state(
-        data_root, job_id, "running",
+        data_root, job_id, "pending",
         slurm_job_id=slurm_job_id,
         submit_phase="",
     )

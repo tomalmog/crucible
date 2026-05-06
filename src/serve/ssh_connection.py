@@ -7,6 +7,7 @@ file transfer, and streaming log reads.
 from __future__ import annotations
 
 import os
+import posixpath
 import shlex
 import time
 from collections.abc import Generator
@@ -124,6 +125,11 @@ class SshSession:
             raise CrucibleRemoteError("SSH session is not connected.")
         return self._client
 
+    @property
+    def cluster(self) -> ClusterConfig:
+        """Return the cluster config backing this session."""
+        return self._cluster
+
     def execute(self, command: str, timeout: int = 60) -> tuple[str, str, int]:
         """Execute a command on the remote host.
 
@@ -203,23 +209,43 @@ class SshSession:
             ) from error
 
     def upload_text(self, content: str, remote_path: str) -> None:
-        """Write text content to a remote file via a temp file and SFTP."""
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tmp", delete=False,
-        ) as f:
-            f.write(content)
-            tmp_path = Path(f.name)
+        """Write text content to a remote file over the SSH command channel."""
+        resolved = self.resolve_path(remote_path)
+        parent = posixpath.dirname(resolved)
+        command = (
+            f"mkdir -p {shlex.quote(parent)} && "
+            f"cat > {shlex.quote(resolved)}"
+        )
         try:
-            self.upload(tmp_path, remote_path)
-        finally:
-            tmp_path.unlink(missing_ok=True)
+            stdin_ch, stdout_ch, stderr_ch = self.client.exec_command(
+                command, timeout=60,
+            )
+            stdin_ch.write(content)
+            stdin_ch.flush()
+            stdin_ch.channel.shutdown_write()
+            stdout = stdout_ch.read().decode("utf-8", errors="replace")
+            stderr = stderr_ch.read().decode("utf-8", errors="replace")
+            exit_code = stdout_ch.channel.recv_exit_status()
+        except Exception as error:
+            desc = str(error) or f"{type(error).__name__} (no message)"
+            raise CrucibleRemoteError(
+                f"Text upload failed ({posixpath.basename(resolved)}): {desc}"
+            ) from error
+        if exit_code != 0:
+            detail = stderr.strip() or stdout.strip() or f"exit code {exit_code}"
+            raise CrucibleRemoteError(
+                f"Text upload failed ({posixpath.basename(resolved)}): {detail}"
+            )
 
     def mkdir_p(self, remote_path: str) -> None:
         """Create a directory (and parents) on the remote host."""
         resolved = self.resolve_path(remote_path)
-        self.execute(f"mkdir -p {shlex.quote(resolved)}")
+        stdout, stderr, exit_code = self.execute(f"mkdir -p {shlex.quote(resolved)}")
+        if exit_code != 0:
+            detail = stderr.strip() or stdout.strip() or f"exit code {exit_code}"
+            raise CrucibleRemoteError(
+                f"Failed to create remote directory {resolved}: {detail}"
+            )
 
     def stream_command(
         self,

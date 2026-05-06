@@ -119,9 +119,19 @@ def test_download_creates_parent_dirs() -> None:
 def test_mkdir_p_executes_command() -> None:
     """mkdir_p() delegates to execute with 'mkdir -p' command."""
     session = SshSession(_make_cluster())
-    with patch.object(session, "execute") as mock_execute:
+    with patch.object(session, "execute", return_value=("", "", 0)) as mock_execute:
         session.mkdir_p("/remote/new/dir")
         mock_execute.assert_called_once_with("mkdir -p /remote/new/dir")
+
+
+def test_mkdir_p_raises_on_failure() -> None:
+    """mkdir_p() surfaces remote directory creation failures."""
+    session = SshSession(_make_cluster())
+    with patch.object(
+        session, "execute", return_value=("", "Disk quota exceeded", 1),
+    ):
+        with pytest.raises(CrucibleRemoteError, match="Disk quota exceeded"):
+            session.mkdir_p("/remote/new/dir")
 
 
 def test_tail_last_returns_stdout() -> None:
