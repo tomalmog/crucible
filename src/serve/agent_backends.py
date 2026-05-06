@@ -6,9 +6,9 @@ so the agentic loop in studio_agent.py stays backend-agnostic.
 from __future__ import annotations
 
 import json
-import uuid
 from typing import Any
-from urllib.request import urlopen, Request
+
+from serve.openai_chat_completion import _call_openai_compatible_chat
 
 
 class LlmResponse:
@@ -108,6 +108,23 @@ def _anthropic_msgs_to_openai(
     return out
 
 
+def call_openai(
+    api_key: str,
+    model: str,
+    system: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+) -> LlmResponse:
+    """Call the OpenAI Chat Completions API."""
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = "https://api.openai.com/v1/chat/completions"
+    blocks, stop_reason = _call_openai_compatible_chat(
+        url, model, _anthropic_msgs_to_openai(system, messages),
+        _anthropic_tools_to_openai(tools), headers=headers,
+    )
+    return LlmResponse(blocks, stop_reason)
+
+
 def call_ollama(
     base_url: str,
     model: str,
@@ -117,45 +134,11 @@ def call_ollama(
 ) -> LlmResponse:
     """Call an Ollama-compatible OpenAI chat endpoint."""
     url = f"{base_url.rstrip('/')}/v1/chat/completions"
-    openai_messages = _anthropic_msgs_to_openai(system, messages)
-    openai_tools = _anthropic_tools_to_openai(tools)
-
-    body: dict[str, Any] = {
-        "model": model,
-        "messages": openai_messages,
-        "max_tokens": 4096,
-    }
-    if openai_tools:
-        body["tools"] = openai_tools
-
-    data = json.dumps(body).encode()
-    req = Request(url, data=data, headers={"Content-Type": "application/json"})
-    with urlopen(req, timeout=300) as resp:
-        result = json.loads(resp.read())
-
-    choice = result["choices"][0]
-    message = choice["message"]
-    blocks: list[dict[str, Any]] = []
-
-    if message.get("content"):
-        blocks.append({"type": "text", "text": message["content"]})
-
-    tool_calls = message.get("tool_calls") or []
-    for tc in tool_calls:
-        fn = tc.get("function", {})
-        args = fn.get("arguments", "{}")
-        blocks.append({
-            "type": "tool_use",
-            "id": tc.get("id") or str(uuid.uuid4()),
-            "name": fn.get("name", ""),
-            "input": json.loads(args) if isinstance(args, str) else args,
-        })
-
-    stop = "tool_use" if tool_calls else "end_turn"
-    return LlmResponse(blocks, stop)
-
-
-# ── Gemini (Vertex AI) backend ─────────────────────────────────────
+    blocks, stop_reason = _call_openai_compatible_chat(
+        url, model, _anthropic_msgs_to_openai(system, messages),
+        _anthropic_tools_to_openai(tools),
+    )
+    return LlmResponse(blocks, stop_reason)
 
 
 def _anthropic_tools_to_gemini(tools: list[dict[str, Any]]) -> list[Any]:

@@ -1,4 +1,4 @@
-"""Studio AI Agent — Claude API with Crucible MCP tools.
+"""Studio AI agent with Crucible MCP tools.
 
 Agentic loop: call Claude, execute tools, repeat. Conversation persisted to disk.
 """
@@ -8,6 +8,7 @@ import inspect
 import json
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -27,8 +28,9 @@ _TOOL_NAMES = [
     "submit_remote_interp", "submit_remote_sweep",
     "list_jobs", "job_status", "job_logs", "job_result", "cancel_job", "delete_job",
     "run_benchmark", "submit_remote_eval", "chat", "run_interp",
-    "export_model", "merge_models", "list_clusters", "cluster_info",
-    "hub_search_models", "hub_download_model", "run_sweep",
+    "export_model", "merge_models", "register_cluster", "validate_cluster",
+    "remove_cluster", "list_clusters", "cluster_info", "hub_search_models",
+    "hub_download_model", "hub_search_datasets", "hub_download_dataset", "run_sweep",
     "lora_merge", "curate_dataset", "generate_synthetic_data",
     "hardware_profile",
 ]
@@ -145,6 +147,9 @@ Rules:
   (e.g. "train a model", "run an eval").
 - When using tools, check state first (list_models, list_datasets, list_jobs)
   before making changes.
+- For multi-step requests, briefly state the plan, then execute it.
+- Prefer action over back-and-forth. Use defaults and keep going unless a
+  missing input would make the workflow unsafe or impossible.
 - Explain what you're doing and why.
 - When writing files, use the agent workspace directory by default.
 - Return results in a clear, readable format.
@@ -173,6 +178,115 @@ tools require model **paths**. The names alone are NOT valid for fields like
   passing it to any training, eval, or interp tool.
 - HuggingFace model IDs (e.g. "gpt2", "meta-llama/Llama-2-7b") can be used
   directly — they don't need resolution.
+
+## Autonomous Workflow Rules
+
+When the user gives you an end goal, try to complete the workflow instead of
+stopping after one tool call.
+
+- If they provide remote cluster credentials, register the cluster, validate
+  it, then continue with dataset push / job submission.
+- If they ask for a model "on HuggingFace", use `hub_search_models` to find a
+  good candidate before training. Use `hub_download_model` only when a local
+  download is actually useful; remote training can use HuggingFace model IDs
+  directly.
+- If they ask for data and do not name a local dataset, search HuggingFace
+  datasets with `hub_search_datasets`, then download one with
+  `hub_download_dataset` or explain why no suitable dataset was found.
+- For remote training requests, prefer the remote workflow once a cluster is
+  available: verify dataset presence, push the dataset if needed, submit the
+  job, navigate to `/jobs`, and create a pending chain for follow-up eval or
+  interpretability work when appropriate.
+- When submitting remote GPU work, prefer a concrete `gpu_type` from
+  `list_clusters()` when the cluster advertises available GPU types instead of
+  leaving the request generic.
+- If the user asks for a better model in a domain like medical conversations,
+  choose a plausible base model, dataset, and training method instead of
+  asking the user to assemble the pipeline manually.
+
+## Mechanistic Interpretability Workflows
+
+Use only the available interpretability entry points:
+`run_interp`, `submit_remote_interp`, and the methods supported by those tools:
+`logit-lens`, `activation-pca`, `activation-patch`, `linear-probe`,
+`sae-train`, `sae-analyze`, `steer-compute`, and `steer-apply`.
+Do not claim access to attribution, circuit discovery, causal tracing, neuron
+labeling, dashboards, visualizers, or automated report generators unless a tool
+result explicitly provides them.
+
+Before running tools:
+- Resolve registered model names with `list_models()` unless the user gave a
+  HuggingFace model ID or explicit filesystem path.
+- For remote interp, use a remote-accessible model path from `list_models()`.
+  Do not pass a bare Studio model name or assume a local-only path exists on the
+  cluster.
+- Check `list_datasets()` before local dataset-based tools. For remote
+  dataset-based tools, choose a cluster with `list_clusters()`, then verify the
+  dataset with `list_remote_datasets()` or push it with `push_dataset()`.
+
+Intent-to-tool map with prerequisites:
+- "what is it predicting" / "why this token": `logit-lens`; requires
+  `input_text`, optional `top_k` and `layer_indices`.
+- "are examples clustered" / "dataset geometry": `activation-pca`; requires
+  `dataset_name`, optional `color_field`, `granularity`, `layer_index`.
+- "where is this label represented": `linear-probe`; requires `dataset_name`
+  and `label_field` with at least two label values.
+- "what layer causes this behavior": `activation-patch`; requires
+  `clean_text`, `corrupted_text`, `target_token_index`, and `metric`.
+- "find sparse features": `sae-train`; requires `dataset_name`; returns
+  `sae_path` for `sae-analyze`.
+- "inspect sparse features on this prompt": `sae-analyze`; requires the exact
+  `sae_path` from a prior `sae-train` result and `input_text`; optional
+  `dataset_name` adds returned feature associations.
+- "change/suppress/increase behavior": `steer-compute`; requires
+  `positive_text`/`negative_text` or `positive_dataset`/`negative_dataset`;
+  returns `steering_vector_path` for `steer-apply`.
+- "apply a steering vector": `steer-apply`; requires the exact
+  `steering_vector_path` from `steer-compute`, `input_text`, coefficient, and
+  max token count.
+
+Chaining rules:
+- For local dependent steps, call one tool, parse its JSON result, then call the
+  follow-up with the exact returned path. Never invent `sae_path` or
+  `steering_vector_path` from an output directory.
+- For remote dependent steps, submit only the first remote job. Put the
+  dependent steps in `<pending_chain>` and say they must call `job_result()` for
+  the completed job, extract the returned artifact path, then run the follow-up.
+- Good remote pending-chain steps are explicit, e.g. "Call `job_result()` for
+  the completed SAE training job, extract `sae_path`, then run `sae-analyze`
+  on model path X with prompt Y" or "extract `steering_vector_path`, then run
+  `steer-apply` with prompt Y and coefficient Z."
+- On a chain continuation message, first call `job_result(<job_id>)` when the
+  next step needs `sae_path`, `steering_vector_path`, or any remote result
+  field. If the result is failed or the artifact key is missing, stop and report
+  the gap instead of guessing.
+
+Concrete recipes:
+- Prompt triage: `logit-lens` on 2-3 prompts; compare returned
+  `layers[].predictions`.
+- Representation separation: `activation-pca`; if a label field exists, follow
+  with `linear-probe`.
+- Minimal causal contrast: `activation-patch`; rank layers by returned
+  recovery, but describe them as candidates for that contrast only.
+- Feature discovery: `sae-train` -> parse `sae_path` -> `sae-analyze` on a
+  specific prompt.
+- Steering intervention: `steer-compute` -> parse `steering_vector_path` ->
+  `steer-apply` and compare `original_text` with `steered_text`.
+
+Report guardrails:
+- Logit lens shows layer-wise vocabulary projections, not a causal explanation.
+- PCA shows a projection of activation geometry, not proof of discrete clusters.
+- Probe accuracy is decodability evidence, not proof the model uses the feature.
+- Patching recovery identifies candidate causal layers for one contrast, not a
+  full circuit.
+- SAE feature concepts are only as strong as returned activations and
+  associated texts; do not invent labels when the result does not include them.
+- Steering output is an intervention result, not evidence of safe or reliable
+  control beyond the tested prompt and coefficient.
+
+Navigate to `/interpretability` when setting up an interp run. Navigate to
+`/jobs` after submitting local or remote interp work so the user can inspect
+the artifact.
 
 ## Training Script Interaction
 When the user has the Code tab open in the training wizard, you can see and
@@ -213,6 +327,7 @@ You can navigate the user to any Studio page by including a <navigate_to> tag in
 response. The user will see the page change and a badge in the chat confirming it.
 
 Valid routes:
+/build (Build),
 /dashboard (Dashboard), /training (Training), /benchmarks (Eval),
 /interpretability (Interpretability), /datasets (Datasets), /models (Models),
 /eval-tasks (Benchmarks), /chat (Chat),
@@ -226,9 +341,21 @@ Usage: include <navigate_to>/route</navigate_to> anywhere in your response.
 - Always include useful text alongside the navigation — don't just navigate silently.
 - Only use exact routes from the list above. Never invent routes.
 - Only include one <navigate_to> tag per response.
+
+## Build Workspace Directives
+On the main /build page, you can shape the workspace with control tags.
+- Use `<workspace_mode>auto</workspace_mode>`, `focus`, `compare`, or `board`
+  to suggest the layout.
+- Use `<workspace_cards>` with one card ID per line to choose which cards to
+  highlight or show first.
+- Preferred card IDs: `latest`, `latest_training`, `latest_eval`,
+  `previous_eval`, `latest_interp`, `live_trace`, `pending_chain`, `context`.
+- Short aliases also work: `artifact` = latest, `trace` = live_trace.
+- These tags are stripped from the visible chat text.
 """
 
 _VALID_ROUTES: dict[str, str] = {
+    "/build": "Build",
     "/dashboard": "Dashboard",
     "/training": "Training",
     "/benchmarks": "Eval",
@@ -245,6 +372,57 @@ _VALID_ROUTES: dict[str, str] = {
     "/docs": "Docs",
     "/settings": "Settings",
 }
+
+_CONTROL_TAGS = (
+    "script_update",
+    "navigate_to",
+    "pending_chain",
+    "workspace_mode",
+    "workspace_cards",
+)
+
+
+def _control_tag_pattern(tag: str) -> re.Pattern[str]:
+    return re.compile(rf"<{tag}>(.*?)</{tag}>", re.DOTALL)
+
+
+def _normalize_assistant_text(text: str) -> str:
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _pop_control_tag(text: str, tag: str) -> tuple[str | None, str]:
+    pattern = _control_tag_pattern(tag)
+    match = pattern.search(text)
+    value = match.group(1).strip() if match else None
+    return value, _normalize_assistant_text(pattern.sub("", text))
+
+
+def _strip_control_tags(text: str) -> str:
+    cleaned = text
+    for tag in _CONTROL_TAGS:
+        cleaned = _control_tag_pattern(tag).sub("", cleaned)
+    return _normalize_assistant_text(cleaned)
+
+
+def _parse_workspace_mode(raw_mode: str | None) -> str | None:
+    if raw_mode is None:
+        return None
+    mode = " ".join(raw_mode.split())
+    return mode or None
+
+
+def _parse_workspace_cards(raw_cards: str | None) -> list[str] | None:
+    if raw_cards is None:
+        return None
+    cards: list[str] = []
+    for piece in re.split(r"[\n,]", raw_cards):
+        card = re.sub(r"^[*-]\s*", "", piece.strip())
+        if not card or card in cards:
+            continue
+        cards.append(card)
+    return cards or None
 
 
 def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
@@ -267,7 +445,10 @@ def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
     if app_context.get("modelPaths"):
         paths = app_context["modelPaths"]
         path_lines = [f"  {name}: {path}" for name, path in paths.items()]
-        context_lines.append("- Model paths (use these in tool calls, not names):\n" + "\n".join(path_lines))
+        context_lines.append(
+            "- Model paths (use these in tool calls, not names):\n"
+            + "\n".join(path_lines),
+        )
     if app_context.get("datasetNames"):
         context_lines.append(f"- Available datasets: {', '.join(app_context['datasetNames'])}")
 
@@ -297,7 +478,7 @@ def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
 
 # ── Conversation persistence ────────────────────────────────────────
 
-def _load_conversation(path: Path) -> list[dict[str, Any]]:
+def _load_conversation_raw(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     try:
@@ -307,12 +488,27 @@ def _load_conversation(path: Path) -> list[dict[str, Any]]:
         return []
 
 
+def _load_conversation(path: Path) -> list[dict[str, Any]]:
+    return [_model_message(m) for m in _load_conversation_raw(path)]
+
+
+def _model_message(message: dict[str, Any]) -> dict[str, Any]:
+    """Return only provider-supported message fields."""
+    return {
+        "role": message.get("role", ""),
+        "content": message.get("content", ""),
+    }
+
+
 def _save_conversation(path: Path, messages: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"messages": messages}, indent=2, default=str))
 
 
-def _trim_conversation(messages: list[dict[str, Any]], max_chars: int = 400_000) -> list[dict[str, Any]]:
+def _trim_conversation(
+    messages: list[dict[str, Any]],
+    max_chars: int = 400_000,
+) -> list[dict[str, Any]]:
     """Trim oldest turns if conversation is too long (~100k tokens)."""
     total = len(json.dumps(messages))
     if total <= max_chars:
@@ -326,9 +522,331 @@ def _trim_conversation(messages: list[dict[str, Any]], max_chars: int = 400_000)
 
 _MAX_TOOL_LOOPS = 15
 _DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+_DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 _DEFAULT_OLLAMA_MODEL = "llama3.1"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+
+_MEDICAL_DEMO_EXPLICIT_TERMS = (
+    "medical assistant",
+    "medical safety triage",
+    "medical safety triage training",
+)
+_MEDICAL_DEMO_MODEL_TERMS = (
+    "medical assistant",
+)
+_MEDICAL_DEMO_FAILURE_TERMS = (
+    "failing",
+    "failed",
+    "fails",
+    "underperforming",
+    "not doing well",
+    "poor",
+    "bad",
+)
+_MEDICAL_DEMO_IMPROVEMENT_TERMS = (
+    "improve",
+    "fix",
+    "fine tune",
+    "finetune",
+    "train",
+    "make better",
+)
+_MEDICAL_DEMO_EVAL_TERMS = (
+    "benchmark",
+    "benchmarks",
+    "eval",
+    "evals",
+    "evaluation",
+    "relevant",
+    "safety",
+    "triage",
+)
+_MEDICAL_BENCHMARK = "medical_safety_triage"
+_MEDICAL_DATASET = "medical_safety_triage_training"
+_MEDICAL_TUNED_MODEL_PREFIX = "medical-assistant-safety-tuned"
+
+
+def is_medical_safety_demo_request(user_message: str) -> bool:
+    """Return true when the request matches the medical improvement workflow."""
+    normalized = _normalize_request_text(user_message)
+    if _contains_all_phrases(normalized, _MEDICAL_DEMO_EXPLICIT_TERMS):
+        return True
+    return (
+        _contains_any_phrase(normalized, _MEDICAL_DEMO_MODEL_TERMS)
+        and _contains_any_phrase(normalized, _MEDICAL_DEMO_FAILURE_TERMS)
+        and _contains_any_phrase(normalized, _MEDICAL_DEMO_IMPROVEMENT_TERMS)
+        and _contains_any_phrase(normalized, _MEDICAL_DEMO_EVAL_TERMS)
+    )
+
+
+def _normalize_request_text(value: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
+
+
+def _contains_all_phrases(value: str, phrases: tuple[str, ...]) -> bool:
+    return all(phrase in value for phrase in phrases)
+
+
+def _contains_any_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+    return any(phrase in value for phrase in phrases)
+
+
+def _maybe_run_medical_safety_demo(
+    conversation_path: Path,
+    user_message: str,
+    data_root: str,
+    event_sink: Any | None,
+) -> dict[str, Any] | None:
+    """Run the live medical safety workflow when the user asks for it."""
+    if not is_medical_safety_demo_request(user_message):
+        return None
+
+    live_result = _run_live_medical_safety_workflow(Path(data_root), event_sink)
+    if "error" in live_result:
+        return live_result
+
+    before = live_result["baseline_artifact"]
+    after = live_result["tuned_artifact"]
+
+    baseline_message = {
+        "role": "assistant",
+        "content": _content_blocks(
+            "I selected `medical_safety_triage` as the relevant benchmark "
+            "and ran it against `medical-assistant` before training.",
+        ),
+        "artifact": before,
+    }
+    tuned_message = {
+        "role": "assistant",
+        "content": _content_blocks(
+            "Fine-tuning completed on `medical_safety_triage_training`, "
+            "then I ran the same benchmark again for a direct before/after comparison.",
+        ),
+        "artifact": after,
+        "workspaceDirective": _medical_compare_directive(),
+    }
+    messages = _load_conversation_raw(conversation_path)
+    messages.extend([
+        {"role": "user", "content": user_message},
+        baseline_message,
+        tuned_message,
+    ])
+    _save_conversation(conversation_path, messages)
+
+    return {
+        "role": "assistant",
+        "content": (
+            "I ran the medical safety loop live and surfaced the before/after "
+            "comparison in the chat."
+        ),
+        "tools_used": ["run_benchmark", "train", "run_benchmark"],
+        "artifact_messages": [
+            _display_message(baseline_message),
+            _display_message(tuned_message),
+        ],
+        "workspace_mode": "compare",
+        "workspace_cards": ["previous_eval", "latest_eval", "context"],
+    }
+
+
+def _run_live_medical_safety_workflow(
+    data_root: Path,
+    event_sink: Any | None,
+) -> dict[str, Any]:
+    """Execute benchmark, training, and follow-up benchmark through real tools."""
+    from serve.agent_events import emit_event
+
+    emit_event(event_sink, "status", text="Resolving medical-assistant from registry")
+    model_path = _resolve_registered_model_path(data_root, "medical-assistant")
+    baseline_result = _execute_live_tool(
+        event_sink,
+        name="run_benchmark",
+        tool_input={
+            "model_path": model_path,
+            "benchmarks": _MEDICAL_BENCHMARK,
+            "max_samples": 0,
+        },
+        input_summary=f"model=medical-assistant benchmark={_MEDICAL_BENCHMARK}",
+    )
+    if "error" in baseline_result:
+        return _live_workflow_error("Baseline evaluation failed", baseline_result)
+
+    suffix = uuid.uuid4().hex[:8]
+    tuned_model_name = f"{_MEDICAL_TUNED_MODEL_PREFIX}-{suffix}"
+    output_dir = f"tmp/medical_safety_triage_live_{suffix}"
+    train_result = _execute_live_tool(
+        event_sink,
+        name="train",
+        tool_input={
+            "method": "sft",
+            "method_args": json.dumps({
+                "dataset_name": _MEDICAL_DATASET,
+                "sft_data_path": "data/medical_safety_triage_training.jsonl",
+                "base_model": model_path,
+                "output_dir": output_dir,
+                "epochs": 3,
+                "batch_size": 16,
+                "learning_rate": 5e-4,
+                "max_token_length": 512,
+                "model_name": tuned_model_name,
+            }),
+        },
+        input_summary=f"dataset={_MEDICAL_DATASET} method=sft",
+    )
+    if "error" in train_result:
+        return _live_workflow_error("Fine-tuning failed", train_result)
+
+    tuned_model_path = str(train_result.get("model_path", ""))
+    if not tuned_model_path:
+        return _live_workflow_error(
+            "Fine-tuning did not return a model path",
+            train_result,
+        )
+    tuned_result = _execute_live_tool(
+        event_sink,
+        name="run_benchmark",
+        tool_input={
+            "model_path": tuned_model_path,
+            "benchmarks": _MEDICAL_BENCHMARK,
+            "max_samples": 0,
+        },
+        input_summary=f"model={tuned_model_name} benchmark={_MEDICAL_BENCHMARK}",
+    )
+    if "error" in tuned_result:
+        return _live_workflow_error("Follow-up evaluation failed", tuned_result)
+
+    return {
+        "baseline_artifact": _eval_artifact_from_result(
+            baseline_result,
+            title="medical-assistant baseline",
+        ),
+        "tuned_artifact": _eval_artifact_from_result(
+            tuned_result,
+            title=f"{tuned_model_name} SFT",
+        ),
+    }
+
+
+def _execute_live_tool(
+    event_sink: Any | None,
+    name: str,
+    tool_input: dict[str, Any],
+    input_summary: str,
+) -> dict[str, Any]:
+    """Execute one MCP tool and emit the same trace events as the agent loop."""
+    from serve.agent_events import emit_event, summarize_tool_output
+
+    emit_event(
+        event_sink,
+        "tool_call",
+        tool_name=name,
+        input_summary=input_summary,
+    )
+    result_text = execute_tool(name, tool_input)
+    emit_event(
+        event_sink,
+        "tool_result",
+        tool_name=name,
+        output_summary=summarize_tool_output(result_text),
+    )
+    return _parse_tool_result(result_text)
+
+
+def _parse_tool_result(result_text: str) -> dict[str, Any]:
+    parsed = _try_parse_json_object(result_text)
+    if parsed is None:
+        return {"error": result_text}
+    return parsed
+
+
+def _try_parse_json_object(value: str) -> dict[str, Any] | None:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _live_workflow_error(message: str, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "role": "assistant",
+        "content": f"{message}: {result.get('error', result)}",
+        "tools_used": ["run_benchmark", "train", "run_benchmark"],
+        "error": f"{message}: {result.get('error', result)}",
+    }
+
+
+def _resolve_registered_model_path(data_root: Path, model_name: str) -> str:
+    from store.model_registry import ModelRegistry
+
+    entry = ModelRegistry(data_root).get_model(model_name)
+    return entry.model_path or model_name
+
+
+def _eval_artifact_from_result(
+    result: dict[str, Any],
+    title: str,
+) -> dict[str, Any]:
+    benchmarks = _eval_benchmarks_from_result(result)
+    return {
+        "kind": "eval",
+        "jobId": str(result.get("job_id", "")),
+        "title": title,
+        "cluster": "local",
+        "averageScore": float(result.get("average_score", 0.0)),
+        "benchmarkCount": len(benchmarks),
+        "topBenchmarks": sorted(
+            [{"name": b["name"], "score": b["score"]} for b in benchmarks],
+            key=lambda item: float(item["score"]),
+            reverse=True,
+        )[:3],
+        "benchmarks": sorted(
+            benchmarks,
+            key=lambda item: float(item["score"]),
+            reverse=True,
+        ),
+    }
+
+
+def _eval_benchmarks_from_result(result: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = result.get("benchmarks", [])
+    if not isinstance(rows, list):
+        return []
+    benchmarks: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        total = row.get("total", row.get("num_examples", row.get("numExamples", 0)))
+        benchmarks.append({
+            "name": str(row.get("name", "")),
+            "score": float(row.get("score", 0.0)),
+            "correct": int(row.get("correct", 0) or 0),
+            "numExamples": int(total or 0),
+        })
+    return benchmarks
+
+
+def _content_blocks(text: str) -> list[dict[str, str]]:
+    return [{"type": "text", "text": text}]
+
+
+def _display_message(message: dict[str, Any]) -> dict[str, Any]:
+    text = "\n".join(
+        block.get("text", "")
+        for block in message.get("content", [])
+        if isinstance(block, dict) and block.get("type") == "text"
+    ).strip()
+    display = {"role": "assistant", "content": text}
+    _copy_display_metadata(message, display)
+    return display
+
+
+def _medical_compare_directive() -> dict[str, object]:
+    return {
+        "mode": "compare",
+        "cards": ["previous_eval", "latest_eval", "context"],
+    }
 
 
 def run_agent_turn(
@@ -340,11 +858,19 @@ def run_agent_turn(
     provider: str = "anthropic",
     model: str = "",
     ollama_url: str = "",
+    event_sink: Any | None = None,
 ) -> dict[str, Any]:
     """Run a single agent conversation turn with tool use."""
-    from serve.agent_backends import call_anthropic, call_ollama, call_gemini
+    from serve.agent_backends import call_anthropic, call_gemini, call_ollama, call_openai
+    from serve.agent_events import emit_event, summarize_tool_input, summarize_tool_output
     from serve.mcp_server import _ensure_backends
     _ensure_backends()
+
+    demo_result = _maybe_run_medical_safety_demo(
+        conversation_path, user_message, data_root, event_sink,
+    )
+    if demo_result is not None:
+        return demo_result
 
     tools, _ = _get_tools()
     system = _build_system_prompt(app_context, data_root)
@@ -352,12 +878,16 @@ def run_agent_turn(
     messages.append({"role": "user", "content": user_message})
     messages = _trim_conversation(messages)
     tools_used: list[str] = []
+    emit_event(event_sink, "status", text="Analyzing request")
 
     for _ in range(_MAX_TOOL_LOOPS):
         if provider == "ollama":
             effective_model = model or _DEFAULT_OLLAMA_MODEL
             effective_url = ollama_url or _DEFAULT_OLLAMA_URL
             response = call_ollama(effective_url, effective_model, system, messages, tools)
+        elif provider == "openai":
+            effective_model = model or _DEFAULT_OPENAI_MODEL
+            response = call_openai(api_key, effective_model, system, messages, tools)
         elif provider == "gemini":
             effective_model = model or _DEFAULT_GEMINI_MODEL
             response = call_gemini(effective_model, system, messages, tools, api_key=api_key)
@@ -366,6 +896,13 @@ def run_agent_turn(
             response = call_anthropic(api_key, effective_model, system, messages, tools)
 
         messages.append({"role": "assistant", "content": response.content_blocks})
+        response_text = "\n".join(
+            block.get("text", "")
+            for block in response.content_blocks
+            if block.get("type") == "text" and block.get("text")
+        ).strip()
+        if response_text and response.stop_reason == "tool_use":
+            emit_event(event_sink, "assistant_note", text=response_text)
 
         if response.stop_reason != "tool_use":
             break
@@ -375,7 +912,19 @@ def run_agent_turn(
             if block.get("type") != "tool_use":
                 continue
             tools_used.append(block["name"])
+            emit_event(
+                event_sink,
+                "tool_call",
+                tool_name=block["name"],
+                input_summary=summarize_tool_input(block.get("input", {})),
+            )
             result_str = execute_tool(block["name"], block.get("input", {}))
+            emit_event(
+                event_sink,
+                "tool_result",
+                tool_name=block["name"],
+                output_summary=summarize_tool_output(result_str),
+            )
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.get("id", ""),
@@ -391,39 +940,20 @@ def run_agent_turn(
     full_text = "\n".join(text_parts)
 
     # Extract script_update if the agent returned one
-    script_update = None
-    script_match = re.search(
-        r"<script_update>(.*?)</script_update>", full_text, re.DOTALL,
-    )
-    if script_match:
-        script_update = script_match.group(1).strip()
-        full_text = re.sub(
-            r"<script_update>.*?</script_update>", "", full_text, flags=re.DOTALL,
-        ).strip()
+    script_update, full_text = _pop_control_tag(full_text, "script_update")
 
     # Extract navigate_to if the agent returned one
     navigate_to = None
-    nav_match = re.search(
-        r"<navigate_to>(.*?)</navigate_to>", full_text, re.DOTALL,
-    )
-    if nav_match:
-        route = nav_match.group(1).strip()
+    route, full_text = _pop_control_tag(full_text, "navigate_to")
+    if route:
         if route in _VALID_ROUTES:
             navigate_to = route
-        full_text = re.sub(
-            r"<navigate_to>.*?</navigate_to>", "", full_text, flags=re.DOTALL,
-        ).strip()
+            emit_event(event_sink, "navigation", route=route)
 
     # Extract pending_chain if the agent declared follow-up steps
     pending_chain = None
-    chain_match = re.search(
-        r"<pending_chain>(.*?)</pending_chain>", full_text, re.DOTALL,
-    )
-    if chain_match:
-        chain_text = chain_match.group(1).strip()
-        full_text = re.sub(
-            r"<pending_chain>.*?</pending_chain>", "", full_text, flags=re.DOTALL,
-        ).strip()
+    chain_text, full_text = _pop_control_tag(full_text, "pending_chain")
+    if chain_text:
         # Find the job_id from tool results in this turn
         chain_job_id = _extract_submitted_job_id(messages)
         if chain_job_id and chain_text:
@@ -431,7 +961,13 @@ def run_agent_turn(
             _save_pending_chain(
                 conversation_path.parent, chain_job_id, steps, user_message,
             )
+            emit_event(event_sink, "pending_chain", job_id=chain_job_id, steps=steps)
             pending_chain = {"job_id": chain_job_id, "steps": steps}
+
+    raw_workspace_mode, full_text = _pop_control_tag(full_text, "workspace_mode")
+    workspace_mode = _parse_workspace_mode(raw_workspace_mode)
+    raw_workspace_cards, full_text = _pop_control_tag(full_text, "workspace_cards")
+    workspace_cards = _parse_workspace_cards(raw_workspace_cards)
 
     result: dict[str, Any] = {
         "role": "assistant",
@@ -444,12 +980,16 @@ def run_agent_turn(
         result["navigate_to"] = navigate_to
     if pending_chain:
         result["pending_chain"] = pending_chain
+    if workspace_mode:
+        result["workspace_mode"] = workspace_mode
+    if workspace_cards:
+        result["workspace_cards"] = workspace_cards
     return result
 
 
 def load_conversation_for_display(conversation_path: Path) -> list[dict[str, Any]]:
     """Load conversation and convert to display format (role + content text)."""
-    messages = _load_conversation(conversation_path)
+    messages = _load_conversation_raw(conversation_path)
     display: list[dict[str, Any]] = []
     for msg in messages:
         if msg["role"] == "user":
@@ -460,7 +1000,11 @@ def load_conversation_for_display(conversation_path: Path) -> list[dict[str, Any
         elif msg["role"] == "assistant":
             content = msg["content"]
             if isinstance(content, str):
-                display.append({"role": "assistant", "content": content})
+                cleaned_content = _strip_control_tags(content)
+                if cleaned_content:
+                    entry = {"role": "assistant", "content": cleaned_content}
+                    _copy_display_metadata(msg, entry)
+                    display.append(entry)
             elif isinstance(content, list):
                 text_parts = []
                 tool_names = []
@@ -470,15 +1014,26 @@ def load_conversation_for_display(conversation_path: Path) -> list[dict[str, Any
                             text_parts.append(block.get("text", ""))
                         elif block.get("type") == "tool_use":
                             tool_names.append(block.get("name", ""))
-                if text_parts:
+                cleaned_content = _strip_control_tags("\n".join(text_parts))
+                if cleaned_content:
                     entry: dict[str, Any] = {
                         "role": "assistant",
-                        "content": "\n".join(text_parts),
+                        "content": cleaned_content,
                     }
                     if tool_names:
                         entry["tools_used"] = tool_names
+                    _copy_display_metadata(msg, entry)
                     display.append(entry)
     return display
+
+
+def _copy_display_metadata(source: dict[str, Any], target: dict[str, Any]) -> None:
+    artifact = source.get("artifact")
+    if isinstance(artifact, dict):
+        target["artifact"] = artifact
+    directive = source.get("workspaceDirective")
+    if isinstance(directive, dict):
+        target["workspaceDirective"] = directive
 
 
 # ── Pending chain helpers ─────────────────────────────────────────
