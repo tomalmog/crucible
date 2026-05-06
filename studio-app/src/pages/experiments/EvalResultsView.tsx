@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useCrucible } from "../../context/CrucibleContext";
-import { CommandFormPanel } from "../../components/shared/CommandFormPanel";
-import { FormField } from "../../components/shared/FormField";
+import {
+  CompactField,
+  CompactFormCard,
+  CompactInfoBanner,
+} from "../../components/shared/CompactForm";
 import { ModelMultiSelect } from "../../components/shared/ModelMultiSelect";
 import { BenchmarkMultiSelect } from "../../components/shared/BenchmarkMultiSelect";
 import { startCrucibleCommand } from "../../api/studioApi";
@@ -135,76 +138,81 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   }
 
   return (
-    <CommandFormPanel
+    <CompactFormCard
+      actionLabel={isRemote ? "Submit to Cluster" : "Run Evaluation"}
+      description="Evaluate one or more models against selected benchmark suites with the same compact run controls used across the platform."
+      error={error}
+      isRunning={submitting}
       title="Model Evaluation"
       missing={missing}
-      isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Evaluation"}
-      runningLabel="Submitting..."
       onSubmit={() => submitEval().catch(console.error)}
-      error={error}
+      runningLabel="Submitting..."
     >
       {isRemote && (
-        <div className="info-banner">
-          Remote model selected — job will run on cluster <strong>{clusterName}</strong>
-        </div>
+        <CompactInfoBanner>
+          Remote model selected: job will run on cluster <strong>{clusterName}</strong>.
+        </CompactInfoBanner>
       )}
 
-      <FormField label="Models" required>
-        <ModelMultiSelect
-          selected={selectedModels}
-          onChange={setSelectedModels}
-        />
-      </FormField>
+      <div className="platform-form-grid platform-form-grid-2">
+        <CompactField label="Models" required>
+          <ModelMultiSelect
+            selected={selectedModels}
+            onChange={setSelectedModels}
+          />
+        </CompactField>
 
-      <FormField label="Benchmarks" required>
-        <BenchmarkMultiSelect
-          selected={selectedBenchmarks}
-          onChange={setSelectedBenchmarks}
-        />
-      </FormField>
+        <CompactField label="Benchmarks" required>
+          <BenchmarkMultiSelect
+            selected={selectedBenchmarks}
+            onChange={setSelectedBenchmarks}
+          />
+        </CompactField>
+      </div>
 
-      <FormField label="Max Samples" hint="optional, leave empty for full dataset">
-        <input
-          type="number"
-          value={maxSamples}
-          onChange={(e) => setMaxSamples(e.currentTarget.value)}
-          placeholder="e.g. 100"
-        />
-      </FormField>
+      <div className="platform-form-grid platform-form-grid-4">
+        <CompactField label="Max Samples" hint="blank = full dataset">
+          <input
+            type="number"
+            value={maxSamples}
+            onChange={(e) => setMaxSamples(e.currentTarget.value)}
+            placeholder="e.g. 100"
+          />
+        </CompactField>
+      </div>
 
       {isRemote && isSlurm && (
-        <div className="grid-2">
-          <FormField label="Partition">
+        <div className="platform-form-grid platform-form-grid-4">
+          <CompactField label="Partition">
             <select value={partition} onChange={(e) => setPartition(e.currentTarget.value)}>
               <option value="">Default</option>
             </select>
-          </FormField>
-          <FormField label="GPU Type">
+          </CompactField>
+          <CompactField label="GPU Type">
             <select value={gpuType} onChange={(e) => setGpuType(e.currentTarget.value)}>
               <option value="">Any</option>
             </select>
-          </FormField>
-          <FormField label="GPUs">
+          </CompactField>
+          <CompactField label="GPUs">
             <input
               type="number"
               min={1}
               value={gpusPerNode}
               onChange={(e) => setGpusPerNode(e.currentTarget.value)}
             />
-          </FormField>
-          <FormField label="Memory">
+          </CompactField>
+          <CompactField label="Memory">
             <input value={memory} onChange={(e) => setMemory(e.currentTarget.value)} />
-          </FormField>
-          <FormField label="Time Limit">
+          </CompactField>
+          <CompactField label="Time Limit">
             <input
               value={timeLimit}
               onChange={(e) => setTimeLimit(e.currentTarget.value)}
               placeholder="HH:MM:SS"
             />
-          </FormField>
+          </CompactField>
         </div>
       )}
-    </CommandFormPanel>
+    </CompactFormCard>
   );
 }
