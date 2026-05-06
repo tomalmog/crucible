@@ -121,6 +121,10 @@ def _generate_tokens(
 def _decode_generated(tokenizer: Any, ids: Tensor, prompt_len: int) -> str:
     """Decode only the generated portion of the output."""
     generated_ids = ids[0, prompt_len:].tolist()
+    try:
+        return str(tokenizer.decode(generated_ids))
+    except (AttributeError, TypeError, ValueError):
+        pass
     tokens = tokenizer.convert_ids_to_tokens(generated_ids)
     # BPE tokens use \u0120 (Ġ) for leading space, \u010a (Ċ) for newline
     text = "".join(tokens)

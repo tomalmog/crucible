@@ -54,6 +54,16 @@ def run_sae_train(
             "sparsity_loss": round(float(sparsity_loss.detach()), 6),
         })
 
+    with torch.no_grad():
+        final_reconstruction, final_latent = sae(X)
+        final_recon_loss = torch.nn.functional.mse_loss(final_reconstruction, X)
+        activation_mask = final_latent > 0
+        average_l0 = float(activation_mask.sum(dim=1).float().mean())
+        dead_features = int((activation_mask.sum(dim=0) == 0).sum())
+        centered = X - X.mean(dim=0, keepdim=True)
+        variance = torch.mean(centered.square())
+        fvu = float(final_recon_loss / torch.clamp(variance, min=1e-8))
+
     out_dir = Path(options.output_dir).expanduser().resolve()
     sae_path = out_dir / "sae_model.pt"
     metadata = {
@@ -76,6 +86,9 @@ def run_sae_train(
         "final_loss": history[-1]["loss"] if history else 0.0,
         "final_recon_loss": history[-1]["recon_loss"] if history else 0.0,
         "final_sparsity_loss": history[-1]["sparsity_loss"] if history else 0.0,
+        "average_l0": round(average_l0, 4),
+        "dead_features": dead_features,
+        "fvu": round(fvu, 6),
         "history": history,
     }
 

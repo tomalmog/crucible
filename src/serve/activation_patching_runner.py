@@ -71,6 +71,8 @@ def run_activation_patching(options: ActivationPatchingOptions) -> dict[str, Any
         "metric": options.metric,
         "clean_token_id": clean_token,
         "corrupt_token_id": corrupt_token,
+        "clean_token": _decode_token(tokenizer, clean_token),
+        "corrupt_token": _decode_token(tokenizer, corrupt_token),
         "clean_metric": round(clean_metric, 4),
         "corrupted_metric": round(corrupt_metric, 4),
         "layer_results": layer_results,
@@ -82,6 +84,15 @@ def run_activation_patching(options: ActivationPatchingOptions) -> dict[str, Any
     out_path.write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
     return result
+
+
+def _decode_token(tokenizer: Any, token_id: int) -> str:
+    """Decode a single token id for display; fall back to the numeric id."""
+    try:
+        return str(tokenizer.decode([token_id]))
+    except (AttributeError, TypeError, ValueError):
+        tokens = tokenizer.convert_ids_to_tokens([token_id])
+        return str(tokens[0]) if tokens else str(token_id)
 
 
 def _run_patched_forward(

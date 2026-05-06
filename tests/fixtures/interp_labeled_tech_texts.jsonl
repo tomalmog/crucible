@@ -1,0 +1,12 @@
+{"text":"python is a high-level, interpreted programming language known for readable syntax","topic":"code","sentiment":"neutral"}
+{"text":"recursion is a technique where function calls itself to solve smaller instances","topic":"code","sentiment":"neutral"}
+{"text":"ci/cd stands for continuous integration delivery, automating testing deployment code","topic":"code","sentiment":"neutral"}
+{"text":"version control system records changes to files over time,","topic":"code","sentiment":"neutral"}
+{"text":"database is an organized collection of structured information.","topic":"data","sentiment":"careful"}
+{"text":"database allows efficient retrieval, insertion, management of data","topic":"data","sentiment":"careful"}
+{"text":"encryption transforms plaintext into ciphertext using algorithm and key,","topic":"data","sentiment":"careful"}
+{"text":"cloud computing delivers storage databases networking resources on demand.","topic":"data","sentiment":"careful"}
+{"text":"api is a set of protocols and tools that allows software applications communicate","topic":"architecture","sentiment":"active"}
+{"text":"container is a lightweight, standalone package needed to run software,","topic":"architecture","sentiment":"active"}
+{"text":"microservices architectural style application composed of small, independently deployable apis.","topic":"architecture","sentiment":"active"}
+{"text":"web development, data science, and automation. use python","topic":"architecture","sentiment":"active"}

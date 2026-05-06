@@ -135,8 +135,10 @@ class InterpTokenizer:
         encode_fn: Any,
         id_to_token: dict[int, str],
         eos_token_id: int | None = None,
+        decode_fn: Any | None = None,
     ) -> None:
         self._encode_fn = encode_fn
+        self._decode_fn = decode_fn
         self._id_to_token = id_to_token
         self.eos_token_id: int | None = eos_token_id
 
@@ -162,7 +164,12 @@ class InterpTokenizer:
             )
 
         eos_id = getattr(hf_tokenizer, "eos_token_id", None)
-        return InterpTokenizer(_encode, reverse, eos_token_id=eos_id)
+        return InterpTokenizer(
+            _encode,
+            reverse,
+            eos_token_id=eos_id,
+            decode_fn=hf_tokenizer.decode,
+        )
 
     @staticmethod
     def from_crucible(chat_tokenizer: Any) -> "InterpTokenizer":
@@ -185,7 +192,12 @@ class InterpTokenizer:
                 return torch.tensor([ids], dtype=torch.long)
             return ids
 
-        return InterpTokenizer(_encode, reverse)
+        return InterpTokenizer(
+            _encode,
+            reverse,
+            eos_token_id=getattr(chat_tokenizer, "eos_token_id", None),
+            decode_fn=chat_tokenizer.decode,
+        )
 
     # -- Public API (used by all runners) --
 
@@ -207,3 +219,9 @@ class InterpTokenizer:
     def convert_ids_to_tokens(self, ids: list[int]) -> list[str]:
         """Map token IDs back to string tokens."""
         return [self._id_to_token.get(i, f"[{i}]") for i in ids]
+
+    def decode(self, ids: list[int]) -> str:
+        """Decode token IDs back to text with the underlying tokenizer."""
+        if self._decode_fn is not None:
+            return str(self._decode_fn(ids))
+        return " ".join(self.convert_ids_to_tokens(ids))

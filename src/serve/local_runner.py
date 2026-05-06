@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import traceback
+import json
 from pathlib import Path
 
-from core.errors import CrucibleError
 from core.job_types import BackendKind, JobRecord, JobSpec, JobState
 from core.training_methods import dispatch_training
 from store.job_store import generate_job_id, now_iso, save_job, update_job, load_job
@@ -82,11 +81,41 @@ class LocalRunner:
         return ""
 
     def get_result(self, data_root: Path, job_id: str) -> dict[str, object]:
-        """Local results are parsed from stdout by the UI."""
+        """Read local result data from the persisted job record."""
         record = load_job(data_root, job_id)
-        return {
+        parsed = _parse_persisted_stdout(data_root, job_id)
+        result: dict[str, object] = parsed if parsed is not None else {}
+        result.update({
             "job_id": record.job_id,
             "state": record.state,
-            "model_path": record.model_path,
+            "model_path": str(result.get("model_path") or record.model_path),
             "error_message": record.error_message,
-        }
+        })
+        return result
+
+
+def _parse_persisted_stdout(data_root: Path, job_id: str) -> dict[str, object] | None:
+    job_path = data_root / "jobs" / f"{job_id}.json"
+    if not job_path.exists():
+        return None
+    try:
+        raw = json.loads(job_path.read_text())
+    except json.JSONDecodeError:
+        return None
+    stdout = raw.get("stdout")
+    if not isinstance(stdout, str) or not stdout.strip():
+        return None
+    for line in reversed(stdout.splitlines()):
+        payload = line.removeprefix("CRUCIBLE_JSON:")
+        parsed = _try_parse_json_object(payload)
+        if parsed is not None:
+            return parsed
+    return _try_parse_json_object(stdout)
+
+
+def _try_parse_json_object(value: str) -> dict[str, object] | None:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
