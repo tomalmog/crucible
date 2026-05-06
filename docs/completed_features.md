@@ -69,7 +69,6 @@ Reference document for context recovery. Everything listed here is implemented, 
 
 ### Model & System
 - **chat** — Text generation from trained/ONNX models with streaming
-- **ab-chat** — A/B model comparison chat with DPO data export
 - **export-spec** — Export run configuration as reproducible spec
 - **verify** — Platform verification (quick/full modes) with artifact preservation
 - **hardware-profile** — Detect GPU/TPU capabilities, recommend precision/batch defaults
@@ -138,15 +137,19 @@ Reference document for context recovery. Everything listed here is implemented, 
 - Dark/light theme with `getTheme()`/`setTheme()` and localStorage persistence
 
 ### Pages
+- **Build** — Chat-first agent landing page for describing LLM post-training/evaluation work and letting the Studio agent drive the workflow.
 - **Training** — Wizard flow: pick method → configure → run → results. 13 method forms with auto-saved drafts, DatasetSelect dropdown, live progress monitor, training curves (SVG charts). Local execution or remote cluster submission with auto-navigate to Jobs page.
 - **Datasets** — Two-column layout: dataset/version list + tabs (overview dashboard, version diff, sample inspector, ingest form, filter form)
 - **Models** — Grouped registry browser: version list, model diff, actions (tag/rollback/export/delete)
 - **Chat** — Model inference with configurable sampling, streaming responses, conversation history
-- **Compare Chat** — A/B model comparison: send same prompt to two models side-by-side, rate responses (A/B/Tie), export preferences as DPO training data via native save dialog
-- **Benchmarks** — Run evaluation benchmarks (MMLU, HellaSwag, ARC, etc.) against trained models
+- **Benchmarks** — Run evaluation benchmarks (MMLU, HellaSwag, ARC, etc.) against trained models, including multi-model comparison views
+- **Interpretability** — Logit lens, activation PCA, activation patching, linear probes, SAE train/analyze, and activation steering
 - **Hub** — Tabbed search for models and datasets with filters (task, library, sort), detail views with file listings and sizes, download with progress, push to HuggingFace
 - **Jobs** — Unified job queue for local and remote jobs. Remote jobs show instant visibility from submit with live phase updates (connecting, provisioning, uploading, submitting). Pending Slurm jobs show queue indicator. Cancel, view logs, delete. Failed-during-submit jobs show inline error messages.
 - **Clusters** — Register, validate, and manage Slurm cluster connections
+- **Resources** — Hardware, storage, cleanup, activity, and cluster resource views
+- **Export** — Model export workflows for ONNX, SafeTensors, GGUF, and HuggingFace format
+- **Benchmark Registry** — Custom benchmark creation and management
 - **Settings** — Data root config, hardware profile display, theme toggle
 - **Docs** — Built-in training method documentation
 

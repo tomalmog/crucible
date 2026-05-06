@@ -57,7 +57,7 @@ Crucible .pt models use the custom training loop.
 - Job store: `src/store/job_store.py`
 - Config: `src/core/config.py`
 
-## MCP Server (33 tools)
+## MCP Server (35 tools)
 
 `crucible mcp-server` starts the MCP server for Claude Code integration.
 

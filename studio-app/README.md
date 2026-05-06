@@ -6,19 +6,22 @@ Desktop UI for Crucible, built with Tauri 2 + React 19 + TypeScript.
 
 Crucible Studio is a native desktop application that provides a visual interface for the entire Crucible ML training workflow. It calls the Python CLI under the hood — every CLI feature is accessible from the UI.
 
-### Pages (12)
+### Pages
 
+- **Build** — Chat-first agent workspace for describing a post-training or evaluation task and letting the Crucible agent drive the workflow
+- **Dashboard** — Workspace overview with active jobs, recent runs, model/dataset counts, and quick actions
 - **Training** — Pick from 13 training methods, configure with an auto-saved wizard, run locally with live progress and loss curves, or submit to a remote Slurm cluster
 - **Datasets** — Ingest data, filter by language/quality, browse versions, inspect samples, compare version diffs
 - **Models** — Grouped model registry with version history, diffing, tagging, rollback, deletion, and merge
 - **Chat** — Load a trained model and chat with configurable sampling (temperature, top-k, top-p), streaming responses
-- **Compare Chat** — A/B model comparison: same prompt to two models side-by-side, rate responses, export as DPO preference data
+- **Interpretability** — Logit lens, activation PCA, activation patching, linear probes, SAE train/analyze, and steering workflows
+- **Benchmarks** — Run evaluation benchmarks and compare model results
+- **Benchmark Registry** — Create and manage custom benchmark tasks
 - **Hub** — Search HuggingFace models/datasets with filters (task, library, sort), view file listings and metadata, download with progress, push trained models
+- **Export** — Package models to ONNX, SafeTensors, GGUF, or HuggingFace format
 - **Jobs** — Unified job queue for local and remote jobs. Remote jobs appear instantly on submit with live phase updates (connecting → provisioning → uploading → submitting). View logs, cancel pending Slurm jobs, track failures with inline error display.
 - **Clusters** — Register, validate, and manage Slurm cluster SSH connections
-- **Experiments** — Training run history, multi-run comparison, cost analysis
-- **Safety** — Toxicity evaluation and pre-deployment safety gates
-- **Deploy** — Model packaging, ONNX quantization, latency profiling, readiness checklist
+- **Resources** — Hardware, storage, cleanup, activity, and cluster resource views
 - **Settings** — Data root configuration, hardware profile, dark/light theme toggle
 - **Docs** — Built-in training method documentation
 

@@ -10,7 +10,7 @@ ML training platform. Train models, run evals, ship — from a desktop app, CLI,
 - **Interpretability** — Logit lens, activation PCA, activation patching, linear probes, SAE training/analysis, steering vectors.
 - **Model export** — ONNX, SafeTensors, GGUF, HuggingFace format.
 - **Desktop app** — Tauri + React. Training wizard, job monitoring, model registry, dataset browser, benchmark comparison, interp visualizations.
-- **AI integration** — MCP server with 34 tools. Claude Code or the built-in sidebar agent can train models, run evals, manage data, and monitor jobs.
+- **AI integration** — MCP server with 35 tools. Claude Code or the built-in sidebar agent can train models, run evals, manage data, and monitor jobs.
 
 ## Install
 
@@ -65,7 +65,7 @@ Add to `~/.claude/mcp.json`:
 }
 ```
 
-34 tools: train, eval, interp, export, chat, dataset/model management, remote cluster ops, HuggingFace hub search and download.
+35 tools: train, eval, interp, export, chat, dataset/model management, remote cluster ops, HuggingFace hub search and download.
 
 ## Training methods
 
