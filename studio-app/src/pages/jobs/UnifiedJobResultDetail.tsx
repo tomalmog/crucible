@@ -6,19 +6,17 @@ import type { CommandTaskStatus, TrainingHistory } from "../../types";
 import { getJobResult, getJobLogs, getCachedJobResult } from "../../api/jobsApi";
 import { loadTrainingHistory } from "../../api/studioApi";
 import { TrainingCurvesView } from "../training/TrainingCurvesView";
-import { LogitLensResults } from "../interp/LogitLensResults";
-import { ActivationPcaResults } from "../interp/ActivationPcaResults";
-import { ActivationPatchingResults } from "../interp/ActivationPatchingResults";
-import { LinearProbeResults } from "../interp/LinearProbeResults";
-import { SaeTrainResults, SaeAnalyzeResults } from "../interp/SaeResults";
-import { SteerComputeResults, SteerApplyResults } from "../interp/SteerResults";
 import { OnnxExportResults } from "../export/OnnxExportResults";
 import { SafeTensorsExportResults } from "../export/SafeTensorsExportResults";
 import { GgufExportResults } from "../export/GgufExportResults";
 import { HfExportResults } from "../export/HfExportResults";
-import type { LogitLensResult, PcaResult, PatchingResult, LinearProbeResult, SaeTrainResult, SaeAnalyzeResult, SteerComputeResult, SteerApplyResult } from "../../types/interp";
 import type { OnnxExportResult, SafeTensorsExportResult, GgufExportResult, HfExportResult } from "../../types/export";
 import { DetailHeader } from "./RetryButton";
+import {
+  InterpJobArtifactRenderer,
+  InvalidInterpArtifactNotice,
+  parseInterpArtifact,
+} from "./InterpJobArtifactRenderer";
 
 // ── Shared types/constants ─────────────────────────────────────────────
 
@@ -294,21 +292,23 @@ function LocalTrainingView({ job, localTask, onBack, config }: { job: JobRecord;
 }
 
 function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
-  const parsed = useMemo(() => { try { return JSON.parse(localTask.stdout); } catch { return null; } }, [localTask.stdout]);
+  const parsed = useMemo(() => parseJsonArtifact(localTask.stdout), [localTask.stdout]);
+  const artifact = useMemo(() => parseInterpArtifact(job.jobType, parsed), [job.jobType, parsed]);
   const label = INTERP_LABELS[job.jobType] ?? job.jobType;
 
   return (
-    <div className="panel stack-lg">
+    <div className="interp-job-board stack-md">
       <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
-      <h3>{label} — Result</h3>
-      {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as LogitLensResult} />}
-      {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as PcaResult} />}
-      {parsed && job.jobType === "activation-patch" && <ActivationPatchingResults result={parsed as PatchingResult} />}
-      {parsed && job.jobType === "linear-probe" && <LinearProbeResults result={parsed as LinearProbeResult} />}
-      {parsed && job.jobType === "sae-train" && <SaeTrainResults result={parsed as SaeTrainResult} />}
-      {parsed && job.jobType === "sae-analyze" && <SaeAnalyzeResults result={parsed as SaeAnalyzeResult} />}
-      {parsed && job.jobType === "steer-compute" && <SteerComputeResults result={parsed as SteerComputeResult} />}
-      {parsed && job.jobType === "steer-apply" && <SteerApplyResults result={parsed as SteerApplyResult} />}
+      <div className="interp-evidence-header">
+        <div>
+          <span className="interp-kicker">Job artifact</span>
+          <h3>{label}</h3>
+          <p>Rendered as a mechanistic interpretability evidence board.</p>
+        </div>
+        <span className="interp-evidence-badge">{job.state}</span>
+      </div>
+      {artifact && <InterpJobArtifactRenderer artifact={artifact} />}
+      {parsed !== null && !artifact && <InvalidInterpArtifactNotice jobType={job.jobType} />}
       {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
     </div>
   );
@@ -995,27 +995,47 @@ function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; r
 
 function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   const jobType = result.job_type ?? "";
+  const artifact = parseInterpArtifact(jobType, result);
   const label = INTERP_LABELS[jobType] ?? jobType;
 
   return (
-    <div className="panel stack-lg">
+    <div className="interp-job-board stack-md">
       <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
-      <h3>{label} — Result</h3>
-      <div className="stats-grid">
-        <div className="metric-card"><span className="metric-label">Analysis</span><span className="metric-value text-sm">{label}</span></div>
-        {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
+      <div className="interp-evidence-header">
+        <div>
+          <span className="interp-kicker">Remote artifact</span>
+          <h3>{label}</h3>
+          <p>Rendered as a mechanistic interpretability evidence board.</p>
+        </div>
+        <span className="interp-evidence-badge">{job.backendCluster ?? "local"}</span>
       </div>
-      {jobType === "logit-lens" && <LogitLensResults result={result as unknown as LogitLensResult} />}
-      {jobType === "activation-pca" && <ActivationPcaResults result={result as unknown as PcaResult} />}
-      {jobType === "activation-patch" && <ActivationPatchingResults result={result as unknown as PatchingResult} />}
-      {jobType === "linear-probe" && <LinearProbeResults result={result as unknown as LinearProbeResult} />}
-      {jobType === "sae-train" && <SaeTrainResults result={result as unknown as SaeTrainResult} />}
-      {jobType === "sae-analyze" && <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />}
-      {jobType === "steer-compute" && <SteerComputeResults result={result as unknown as SteerComputeResult} />}
-      {jobType === "steer-apply" && <SteerApplyResults result={result as unknown as SteerApplyResult} />}
+      {artifact ? (
+        <InterpJobArtifactRenderer artifact={artifact} />
+      ) : (
+        <InvalidInterpArtifactNotice jobType={jobType} />
+      )}
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );
+}
+
+function parseJsonArtifact(stdout: string): unknown | null {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    const lines = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+      const line = lines[i];
+      if (line.startsWith("{") && line.endsWith("}")) {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function RemoteSweepView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {

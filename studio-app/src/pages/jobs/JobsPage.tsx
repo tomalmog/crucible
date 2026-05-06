@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useJobs } from "../../hooks/useJobs";
 import { useUnifiedJobs } from "../../hooks/useUnifiedJobs";
@@ -33,6 +33,12 @@ function classifyUnifiedJob(job: JobRecord): TaskTypeFilter {
 const TYPE_TABS: readonly TaskTypeFilter[] = ["all", "training", "eval", "sweep", "interp", "ingest", "hub"] as const;
 const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "running", "completed", "failed"] as const;
 const LOCATION_OPTIONS: readonly LocationFilter[] = ["all", "local", "remote"] as const;
+
+interface JobsLocationState {
+  statusFilter?: StatusFilter;
+  typeFilter?: TaskTypeFilter;
+  locationFilter?: LocationFilter;
+}
 
 export function statusBadgeClass(status: string): string {
   switch (status) {
@@ -69,15 +75,16 @@ type MergedJob =
 
 export function JobsPage() {
   const location = useLocation();
-  const navState = location.state as { statusFilter?: StatusFilter } | null;
+  const navigate = useNavigate();
+  const params = useParams<{ jobId?: string }>();
+  const navState = location.state as JobsLocationState | null;
   if (navState) window.history.replaceState({}, "");
   const { jobs, kill, rename } = useJobs();
   const { dataRoot } = useCrucible();
   const { jobs: unifiedJobs, isLoading: isUnifiedLoading, refresh: refreshUnified, removeJob: removeUnifiedJob, cancel: cancelUnifiedJob } = useUnifiedJobs(dataRoot);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(navState?.statusFilter ?? "all");
-  const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<TaskTypeFilter>("all");
-  const [viewingUnifiedJob, setViewingUnifiedJob] = useState<{ job: JobRecord; localTask?: CommandTaskStatus } | null>(null);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>(navState?.locationFilter ?? "all");
+  const [typeFilter, setTypeFilter] = useState<TaskTypeFilter>(navState?.typeFilter ?? "all");
 
   // Build a lookup of local task_id → CommandTaskStatus for unified local jobs
   const localTaskMap = useMemo(() => {
@@ -114,12 +121,37 @@ export function JobsPage() {
   const runningCount = jobs.filter((j) => j.status === "running").length
     + unifiedJobs.filter((j) => j.state === "running" || j.state === "pending" || j.state === "submitting").length;
 
-  if (viewingUnifiedJob) {
+  const routedJob = useMemo(() => {
+    if (!params.jobId) return null;
+    const job = unifiedJobs.find((candidate) => candidate.jobId === params.jobId);
+    if (!job) return null;
+    const localTask = job.backend === "local" ? localTaskMap.get(job.jobId) : undefined;
+    return { job, localTask };
+  }, [localTaskMap, params.jobId, unifiedJobs]);
+
+  if (params.jobId) {
+    if (!routedJob) {
+      return (
+        <div className="panel stack-md">
+          <PageHeader title="Job not found" />
+          <p className="text-secondary text-sm">
+            This job is still loading or does not exist in the current job registry.
+          </p>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => navigate("/jobs", { state: { typeFilter: "interp" } })}
+          >
+            Back to Jobs
+          </button>
+        </div>
+      );
+    }
     return (
       <UnifiedJobResultDetail
-        job={viewingUnifiedJob.job}
-        localTask={viewingUnifiedJob.localTask}
-        onBack={() => setViewingUnifiedJob(null)}
+        job={routedJob.job}
+        localTask={routedJob.localTask}
+        onBack={() => navigate("/jobs", { state: { typeFilter: "interp", statusFilter: "completed" } })}
       />
     );
   }
@@ -178,7 +210,7 @@ export function JobsPage() {
               localTask={item.localTask}
               onDelete={() => removeUnifiedJob(item.job.jobId)}
               onCancel={() => cancelUnifiedJob(item.job.jobId).catch(console.error)}
-              onView={() => setViewingUnifiedJob({ job: item.job, localTask: item.localTask })}
+              onView={() => navigate(`/jobs/${item.job.jobId}`)}
               onRefresh={refreshUnified}
               onKill={item.localTask ? () => kill(item.localTask!.task_id) : undefined}
               onRename={item.localTask ? (label) => rename(item.localTask!.task_id, label) : undefined}

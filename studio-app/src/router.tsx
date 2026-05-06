@@ -34,6 +34,7 @@ export const router = createHashRouter([
       { path: "benchmarks", Component: BenchmarksPage },
       { path: "hub", Component: HubPage },
       { path: "jobs", Component: JobsPage },
+      { path: "jobs/:jobId", Component: JobsPage },
       { path: "clusters", Component: ClustersPage },
       { path: "resources", Component: ResourcesPage },
       { path: "interpretability", Component: InterpPage },
