@@ -145,7 +145,11 @@ def add_remote_command(
     # interp-submit
     ip = sub.add_parser("interp-submit", help="Submit interpretability job to cluster")
     ip.add_argument("--cluster", required=True, help="Cluster name")
-    ip.add_argument("--interp-method", required=True, help="Interp method: logit-lens, activation-pca, activation-patch")
+    ip.add_argument(
+        "--interp-method",
+        required=True,
+        help="Interp method: logit-lens, activation-pca, activation-patch, model-health-check",
+    )
     ip.add_argument("--method-args", required=True, help="JSON interp arguments")
     ip.add_argument("--partition", default="", help="Slurm partition")
     ip.add_argument("--nodes", type=int, default=1, help="Number of nodes")

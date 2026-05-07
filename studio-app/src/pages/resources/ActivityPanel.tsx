@@ -35,8 +35,8 @@ export function ActivityPanel({ localJobs }: ActivityPanelProps) {
         </div>
       )}
 
-      <button className="btn btn-sm" onClick={() => navigate("/jobs")} style={{ justifySelf: "start" }}>
-        View All Jobs
+      <button className="btn btn-sm" onClick={() => navigate("/runs")} style={{ justifySelf: "start" }}>
+        View All Runs
       </button>
     </div>
   );

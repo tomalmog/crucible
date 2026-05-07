@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { Check, Eye, EyeOff } from "lucide-react";
-
-const AGENT_API_KEY = "crucible_anthropic_api_key";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useCrucible } from "../../context/CrucibleContext";
 import { FormField } from "../../components/shared/FormField";
@@ -9,18 +7,30 @@ import { HardwareProfileView } from "./HardwareProfileView";
 import { getTheme, setTheme, getPaletteId, setPalette, type Theme } from "../../theme/themeUtils";
 import { PALETTES } from "../../theme/palettes";
 
+const AGENT_API_KEY = "crucible_anthropic_api_key";
+const AGENT_PROVIDER = "crucible_agent_provider";
+const OLLAMA_MODEL = "crucible_agent_ollama_model";
+const OLLAMA_URL = "crucible_agent_ollama_url";
+const GEMINI_MODEL = "crucible_agent_gemini_model";
+const GEMINI_API_KEY = "crucible_gemini_api_key";
+const OPENAI_MODEL = "crucible_agent_openai_model";
+const OPENAI_API_KEY = "crucible_openai_api_key";
+
 export function SettingsPage() {
   const { dataRoot, setDataRoot, refreshDatasets, hardwareProfile, refreshHardwareProfile } = useCrucible();
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const [paletteId, setPaletteId] = useState(getPaletteId());
-  const [agentProvider, setAgentProvider] = useState(() => localStorage.getItem("crucible_agent_provider") ?? "anthropic");
+  const [agentProvider, setAgentProvider] = useState(() => localStorage.getItem(AGENT_PROVIDER) ?? "anthropic");
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(AGENT_API_KEY) ?? "");
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
-  const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem("crucible_agent_ollama_model") ?? "llama3.1");
-  const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem("crucible_agent_ollama_url") ?? "http://localhost:11434");
-  const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem("crucible_agent_gemini_model") ?? "gemini-2.5-flash");
-  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem("crucible_gemini_api_key") ?? "");
+  const [ollamaModel, setOllamaModel] = useState(() => localStorage.getItem(OLLAMA_MODEL) ?? "llama3.1");
+  const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem(OLLAMA_URL) ?? "http://localhost:11434");
+  const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem(GEMINI_MODEL) ?? "gemini-2.5-flash");
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem(GEMINI_API_KEY) ?? "");
   const [geminiApiKeyVisible, setGeminiApiKeyVisible] = useState(false);
+  const [openAiModel, setOpenAiModel] = useState(() => localStorage.getItem(OPENAI_MODEL) ?? "gpt-5.4-mini");
+  const [openAiApiKey, setOpenAiApiKey] = useState(() => localStorage.getItem(OPENAI_API_KEY) ?? "");
+  const [openAiApiKeyVisible, setOpenAiApiKeyVisible] = useState(false);
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
@@ -87,10 +97,11 @@ export function SettingsPage() {
               onChange={(e) => {
                 const val = e.target.value;
                 setAgentProvider(val);
-                localStorage.setItem("crucible_agent_provider", val);
+                localStorage.setItem(AGENT_PROVIDER, val);
               }}
             >
               <option value="anthropic">Anthropic (Claude API)</option>
+              <option value="openai">OpenAI API</option>
               <option value="ollama">Ollama (Local)</option>
               <option value="gemini">Google Gemini (Vertex AI)</option>
             </select>
@@ -128,7 +139,7 @@ export function SettingsPage() {
                   onChange={(e) => {
                     const val = e.currentTarget.value;
                     setOllamaModel(val);
-                    localStorage.setItem("crucible_agent_ollama_model", val);
+                    localStorage.setItem(OLLAMA_MODEL, val);
                   }}
                   placeholder="llama3.1"
                 />
@@ -139,7 +150,7 @@ export function SettingsPage() {
                   onChange={(e) => {
                     const val = e.currentTarget.value;
                     setOllamaUrl(val);
-                    localStorage.setItem("crucible_agent_ollama_url", val);
+                    localStorage.setItem(OLLAMA_URL, val);
                   }}
                   placeholder="http://localhost:11434"
                 />
@@ -156,7 +167,7 @@ export function SettingsPage() {
                     onChange={(e) => {
                       const val = e.currentTarget.value;
                       setGeminiApiKey(val);
-                      localStorage.setItem("crucible_gemini_api_key", val);
+                      localStorage.setItem(GEMINI_API_KEY, val);
                     }}
                     placeholder="AIza..."
                     style={{ flex: 1 }}
@@ -180,9 +191,47 @@ export function SettingsPage() {
                   onChange={(e) => {
                     const val = e.currentTarget.value;
                     setGeminiModel(val);
-                    localStorage.setItem("crucible_agent_gemini_model", val);
+                    localStorage.setItem(GEMINI_MODEL, val);
                   }}
                   placeholder="gemini-2.5-flash"
+                />
+              </FormField>
+            </>
+          )}
+          {agentProvider === "openai" && (
+            <>
+              <FormField label="OpenAI API Key">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type={openAiApiKeyVisible ? "text" : "password"}
+                    value={openAiApiKey}
+                    onChange={(e) => {
+                      const val = e.currentTarget.value;
+                      setOpenAiApiKey(val);
+                      localStorage.setItem(OPENAI_API_KEY, val);
+                    }}
+                    placeholder="sk-..."
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm btn-icon"
+                    onClick={() => setOpenAiApiKeyVisible(!openAiApiKeyVisible)}
+                    title={openAiApiKeyVisible ? "Hide" : "Show"}
+                  >
+                    {openAiApiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="ff-hint">Also checks OPENAI_API_KEY env var.</p>
+              </FormField>
+              <FormField label="Model">
+                <input
+                  value={openAiModel}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    setOpenAiModel(val);
+                    localStorage.setItem(OPENAI_MODEL, val);
+                  }}
+                  placeholder="gpt-5.4-mini"
                 />
               </FormField>
             </>

@@ -7,15 +7,15 @@ export const studioGuide: DocEntry = {
   content: `
 ## Crucible Studio Walkthrough
 
-Crucible Studio is the desktop application that gives you a visual interface for every part of the ML training pipeline. Here is what each section does.
+Crucible Studio gives you a visual interface for eval-gated model improvement. Here is what each section does.
 
 ### Sidebar Navigation
 
-The left sidebar is your main navigation. It is split into two sections — **Workspace** (Training, Datasets, Models, Chat, Benchmarks, Hub) and **Tools** (Jobs, Clusters, Docs, Settings). Click any item to switch views.
+The left sidebar is your main navigation. The core workflow is **Build**, **Datasets**, **Fine-tuning**, **Evals**, **Model Registry**, **Runs**, and **Model Health**. Advanced cluster and resource tools are grouped separately.
 
-### Training
+### Fine-tuning
 
-The training page is where you configure and launch training runs. Start by picking a training method from the method picker — each method card shows a brief description and recommended use case. After selecting a method, a configuration wizard walks you through the required settings: base model, dataset, hyperparameters, and output path. Required fields are marked with \`*\` and a validation alert lists any missing inputs before you can start. Once you launch, a live dashboard shows real-time loss charts, learning rate schedules, throughput metrics, and estimated time remaining.
+The fine-tuning page is where you configure and launch model improvement runs. Start by picking the behavior you want to improve; Crucible maps that goal to a practical method such as SFT, LoRA, QLoRA, DPO, or domain adaptation. The wizard includes run context, a success metric, and launch preflight before you start.
 
 The training page also includes a **Sweep** tab for running hyperparameter sweeps — define parameters, pick a search strategy, and Crucible automatically tries every combination and reports the best configuration. See the Hyperparameter Sweeps doc for details.
 
@@ -23,9 +23,13 @@ The training page also includes a **Sweep** tab for running hyperparameter sweep
 
 Browse all ingested datasets in one place. Each dataset shows its version history, record count, and source files. You can inspect individual samples, view field distributions, and run filters interactively. The ingest button lets you import new data directly from the UI using a file or folder picker.
 
-### Benchmarks
+### Evals
 
-Run standardized evaluation benchmarks (MMLU, HellaSwag, ARC, WinoGrande, GSM8K, TruthfulQA, HumanEval) against your trained models. Select a model, choose which benchmarks to run, and compare results across models to measure improvement after training.
+Run standardized evals against base and candidate models. Select models, choose eval sets, and compare results across candidates to decide whether a model should move forward.
+
+### Model Health
+
+Run the standard health check for a model before promotion. The suite starts prediction trace, representation map, and causal contrast diagnostics from one form, then records the results under Runs. Advanced diagnostics remain available for follow-up investigations.
 
 ### Chat
 
@@ -35,9 +39,9 @@ Test your trained models with an interactive chat interface. Select a model chec
 
 Browse and download models from HuggingFace directly within Studio. Search by model name or task, preview model cards, and download weights to a local directory. Downloaded models are immediately available as base models for training.
 
-### Jobs
+### Runs
 
-Monitor all running and completed training jobs — both local and remote. Each job shows its status, progress, elapsed time, and key metrics. You can stop a running job, view its full logs, or delete completed jobs.
+Monitor all running and completed work — both local and remote. Each run shows its status, project context, eval gate, progress, elapsed time, and key metrics. You can stop a running run, view logs, or delete completed records.
 
 ### Clusters
 

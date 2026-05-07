@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarSection } from "./SidebarSection";
 import {
-  Zap, Database, Box, MessageSquare, FlaskConical, Globe, Microscope,
+  Zap, Database, Box, MessageSquare, FlaskConical, Globe, Stethoscope,
   Activity, Server, BookOpen, Settings, HardDrive, Palette,
   PanelLeftClose, PanelLeftOpen, PackageOpen,
   LayoutDashboard, Bot, ClipboardList, Sparkles,
@@ -89,16 +89,16 @@ export function AppSidebar() {
         <SidebarNavItem to="/build" icon={<Sparkles size={16} />} label="Build" />
         <SidebarNavItem to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" />
 
-        <SidebarSection label="Workspace">
-          <SidebarNavItem to="/training" icon={<Zap size={16} />} label="Training" />
-          <SidebarNavItem to="/benchmarks" icon={<FlaskConical size={16} />} label="Eval" />
-          <SidebarNavItem to="/interpretability" icon={<Microscope size={16} />} label="Interpretability" />
+        <SidebarSection label="Improve">
+          <SidebarNavItem to="/fine-tuning" icon={<Zap size={16} />} label="Fine-tuning" />
+          <SidebarNavItem to="/evals" icon={<FlaskConical size={16} />} label="Evals" />
+          <SidebarNavItem to="/model-health" icon={<Stethoscope size={16} />} label="Model Health" />
         </SidebarSection>
 
         <SidebarSection label="Registries">
           <SidebarNavItem to="/datasets" icon={<Database size={16} />} label="Datasets" />
-          <SidebarNavItem to="/models" icon={<Box size={16} />} label="Models" />
-          <SidebarNavItem to="/eval-tasks" icon={<ClipboardList size={16} />} label="Benchmarks" />
+          <SidebarNavItem to="/model-registry" icon={<Box size={16} />} label="Model Registry" />
+          <SidebarNavItem to="/eval-tasks" icon={<ClipboardList size={16} />} label="Eval Sets" />
         </SidebarSection>
 
         <SidebarSection label="Tools">
@@ -108,14 +108,17 @@ export function AppSidebar() {
         </SidebarSection>
 
         <SidebarSection label="Operations">
-          <SidebarNavItem to="/jobs" icon={<Activity size={16} />} label="Jobs" />
+          <SidebarNavItem to="/runs" icon={<Activity size={16} />} label="Runs" />
+        </SidebarSection>
+
+        <SidebarSection label="Advanced">
           <SidebarNavItem to="/clusters" icon={<Server size={16} />} label="Clusters" />
           <SidebarNavItem to="/resources" icon={<HardDrive size={16} />} label="Resources" />
+          <SidebarNavItem to="/ui-test" icon={<Palette size={16} />} label="UI Library" />
         </SidebarSection>
 
         <div className="spacer" />
 
-        <SidebarNavItem to="/ui-test" icon={<Palette size={16} />} label="UI Library" />
         <SidebarNavItem to="/docs" icon={<BookOpen size={16} />} label="Docs" />
         <SidebarNavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
       </nav>

@@ -12,6 +12,7 @@ from serve.activation_extractor import (
     discover_transformer_layers,
     get_unembedding,
 )
+from serve.layer_selection import resolve_layer_selection
 
 
 def run_logit_lens(options: LogitLensOptions) -> dict[str, Any]:
@@ -22,7 +23,8 @@ def run_logit_lens(options: LogitLensOptions) -> dict[str, Any]:
     model.eval()
 
     all_layers = discover_transformer_layers(model)
-    target_layers = _resolve_layer_indices(all_layers, options.layer_indices)
+    selected_layers = resolve_layer_selection(all_layers, options.layer_indices)
+    target_layers = [layer_name for _, layer_name in selected_layers]
 
     input_ids = tokenizer.encode(options.input_text, return_tensors="pt")
     device = next(model.parameters()).device
@@ -86,21 +88,3 @@ def _load_model_and_tokenizer(options: LogitLensOptions) -> tuple[Any, Any]:
 
     model_path = options.base_model or options.model_path
     return load_interp_model(model_path)
-
-
-def _resolve_layer_indices(
-    all_layers: list[str], indices_str: str,
-) -> list[str]:
-    """Parse comma-separated layer indices into layer names."""
-    from core.errors import CrucibleServeError
-
-    if not indices_str.strip():
-        return all_layers
-    indices = [int(i.strip()) for i in indices_str.split(",") if i.strip()]
-    resolved = [all_layers[i] for i in indices if 0 <= i < len(all_layers)]
-    if not resolved:
-        raise CrucibleServeError(
-            f"No valid layer indices found. Model has {len(all_layers)} layers, "
-            f"requested: {indices_str}"
-        )
-    return resolved

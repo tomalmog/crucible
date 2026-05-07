@@ -59,7 +59,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
   const missing = useMemo(() => {
     const m: string[] = [];
     if (selectedModels.size === 0) m.push("models");
-    if (selectedBenchmarks.size === 0) m.push("benchmarks");
+    if (selectedBenchmarks.size === 0) m.push("eval sets");
     if (isRemote && !clusterName) m.push("cluster");
     return m;
   }, [selectedModels, selectedBenchmarks, isRemote, clusterName]);
@@ -126,7 +126,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
       }
 
       await startCrucibleCommand(dataRoot, args, label, cfg);
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -136,10 +136,10 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
 
   return (
     <CommandFormPanel
-      title="Model Evaluation"
+      title="Eval Run"
       missing={missing}
       isRunning={submitting}
-      submitLabel={isRemote ? "Submit to Cluster" : "Run Evaluation"}
+      submitLabel={isRemote ? "Submit to Cluster" : "Run Eval"}
       runningLabel="Submitting..."
       onSubmit={() => submitEval().catch(console.error)}
       error={error}
@@ -157,7 +157,7 @@ export function EvalResultsView({ prefill }: EvalResultsViewProps) {
         />
       </FormField>
 
-      <FormField label="Benchmarks" required>
+      <FormField label="Eval Sets" required>
         <BenchmarkMultiSelect
           selected={selectedBenchmarks}
           onChange={setSelectedBenchmarks}

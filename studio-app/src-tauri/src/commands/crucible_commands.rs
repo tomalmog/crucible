@@ -4,7 +4,7 @@ use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 57] = [
+const ALLOWED_COMMANDS: [&str; 58] = [
     "ingest",
     "filter",
     "train",
@@ -47,6 +47,7 @@ const ALLOWED_COMMANDS: [&str; 57] = [
     "activation-pca",
     "activation-patch",
     "linear-probe",
+    "model-health-check",
     "sae-train",
     "sae-analyze",
     "dispatch",
@@ -148,6 +149,7 @@ mod tests {
                      "hub", "eval", "curate", "merge",
                      "recipe", "cloud", "synthetic",
                      "logit-lens", "activation-pca", "activation-patch",
+                     "model-health-check",
                      "onnx-export",
                      "safetensors-export", "gguf-export",
                      "hf-export"] {

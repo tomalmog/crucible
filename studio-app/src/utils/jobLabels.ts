@@ -1,4 +1,4 @@
-/** Auto-generated job labels for the Jobs page. */
+/** Auto-generated run labels for the Runs page. */
 
 const METHOD_DISPLAY: Record<string, string> = {
   train: "Train",
@@ -18,7 +18,9 @@ const METHOD_DISPLAY: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
+  "activation-patching": "Activation Patching",
   "linear-probe": "Linear Probe",
+  "model-health-check": "Model Health",
   "sae-train": "SAE Train",
   "sae-analyze": "SAE Analyze",
   "steer-compute": "Steer Compute",

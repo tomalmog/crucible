@@ -134,7 +134,7 @@ export function DownloadModal({ repoId, targetDir, size, kind = "model", splits:
       ];
       await startCrucibleCommand(dataRoot, args, label);
       onClose();
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setDlStatus("error");
       setStatusMsg(err instanceof Error ? err.message : "Download failed");

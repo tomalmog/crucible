@@ -198,7 +198,7 @@ export function SteeringForm({ prefill }: SteeringFormProps) {
         }
         await startCrucibleCommand(dataRoot, args, lbl, cfg);
       }
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

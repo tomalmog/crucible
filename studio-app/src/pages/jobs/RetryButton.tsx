@@ -2,9 +2,12 @@ import { useNavigate } from "react-router";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 
 const CONFIG_PAGE_ROUTES: Record<string, string> = {
-  training: "/training",
-  benchmarks: "/benchmarks",
-  interpretability: "/interpretability",
+  training: "/fine-tuning",
+  "fine-tuning": "/fine-tuning",
+  benchmarks: "/evals",
+  evals: "/evals",
+  interpretability: "/model-health",
+  "model-health": "/model-health",
 };
 
 const JOB_TYPE_TO_PAGE: Record<string, string> = {
@@ -25,6 +28,7 @@ const JOB_TYPE_TO_PAGE: Record<string, string> = {
   "logit-lens": "interpretability",
   "activation-pca": "interpretability",
   "activation-patch": "interpretability",
+  "model-health-check": "interpretability",
   "linear-probe": "interpretability",
   "sae-train": "interpretability",
   "sae-analyze": "interpretability",
@@ -73,7 +77,7 @@ export function RetryButton({ config, jobType }: { config: Record<string, unknow
 export function BackButton({ onBack }: { onBack: () => void }) {
   return (
     <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ justifySelf: "start" }}>
-      <ArrowLeft size={14} /> Back to Jobs
+      <ArrowLeft size={14} /> Back to Runs
     </button>
   );
 }

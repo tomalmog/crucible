@@ -60,6 +60,7 @@ from cli.lora_command import (
     run_lora_train_command,
 )
 from cli.merge_command import add_merge_command, run_merge_command
+from cli.model_health_command import add_model_health_command, run_model_health_command
 from cli.onnx_export_command import add_onnx_export_command, run_onnx_export_command
 from cli.safetensors_export_command import (
     add_safetensors_export_command,
@@ -111,7 +112,8 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_multimodal_command,
     add_synthetic_command, add_rlvr_command, add_remote_command,
     add_logit_lens_command, add_activation_pca_command, add_activation_patching_command,
-    add_linear_probe_command, add_sae_train_command, add_sae_analyze_command,
+    add_linear_probe_command, add_model_health_command,
+    add_sae_train_command, add_sae_analyze_command,
     add_steer_compute_command, add_steer_apply_command,
     add_dispatch_command, add_job_command,
     add_onnx_export_command,
@@ -169,6 +171,7 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "activation-pca": run_activation_pca_command,
         "activation-patch": run_activation_patching_command,
         "linear-probe": run_linear_probe_command,
+        "model-health-check": run_model_health_command,
         "sae-train": run_sae_train_command,
         "sae-analyze": run_sae_analyze_command,
         "steer-compute": run_steer_compute_command,
@@ -210,7 +213,7 @@ _JOB_TRACKED_COMMANDS = frozenset({
     *_TRAINING_COMMANDS,
     "eval", "benchmark", "sweep",
     "logit-lens", "activation-pca", "activation-patch",
-    "linear-probe", "sae-train", "sae-analyze",
+    "linear-probe", "model-health-check", "sae-train", "sae-analyze",
     "steer-compute", "steer-apply",
     "onnx-export", "safetensors-export", "gguf-export", "hf-export",
     "merge", "lora-merge", "run-script",

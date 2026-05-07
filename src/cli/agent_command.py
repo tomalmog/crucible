@@ -63,10 +63,18 @@ def run_agent_chat_command(client: CrucibleClient, args: argparse.Namespace) -> 
         api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
     elif provider == "gemini":
         api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+    elif provider == "openai":
+        api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
     if provider == "anthropic" and not api_key:
         print(json.dumps({
             "error": "Anthropic API key not configured. "
             "Set it in Settings or as ANTHROPIC_API_KEY environment variable.",
+        }))
+        return 1
+    if provider == "openai" and not api_key:
+        print(json.dumps({
+            "error": "OpenAI API key not configured. "
+            "Set it in Settings or as OPENAI_API_KEY environment variable.",
         }))
         return 1
 

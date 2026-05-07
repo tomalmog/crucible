@@ -17,7 +17,7 @@ type Tab = "new-run" | "sweep";
 
 const TRAINING_TABS = ["new-run", "sweep"] as const;
 const TAB_LABELS: Record<Tab, string> = {
-  "new-run": "New Run",
+  "new-run": "New Fine-tune",
   "sweep": "Sweep",
 };
 
@@ -62,7 +62,7 @@ export function TrainingPage() {
 
   return (
     <>
-      <PageHeader title="Training" />
+      <PageHeader title="Fine-tuning" />
       <TabBar
         tabs={TRAINING_TABS}
         active={activeTab}

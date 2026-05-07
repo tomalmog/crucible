@@ -121,12 +121,12 @@ export function DashboardPage(): React.ReactNode {
       {/* ── Quick Stats ── */}
       <div className="stats-grid" style={{ marginBottom: 20 }}>
         <StatCard
-          label="Models"
+          label="Model Registry"
           value={totalModels}
           sub={remoteModels > 0 ? `${localModels} local · ${remoteModels} remote` : undefined}
           icon={<Box size={14} />}
           loading={loadingModels}
-          onClick={() => navigate("/models")}
+          onClick={() => navigate("/model-registry")}
         />
         <StatCard
           label="Datasets"
@@ -144,25 +144,25 @@ export function DashboardPage(): React.ReactNode {
           onClick={() => navigate("/clusters")}
         />
         <StatCard
-          label="Active Jobs"
+          label="Active Runs"
           value={activeJobs.length}
           icon={<Activity size={14} />}
           loading={loadingJobs}
-          onClick={() => navigate("/jobs")}
+          onClick={() => navigate("/runs")}
         />
       </div>
 
-      {/* ── Active Jobs ── */}
+      {/* ── Active Runs ── */}
       {(activeJobs.length > 0 || loadingJobs) && (
         <div className="resource-card" style={{ marginBottom: 16 }}>
           <div className="resource-card-header">
-            <h3 className="resource-card-title">Active Jobs</h3>
+            <h3 className="resource-card-title">Active Runs</h3>
             <span className="badge badge-accent">{activeJobs.length} running</span>
           </div>
           {loadingJobs ? <DashboardSpinner /> : (
             <div className="dashboard-job-list">
               {activeJobs.map((j) => (
-                <JobRow key={j.jobId} job={j} onClick={() => navigate("/jobs", { state: { statusFilter: "running" } })} />
+                <JobRow key={j.jobId} job={j} onClick={() => navigate("/runs", { state: { statusFilter: "running" } })} />
               ))}
             </div>
           )}
@@ -179,7 +179,7 @@ export function DashboardPage(): React.ReactNode {
           {loadingJobs ? <DashboardSpinner /> : (
             <div className="dashboard-job-list">
               {recentFailed.map((j) => (
-                <JobRow key={j.jobId} job={j} onClick={() => navigate("/jobs", { state: { statusFilter: "failed" } })} />
+                <JobRow key={j.jobId} job={j} onClick={() => navigate("/runs", { state: { statusFilter: "failed" } })} />
               ))}
             </div>
           )}
@@ -199,11 +199,11 @@ export function DashboardPage(): React.ReactNode {
             <CheckCircle2 size={14} style={{ color: "var(--success)" }} />
           </div>
           {loadingJobs ? <DashboardSpinner /> : recentCompleted.length === 0 ? (
-            <p className="text-tertiary" style={{ fontSize: "0.8125rem" }}>No completed jobs yet.</p>
+            <p className="text-tertiary" style={{ fontSize: "0.8125rem" }}>No completed runs yet.</p>
           ) : (
             <div className="dashboard-job-list">
               {recentCompleted.map((j) => (
-                <JobRow key={j.jobId} job={j} onClick={() => navigate("/jobs", { state: { statusFilter: "completed" } })} />
+                <JobRow key={j.jobId} job={j} onClick={() => navigate("/runs", { state: { statusFilter: "completed" } })} />
               ))}
             </div>
           )}
@@ -216,17 +216,17 @@ export function DashboardPage(): React.ReactNode {
           <h3 className="resource-card-title">Quick Actions</h3>
         </div>
         <div className="dashboard-actions">
-          <button className="btn" onClick={() => navigate("/training")}>
-            <Zap size={14} /> Train a Model
+          <button className="btn" onClick={() => navigate("/fine-tuning")}>
+            <Zap size={14} /> Start Fine-tune
           </button>
-          <button className="btn" onClick={() => navigate("/benchmarks")}>
+          <button className="btn" onClick={() => navigate("/evals")}>
             <FlaskConical size={14} /> Run Eval
           </button>
           <button className="btn" onClick={() => navigate("/hub")}>
             <Globe size={14} /> Browse Hub
           </button>
-          <button className="btn" onClick={() => navigate("/jobs")}>
-            <Activity size={14} /> All Jobs
+          <button className="btn" onClick={() => navigate("/runs")}>
+            <Activity size={14} /> All Runs
           </button>
         </div>
       </div>

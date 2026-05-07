@@ -105,6 +105,7 @@ def _build_job_label(method: str, model_name: str) -> str:
         "rlvr-train": "RLVR", "logit-lens": "Logit Lens",
         "activation-pca": "Activation PCA",
         "activation-patch": "Activation Patching",
+        "model-health-check": "Model Health",
         "eval": "Eval", "sweep": "Sweep",
     }
     display = display_map.get(method, method)

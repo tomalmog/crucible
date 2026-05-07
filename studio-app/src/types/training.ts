@@ -38,6 +38,15 @@ export interface TrainingMethodInfo {
   category: TrainingMethodCategory;
 }
 
+export interface FineTuningGoalInfo {
+  id: string;
+  title: string;
+  description: string;
+  method: TrainingMethod;
+  badge: string;
+  outcome: string;
+}
+
 export const TRAINING_METHODS: TrainingMethodInfo[] = [
   { id: "train", name: "Basic Training", description: "Standard supervised training from scratch", category: "pre-training" },
   { id: "sft", name: "SFT", description: "Supervised fine-tuning on instruction data", category: "fine-tuning" },
@@ -53,6 +62,60 @@ export const TRAINING_METHODS: TrainingMethodInfo[] = [
   { id: "rlvr-train", name: "RLVR", description: "RL with verifiable rewards for code and math", category: "alignment" },
   { id: "distill", name: "Distillation", description: "Knowledge distillation from a teacher model", category: "knowledge-transfer" },
 ];
+
+export const FINE_TUNING_GOALS: FineTuningGoalInfo[] = [
+  {
+    id: "task-accuracy",
+    title: "Improve task accuracy",
+    description: "Use labeled examples to make a base model better at one workflow.",
+    method: "sft",
+    badge: "SFT",
+    outcome: "Best for support answers, extraction, classification, and JSON output.",
+  },
+  {
+    id: "private-efficient",
+    title: "Fine-tune privately on limited GPU",
+    description: "Train adapters instead of the full model to reduce memory and cost.",
+    method: "lora-train",
+    badge: "LoRA",
+    outcome: "Best default for startup teams running on rented or owned GPUs.",
+  },
+  {
+    id: "large-model-efficient",
+    title: "Fit a larger model on one GPU",
+    description: "Use quantized adapter training when VRAM is the constraint.",
+    method: "qlora-train",
+    badge: "QLoRA",
+    outcome: "Best for 7B+ models when full fine-tuning is too expensive.",
+  },
+  {
+    id: "preferred-answers",
+    title: "Prefer one answer over another",
+    description: "Use chosen/rejected examples to align style, helpfulness, or policy.",
+    method: "dpo-train",
+    badge: "DPO",
+    outcome: "Best after you can collect pairwise preferences from users or reviewers.",
+  },
+  {
+    id: "domain-knowledge",
+    title: "Teach domain knowledge",
+    description: "Continue training on domain text before task-specific fine-tuning.",
+    method: "domain-adapt",
+    badge: "Domain",
+    outcome: "Best for legal, finance, healthcare, internal docs, and technical corpora.",
+  },
+];
+
+export const ADVANCED_TRAINING_METHOD_IDS = new Set<TrainingMethod>([
+  "train",
+  "rlhf-train",
+  "grpo-train",
+  "kto-train",
+  "orpo-train",
+  "rlvr-train",
+  "distill",
+  "multimodal-train",
+]);
 
 export interface SharedTrainingConfig {
   epochs: string;

@@ -886,6 +886,9 @@ label,
     cursor: pointer;
     transition: all var(--transition-normal);
     box-shadow: var(--shadow-sm);
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
 }
 
 .method-card:hover {
@@ -941,6 +944,89 @@ label,
 
 .method-card-docs:hover {
     color: var(--accent);
+}
+
+.workflow-intro,
+.model-design-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 8px 0 0;
+}
+
+.workflow-intro h2,
+.model-design-header h2 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    font-weight: 650;
+}
+
+.workflow-intro p,
+.model-design-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    max-width: 680px;
+}
+
+.section-kicker {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.goal-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.goal-card {
+    gap: 10px;
+    min-height: 220px;
+}
+
+.goal-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+    background: var(--accent-muted);
+    border-radius: var(--radius-md);
+}
+
+.goal-card-outcome {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    line-height: 1.45;
+}
+
+.advanced-methods {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+
+.advanced-methods summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.method-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.method-grid-compact .method-card {
+    padding: 14px;
 }
 
 /* ─── Wizard Steps ─── */
@@ -1069,6 +1155,26 @@ label,
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     color: var(--text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.run-row-business {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+}
+
+.run-row-business span {
+    min-width: 0;
+    max-width: 100%;
+    padding: 3px 8px;
+    border: 1px solid var(--border-light);
+    border-radius: 999px;
+    background: var(--bg-elevated);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2845,6 +2951,448 @@ label,
 
 .has-remote-tab {
     margin-right: 40px;
+}
+
+.preflight-panel {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-base);
+}
+
+.preflight-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.preflight-header h3 {
+    margin: 0 0 4px;
+    font-size: 0.9375rem;
+    font-weight: 650;
+}
+
+.preflight-header p {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+}
+
+.preflight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+}
+
+.preflight-metric {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    min-height: 116px;
+    padding: 12px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+}
+
+.preflight-metric strong {
+    font-size: 0.9375rem;
+    font-weight: 650;
+    color: var(--text);
+}
+
+.preflight-metric span:last-child {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.preflight-metric-icon {
+    color: var(--accent);
+}
+
+.preflight-metric-success .preflight-metric-icon {
+    color: var(--success);
+}
+
+.preflight-metric-warning .preflight-metric-icon {
+    color: var(--warning);
+}
+
+.health-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.health-check-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.health-check-card {
+    display: grid;
+    gap: 6px;
+    min-height: 150px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-base);
+}
+
+.health-check-grid-compact .health-check-card {
+    min-height: 112px;
+    padding: 14px;
+}
+
+.health-check-card strong {
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.health-check-card p {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.health-check-icon {
+    color: var(--text-tertiary);
+}
+
+.health-check-card-success .health-check-icon {
+    color: var(--success);
+}
+
+.health-check-card-warning .health-check-icon {
+    color: var(--warning);
+}
+
+.model-health-runner {
+    display: grid;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-base);
+}
+
+.health-runner-block {
+    display: grid;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-light);
+}
+
+.preflight-header + .health-runner-block {
+    padding-top: 0;
+    border-top: none;
+}
+
+.health-runner-label {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.health-runner-label-full {
+    grid-column: 1 / -1;
+}
+
+.health-suite-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+}
+
+.health-suite-card {
+    display: grid;
+    gap: 8px;
+    min-height: 138px;
+    padding: 14px;
+    text-align: left;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.health-suite-card:hover,
+.health-suite-card.active {
+    border-color: var(--accent);
+    background: var(--accent-muted);
+}
+
+.health-suite-card strong {
+    font-size: 0.9375rem;
+    font-weight: 650;
+}
+
+.health-suite-card span {
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.health-suite-checks {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+}
+
+.health-check-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.health-check-option {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 12px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    cursor: pointer;
+}
+
+.health-check-option input {
+    margin-top: 2px;
+}
+
+.health-check-option span {
+    display: grid;
+    gap: 4px;
+}
+
+.health-check-option strong {
+    font-size: 0.875rem;
+}
+
+.health-check-option small {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+}
+
+.health-check-option em {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-style: normal;
+    line-height: 1.45;
+}
+
+.health-report-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.health-report-header h3 {
+    margin: 4px 0 6px;
+}
+
+.health-report-header p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.health-report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.health-report-brief {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+}
+
+.health-report-brief h4 {
+    margin: 6px 0 0;
+    font-size: 1.25rem;
+}
+
+.health-report-brief p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+
+.health-report-action-panel {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+}
+
+.health-report-action-panel ol {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.health-report-metric {
+    display: grid;
+    gap: 5px;
+    min-height: 104px;
+    padding: 12px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+}
+
+.health-report-metric > span:first-child {
+    color: var(--accent);
+}
+
+.health-report-metric strong {
+    font-size: 0.9375rem;
+}
+
+.health-report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.health-report-section {
+    padding: 12px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+}
+
+.health-report-section p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.health-report-output {
+    display: grid;
+    gap: 10px;
+}
+
+.health-report-output h4 {
+    margin: 0;
+}
+
+.health-report-finding-list {
+    display: grid;
+    gap: 12px;
+}
+
+.health-report-finding {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    padding: 14px 14px 14px 18px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+}
+
+.health-report-finding::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 12px;
+    bottom: 12px;
+    width: 3px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--accent);
+}
+
+.health-report-finding.severity-ok::before {
+    background: var(--success);
+}
+
+.health-report-finding.severity-warning::before,
+.health-report-finding.severity-review::before {
+    background: var(--warning);
+}
+
+.health-report-finding.severity-critical::before {
+    background: var(--error);
+}
+
+.health-report-finding-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.health-report-finding-header strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.9375rem;
+    line-height: 1.35;
+}
+
+.health-report-finding-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.health-report-finding-grid p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.health-report-appendix summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+@media (max-width: 720px) {
+    .model-design-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .health-report-brief,
+    .health-report-finding-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .health-report-action-panel {
+        padding-left: 0;
+        padding-top: 12px;
+        border-left: 0;
+        border-top: 2px solid var(--accent);
+    }
 }
 
 /* ─── Remote Sidebar (collapsed tab) ─── */

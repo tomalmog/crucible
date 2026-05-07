@@ -4,23 +4,26 @@ Desktop UI for Crucible, built with Tauri 2 + React 19 + TypeScript.
 
 ## What It Does
 
-Crucible Studio is a native desktop application that provides a visual interface for the entire Crucible ML training workflow. It calls the Python CLI under the hood — every CLI feature is accessible from the UI.
+Crucible Studio is a native application for eval-gated model improvement. It
+calls the Python CLI under the hood while presenting a goal-first workflow for
+data, fine-tuning, evals, model health, registry, and runs.
 
-### Pages (12)
+### Core Pages
 
-- **Training** — Pick from 13 training methods, configure with an auto-saved wizard, run locally with live progress and loss curves, or submit to a remote Slurm cluster
+- **Fine-tuning** — Pick a model improvement goal, review launch preflight, configure the run, and execute locally or on a remote cluster
+- **Evals** — Run benchmark suites, compare candidates against base models, and turn results into promotion signals
+- **Model Health** — Run a curated health suite, review eval coverage, run stability, fine-tune lineage, and open targeted diagnostics only when needed
 - **Datasets** — Ingest data, filter by language/quality, browse versions, inspect samples, compare version diffs
-- **Models** — Grouped model registry with version history, diffing, tagging, rollback, deletion, and merge
+- **Model Registry** — Grouped model registry with version history, diffing, tagging, rollback, deletion, and merge
+- **Eval Sets** — Manage reusable evaluation tasks and benchmark fixtures
 - **Chat** — Load a trained model and chat with configurable sampling (temperature, top-k, top-p), streaming responses
 - **Compare Chat** — A/B model comparison: same prompt to two models side-by-side, rate responses, export as DPO preference data
 - **Hub** — Search HuggingFace models/datasets with filters (task, library, sort), view file listings and metadata, download with progress, push trained models
-- **Jobs** — Unified job queue for local and remote jobs. Remote jobs appear instantly on submit with live phase updates (connecting → provisioning → uploading → submitting). View logs, cancel pending Slurm jobs, track failures with inline error display.
+- **Runs** — Unified run history for local and remote work. Remote runs appear instantly on submit with live phase updates (connecting → provisioning → uploading → submitting). View logs, cancel pending Slurm runs, track failures, and review eval gates.
 - **Clusters** — Register, validate, and manage Slurm cluster SSH connections
-- **Experiments** — Training run history, multi-run comparison, cost analysis
-- **Safety** — Toxicity evaluation and pre-deployment safety gates
-- **Deploy** — Model packaging, ONNX quantization, latency profiling, readiness checklist
+- **Resources** — Monitor local jobs, saved outputs, and storage usage
 - **Settings** — Data root configuration, hardware profile, dark/light theme toggle
-- **Docs** — Built-in training method documentation
+- **Docs** — Built-in model improvement and training method documentation
 
 ### Architecture
 
@@ -34,8 +37,8 @@ Crucible Studio is a native desktop application that provides a visual interface
 
 - `useCrucibleCommand` hook wraps all CLI invocations with progress tracking and error handling
 - `useRemoteJobs` hook polls remote job JSON files every 2 seconds for live status
-- Training config drafts auto-save to localStorage and merge with defaults on load
-- `DatasetSelect` component shared across all 13 training forms
+- Fine-tuning config drafts auto-save to localStorage and merge with defaults on load
+- `DatasetSelect` component shared across all fine-tuning forms
 - `CommandFormPanel` provides consistent form layout with validation
 
 ## Quick Start

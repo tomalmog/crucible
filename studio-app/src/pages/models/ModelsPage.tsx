@@ -317,7 +317,7 @@ export function ModelsPage() {
 
   return (
     <>
-      <PageHeader title="Models" />
+      <PageHeader title="Model Registry" />
 
       <div className="registry-toolbar">
         <div className="registry-search">

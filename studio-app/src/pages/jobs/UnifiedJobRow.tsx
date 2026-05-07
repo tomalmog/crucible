@@ -1,13 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { useCrucible } from "../../context/CrucibleContext";
+import type { CommandTaskStatus } from "../../types";
 import type { JobRecord } from "../../types/jobs";
 import { TERMINAL_JOB_STATES } from "../../types/jobs";
-import { getJobLogs, syncJobState } from "../../api/jobsApi";
-import { startCrucibleCommand, getCrucibleCommandStatus } from "../../api/studioApi";
 import { jobLabel } from "../../utils/jobLabels";
 import { formatTimeAgo } from "../../utils/formatTime";
 import { jobAccentColor } from "./JobsPage";
 import { parseTrainingProgress } from "../training/TrainingRunMonitor";
+import {
+  ACTIVE_STATES,
+  configString,
+  NON_TRAINING_TYPES,
+  runTypeLabel,
+} from "./jobRowDisplay";
+import {
+  LocalJobOutputPanel,
+  LocalProgressPanel,
+  PullProgressPanel,
+  RemoteJobLogPanel,
+} from "./UnifiedJobOutputPanels";
+import { useRemoteModelPull } from "./useRemoteModelPull";
+import { useUnifiedJobLogs } from "./useUnifiedJobLogs";
 import {
   ChevronRight,
   Square,
@@ -21,14 +35,6 @@ import {
   Loader2,
 } from "lucide-react";
 
-const ACTIVE_STATES = new Set(["running", "pending"]);
-const NON_TRAINING_TYPES = new Set([
-  "eval", "logit-lens", "activation-pca", "activation-patch",
-  "linear-probe", "sae-train", "sae-analyze", "steer-compute", "steer-apply",
-  "hub-download",
-  "ingest",
-]);
-
 export function UnifiedJobRow({
   job,
   localTask,
@@ -41,7 +47,7 @@ export function UnifiedJobRow({
 }: {
   job: JobRecord;
   /** For local jobs, the CommandTaskStatus for stdout/stderr streaming. */
-  localTask?: { stdout: string; stderr: string; status: string; elapsed_seconds: number; remaining_seconds: number; progress_percent: number; label: string | null; task_id: string };
+  localTask?: CommandTaskStatus;
   onDelete: () => void;
   onCancel: () => void;
   onView: () => void;
@@ -54,29 +60,14 @@ export function UnifiedJobRow({
   const isRemote = !isLocal;
   const sweepTag = job.isSweep ? ` (sweep, ${job.sweepTrialCount} trials)` : "";
 
-  // Log streaming state (for remote jobs)
-  const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const logContainerRef = useRef<HTMLPreElement>(null);
-  const localLogRef = useRef<HTMLPreElement>(null);
-  const streamTaskRef = useRef<string | null>(null);
-  const streamPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isStreamingRef = useRef(false);
-  const userScrolledRef = useRef(false);
-  const isAutoScrollingRef = useRef(false);
-
   // Inline rename state (for local jobs)
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
-  // Pull model state (for remote jobs)
-  const [pullProgress, setPullProgress] = useState<string[]>([]);
-  const [pullDone, setPullDone] = useState(false);
-  const [pullError, setPullError] = useState<string | null>(null);
-  const [pulling, setPulling] = useState(false);
-
   const displayName = job.label || jobLabel(job.jobType, job.modelName) || job.jobId;
+  const projectName = configString(job.config, "projectName");
+  const evalObjective = configString(job.config, "evalObjective");
+  const promotionStage = configString(job.config, "promotionStage") || "dev";
   const isFinished = TERMINAL_JOB_STATES.has(job.state);
   const isRunning = ACTIVE_STATES.has(job.state) || job.state === "submitting";
   const isSubmitting = job.state === "submitting";
@@ -84,183 +75,38 @@ export function UnifiedJobRow({
   const isCompleted = job.state === "completed";
   const hasLocalModel = !!job.modelPathLocal;
   const failedOnCluster = isFailed && isRemote && !!job.backendJobId;
+  const jobCardStyle: CSSProperties & { "--job-accent": string } = {
+    "--job-accent": jobAccentColor(job.state),
+  };
 
-  // --- Remote log fetching ---
-  const fetchLogs = useCallback(async (_bypassCache?: boolean) => {
-    if (!dataRoot || !isRemote) return;
-    setLoading(true);
-    try {
-      const content = await getJobLogs(dataRoot, job.jobId, job.state);
-      setLogs(content?.trim() || "No logs available yet.");
-    } catch (err) {
-      setLogs(`Error fetching logs: ${err}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [dataRoot, job.jobId, isRemote]);
+  const {
+    fetchLogs,
+    handleLogScroll,
+    loading,
+    localLogRef,
+    logContainerRef,
+    logs,
+    showLogs,
+    toggleLogs,
+  } = useUnifiedJobLogs({
+    dataRoot,
+    failedOnCluster,
+    isLocal,
+    isRemote,
+    isRunning,
+    isSubmitting,
+    job,
+    localTask,
+    onRefresh,
+  });
 
-  const startLogStream = useCallback(async () => {
-    if (!dataRoot || streamTaskRef.current || !isRemote) return;
-    // Stream via legacy remote logs for now (the backend_job_id is the rj- ID)
-    const legacyId = job.backendJobId;
-    if (!legacyId) { fetchLogs(); return; }
-    setLoading(true);
-    isStreamingRef.current = true;
-    userScrolledRef.current = false;
-    try {
-      const { task_id } = await startCrucibleCommand(dataRoot, [
-        "remote", "logs", "--job-id", legacyId, "--follow", "--tail", "200",
-      ]);
-      streamTaskRef.current = task_id;
-      const completionDetectedRef = { current: false };
-      streamPollRef.current = setInterval(async () => {
-        try {
-          const status = await getCrucibleCommandStatus(task_id);
-          const stdout = status.stdout || "";
-          if (stdout) {
-            const trimmed = stdout.trim();
-            setLogs(prev => trimmed.length >= prev.length ? trimmed : prev);
-            setLoading(false);
-            if (!completionDetectedRef.current &&
-                (stdout.includes("CRUCIBLE_AGENT_COMPLETE") || stdout.includes("CRUCIBLE_AGENT_ERROR"))) {
-              completionDetectedRef.current = true;
-              syncJobState(dataRoot!, job.jobId, true)
-                .then(() => onRefresh?.())
-                .catch(console.error);
-            }
-          }
-          if (status.status !== "running") {
-            if (streamPollRef.current) clearInterval(streamPollRef.current);
-            streamPollRef.current = null;
-            streamTaskRef.current = null;
-            isStreamingRef.current = false;
-            setLoading(false);
-          }
-        } catch {
-          if (streamPollRef.current) clearInterval(streamPollRef.current);
-          streamPollRef.current = null;
-          streamTaskRef.current = null;
-          isStreamingRef.current = false;
-          setLoading(false);
-        }
-      }, 2_000);
-    } catch (err) {
-      setLogs(`Error starting log stream: ${err}`);
-      isStreamingRef.current = false;
-      setLoading(false);
-    }
-  }, [dataRoot, job.jobId, job.backendJobId, fetchLogs, onRefresh, isRemote]);
-
-  const stopLogStream = useCallback(() => {
-    if (streamPollRef.current) {
-      clearInterval(streamPollRef.current);
-      streamPollRef.current = null;
-    }
-    streamTaskRef.current = null;
-  }, []);
-
-  const toggleLogs = useCallback(() => {
-    if (isLocal) return; // local jobs show logs inline via localTask
-    if (job.state === "submitting") return; // no backend_job_id yet; show phase spinner instead
-    const next = !showLogs;
-    setShowLogs(next);
-    if (next && !logs) {
-      if (ACTIVE_STATES.has(job.state)) startLogStream();
-      else fetchLogs();
-    }
-    if (!next) stopLogStream();
-  }, [showLogs, logs, fetchLogs, startLogStream, stopLogStream, job.state, isLocal]);
-
-  useEffect(() => {
-    if (!ACTIVE_STATES.has(job.state) && streamTaskRef.current) {
-      stopLogStream();
-    }
-  }, [job.state, stopLogStream]);
-
-  useEffect(() => () => stopLogStream(), [stopLogStream]);
-
-  useEffect(() => {
-    if (!isStreamingRef.current || userScrolledRef.current) return;
-    const el = logContainerRef.current;
-    if (el) {
-      isAutoScrollingRef.current = true;
-      el.scrollTop = el.scrollHeight;
-      requestAnimationFrame(() => { isAutoScrollingRef.current = false; });
-    }
-  }, [logs]);
-
-  // Autoscroll local job logs when running
-  useEffect(() => {
-    if (!isLocal || !localTask) return;
-    const el = localLogRef.current;
-    if (el && localTask.status === "running") {
-      isAutoScrollingRef.current = true;
-      el.scrollTop = el.scrollHeight;
-      requestAnimationFrame(() => { isAutoScrollingRef.current = false; });
-    }
-  }, [isLocal, localTask?.stdout, localTask?.status]);
-
-  const handleLogScroll = useCallback((e: React.UIEvent<HTMLPreElement>) => {
-    if (!isStreamingRef.current || isAutoScrollingRef.current) return;
-    const el = e.currentTarget;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    userScrolledRef.current = !atBottom;
-  }, []);
-
-  // Auto-expand logs for remote jobs that completed/failed (backend_job_id is set)
-  useEffect(() => {
-    if (isRemote && failedOnCluster && job.backendJobId && !showLogs && !logs) setShowLogs(true);
-  }, [failedOnCluster]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    // Auto-open log stream when the job is already running on mount.
-    // Skip if submitting — backend_job_id is not set yet.
-    if (isRemote && isRunning && !isSubmitting && job.backendJobId && !showLogs) {
-      setShowLogs(true);
-      startLogStream();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // --- Model pull (remote only) ---
-  const handlePull = useCallback(async () => {
-    if (!dataRoot || !job.backendJobId) return;
-    setPulling(true);
-    setPullProgress([]);
-    setPullError(null);
-    setPullDone(false);
-    try {
-      const pullArgs = ["remote", "pull-model", "--job-id", job.backendJobId];
-      if (job.modelName) pullArgs.push("--model-name", job.modelName);
-      const task = await startCrucibleCommand(dataRoot, pullArgs);
-      const poll = setInterval(async () => {
-        try {
-          const status = await getCrucibleCommandStatus(task.task_id);
-          const lines = (status.stdout || "")
-            .split("\n")
-            .filter((l: string) => l.startsWith("CRUCIBLE_PULL_PROGRESS: "))
-            .map((l: string) => l.replace("CRUCIBLE_PULL_PROGRESS: ", ""));
-          if (lines.length > 0) setPullProgress(lines);
-          if (status.status !== "running") {
-            clearInterval(poll);
-            if (status.status === "completed") {
-              setPullDone(true);
-              refreshModels().catch(console.error);
-            } else {
-              setPullError(status.stderr || "Pull failed");
-            }
-            setPulling(false);
-          }
-        } catch {
-          clearInterval(poll);
-          setPulling(false);
-          setPullError("Lost connection to pull task");
-        }
-      }, 2000);
-    } catch (err) {
-      setPulling(false);
-      setPullError(`Failed to start pull: ${err}`);
-    }
-  }, [dataRoot, job.backendJobId, job.modelName, refreshModels]);
+  const {
+    handlePull,
+    pullDone,
+    pullError,
+    pulling,
+    pullProgress,
+  } = useRemoteModelPull({ dataRoot, job, refreshModels });
 
   // --- Inline rename (local only) ---
   function startEditing() {
@@ -289,7 +135,7 @@ export function UnifiedJobRow({
   return (
     <div
       className="job-card"
-      style={{ "--job-accent": jobAccentColor(job.state) } as React.CSSProperties}
+      style={jobCardStyle}
       onClick={() => {
         if (editing) return;
         if (isFinished) onView();
@@ -344,7 +190,7 @@ export function UnifiedJobRow({
             </button>
           )}
           {isRemote && isCompleted && !hasLocalModel && !pulling && !pullDone && !NON_TRAINING_TYPES.has(job.jobType) && (
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); handlePull(); }} title="Pull model">
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); handlePull().catch(console.error); }} title="Pull model">
               <Download size={12} />
             </button>
           )}
@@ -354,7 +200,7 @@ export function UnifiedJobRow({
             </button>
           )}
           {isRemote && showLogs && (
-            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); fetchLogs(true); }} title="Refresh logs">
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); fetchLogs(true).catch(console.error); }} title="Refresh logs">
               <RefreshCw size={12} />
             </button>
           )}
@@ -371,11 +217,19 @@ export function UnifiedJobRow({
       {/* Line 2: meta — job type + cluster on left, timestamp on right */}
       <div className="job-card-meta">
         <span>
-          {job.jobType}{sweepTag}
+          {runTypeLabel(job.jobType)}{sweepTag}
           {isRemote && job.backendCluster && ` · ${job.backendCluster}`}
         </span>
         <span>{formatTimeAgo(job.createdAt)}</span>
       </div>
+
+      {(projectName || evalObjective) && (
+        <div className="run-row-business">
+          {projectName && <span>Project: {projectName}</span>}
+          {evalObjective && <span>Eval gate: {evalObjective}</span>}
+          <span>Stage: {promotionStage}</span>
+        </div>
+      )}
 
       {/* Submit / pending phase messages */}
       {isSubmitting && job.submitPhase && (
@@ -405,117 +259,30 @@ export function UnifiedJobRow({
         </div>
       )}
 
-      {/* Progress strip (local running jobs, not pending dispatch) */}
-      {isLocal && localTask && localTask.status === "running" && job.state !== "pending" && (
-        <>
-          <div className="job-progress-strip">
-            <div className="job-progress-strip-fill" style={{ width: `${localTask.progress_percent}%` }} />
-          </div>
-          <div className="job-card-meta">
-            <span>{localTask.progress_percent.toFixed(0)}% · Elapsed {formatDur(localTask.elapsed_seconds)}</span>
-            <span>~{formatDur(localTask.remaining_seconds)} remaining</span>
-          </div>
-        </>
+      <LocalProgressPanel job={job} localTask={localTask} progress={progress} />
+      <PullProgressPanel
+        pullDone={pullDone}
+        pullError={pullError}
+        pulling={pulling}
+        pullProgress={pullProgress}
+      />
+      {isLocal && (
+        <LocalJobOutputPanel
+          isExpanded={localExpanded}
+          job={job}
+          localLogRef={localLogRef}
+          localTask={localTask}
+        />
       )}
-
-      {/* Inline metrics (local running jobs with training progress, not pending) */}
-      {isLocal && localTask && localTask.status === "running" && progress && job.state !== "pending" && (
-        <div className="job-progress-meta">
-          <span>Epoch {progress.epoch}/{progress.totalEpochs}</span>
-          {progress.loss != null && <span>Loss: {progress.loss.toFixed(4)}</span>}
-          {progress.meanReward != null && <span>Reward: {progress.meanReward.toFixed(4)}</span>}
-        </div>
-      )}
-
-      {/* Pull progress (remote) */}
-      {(pulling || pullDone || pullError) && (
-        <div>
-          {pulling && (
-            <div className="pull-steps">
-              {pullProgress.map((step, i) => (
-                <div key={i} className="pull-step">{step}</div>
-              ))}
-              {pullProgress.length === 0 && <div className="pull-step">Starting pull...</div>}
-            </div>
-          )}
-          {pullDone && (
-            <div className="pull-success flex-row" style={{ gap: "var(--space-xs)" }}>
-              <Check size={14} /> Model pulled successfully!
-            </div>
-          )}
-          {pullError && <div className="error-alert-prominent">{pullError}</div>}
-        </div>
-      )}
-
-      {/* Local job expanded output */}
-      {isLocal && localExpanded && localTask && (
-        <div className="job-expanded">
-          {localTask.stdout && (
-            <div>
-              <div className="job-output-label">stdout</div>
-              <pre ref={localLogRef} className="console console-tall">{localTask.stdout}</pre>
-            </div>
-          )}
-          {localTask.stderr && (
-            <div>
-              <details open={localTask.status !== "failed"}>
-                <summary className={`job-traceback-toggle ${localTask.status === "failed" ? "error-text" : ""}`}>
-                  {localTask.status === "failed" ? "full traceback" : "logs"}
-                </summary>
-                <pre className="console console-short">{localTask.stderr}</pre>
-              </details>
-            </div>
-          )}
-          {!localTask.stdout && !localTask.stderr && (
-            <div className="job-no-output">No output yet.</div>
-          )}
-        </div>
-      )}
-      {/* Orphaned local job — show persisted output from job record */}
-      {isLocal && localExpanded && !localTask && (job.stdout || job.stderr) && (
-        <div className="job-expanded">
-          {job.stdout && (
-            <div>
-              <div className="job-output-label">Last captured output</div>
-              <pre className="console console-tall">{job.stdout}</pre>
-            </div>
-          )}
-          {job.stderr && (
-            <details>
-              <summary className="job-traceback-toggle error-text">stderr</summary>
-              <pre className="console console-short">{job.stderr}</pre>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* Remote job logs */}
-      {isRemote && showLogs && (
-        <div className="job-expanded">
-          {loading && !logs && (
-            <div className="job-no-output">Fetching logs from cluster...</div>
-          )}
-          {logs ? (
-            <div>
-              <div className="job-output-label">Remote Logs {loading && "(refreshing...)"}</div>
-              <pre ref={logContainerRef} className="console console-tall" onScroll={handleLogScroll}>
-                {logs}
-              </pre>
-            </div>
-          ) : (
-            !loading && <div className="job-no-output">No logs available yet.</div>
-          )}
-        </div>
+      {isRemote && (
+        <RemoteJobLogPanel
+          handleLogScroll={handleLogScroll}
+          loading={loading}
+          logContainerRef={logContainerRef}
+          logs={logs}
+          showLogs={showLogs}
+        />
       )}
     </div>
   );
-}
-
-function formatDur(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m < 60) return `${m}m ${s}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
 }

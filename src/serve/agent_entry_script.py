@@ -308,6 +308,31 @@ def main() -> None:
             _load_records_from_path(ma),
         )
 
+    def _dispatch_model_health(ma):
+        from serve.model_health_runner import run_model_health_suite
+        from serve.model_health_suite import ModelHealthCheckOptions
+        options = ModelHealthCheckOptions(
+            model_path=ma.get("model_path", ""),
+            dataset_name=ma.get("dataset_name", ""),
+            probe_text=ma.get("probe_text", ""),
+            clean_text=ma.get("clean_text", ""),
+            corrupted_text=ma.get("corrupted_text", ""),
+            label_field=ma.get("label_field", ""),
+            max_samples=int(ma.get("max_samples", 300)),
+            base_model=ma.get("base_model", ""),
+            output_dir=ma.get("output_dir", "./outputs/model-health"),
+            check_ids=tuple(
+                part.strip() for part in ma.get("checks", "").split(",")
+                if part.strip()
+            ),
+            layer_indices=ma.get("layer_indices", ""),
+        )
+        return run_model_health_suite(
+            ma.get("suite", "standard"),
+            options,
+            _load_records_from_path(ma),
+        )
+
     def _dispatch_sae_train(ma):
         from core.sae_types import SaeTrainOptions
         from serve.sae_train_runner import run_sae_train
@@ -344,6 +369,7 @@ def main() -> None:
         "activation-pca": _dispatch_activation_pca,
         "activation-patch": _dispatch_activation_patch,
         "linear-probe": _dispatch_linear_probe,
+        "model-health-check": _dispatch_model_health,
         "sae-train": _dispatch_sae_train,
         "sae-analyze": _dispatch_sae_analyze,
         "steer-compute": _dispatch_steer_compute,

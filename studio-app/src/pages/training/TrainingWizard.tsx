@@ -9,30 +9,16 @@ import {
 import { startCrucibleCommand } from "../../api/studioApi";
 import { trainingLabel } from "../../utils/jobLabels";
 import { generateScript, parseScriptConfig, configToFormState } from "../../utils/scriptGenerator";
-import { CodeEditor } from "../../components/shared/CodeEditor";
 import { TabBar } from "../../components/shared/TabBar";
-import { SharedTrainingFields } from "./forms/SharedTrainingFields";
-import { BasicTrainForm } from "./forms/BasicTrainForm";
-import { SftTrainForm } from "./forms/SftTrainForm";
-import { DpoTrainForm } from "./forms/DpoTrainForm";
-import { RlhfTrainForm } from "./forms/RlhfTrainForm";
-import { LoraTrainForm } from "./forms/LoraTrainForm";
-import { DistillTrainForm } from "./forms/DistillTrainForm";
-import { DomainAdaptForm } from "./forms/DomainAdaptForm";
-import { GrpoTrainForm } from "./forms/GrpoTrainForm";
-import { QloraTrainForm } from "./forms/QloraTrainForm";
-import { KtoTrainForm } from "./forms/KtoTrainForm";
-import { OrpoTrainForm } from "./forms/OrpoTrainForm";
-import { MultimodalTrainForm } from "./forms/MultimodalTrainForm";
-import { RlvrTrainForm } from "./forms/RlvrTrainForm";
 import { ClusterSubmitSection, DEFAULT_CLUSTER_CONFIG } from "./ClusterSubmitSection";
 import type { ClusterSubmitConfig } from "./ClusterSubmitSection";
 import { TrainingClusterContext } from "../../context/TrainingClusterContext";
 import type { TrainingClusterContextValue } from "../../context/TrainingClusterContext";
-import { FormField } from "../../components/shared/FormField";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { useScript } from "../../context/ScriptContext";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { TrainingWizardCodePanel } from "./TrainingWizardCodePanel";
+import { TrainingWizardConfigurePanel } from "./TrainingWizardConfigurePanel";
+import { ArrowLeft } from "lucide-react";
 
 function getMissingFields(
   method: TrainingMethod,
@@ -60,6 +46,14 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   const navigate = useNavigate();
   const [modelName, setModelName] = useState(
     typeof prefill?.modelName === "string" ? prefill.modelName : "My-Model-0",
+  );
+  const [projectName, setProjectName] = useState(
+    typeof prefill?.projectName === "string" ? prefill.projectName : "Default Project",
+  );
+  const [evalObjective, setEvalObjective] = useState(
+    typeof prefill?.evalObjective === "string"
+      ? prefill.evalObjective
+      : "Primary eval score improves over the base model without latency regression.",
   );
   const [startError, setStartError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -121,6 +115,10 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
       page: "training",
       method,
       modelName,
+      projectName,
+      evalObjective,
+      promotionStage: "dev",
+      workflow: "eval-gated-fine-tune",
       shared: { ...shared },
       extra: { ...extra },
       remoteEnabled,
@@ -162,9 +160,11 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
     if (!modelName.trim()) m.push("model name");
+    if (!projectName.trim()) m.push("project");
+    if (!evalObjective.trim()) m.push("success metric");
     if (remoteEnabled && !clusterConfig.cluster) m.push("cluster");
     return m;
-  }, [method, extra, modelName, remoteEnabled, clusterConfig.cluster]);
+  }, [method, extra, modelName, projectName, evalObjective, remoteEnabled, clusterConfig.cluster]);
   const canStart = missing.length === 0;
 
   async function submitScript() {
@@ -181,7 +181,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
       await writeTextFile(scriptPath, scriptContent);
       const args = ["run-script", scriptPath, "--model-name", scriptModelName];
       await startCrucibleCommand(dataRoot, args, trainingLabel(method, scriptModelName), cfg);
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -226,7 +226,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
         const args = [...buildTrainingArgs(method, uniqueShared, extra), "--model-name", modelName.trim()];
         await startCrucibleCommand(dataRoot, args, trainingLabel(method, modelName), cfg);
       }
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -240,7 +240,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
     <>
       <PageHeader title={methodInfo.name} />
       <button className="detail-back" onClick={onBack}>
-        <ArrowLeft size={14} /> Back to Training
+        <ArrowLeft size={14} /> Back to Fine-tuning
       </button>
 
       <TabBar
@@ -252,70 +252,35 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
 
       <TrainingClusterContext.Provider value={clusterContextValue}>
       {viewTab === "code" ? (
-        <div className="panel stack-lg">
-          <CodeEditor value={scriptContent} onChange={setScriptContent} maxHeight="600px" />
-          {startError && <div className="error-alert">{startError}</div>}
-          <div className="flex-row">
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => startTraining().catch(console.error)}
-              disabled={submitting}
-            >
-              {submitting ? "Running..." : "Run Script"}
-            </button>
-          </div>
-        </div>
+        <TrainingWizardCodePanel
+          onRunScript={() => startTraining().catch(console.error)}
+          scriptContent={scriptContent}
+          setScriptContent={setScriptContent}
+          startError={startError}
+          submitting={submitting}
+        />
       ) : (
-      <div className="panel stack-lg has-remote-tab">
-          {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "dpo-train" && <DpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "rlhf-train" && <RlhfTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "lora-train" && <LoraTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "distill" && <DistillTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "domain-adapt" && <DomainAdaptForm extra={extra} setExtra={setExtra} />}
-          {method === "grpo-train" && <GrpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "qlora-train" && <QloraTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "kto-train" && <KtoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "orpo-train" && <OrpoTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "multimodal-train" && <MultimodalTrainForm extra={extra} setExtra={setExtra} />}
-          {method === "rlvr-train" && <RlvrTrainForm extra={extra} setExtra={setExtra} />}
-
-          <SharedTrainingFields config={shared} onChange={setShared} />
-
-          <FormField label="Model Name" required>
-            <input
-              value={modelName}
-              onChange={(e) => setModelName(e.currentTarget.value)}
-              placeholder="My-Model-0"
-            />
-          </FormField>
-
-          {!canStart && (
-            <div className="error-alert">
-              Missing required fields: {missing.join(", ")}
-            </div>
-          )}
-          {startError && (
-            <div className="error-alert">{startError}</div>
-          )}
-          <div className="flex-row">
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => startTraining().catch(console.error)}
-              disabled={!canStart || submitting}
-            >
-              {submitting ? "Submitting..." : remoteEnabled ? "Submit to Cluster" : "Start Training"}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={config.resetToDefaults}
-              title="Reset to defaults"
-            >
-              <RotateCcw size={12} /> Reset
-            </button>
-          </div>
-        </div>
+        <TrainingWizardConfigurePanel
+          canStart={canStart}
+          evalObjective={evalObjective}
+          extra={extra}
+          method={method}
+          methodName={methodInfo.name}
+          missing={missing}
+          modelName={modelName}
+          onReset={config.resetToDefaults}
+          onStart={() => startTraining().catch(console.error)}
+          projectName={projectName}
+          remoteEnabled={remoteEnabled}
+          setEvalObjective={setEvalObjective}
+          setExtra={setExtra}
+          setModelName={setModelName}
+          setProjectName={setProjectName}
+          setShared={setShared}
+          shared={shared}
+          startError={startError}
+          submitting={submitting}
+        />
       )}
 
         <ClusterSubmitSection

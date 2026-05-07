@@ -18,6 +18,7 @@ from serve.chat_option_resolver import (
     resolve_chat_tokenizer,
     resolve_chat_training_options,
 )
+from serve.chat_hf_runtime import quiet_hf_loading, resolve_hf_inference_device
 from serve.device_selection import resolve_execution_device
 from serve.hf_model_loader import is_huggingface_model_id, load_huggingface_model, load_huggingface_tokenizer
 from serve.huggingface_tokenizer import AutoTokenizerAdapter
@@ -88,11 +89,12 @@ def _build_hf_runtime_context(
             model_path is a .pt file but the architecture comes from a HF base).
     """
     torch_module = _import_torch()
-    device = _resolve_inference_device(torch_module)
+    device = resolve_hf_inference_device(torch_module)
 
     model_id = hf_model_id or options.model_path
     weights_path = options.model_path if hf_model_id else options.weights_path
-    model = load_huggingface_model(model_id, weights_path, device)
+    with quiet_hf_loading():
+        model = load_huggingface_model(model_id, weights_path, device)
     model.eval()
 
     # Detect actual device the model landed on (device_map may override)
@@ -102,7 +104,8 @@ def _build_hf_runtime_context(
         device = torch_module.device(first_device)
 
     # Load tokenizer
-    hf_tokenizer = load_huggingface_tokenizer(model_id)
+    with quiet_hf_loading():
+        hf_tokenizer = load_huggingface_tokenizer(model_id)
     tokenizer = AutoTokenizerAdapter(hf_tokenizer)
 
     max_context = getattr(model.config, "n_positions", None) or options.max_token_length

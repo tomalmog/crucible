@@ -90,7 +90,7 @@ export function ActivationPatchingForm({ prefill }: ActivationPatchingFormProps)
         if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, activationPatchingLabel(modelPath), cfg);
       }
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

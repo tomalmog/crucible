@@ -27,8 +27,10 @@ _TOOL_NAMES = [
     "submit_remote_interp", "submit_remote_sweep",
     "list_jobs", "job_status", "job_logs", "job_result", "cancel_job", "delete_job",
     "run_benchmark", "submit_remote_eval", "chat", "run_interp",
+    "run_model_health_check", "submit_remote_model_health_check",
     "export_model", "merge_models", "list_clusters", "cluster_info",
-    "hub_search_models", "hub_download_model", "run_sweep",
+    "hub_search_models", "hub_download_model", "hub_search_datasets", "hub_download_dataset",
+    "run_sweep",
     "lora_merge", "curate_dataset", "generate_synthetic_data",
     "hardware_profile",
 ]
@@ -103,6 +105,8 @@ def _get_tools() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     global _TOOLS, _REGISTRY
     if _TOOLS is None:
         _TOOLS, _REGISTRY = _build_tool_definitions()
+    assert _TOOLS is not None
+    assert _REGISTRY is not None
     return _TOOLS, _REGISTRY
 
 
@@ -132,8 +136,8 @@ def execute_tool(name: str, tool_input: dict[str, Any]) -> str:
 # ── System prompt ───────────────────────────────────────────────────
 
 _AGENT_BEHAVIOR = """
-You are the Crucible Studio AI assistant. You help users train, evaluate,
-and manage ML models through the Crucible platform.
+You are the Crucible Studio AI assistant. You help startup teams improve,
+evaluate, and ship private ML models through Crucible.
 
 CRITICAL: Do NOT use tools unless the user explicitly asks for data or
 an action. If the user says "hello", "hey", or any greeting, just
@@ -146,6 +150,25 @@ Rules:
 - When using tools, check state first (list_models, list_datasets, list_jobs)
   before making changes.
 - Explain what you're doing and why.
+- Treat every fine-tune as eval-gated: identify the success metric, suggest
+  a baseline/candidate comparison, and recommend promotion only after results.
+- Prefer practical workflows first: SFT, LoRA/QLoRA, DPO, domain adaptation,
+  evals, model registry, and runs. Use experimental research methods only when
+  the user asks for them.
+- For Model Health, choose the suite or targeted checks based on the user's goal.
+  Use standard for release review, deep for instability/safety concerns,
+  supervised when a label field is available, and targeted checks for specific
+  layers or issues such as weight spikes, activation spikes, gradient norms, or
+  layer-wise probes.
+- Use run_model_health_check for local models and submit_remote_model_health_check
+  for remote models. Pass checks/layer_indices when the user asks for a targeted
+  investigation; do not manually run separate interpretability tools unless a
+  health report calls for a deeper follow-up.
+- For health-check datasets, prefer existing ingested datasets. If none fit,
+  use hub_search_datasets/hub_download_dataset for public data, or
+  generate_synthetic_data followed by ingest_dataset for task-specific probes.
+- Before launching remote work, summarize dataset, method, expected output,
+  cluster/cost implications, and ask for approval if anything is ambiguous.
 - When writing files, use the agent workspace directory by default.
 - Return results in a clear, readable format.
 - Be concise. Don't repeat tool output verbatim — summarize it.
@@ -213,16 +236,16 @@ You can navigate the user to any Studio page by including a <navigate_to> tag in
 response. The user will see the page change and a badge in the chat confirming it.
 
 Valid routes:
-/dashboard (Dashboard), /training (Training), /benchmarks (Eval),
-/interpretability (Interpretability), /datasets (Datasets), /models (Models),
-/eval-tasks (Benchmarks), /chat (Chat),
-/hub (Hub), /export (Export), /jobs (Jobs), /clusters (Clusters),
+/dashboard (Dashboard), /fine-tuning (Fine-tuning), /evals (Evals),
+/model-health (Model Health), /datasets (Datasets), /model-registry (Model Registry),
+/eval-tasks (Eval Sets), /chat (Chat),
+/hub (Hub), /export (Export), /runs (Runs), /clusters (Clusters),
 /resources (Resources), /docs (Docs), /settings (Settings)
 
 Usage: include <navigate_to>/route</navigate_to> anywhere in your response.
 - Navigate when the user asks to go somewhere ("show me my models", "go to jobs").
 - Navigate after completing actions where the result lives on another page
-  (e.g. after submitting a training job, navigate to /jobs).
+  (e.g. after submitting a training job, navigate to /runs).
 - Always include useful text alongside the navigation — don't just navigate silently.
 - Only use exact routes from the list above. Never invent routes.
 - Only include one <navigate_to> tag per response.
@@ -230,16 +253,21 @@ Usage: include <navigate_to>/route</navigate_to> anywhere in your response.
 
 _VALID_ROUTES: dict[str, str] = {
     "/dashboard": "Dashboard",
-    "/training": "Training",
-    "/benchmarks": "Eval",
-    "/interpretability": "Interpretability",
+    "/fine-tuning": "Fine-tuning",
+    "/training": "Fine-tuning",
+    "/evals": "Evals",
+    "/benchmarks": "Evals",
+    "/model-health": "Model Health",
+    "/interpretability": "Model Health",
     "/datasets": "Datasets",
-    "/models": "Models",
-    "/eval-tasks": "Benchmarks",
+    "/model-registry": "Model Registry",
+    "/models": "Model Registry",
+    "/eval-tasks": "Eval Sets",
     "/chat": "Chat",
     "/hub": "Hub",
     "/export": "Export",
-    "/jobs": "Jobs",
+    "/runs": "Runs",
+    "/jobs": "Runs",
     "/clusters": "Clusters",
     "/resources": "Resources",
     "/docs": "Docs",
@@ -302,7 +330,10 @@ def _load_conversation(path: Path) -> list[dict[str, Any]]:
         return []
     try:
         data = json.loads(path.read_text())
-        return data.get("messages", [])
+        messages = data.get("messages", []) if isinstance(data, dict) else []
+        if not isinstance(messages, list):
+            return []
+        return [msg for msg in messages if isinstance(msg, dict)]
     except (json.JSONDecodeError, KeyError):
         return []
 
@@ -329,6 +360,7 @@ _DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
 _DEFAULT_OLLAMA_MODEL = "llama3.1"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+_DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
 
 
 def run_agent_turn(
@@ -342,7 +374,7 @@ def run_agent_turn(
     ollama_url: str = "",
 ) -> dict[str, Any]:
     """Run a single agent conversation turn with tool use."""
-    from serve.agent_backends import call_anthropic, call_ollama, call_gemini
+    from serve.agent_backends import call_anthropic, call_gemini, call_ollama, call_openai
     from serve.mcp_server import _ensure_backends
     _ensure_backends()
 
@@ -361,6 +393,9 @@ def run_agent_turn(
         elif provider == "gemini":
             effective_model = model or _DEFAULT_GEMINI_MODEL
             response = call_gemini(effective_model, system, messages, tools, api_key=api_key)
+        elif provider == "openai":
+            effective_model = model or _DEFAULT_OPENAI_MODEL
+            response = call_openai(api_key, effective_model, system, messages, tools)
         else:
             effective_model = model or _DEFAULT_ANTHROPIC_MODEL
             response = call_anthropic(api_key, effective_model, system, messages, tools)
@@ -509,9 +544,12 @@ def load_pending_chain(agent_dir: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
         return None
+    if not isinstance(data, dict):
+        return None
+    return {str(key): value for key, value in data.items()}
 
 
 def delete_pending_chain(agent_dir: Path) -> None:
@@ -534,8 +572,10 @@ def _extract_submitted_job_id(messages: list[dict[str, Any]]) -> str | None:
             if isinstance(result_content, str) and '"job_id"' in result_content:
                 try:
                     parsed = json.loads(result_content)
-                    if "job_id" in parsed:
-                        return parsed["job_id"]
+                    if isinstance(parsed, dict):
+                        job_id = parsed.get("job_id")
+                        if isinstance(job_id, str):
+                            return job_id
                 except (json.JSONDecodeError, TypeError):
                     pass
     return None

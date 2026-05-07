@@ -156,11 +156,11 @@ export function EvalCompareView() {
   );
 
   if (isLoading) {
-    return <div className="empty-state"><Loader2 className="spinner" size={20} /> Loading jobs...</div>;
+    return <div className="empty-state"><Loader2 className="spinner" size={20} /> Loading runs...</div>;
   }
 
   if (evalJobs.length === 0) {
-    return <div className="empty-state">No completed evaluation jobs yet. Run an evaluation from the Evaluate tab first.</div>;
+    return <div className="empty-state">No completed eval runs yet. Run an eval first.</div>;
   }
 
   return (
@@ -175,7 +175,7 @@ export function EvalCompareView() {
         />
         <div className="panel" style={{ height: 360, overflow: "auto" }}>
           {selected.length < 2
-            ? <div className="empty-state">Select at least 2 completed eval jobs to compare.</div>
+            ? <div className="empty-state">Select at least 2 completed eval runs to compare.</div>
             : <ComparisonTable selected={selected} />
           }
         </div>
@@ -196,7 +196,7 @@ function JobSelector({ evalJobs, checkedIds, loadingIds, results, onToggle }: {
 }) {
   return (
     <div className="panel stack" style={{ height: 360, display: "flex", flexDirection: "column" }}>
-      <h3>Eval Jobs ({evalJobs.length})</h3>
+      <h3>Eval Runs ({evalJobs.length})</h3>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {evalJobs.map((j) => {
           const checked = checkedIds.has(j.jobId);

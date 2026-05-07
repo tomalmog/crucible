@@ -60,7 +60,7 @@ export function GgufExportForm() {
       const label = jobLabel("gguf-export", modelPath);
       const cfg = snapshotConfig();
       await startCrucibleCommand(dataRoot, args, label, cfg);
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -15,7 +15,7 @@ const MIN_ESTIMATE_SECONDS: u64 = 5;
 const MAX_RUNNING_PROGRESS: f64 = 99.0;
 
 /// Commands shown on the Jobs page.
-const JOBS_PAGE_COMMANDS: [&str; 33] = [
+const JOBS_PAGE_COMMANDS: [&str; 34] = [
     "train",
     "sft",
     "dpo-train",
@@ -36,6 +36,7 @@ const JOBS_PAGE_COMMANDS: [&str; 33] = [
     "activation-pca",
     "activation-patch",
     "linear-probe",
+    "model-health-check",
     "sae-train",
     "sae-analyze",
     "eval",
@@ -537,6 +538,7 @@ fn default_estimate_seconds(command_name: &str) -> u64 {
         | "multimodal-train" | "rlvr-train" | "distill" | "domain-adapt" => 240,
         "sweep" => 900,
         "eval" => 300,
+        "model-health-check" => 300,
         "export-training" => 60,
         "hub-download" => 120,
         "versions" => 8,

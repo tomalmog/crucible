@@ -1,16 +1,18 @@
 # Crucible
 
-ML training platform. Train models, run evals, ship — from a desktop app, CLI, or AI agent.
+Model improvement platform for AI startups. Upload private data, build evals,
+fine-tune open-source models, compare candidates, and promote the winner with
+lineage and reproducibility.
 
 ## What it does
 
-- **13 training methods** — SFT, LoRA, QLoRA, DPO, KTO, ORPO, GRPO, RLHF, RLVR, distillation, domain adaptation, multimodal, basic training. HuggingFace models use [trl](https://github.com/huggingface/trl) + [peft](https://github.com/huggingface/peft) under the hood.
-- **Cloud & remote GPU training** — SSH into any cloud GPU (vast.ai, Lambda, RunPod) or submit to Slurm clusters (university/enterprise). Auto-provisions conda env with torch + dependencies.
-- **Eval benchmarks** — MMLU, GSM8K, HellaSwag, ARC, TruthfulQA, WinoGrande, HumanEval.
-- **Interpretability** — Logit lens, activation PCA, activation patching, linear probes, SAE training/analysis, steering vectors.
-- **Model export** — ONNX, SafeTensors, GGUF, HuggingFace format.
-- **Desktop app** — Tauri + React. Training wizard, job monitoring, model registry, dataset browser, benchmark comparison, interp visualizations.
-- **AI integration** — MCP server with 34 tools. Claude Code or the built-in sidebar agent can train models, run evals, manage data, and monitor jobs.
+- **Eval-gated fine-tuning** — SFT, LoRA/QLoRA, DPO, and domain adaptation are the primary workflows. Every candidate is tracked against a success metric.
+- **Private compute execution** — Run locally, on SSH GPU boxes, or on Slurm clusters. Crucible provisions remote environments and records the run lifecycle.
+- **Model registry and runs** — Track datasets, candidates, eval results, artifacts, and promotion context in one local workspace.
+- **Model health** — Surface eval coverage, failed runs, lineage gaps, and promotion blockers before a model ships.
+- **Exports and handoff** — Export ONNX, SafeTensors, GGUF, or HuggingFace format.
+- **Agentic operator** — The Studio agent can inspect data/models/runs, draft a fine-tuning plan, launch approved work, and summarize results.
+- **Advanced research mode** — GRPO, RLHF, RLVR, KTO, ORPO, distillation, multimodal, and targeted mechanistic diagnostics are available when teams need them.
 
 ## Install
 
@@ -29,7 +31,7 @@ cd studio-app && npm install && npm run tauri dev
 # Ingest data
 crucible ingest ./data.jsonl --dataset my-data
 
-# Train
+# Fine-tune
 crucible sft --dataset my-data --base-model gpt2 --output-dir ./output --model-name my-model
 
 # Chat

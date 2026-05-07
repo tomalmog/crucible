@@ -183,7 +183,7 @@ export function SweepConfigForm() {
         if (clusterConfig.timeLimit) args.push("--time-limit", clusterConfig.timeLimit);
         if (methodArgsJson) args.push("--method-args", methodArgsJson);
         await startCrucibleCommand(dataRoot, args, sweepLabel(method, modelName));
-        navigate("/jobs", { state: { statusFilter: "running" } });
+        navigate("/runs", { state: { statusFilter: "running" } });
       } finally {
         setSubmitting(false);
       }

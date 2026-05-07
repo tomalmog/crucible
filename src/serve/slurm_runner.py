@@ -29,6 +29,7 @@ _METHOD_DISPLAY: dict[str, str] = {
     "activation-pca": "Activation PCA",
     "activation-patch": "Activation Patching",
     "linear-probe": "Linear Probe",
+    "model-health-check": "Model Health",
     "sae-train": "SAE Train",
     "sae-analyze": "SAE Analyze",
     "steer-compute": "Steer Compute",
@@ -106,7 +107,7 @@ class SlurmRunner:
                 )
             elif spec.job_type in (
                 "logit-lens", "activation-pca", "activation-patch",
-                "linear-probe", "sae-train", "sae-analyze",
+                "linear-probe", "model-health-check", "sae-train", "sae-analyze",
                 "steer-compute", "steer-apply",
             ):
                 remote_record = self._submit_interp(
@@ -280,5 +281,4 @@ class SlurmRunner:
             sweep_trial_count=remote_record.sweep_array_size,
             config=config or {},
         )
-
 

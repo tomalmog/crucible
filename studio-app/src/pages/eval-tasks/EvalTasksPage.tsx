@@ -200,7 +200,7 @@ export function EvalTasksPage() {
 
   return (
     <>
-      <PageHeader title="Benchmarks" />
+      <PageHeader title="Eval Sets" />
 
       <div className="registry-toolbar">
         <div className="registry-search">

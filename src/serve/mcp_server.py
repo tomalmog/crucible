@@ -10,6 +10,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -113,13 +114,11 @@ to get its `path` field, then pass that path.
 1. `chat(model_path, "Hello, explain neural networks")` -- generate text
 
 **5. Analyze a model (interpretability):**
-1. `run_interp("logit-lens", model_path, '{"input_text": "The cat sat on"}')` -- layer-by-layer predictions
-2. `run_interp("activation-pca", model_path, '{"dataset_name": "sft-mini"}')` -- PCA of activations
-3. `run_interp("linear-probe", model_path, '{"dataset_name": "...", "label_field": "label"}')` -- train linear classifiers on activations
-4. `run_interp("sae-train", model_path, '{"dataset_name": "..."}')` -- train sparse autoencoder on activations
-5. `run_interp("sae-analyze", model_path, '{"sae_path": "...", "input_text": "..."}')` -- decompose text through trained SAE
-6. `run_interp("steer-compute", model_path, '{"positive_text": "...", "negative_text": "..."}')` -- compute steering vector
-7. `run_interp("steer-apply", model_path, '{"steering_vector_path": "...", "input_text": "..."}')` -- generate with steering
+1. `run_model_health_check(model_path, dataset_name, ...)` -- curated promotion diagnostics
+2. `run_interp("logit-lens", model_path, '{"input_text": "The cat sat on"}')` -- targeted layer-by-layer predictions
+3. `run_interp("activation-pca", model_path, '{"dataset_name": "sft-mini"}')` -- targeted PCA of activations
+4. `run_interp("linear-probe", model_path, '{"dataset_name": "...", "label_field": "label"}')` -- targeted classifiers on activations
+5. `run_interp("sae-train", model_path, '{"dataset_name": "..."}')` -- deep sparse feature analysis
 
 **6. Export a model:**
 1. `export_model(model_path, "onnx", "./exports")` -- export to ONNX/safetensors/gguf/hf
@@ -140,6 +139,8 @@ to get its `path` field, then pass that path.
 1. `curate_dataset("my-data", "score")` -- score quality of each record
 2. `curate_dataset("my-data", "stats")` -- distribution statistics
 3. `curate_dataset("my-data", "filter", min_quality=0.7)` -- filter low-quality records
+4. `hub_search_datasets("customer support intent")` -- find candidate calibration datasets
+5. `hub_download_dataset("repo/id", dataset_name="support-calibration")` -- download and ingest
 
 **12. Synthetic data generation:**
 1. `generate_synthetic_data("seeds.txt", count=1000)` -- generate training data from prompts
@@ -916,6 +917,8 @@ def submit_remote_interp(
     gpus_per_node: int = 1,
     memory: str = "32G",
     time_limit: str = "04:00:00",
+    label: str = "",
+    config_json: str = "",
 ) -> str:
     """Submit an interpretability job to a remote GPU cluster.
 
@@ -927,6 +930,8 @@ def submit_remote_interp(
         gpus_per_node: Number of GPUs per node.
         memory: Memory allocation (e.g. "32G").
         time_limit: Job time limit (e.g. "04:00:00").
+        label: Optional display label for the run.
+        config_json: Optional JSON config stored with the run record.
     """
     try:
         _ensure_backends()
@@ -940,6 +945,7 @@ def submit_remote_interp(
             job_type=interp_method,
             method_args=json.loads(method_args_json),
             backend=cluster.backend,
+            label=label,
             cluster_name=cluster_name,
             resources=ResourceConfig(
                 partition=partition,
@@ -947,6 +953,7 @@ def submit_remote_interp(
                 memory=memory,
                 time_limit=time_limit,
             ),
+            config=json.loads(config_json) if config_json else {},
         )
         record = backend.submit(data_root, spec)
         return json.dumps({
@@ -1286,6 +1293,143 @@ def run_interp(
         return json.dumps({"error": f"Interp tool failed: {exc}"})
 
 
+@mcp.tool()
+def run_model_health_check(
+    model_path: str,
+    dataset_name: str,
+    suite: str = "standard",
+    checks: str = "",
+    layer_indices: str = "",
+    probe_text: str = "The customer asked for a refund because",
+    clean_text: str = "The support agent should refund the customer because the item arrived broken.",
+    corrupted_text: str = "The support agent should refund the customer because the item worked as expected.",
+    label_field: str = "",
+    max_samples: int = 300,
+    base_model: str = "",
+    output_dir: str = "./outputs/model-health",
+) -> str:
+    """Run a curated model health check locally.
+
+    Args:
+        model_path: Path or HuggingFace ID for the model to check.
+        dataset_name: Calibration dataset name for representation checks.
+        suite: Health suite. Use "standard", "deep", "supervised", or "targeted".
+        checks: Optional comma-separated check IDs for targeted runs.
+        layer_indices: Optional layer indices/ranges, e.g. "0,4,8" or "4-12".
+        probe_text: Prompt used for prediction-trace diagnostics.
+        clean_text: Positive/expected behavior prompt for causal contrast.
+        corrupted_text: Negative/contrast prompt for causal contrast.
+        label_field: Dataset label field for the supervised suite.
+        max_samples: Max calibration samples for dataset-based diagnostics.
+        base_model: Optional base model for adapter models.
+        output_dir: Output directory for health artifacts.
+    """
+    try:
+        from serve.model_health_runner import (
+            load_health_records_from_data_root,
+            run_model_health_suite,
+        )
+        from serve.model_health_suite import (
+            ModelHealthCheckOptions,
+            build_model_health_suite_config,
+            health_suite_title,
+            validate_model_health_options,
+        )
+        options = ModelHealthCheckOptions(
+            model_path=model_path,
+            dataset_name=dataset_name,
+            probe_text=probe_text,
+            clean_text=clean_text,
+            corrupted_text=corrupted_text,
+            label_field=label_field,
+            max_samples=max_samples,
+            base_model=base_model,
+            output_dir=output_dir,
+            check_ids=_parse_csv(checks),
+            layer_indices=layer_indices,
+        )
+        missing = validate_model_health_options(suite, options)
+        if missing:
+            return json.dumps({"error": "Missing required fields.", "missing": list(missing)})
+        config = build_model_health_suite_config(suite, options)
+
+        def do_work() -> dict[str, object]:
+            records = load_health_records_from_data_root(_data_root(), dataset_name)
+            return run_model_health_suite(suite, options, records)
+
+        label = f"Model Health · {health_suite_title(suite)}"
+        return _run_with_job("model-health-check", label, do_work, config)
+    except Exception as exc:
+        return json.dumps({"error": f"Model health check failed: {exc}"})
+
+
+@mcp.tool()
+def submit_remote_model_health_check(
+    cluster_name: str,
+    model_path: str,
+    dataset_name: str,
+    suite: str = "standard",
+    checks: str = "",
+    layer_indices: str = "",
+    probe_text: str = "The customer asked for a refund because",
+    clean_text: str = "The support agent should refund the customer because the item arrived broken.",
+    corrupted_text: str = "The support agent should refund the customer because the item worked as expected.",
+    label_field: str = "",
+    max_samples: int = 300,
+    base_model: str = "",
+    output_dir: str = "./outputs/model-health",
+    partition: str = "",
+    gpus_per_node: int = 1,
+    memory: str = "32G",
+    time_limit: str = "04:00:00",
+) -> str:
+    """Submit a curated model health check suite to a remote GPU cluster."""
+    try:
+        from serve.model_health_suite import (
+            ModelHealthCheckOptions,
+            build_model_health_suite_args,
+            build_model_health_suite_config,
+            health_suite_title,
+            validate_model_health_options,
+        )
+        options = ModelHealthCheckOptions(
+            model_path=model_path,
+            dataset_name=dataset_name,
+            probe_text=probe_text,
+            clean_text=clean_text,
+            corrupted_text=corrupted_text,
+            label_field=label_field,
+            max_samples=max_samples,
+            base_model=base_model,
+            output_dir=output_dir,
+            check_ids=_parse_csv(checks),
+            layer_indices=layer_indices,
+        )
+        missing = validate_model_health_options(suite, options)
+        if missing:
+            return json.dumps({"error": "Missing required fields.", "missing": list(missing)})
+        config = build_model_health_suite_config(suite, options)
+        method_args = build_model_health_suite_args(suite, options)
+        label = f"Model Health · {health_suite_title(suite)}"
+        return submit_remote_interp(
+            cluster_name,
+            "model-health-check",
+            json.dumps(method_args),
+            partition,
+            gpus_per_node,
+            memory,
+            time_limit,
+            label,
+            json.dumps(config),
+        )
+    except Exception as exc:
+        return json.dumps({"error": f"Remote model health check failed: {exc}"})
+
+
+def _parse_csv(value: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
 # ── Export ────────────────────────────────────────────────────────────
 
 
@@ -1504,6 +1648,63 @@ def hub_download_model(repo_id: str) -> str:
         })
     except Exception as exc:
         return json.dumps({"error": f"Hub download failed: {exc}"})
+
+
+@mcp.tool()
+def hub_search_datasets(query: str, limit: int = 10) -> str:
+    """Search HuggingFace Hub for datasets.
+
+    Args:
+        query: Search query, such as "customer support intent".
+        limit: Max results.
+    """
+    try:
+        from serve.huggingface_hub import search_datasets
+        results = search_datasets(query, limit=limit)
+        return json.dumps([
+            {
+                "id": row.repo_id,
+                "downloads": row.downloads,
+                "tags": list(row.tags[:8]),
+                "size_bytes": row.total_size,
+            }
+            for row in results
+        ], indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Hub dataset search failed: {exc}"})
+
+
+@mcp.tool()
+def hub_download_dataset(
+    repo_id: str,
+    dataset_name: str = "",
+    split: str = "train",
+    subset: str = "",
+) -> str:
+    """Download a HuggingFace dataset and optionally ingest it.
+
+    Args:
+        repo_id: HuggingFace dataset ID, such as "tatsu-lab/alpaca".
+        dataset_name: Optional local dataset name. When set, the JSONL is ingested.
+        split: Dataset split to download.
+        subset: Optional dataset config/subset.
+    """
+    try:
+        from core.ingest_types import IngestOptions
+        from serve.huggingface_hub import download_dataset
+        root = _data_root()
+        source_path = download_dataset(repo_id, str(root / "hub-datasets"), None, split, subset)
+        if not dataset_name:
+            return json.dumps({"repo_id": repo_id, "source_path": source_path})
+        client = _get_client()
+        client.ingest(IngestOptions(dataset_name=dataset_name, source_uri=source_path))
+        return json.dumps({
+            "repo_id": repo_id,
+            "dataset_name": dataset_name,
+            "source_path": source_path,
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"Hub dataset download failed: {exc}"})
 
 
 # ── Sweeps ────────────────────────────────────────────────────────────

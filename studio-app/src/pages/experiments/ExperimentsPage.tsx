@@ -7,7 +7,7 @@ import { EvalCompareView } from "./EvalCompareView";
 
 type BenchTab = "evaluate" | "compare";
 const TABS: readonly BenchTab[] = ["evaluate", "compare"];
-const TAB_LABELS: Record<BenchTab, string> = { evaluate: "Evaluate", compare: "Compare" };
+const TAB_LABELS: Record<BenchTab, string> = { evaluate: "Run Eval", compare: "Compare Models" };
 
 interface PrefillState {
   prefill?: Record<string, unknown>;
@@ -26,7 +26,7 @@ export function BenchmarksPage() {
 
   return (
     <>
-      <PageHeader title="Benchmarks" />
+      <PageHeader title="Evals" />
       <TabBar tabs={TABS} active={tab} onChange={setTab} format={(t) => TAB_LABELS[t]} />
       <div className="page-body">
         {tab === "evaluate" && <EvalResultsView prefill={validPrefill} />}

@@ -5,6 +5,9 @@ import { useScript } from "../context/ScriptContext";
 import { startCrucibleCommand, getCrucibleCommandStatus } from "../api/studioApi";
 import { getJob } from "../api/jobsApi";
 import { TERMINAL_JOB_STATES } from "../types/jobs";
+import {
+  clearAgentMessages, loadAgentMessages, normalizeAgentMessages, saveAgentMessages,
+} from "./agentChatPersistence";
 
 const API_KEY_STORAGE = "crucible_anthropic_api_key";
 const PROVIDER_STORAGE = "crucible_agent_provider";
@@ -12,6 +15,8 @@ const OLLAMA_MODEL_STORAGE = "crucible_agent_ollama_model";
 const OLLAMA_URL_STORAGE = "crucible_agent_ollama_url";
 const GEMINI_MODEL_STORAGE = "crucible_agent_gemini_model";
 const GEMINI_API_KEY_STORAGE = "crucible_gemini_api_key";
+const OPENAI_MODEL_STORAGE = "crucible_agent_openai_model";
+const OPENAI_API_KEY_STORAGE = "crucible_openai_api_key";
 const POLL_MS = 500;
 const CHAIN_POLL_MS = 3000;
 
@@ -77,20 +82,21 @@ export function useAgentChat(): UseAgentChatReturn {
   const location = useLocation();
   const navigate = useNavigate();
   const { registration: scriptReg } = useScript();
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [messages, setMessages] = useState<AgentMessage[]>(() => loadAgentMessages(dataRoot));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingChain, setPendingChain] = useState<PendingChain | null>(null);
-  const hasLoaded = useRef(false);
+  const loadedDataRoot = useRef<string | null>(null);
 
-  // Load conversation history + chain state on mount
   useEffect(() => {
-    if (hasLoaded.current || !dataRoot) return;
-    hasLoaded.current = true;
+    if (!dataRoot || loadedDataRoot.current === dataRoot) return;
+    loadedDataRoot.current = dataRoot;
+    const cachedMessages = loadAgentMessages(dataRoot);
+    if (cachedMessages.length > 0) setMessages(cachedMessages);
     runAgentCommand(dataRoot, { action: "load" })
       .then((res) => {
-        const msgs = res.messages as AgentMessage[] | undefined;
-        if (msgs) setMessages(msgs);
+        const msgs = normalizeAgentMessages(res.messages);
+        if (msgs.length > 0 || cachedMessages.length === 0) setMessages(msgs);
       })
       .catch(() => { /* no history yet */ });
     runAgentCommand(dataRoot, { action: "load_chain" })
@@ -110,7 +116,10 @@ export function useAgentChat(): UseAgentChatReturn {
       .catch(() => {});
   }, [dataRoot]);
 
-  // Poll the chain's job for completion
+  useEffect(() => {
+    if (dataRoot) saveAgentMessages(dataRoot, messages);
+  }, [dataRoot, messages]);
+
   useEffect(() => {
     if (!pendingChain || pendingChain.jobComplete || !dataRoot) return;
     const interval = setInterval(async () => {
@@ -118,7 +127,6 @@ export function useAgentChat(): UseAgentChatReturn {
         const job = await getJob(dataRoot, pendingChain.jobId);
         if (TERMINAL_JOB_STATES.has(job.state)) {
           if (job.state !== "completed") {
-            // Job failed or was cancelled — auto-cancel the chain
             setPendingChain(null);
             runAgentCommand(dataRoot, { action: "cancel_chain" }).catch(() => {});
             const errorDetail = job.errorMessage ? `: ${job.errorMessage}` : "";
@@ -140,7 +148,6 @@ export function useAgentChat(): UseAgentChatReturn {
           }
         }
       } catch {
-        // Job might not exist yet or was deleted
       }
     }, CHAIN_POLL_MS);
     return () => clearInterval(interval);
@@ -152,14 +159,12 @@ export function useAgentChat(): UseAgentChatReturn {
     const apiKey = localStorage.getItem(API_KEY_STORAGE) || "";
     setError(null);
     setIsLoading(true);
-    // Don't show auto-continue messages as regular user messages
     const isChainContinue = text.startsWith("[Chain continuation]");
     if (!isChainContinue) {
       setMessages((prev) => [...prev, { role: "user", content: text }]);
     }
 
     try {
-      // Include training script context only when the Code tab is active
       const scriptContext = scriptReg && scriptReg.viewTabRef.current === "code"
         ? { trainingScript: scriptReg.contentRef.current, trainingMethod: scriptReg.method }
         : null;
@@ -181,6 +186,7 @@ export function useAgentChat(): UseAgentChatReturn {
       const provider = localStorage.getItem(PROVIDER_STORAGE) || "anthropic";
       const effectiveApiKey = provider === "gemini"
         ? (localStorage.getItem(GEMINI_API_KEY_STORAGE) || "")
+        : provider === "openai" ? (localStorage.getItem(OPENAI_API_KEY_STORAGE) || "")
         : apiKey;
       const res = await runAgentCommand(dataRoot, {
         action: "chat",
@@ -190,6 +196,7 @@ export function useAgentChat(): UseAgentChatReturn {
         provider,
         model: provider === "ollama" ? (localStorage.getItem(OLLAMA_MODEL_STORAGE) || "")
              : provider === "gemini" ? (localStorage.getItem(GEMINI_MODEL_STORAGE) || "")
+             : provider === "openai" ? (localStorage.getItem(OPENAI_MODEL_STORAGE) || "")
              : "",
         ollama_url: provider === "ollama" ? (localStorage.getItem(OLLAMA_URL_STORAGE) || "") : "",
       });
@@ -209,7 +216,6 @@ export function useAgentChat(): UseAgentChatReturn {
         if (navigatedTo) {
           navigate(navigatedTo);
         }
-        // Handle pending chain from response
         const chainData = res.pending_chain as { job_id: string; steps: string[] } | undefined;
         if (chainData) {
           setPendingChain({
@@ -246,7 +252,6 @@ export function useAgentChat(): UseAgentChatReturn {
     if (!pendingChain || !dataRoot) return;
     const chain = pendingChain;
 
-    // Build context message with job result info
     const parts = [
       `[Chain continuation] Job ${chain.jobId} finished with state: ${chain.jobState}.`,
     ];
@@ -257,7 +262,6 @@ export function useAgentChat(): UseAgentChatReturn {
       parts.push(`\nRemaining steps after this: ${chain.steps.slice(1).join("; ")}`);
     }
 
-    // Clear chain before sending — agent may create a new one
     setPendingChain(null);
     try {
       await runAgentCommand(dataRoot, { action: "cancel_chain" });
@@ -278,11 +282,12 @@ export function useAgentChat(): UseAgentChatReturn {
   }, [dataRoot]);
 
   const clearConversation = useCallback(async () => {
+    clearAgentMessages(dataRoot);
+    setMessages([]);
+    setError(null);
+    setPendingChain(null);
     try {
       await runAgentCommand(dataRoot, { action: "clear" });
-      setMessages([]);
-      setError(null);
-      setPendingChain(null);
     } catch { /* best effort */ }
   }, [dataRoot]);
 

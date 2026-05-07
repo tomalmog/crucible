@@ -19,6 +19,7 @@ import { HfExportResults } from "../export/HfExportResults";
 import type { LogitLensResult, PcaResult, PatchingResult, LinearProbeResult, SaeTrainResult, SaeAnalyzeResult, SteerComputeResult, SteerApplyResult } from "../../types/interp";
 import type { OnnxExportResult, SafeTensorsExportResult, GgufExportResult, HfExportResult } from "../../types/export";
 import { DetailHeader } from "./RetryButton";
+import { HealthCheckReport, isHealthCheckConfig } from "./HealthCheckReport";
 
 // ── Shared types/constants ─────────────────────────────────────────────
 
@@ -70,8 +71,8 @@ const TRAINING_TYPES = new Set([
 ]);
 
 const INTERP_TYPES = new Set([
-  "logit-lens", "activation-pca", "activation-patch",
-  "linear-probe", "sae-train", "sae-analyze",
+  "logit-lens", "activation-pca", "activation-patch", "activation-patching",
+  "linear-probe", "model-health-check", "sae-train", "sae-analyze",
   "steer-compute", "steer-apply",
 ]);
 
@@ -83,7 +84,9 @@ const INTERP_LABELS: Record<string, string> = {
   "logit-lens": "Logit Lens",
   "activation-pca": "Activation PCA",
   "activation-patch": "Activation Patching",
+  "activation-patching": "Activation Patching",
   "linear-probe": "Linear Probe",
+  "model-health-check": "Model Health",
   "sae-train": "SAE Train",
   "sae-analyze": "SAE Analyze",
   "steer-compute": "Steer Compute",
@@ -110,6 +113,15 @@ function parseKeyValueOutput(stdout: string): Record<string, string> {
     }
   }
   return result;
+}
+
+function parseJsonRecord(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Shared logs section ─────────────────────────────────────────────────
@@ -294,22 +306,39 @@ function LocalTrainingView({ job, localTask, onBack, config }: { job: JobRecord;
 }
 
 function LocalInterpView({ job, localTask, onBack, config }: { job: JobRecord; localTask: CommandTaskStatus; onBack: () => void; config: Record<string, unknown> }) {
-  const parsed = useMemo(() => { try { return JSON.parse(localTask.stdout); } catch { return null; } }, [localTask.stdout]);
+  const parsed = useMemo(() => parseJsonRecord(localTask.stdout), [localTask.stdout]);
   const label = INTERP_LABELS[job.jobType] ?? job.jobType;
+  const output = (
+    <>
+      {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as unknown as LogitLensResult} />}
+      {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as unknown as PcaResult} />}
+      {parsed && (job.jobType === "activation-patch" || job.jobType === "activation-patching") && <ActivationPatchingResults result={parsed as unknown as PatchingResult} />}
+      {parsed && job.jobType === "linear-probe" && <LinearProbeResults result={parsed as unknown as LinearProbeResult} />}
+      {parsed && job.jobType === "sae-train" && <SaeTrainResults result={parsed as unknown as SaeTrainResult} />}
+      {parsed && job.jobType === "sae-analyze" && <SaeAnalyzeResults result={parsed as unknown as SaeAnalyzeResult} />}
+      {parsed && job.jobType === "steer-compute" && <SteerComputeResults result={parsed as unknown as SteerComputeResult} />}
+      {parsed && job.jobType === "steer-apply" && <SteerApplyResults result={parsed as unknown as SteerApplyResult} />}
+      {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
+    </>
+  );
+
+  if (isHealthCheckConfig(config)) {
+    const hasSuiteReport = Array.isArray(parsed?.checks);
+    return (
+      <>
+        <HealthCheckReport job={job} config={config} jobType={job.jobType} onBack={onBack} result={parsed}>
+          {output}
+        </HealthCheckReport>
+        {!hasSuiteReport && <LogsSection logs={localTask.stdout} />}
+      </>
+    );
+  }
 
   return (
     <div className="panel stack-lg">
       <DetailHeader onBack={onBack} config={config} jobType={job.jobType} />
       <h3>{label} — Result</h3>
-      {parsed && job.jobType === "logit-lens" && <LogitLensResults result={parsed as LogitLensResult} />}
-      {parsed && job.jobType === "activation-pca" && <ActivationPcaResults result={parsed as PcaResult} />}
-      {parsed && job.jobType === "activation-patch" && <ActivationPatchingResults result={parsed as PatchingResult} />}
-      {parsed && job.jobType === "linear-probe" && <LinearProbeResults result={parsed as LinearProbeResult} />}
-      {parsed && job.jobType === "sae-train" && <SaeTrainResults result={parsed as SaeTrainResult} />}
-      {parsed && job.jobType === "sae-analyze" && <SaeAnalyzeResults result={parsed as SaeAnalyzeResult} />}
-      {parsed && job.jobType === "steer-compute" && <SteerComputeResults result={parsed as SteerComputeResult} />}
-      {parsed && job.jobType === "steer-apply" && <SteerApplyResults result={parsed as SteerApplyResult} />}
-      {!parsed && localTask.stdout && <pre className="console">{localTask.stdout}</pre>}
+      {output}
     </div>
   );
 }
@@ -996,6 +1025,30 @@ function RemoteTrainingView({ job, result, onBack, config }: { job: JobRecord; r
 function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; result: ResultData; onBack: () => void; config: Record<string, unknown> }) {
   const jobType = result.job_type ?? "";
   const label = INTERP_LABELS[jobType] ?? jobType;
+  const output = (
+    <>
+      {jobType === "logit-lens" && <LogitLensResults result={result as unknown as LogitLensResult} />}
+      {jobType === "activation-pca" && <ActivationPcaResults result={result as unknown as PcaResult} />}
+      {(jobType === "activation-patch" || jobType === "activation-patching") && <ActivationPatchingResults result={result as unknown as PatchingResult} />}
+      {jobType === "linear-probe" && <LinearProbeResults result={result as unknown as LinearProbeResult} />}
+      {jobType === "sae-train" && <SaeTrainResults result={result as unknown as SaeTrainResult} />}
+      {jobType === "sae-analyze" && <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />}
+      {jobType === "steer-compute" && <SteerComputeResults result={result as unknown as SteerComputeResult} />}
+      {jobType === "steer-apply" && <SteerApplyResults result={result as unknown as SteerApplyResult} />}
+    </>
+  );
+
+  if (isHealthCheckConfig(config)) {
+    const hasSuiteReport = Array.isArray(result.checks);
+    return (
+      <>
+        <HealthCheckReport job={job} config={config} jobType={jobType} onBack={onBack} result={result}>
+          {output}
+        </HealthCheckReport>
+        {!hasSuiteReport && <LogsSection jobId={job.jobId} jobState={job.state} />}
+      </>
+    );
+  }
 
   return (
     <div className="panel stack-lg">
@@ -1005,14 +1058,7 @@ function RemoteInterpView({ job, result, onBack, config }: { job: JobRecord; res
         <div className="metric-card"><span className="metric-label">Analysis</span><span className="metric-value text-sm">{label}</span></div>
         {job.backendCluster && <div className="metric-card"><span className="metric-label">Cluster</span><span className="metric-value text-sm">{job.backendCluster}</span></div>}
       </div>
-      {jobType === "logit-lens" && <LogitLensResults result={result as unknown as LogitLensResult} />}
-      {jobType === "activation-pca" && <ActivationPcaResults result={result as unknown as PcaResult} />}
-      {jobType === "activation-patch" && <ActivationPatchingResults result={result as unknown as PatchingResult} />}
-      {jobType === "linear-probe" && <LinearProbeResults result={result as unknown as LinearProbeResult} />}
-      {jobType === "sae-train" && <SaeTrainResults result={result as unknown as SaeTrainResult} />}
-      {jobType === "sae-analyze" && <SaeAnalyzeResults result={result as unknown as SaeAnalyzeResult} />}
-      {jobType === "steer-compute" && <SteerComputeResults result={result as unknown as SteerComputeResult} />}
-      {jobType === "steer-apply" && <SteerApplyResults result={result as unknown as SteerApplyResult} />}
+      {output}
       <LogsSection jobId={job.jobId} jobState={job.state} />
     </div>
   );

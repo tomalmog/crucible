@@ -37,7 +37,7 @@ export function IngestModal({ onClose }: IngestModalProps) {
       const label = `Ingest · ${dataset.trim()}`;
       await startCrucibleCommand(dataRoot, args, label);
       onClose();
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start ingest");
       setSubmitting(false);

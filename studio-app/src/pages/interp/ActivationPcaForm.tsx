@@ -102,7 +102,7 @@ export function ActivationPcaForm({ prefill }: ActivationPcaFormProps) {
         if (baseModel.trim()) args.push("--base-model", baseModel);
         await startCrucibleCommand(dataRoot, args, activationPcaLabel(modelPath), cfg);
       }
-      navigate("/jobs", { state: { statusFilter: "running" } });
+      navigate("/runs", { state: { statusFilter: "running" } });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

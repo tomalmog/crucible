@@ -17,7 +17,7 @@ type TaskTypeFilter = "all" | "training" | "eval" | "sweep" | "interp" | "hub" |
 
 const INTERP_COMMANDS = new Set([
   "logit-lens", "activation-pca", "activation-patch",
-  "linear-probe", "sae-train", "sae-analyze",
+  "linear-probe", "model-health-check", "sae-train", "sae-analyze",
   "steer-compute", "steer-apply",
 ]);
 
@@ -33,6 +33,15 @@ function classifyUnifiedJob(job: JobRecord): TaskTypeFilter {
 const TYPE_TABS: readonly TaskTypeFilter[] = ["all", "training", "eval", "sweep", "interp", "ingest", "hub"] as const;
 const STATUS_OPTIONS: readonly StatusFilter[] = ["all", "running", "completed", "failed"] as const;
 const LOCATION_OPTIONS: readonly LocationFilter[] = ["all", "local", "remote"] as const;
+const TYPE_LABELS: Record<TaskTypeFilter, string> = {
+  all: "All Runs",
+  training: "Fine-tunes",
+  eval: "Evals",
+  sweep: "Sweeps",
+  interp: "Diagnostics",
+  hub: "Hub",
+  ingest: "Ingest",
+};
 
 export function statusBadgeClass(status: string): string {
   switch (status) {
@@ -126,13 +135,13 @@ export function JobsPage() {
 
   return (
     <>
-      <PageHeader title="Jobs">
+      <PageHeader title="Runs">
         {runningCount > 0 && (
           <span className="badge badge-accent">{runningCount} running</span>
         )}
       </PageHeader>
 
-      <TabBar tabs={TYPE_TABS} active={typeFilter} onChange={setTypeFilter} />
+      <TabBar tabs={TYPE_TABS} active={typeFilter} onChange={setTypeFilter} format={(t) => TYPE_LABELS[t]} />
 
       <div className="filter-pills">
         {STATUS_OPTIONS.map((s) => (
@@ -161,8 +170,8 @@ export function JobsPage() {
           <div className="empty-state-icon">
             <Activity />
           </div>
-          <h3>No jobs</h3>
-          <p>Launch a training run from the Training page to see it here.</p>
+          <h3>No runs</h3>
+          <p>Launch a fine-tune or eval to see its lineage, logs, and results here.</p>
         </div>
       ) : (
         <div className="job-card-list">

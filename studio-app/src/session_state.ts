@@ -11,7 +11,7 @@ export const DEFAULT_SESSION_STATE: StudioSessionState = {
   data_root: ".crucible",
   selected_dataset: null,
   selected_model_name: null,
-  last_route: "#/training",
+  last_route: "#/fine-tuning",
 };
 
 export function loadSessionState(): StudioSessionState {

@@ -5,10 +5,12 @@ import remarkGfm from "remark-gfm";
 import { useAgentChat } from "../../hooks/useAgentChat";
 
 const EXAMPLE_PROMPTS = [
-  "Summarize support tickets",
-  "Fine-tune Llama-3",
-  "Write SQL from English",
-  "Classify urgent emails",
+  "Improve support answers",
+  "Reduce inference cost",
+  "Build evals from logs",
+  "Compare two models",
+  "Fine-tune on uploaded data",
+  "Create structured JSON output",
 ];
 
 const TEXTAREA_MAX_HEIGHT = 240;
@@ -100,9 +102,9 @@ export function BuildPage(): React.ReactNode {
     <div className={`build-page ${isEmpty ? "build-page-empty" : ""}`}>
       {isEmpty ? (
         <div className="build-hero">
-          <h1 className="build-hero-title">What do you want to build?</h1>
+          <h1 className="build-hero-title">What model behavior do you want to improve?</h1>
           <p className="build-hero-subtitle">
-            Crucible will train, fine-tune, evaluate, and ship it for you.
+            Crucible will plan the evals, fine-tune the candidate, compare results, and prepare it to ship.
           </p>
 
           <form className="build-composer build-composer-hero" onSubmit={handleSubmit}>
@@ -111,7 +113,7 @@ export function BuildPage(): React.ReactNode {
               value={draft}
               onChange={(e) => setDraft(e.currentTarget.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe what you want to build..."
+              placeholder="Describe the behavior, data, model, or metric..."
               rows={1}
               autoFocus
               disabled={isLoading}
@@ -237,7 +239,7 @@ export function BuildPage(): React.ReactNode {
               value={draft}
               onChange={(e) => setDraft(e.currentTarget.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Reply to Crucible..."
+              placeholder="Reply with constraints, data, or approval..."
               rows={1}
               disabled={isLoading}
             />
