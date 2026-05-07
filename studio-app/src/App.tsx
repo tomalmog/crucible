@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
 import { CrucibleProvider } from "./context/CrucibleContext";
 import { CommandProvider } from "./context/CommandContext";
 import { AgentChatProvider } from "./context/AgentChatContext";
-import { ScriptContext, ScriptRegistration, ScriptContextValue } from "./context/ScriptContext";
 import { AppSidebar } from "./components/sidebar/AppSidebar";
 import { AgentSidebar } from "./components/sidebar/AgentSidebar";
 import "./theme/variables.css";
@@ -31,14 +30,9 @@ function App() {
   const [agentVisible, setAgentVisible] = useState(
     () => localStorage.getItem(AGENT_KEY) === "true"
   );
-  const [scriptReg, setScriptReg] = useState<ScriptRegistration | null>(null);
-  const scriptCtx = useMemo<ScriptContextValue>(() => ({
-    registration: scriptReg,
-    register: (reg: ScriptRegistration) => setScriptReg(reg),
-    unregister: () => setScriptReg(null),
-  }), [scriptReg]);
 
   useEffect(() => {
+    // React to global sidebar events because layout controls live outside routed pages.
     function onToggle(e: Event) {
       setCollapsed((e as CustomEvent).detail as boolean);
     }
@@ -58,23 +52,22 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Persist agent visibility so reloads keep the user's current workspace shape.
     localStorage.setItem(AGENT_KEY, String(agentVisible));
   }, [agentVisible]);
 
   return (
     <CrucibleProvider>
       <CommandProvider>
-        <ScriptContext.Provider value={scriptCtx}>
-          <AgentChatProvider>
-            <main className={`app-shell${collapsed ? " sidebar-collapsed" : ""}${agentVisible ? " agent-open" : ""}`}>
-              <AppSidebar />
-              <div className="page-content">
-                <Outlet />
-              </div>
-              <AgentSidebar onClose={() => setAgentVisible(false)} />
-            </main>
-          </AgentChatProvider>
-        </ScriptContext.Provider>
+        <AgentChatProvider>
+          <main className={`app-shell${collapsed ? " sidebar-collapsed" : ""}${agentVisible ? " agent-open" : ""}`}>
+            <AppSidebar />
+            <div className="page-content">
+              <Outlet />
+            </div>
+            <AgentSidebar onClose={() => setAgentVisible(false)} />
+          </main>
+        </AgentChatProvider>
       </CommandProvider>
     </CrucibleProvider>
   );

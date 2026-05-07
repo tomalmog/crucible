@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useCrucible } from "../context/CrucibleContext";
-import { useScript } from "../context/ScriptContext";
 import { loadAgentJobCompletion } from "../api/agentJobPreviews";
 import { getJob } from "../api/jobsApi";
 import { buildAgentChatContext, buildChainContinuationPrompt } from "./agentChatPayload";
@@ -59,7 +58,6 @@ export function useAgentChat(): UseAgentChatReturn {
   const { dataRoot, models, datasets, selectedModel, selectedDataset } = useCrucible();
   const location = useLocation();
   const navigate = useNavigate();
-  const { registration: scriptReg } = useScript();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chats, setChats] = useState<AgentChatSummary[]>([]);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -171,16 +169,12 @@ export function useAgentChat(): UseAgentChatReturn {
     }
 
     try {
-      const scriptContext = scriptReg && scriptReg.viewTabRef.current === "code"
-        ? { trainingScript: scriptReg.contentRef.current, trainingMethod: scriptReg.method }
-        : null;
       const context = buildAgentChatContext(
         location.pathname,
         selectedModel?.modelName || null,
         selectedDataset || null,
         models,
         datasets,
-        scriptContext,
       );
 
       const provider = localStorage.getItem(PROVIDER_STORAGE) || "anthropic";
@@ -223,10 +217,6 @@ export function useAgentChat(): UseAgentChatReturn {
           setChats(nextChats);
         }
         const toolsUsed = res.tools_used as string[] | undefined;
-        const didUpdateScript = !!(res.script_update && scriptReg?.setContent);
-        if (didUpdateScript) {
-          scriptReg!.setContent(res.script_update as string);
-        }
         const navigatedTo = res.navigate_to as string | undefined;
         if (navigatedTo) {
           navigate(navigatedTo);
@@ -249,7 +239,6 @@ export function useAgentChat(): UseAgentChatReturn {
           role: "assistant",
           content: typeof res.content === "string" ? res.content : "",
           toolsUsed: toolsUsed?.length ? toolsUsed : undefined,
-          scriptUpdated: didUpdateScript || undefined,
           navigatedTo: navigatedTo || undefined,
           trace: currentTraceRef.current.length ? [...currentTraceRef.current] : undefined,
           workspaceDirective: readWorkspaceDirective(res),

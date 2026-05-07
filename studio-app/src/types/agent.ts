@@ -85,7 +85,6 @@ export interface AgentMessage {
   role: "user" | "assistant";
   content: string;
   toolsUsed?: string[];
-  scriptUpdated?: boolean;
   navigatedTo?: string;
   trace?: AgentTraceEvent[];
   artifact?: AgentJobPreview;

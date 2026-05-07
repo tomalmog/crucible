@@ -64,9 +64,6 @@ export function BuildConversationPane({
             {message.toolsUsed && message.toolsUsed.length > 0 && (
               <div className="agent-tool-badge">Used: {message.toolsUsed.join(", ")}</div>
             )}
-            {message.scriptUpdated && (
-              <div className="agent-tool-badge">Updated training script</div>
-            )}
             {message.navigatedTo && (
               <div className="agent-tool-badge">Navigated to {message.navigatedTo}</div>
             )}

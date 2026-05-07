@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { TrainingMethod, TRAINING_METHODS, REQUIRED_METHOD_FIELDS } from "../../types/training";
 import { useTrainingConfig } from "../../hooks/useTrainingConfig";
@@ -8,9 +8,6 @@ import {
 } from "../../api/commandArgs";
 import { startCrucibleCommand } from "../../api/studioApi";
 import { trainingLabel } from "../../utils/jobLabels";
-import { generateScript, parseScriptConfig, configToFormState } from "../../utils/scriptGenerator";
-import { CodeEditor } from "../../components/shared/CodeEditor";
-import { TabBar } from "../../components/shared/TabBar";
 import { SharedTrainingFields } from "./forms/SharedTrainingFields";
 import { BasicTrainForm } from "./forms/BasicTrainForm";
 import { SftTrainForm } from "./forms/SftTrainForm";
@@ -31,7 +28,6 @@ import { TrainingClusterContext } from "../../context/TrainingClusterContext";
 import type { TrainingClusterContextValue } from "../../context/TrainingClusterContext";
 import { FormField } from "../../components/shared/FormField";
 import { PageHeader } from "../../components/shared/PageHeader";
-import { useScript } from "../../context/ScriptContext";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 
 function getMissingFields(
@@ -63,9 +59,6 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   );
   const [startError, setStartError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  type ViewTab = "configure" | "code";
-  const [viewTab, setViewTab] = useState<ViewTab>("configure");
-  const [scriptContent, setScriptContent] = useState("");
   const [remoteEnabled, setRemoteEnabled] = useState(
     typeof prefill?.remoteEnabled === "boolean" ? prefill.remoteEnabled : false,
   );
@@ -78,23 +71,8 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   const { shared, setShared, extra, setExtra } = config;
   useTrainingLocation(method, extra, setRemoteEnabled, setClusterConfig);
 
-  // Expose script state to AI agent via ScriptContext
-  const { register: registerScript, unregister: unregisterScript } = useScript();
-  const scriptContentRef = useRef(scriptContent);
-  scriptContentRef.current = scriptContent;
-  const viewTabRef = useRef(viewTab);
-  viewTabRef.current = viewTab;
   useEffect(() => {
-    registerScript({
-      contentRef: scriptContentRef,
-      setContent: setScriptContentTracked,
-      viewTabRef,
-      method,
-    });
-    return () => unregisterScript();
-  }, [method]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
+    // Apply agent/page prefill once the saved training draft has loaded.
     if (!prefill || !config.isLoaded) return;
     if (prefill.shared && typeof prefill.shared === "object") {
       setShared({ ...shared, ...(prefill.shared as Partial<typeof shared>) });
@@ -128,37 +106,6 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
     };
   }
 
-  // Track whether the agent has pushed a script update that should be
-  // preserved when switching from Configure → Code tab.
-  const agentScriptRef = useRef<string | null>(null);
-  const originalSetScriptContent = setScriptContent;
-  // Wrap setContent so we can detect agent-driven updates
-  const setScriptContentTracked = useCallback((content: string) => {
-    agentScriptRef.current = content;
-    originalSetScriptContent(content);
-  }, [originalSetScriptContent]);
-
-  function handleTabSwitch(tab: ViewTab) {
-    if (tab === "code" && viewTab === "configure") {
-      // Preserve agent edits: if the agent set a script while on Configure tab,
-      // don't overwrite it with a fresh generate
-      if (agentScriptRef.current) {
-        setScriptContent(agentScriptRef.current);
-        agentScriptRef.current = null;
-      } else {
-        setScriptContent(generateScript({ method, shared, extra, modelName }));
-      }
-    } else if (tab === "configure" && viewTab === "code") {
-      // Parse script config back into form state
-      const parsed = parseScriptConfig(scriptContent);
-      const { shared: newShared, extra: newExtra } = configToFormState(parsed, method);
-      setShared({ ...shared, ...newShared });
-      setExtra({ ...extra, ...newExtra });
-      if (parsed.model_name) setModelName(parsed.model_name);
-    }
-    setViewTab(tab);
-  }
-
   const missing = useMemo(() => {
     const m = getMissingFields(method, extra);
     if (!modelName.trim()) m.push("model name");
@@ -167,30 +114,7 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
   }, [method, extra, modelName, remoteEnabled, clusterConfig.cluster]);
   const canStart = missing.length === 0;
 
-  async function submitScript() {
-    setSubmitting(true);
-    setStartError(null);
-    try {
-      // Parse model_name from the script content (user may have edited it)
-      const parsed = parseScriptConfig(scriptContent);
-      const scriptModelName = parsed.model_name || modelName.trim() || method;
-      const cfg = snapshotConfig();
-      const { writeTextFile } = await import("../../api/studioApi");
-      const timestamp = Date.now();
-      const scriptPath = `${dataRoot}/scripts/_training_${timestamp}.py`;
-      await writeTextFile(scriptPath, scriptContent);
-      const args = ["run-script", scriptPath, "--model-name", scriptModelName];
-      await startCrucibleCommand(dataRoot, args, trainingLabel(method, scriptModelName), cfg);
-      navigate("/jobs", { state: { statusFilter: "running" } });
-    } catch (err) {
-      setStartError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   async function startTraining() {
-    if (viewTab === "code") return submitScript();
     if (!canStart) return;
     setSubmitting(true);
     setStartError(null);
@@ -243,30 +167,8 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
         <ArrowLeft size={14} /> Back to Training
       </button>
 
-      <TabBar
-        tabs={["configure", "code"] as const}
-        active={viewTab}
-        onChange={handleTabSwitch}
-        format={(t) => t === "configure" ? "Configure" : "Code"}
-      />
-
       <TrainingClusterContext.Provider value={clusterContextValue}>
-      {viewTab === "code" ? (
-        <div className="panel stack-lg">
-          <CodeEditor value={scriptContent} onChange={setScriptContent} maxHeight="600px" />
-          {startError && <div className="error-alert">{startError}</div>}
-          <div className="flex-row">
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => startTraining().catch(console.error)}
-              disabled={submitting}
-            >
-              {submitting ? "Running..." : "Run Script"}
-            </button>
-          </div>
-        </div>
-      ) : (
-      <div className="panel stack-lg has-remote-tab">
+        <div className="panel stack-lg has-remote-tab">
           {method === "train" && <BasicTrainForm extra={extra} setExtra={setExtra} />}
           {method === "sft" && <SftTrainForm extra={extra} setExtra={setExtra} />}
           {method === "dpo-train" && <DpoTrainForm extra={extra} setExtra={setExtra} />}
@@ -316,7 +218,6 @@ export function TrainingWizard({ method, dataRoot, onBack, prefill }: TrainingWi
             </button>
           </div>
         </div>
-      )}
 
         <ClusterSubmitSection
           enabled={remoteEnabled}

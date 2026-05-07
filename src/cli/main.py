@@ -13,7 +13,6 @@ from typing import Callable, Sequence
 from core.job_types import JobRecord
 
 from cli.agent_command import add_agent_chat_command, run_agent_chat_command
-from cli.run_script_command import add_run_script_command, run_run_script_command
 from cli.activation_pca_command import add_activation_pca_command, run_activation_pca_command
 from cli.activation_patching_command import (
     add_activation_patching_command,
@@ -118,7 +117,6 @@ _COMMAND_REGISTRARS: tuple[Callable[[argparse._SubParsersAction[argparse.Argumen
     add_safetensors_export_command, add_gguf_export_command,
     add_hf_export_command,
     add_agent_chat_command,
-    add_run_script_command,
     add_hub_download_command,
     add_benchmark_registry_command,
 )
@@ -180,7 +178,6 @@ def _build_dispatch_table() -> dict[str, _CommandHandler]:
         "gguf-export": run_gguf_export_command,
         "hf-export": run_hf_export_command,
         "agent-chat": run_agent_chat_command,
-        "run-script": run_run_script_command,
         "hub-download": run_hub_download_command,
         "benchmark-registry": run_benchmark_registry_command,
     }
@@ -213,7 +210,7 @@ _JOB_TRACKED_COMMANDS = frozenset({
     "linear-probe", "sae-train", "sae-analyze",
     "steer-compute", "steer-apply",
     "onnx-export", "safetensors-export", "gguf-export", "hf-export",
-    "merge", "lora-merge", "run-script",
+    "merge", "lora-merge",
 })
 
 

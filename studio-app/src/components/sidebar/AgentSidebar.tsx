@@ -124,9 +124,6 @@ export function AgentSidebar({ onClose }: AgentSidebarProps): React.ReactNode {
                   Used: {msg.toolsUsed.join(", ")}
                 </div>
               )}
-              {msg.scriptUpdated && (
-                <div className="agent-tool-badge">Updated training script</div>
-              )}
               {msg.navigatedTo && (
                 <div className="agent-tool-badge">
                   Navigated to {msg.navigatedTo}

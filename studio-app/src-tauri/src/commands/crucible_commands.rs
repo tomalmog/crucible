@@ -4,7 +4,7 @@ use crate::commands::crucible_task_store::CommandTaskStore;
 use crate::models::{CommandTaskStart, CommandTaskStatus};
 use tauri::State;
 
-const ALLOWED_COMMANDS: [&str; 57] = [
+const ALLOWED_COMMANDS: [&str; 56] = [
     "ingest",
     "filter",
     "train",
@@ -56,7 +56,6 @@ const ALLOWED_COMMANDS: [&str; 57] = [
     "gguf-export",
     "hf-export",
     "agent-chat",
-    "run-script",
     "dataset",
     "hub-download",
     "steer-compute",

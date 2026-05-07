@@ -1,17 +1,11 @@
 import type { ModelEntry } from "../types/models";
 
-interface ScriptContext {
-  trainingScript: string;
-  trainingMethod: string;
-}
-
 export function buildAgentChatContext(
   currentPage: string,
   selectedModel: string | null,
   selectedDataset: string | null,
   models: ModelEntry[],
   datasets: { name: string }[],
-  scriptContext: ScriptContext | null,
 ): Record<string, unknown> {
   const context: Record<string, unknown> = {
     currentPage,
@@ -25,9 +19,6 @@ export function buildAgentChatContext(
     }, {}),
     datasetNames: datasets.map((dataset) => dataset.name).slice(0, 20),
   };
-  if (scriptContext) {
-    context.script = scriptContext;
-  }
   return context;
 }
 

@@ -288,18 +288,6 @@ Navigate to `/interpretability` when setting up an interp run. Navigate to
 `/jobs` after submitting local or remote interp work so the user can inspect
 the artifact.
 
-## Training Script Interaction
-When the user has the Code tab open in the training wizard, you can see and
-edit their training script (shown in "Current Training Script" below).
-- To EXPLAIN the script: analyze it and describe what each section does.
-- To MODIFY the script: return the COMPLETE updated script in <script_update> tags.
-  Always return the full script, not just changed lines.
-  Preserve the CRUCIBLE config markers (BEGIN_CONFIG / END_CONFIG).
-- Only modify the script when the user asks. Do not modify it unprompted.
-- If the user asks you to edit the script but the Code tab is NOT open
-  (no "Current Training Script" section below), tell them to switch to the
-  Code tab in the training wizard so you can see and edit the script.
-
 ## Job Chaining
 
 When the user asks you to perform multiple steps that involve remote jobs (e.g.
@@ -374,7 +362,6 @@ _VALID_ROUTES: dict[str, str] = {
 }
 
 _CONTROL_TAGS = (
-    "script_update",
     "navigate_to",
     "pending_chain",
     "workspace_mode",
@@ -452,27 +439,11 @@ def _build_system_prompt(app_context: dict[str, Any], data_root: str) -> str:
     if app_context.get("datasetNames"):
         context_lines.append(f"- Available datasets: {', '.join(app_context['datasetNames'])}")
 
-    script_section = ""
-    if app_context.get("script"):
-        script_ctx = app_context["script"]
-        method = script_ctx.get("trainingMethod", "unknown")
-        script = script_ctx.get("trainingScript", "")
-        script_section = (
-            "\n## Current Training Script\n\n"
-            f"The user is viewing a {method} training script in the code editor.\n"
-            "You can read, explain, and modify this script.\n"
-            "To modify it, return the COMPLETE updated script wrapped in "
-            "<script_update> tags. The updated script will replace the current "
-            "editor content.\n\n"
-            f"```python\n{script}\n```\n"
-        )
-
     return (
         (mcp.instructions or "") + "\n\n"
         "## Current Studio State\n\n"
         + "\n".join(context_lines) + "\n\n"
         + _AGENT_BEHAVIOR
-        + script_section
     )
 
 
@@ -939,9 +910,6 @@ def run_agent_turn(
 
     full_text = "\n".join(text_parts)
 
-    # Extract script_update if the agent returned one
-    script_update, full_text = _pop_control_tag(full_text, "script_update")
-
     # Extract navigate_to if the agent returned one
     navigate_to = None
     route, full_text = _pop_control_tag(full_text, "navigate_to")
@@ -974,8 +942,6 @@ def run_agent_turn(
         "content": full_text,
         "tools_used": tools_used,
     }
-    if script_update:
-        result["script_update"] = script_update
     if navigate_to:
         result["navigate_to"] = navigate_to
     if pending_chain:

@@ -177,10 +177,6 @@ def test_load_conversation_for_display_strips_persisted_control_tags(
                             {"type": "tool_use", "name": "submit_remote_training"},
                         ],
                     },
-                    {
-                        "role": "assistant",
-                        "content": "<script_update>print('hidden')</script_update>",
-                    },
                 ],
             },
         ),

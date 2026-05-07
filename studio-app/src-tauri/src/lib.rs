@@ -34,7 +34,6 @@ pub fn run() {
             commands::model_queries::get_model_index_mtime,
             commands::config_store::load_training_config,
             commands::config_store::save_training_config,
-            commands::config_store::write_text_file,
             commands::remote_queries::list_clusters,
             commands::remote_cli_ops::list_remote_datasets,
             commands::remote_cli_ops::push_dataset_to_cluster,
